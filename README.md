@@ -1,1 +1,1 @@
-# stock-watcher
+# stock-watcher using NSE and Yahoo finance as source 
