@@ -198,7 +198,7 @@
   <!-- SOURCE PANEL -->
   <div id="source-panel">
     <h2>Choose Data Source</h2>
-    <p class="sub">All three options use the same local proxy (<code style="font-family:monospace;background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px;color:var(--accent)">node nse_proxy.js</code>). NSE Direct &amp; Yahoo Finance are free — no API key needed.</p>
+    <p class="sub">All three options use the same local proxy (<code style="font-family:monospace;background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px;color:var(--accent)">node ticker_proxy.js</code>). NSE Direct &amp; Yahoo Finance are free — no API key needed.</p>
 
     <div class="source-cards">
       <!-- Yahoo Finance -->
@@ -231,7 +231,7 @@
       <div class="info-box yahoo-info">
         <strong>Quick setup (30 seconds):</strong><br>
         1. Open a terminal in the folder containing these files<br>
-        2. Run: <code>node nse_proxy.js</code><br>
+        2. Run: <code>node ticker_proxy.js</code><br>
         3. Keep that terminal open, then click Connect below
       </div>
       <div class="proxy-status" id="proxy-status-yahoo"></div>
@@ -245,7 +245,7 @@
       <div class="info-box">
         <strong>Quick setup (30 seconds):</strong><br>
         1. Open a terminal in the folder containing these files<br>
-        2. Run: <code>node nse_proxy.js</code><br>
+        2. Run: <code>node ticker_proxy.js</code><br>
         3. Keep that terminal open, then click Connect below
       </div>
       <div class="proxy-status" id="proxy-status-nse"></div>
@@ -762,7 +762,7 @@ async function connectYahoo() {
     dataSource='yahoo'; activateDashboard('yahoo');
   } catch(e) {
     ps.style.display='none';
-    ce.textContent='✗ Cannot reach proxy. Run: node nse_proxy.js';
+    ce.textContent='✗ Cannot reach proxy. Run: node ticker_proxy.js';
   }
 }
 
@@ -830,7 +830,7 @@ async function connectNSE() {
     dataSource='nse'; activateDashboard('nse');
   } catch(e) {
     ps.style.display='none';
-    ce.textContent='✗ Cannot reach proxy. Run: node nse_proxy.js';
+    ce.textContent='✗ Cannot reach proxy. Run: node ticker_proxy.js';
   }
 }
 
