@@ -25,5 +25,5 @@ A lightweight dashboard for Indian NSE midcap stocks, built with a local proxy f
 
 - Yahoo and NSE modes require the proxy to be running on `http://localhost:3001`.
 - AI mode requires an Anthropic API key and may be slower.
-- Custom ETF symbols are saved to `saved_etfs.json`.
+- Custom ETF symbols are saved to `saved_etfs.json` on the proxy and also cached in browser localStorage for refresh persistence.
  

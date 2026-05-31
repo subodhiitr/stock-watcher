@@ -375,33 +375,58 @@
 const REFRESH_INTERVAL = 300; // refresh every 300 seconds (5 minutes)
 const PROXY = 'http://localhost:3001';
 const ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;
+const ETF_STORAGE_KEY = 'stock-watcher-etf-symbols';
 
-async function loadSavedETFs() {
+function loadSavedETFsFromStorage() {
   try {
-    const res = await fetch(ETF_PREFS_ENDPOINT);
-    if (!res.ok) throw new Error('ETF prefs endpoint unavailable');
-    const saved = await res.json();
-    if (!Array.isArray(saved)) return;
-    const newSymbols = [];
-    for (const rawSym of saved) {
-      if (typeof rawSym !== 'string') continue;
-      const sym = rawSym.trim().toUpperCase();
-      if (!sym) continue;
-      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;
-      EXTRA_SYMBOLS.push(sym);
-      ETF_ASSETS.push({ sym, name: sym, sector: 'ETF', cap: 'etf' });
-      newSymbols.push(sym);
-    }
-    if (newSymbols.length && dataSource) {
-      await fetchAdditionalSymbols(ETF_ASSETS.map(e=>e.sym));
-    }
-    renderETFSection();
+    const raw = localStorage.getItem(ETF_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.warn('Saved ETFs load failed:', e.message);
+    return [];
+  }
+}
+function saveSavedETFsToStorage(symbols) {
+  try {
+    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));
+  } catch (e) {
+    console.warn('ETF local save failed:', e.message);
   }
 }
 
+async function loadSavedETFs() {
+  let saved = [];
+  try {
+    const res = await fetch(ETF_PREFS_ENDPOINT);
+    if (!res.ok) throw new Error('ETF prefs endpoint unavailable');
+    const payload = await res.json();
+    if (Array.isArray(payload)) {
+      saved = payload;
+      saveSavedETFsToStorage(saved);
+    }
+  } catch (e) {
+    console.warn('Saved ETFs load failed:', e.message);
+    saved = loadSavedETFsFromStorage();
+  }
+  if (!Array.isArray(saved)) return;
+  const newSymbols = [];
+  for (const rawSym of saved) {
+    if (typeof rawSym !== 'string') continue;
+    const sym = rawSym.trim().toUpperCase();
+    if (!sym) continue;
+    if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;
+    EXTRA_SYMBOLS.push(sym);
+    ETF_ASSETS.push({ sym, name: sym, sector: 'ETF', cap: 'etf' });
+    newSymbols.push(sym);
+  }
+  if (newSymbols.length && dataSource) {
+    await fetchAdditionalSymbols(ETF_ASSETS.map(e=>e.sym));
+  }
+  renderETFSection();
+}
+
 async function saveUserETFs() {
+  saveSavedETFsToStorage(EXTRA_SYMBOLS);
   try {
     await fetch(ETF_PREFS_ENDPOINT, {
       method: 'POST',
