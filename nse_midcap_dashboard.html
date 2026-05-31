@@ -345,14 +345,25 @@
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;">
         <input id="extra-symbol-input" class="text-input" style="width:220px" placeholder="Add ETF symbol" />
         <button class="btn" onclick="addCustomSymbol()">＋ Add ETF</button>
+        <input id="etf-search-box" class="text-input" style="width:240px" placeholder="Search ETFs…" oninput="setETFSearch(this.value)" />
+      </div>
+      <div id="etf-controls-bar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;">
+        <button id="etf-filter-all" class="filter-btn active" onclick="setETFFilter('all', this)">All</button>
+        <button class="filter-btn" onclick="setETFFilter('buy', this)">🟢 Buy</button>
+        <button class="filter-btn" onclick="setETFFilter('watch', this)">🟡 Watch</button>
+        <button class="filter-btn" onclick="setETFFilter('sell', this)">🔴 Sell</button>
+        <button class="filter-btn" onclick="setETFFilter('gainers', this)">Top Gainers</button>
+        <button class="filter-btn" onclick="setETFFilter('losers', this)">Top Losers</button>
+        <button class="filter-btn" onclick="setETFFilter('custom', this)">Custom</button>
+        <button class="filter-btn" onclick="setETFFilter('preset', this)">Preset</button>
       </div>
       <div id="etf-table-wrap" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
         <table>
           <thead><tr>
-            <th>#</th>
-            <th>ETF</th>
-            <th>Price ₹</th>
-            <th>Change%</th>
+            <th onclick="etfSortBy('rank')"># ↕</th>
+            <th onclick="etfSortBy('symbol')">ETF ↕</th>
+            <th onclick="etfSortBy('price')">Price ₹ ↕</th>
+            <th onclick="etfSortBy('change')">Change% ↕</th>
             <th class="hide-mobile">52W Range</th>
             <th class="hide-mobile">Volume</th>
             <th>Health</th>
@@ -687,6 +698,9 @@ let countdownSec  = REFRESH_INTERVAL;
 let countdownTimer = null;
 let currentFilter  = 'all';
 let currentSort    = { col:'change', dir:-1 };
+let etfFilter      = 'all';
+let etfSort        = { col:'change', dir:-1 };
+let etfSearch      = '';
 let activeSectors  = new Set();   // sectors clicked in heatmap, empty = show all (supports multi-select)
 let EXTRA_SYMBOLS = []; // user-added ETF/custom symbols (keeps track to avoid duplicates)
 let ETF_ASSETS = [];
@@ -1127,6 +1141,24 @@ function setFilter(mode,el){
   renderTable();
 }
 
+function setETFFilter(mode,el){
+  etfFilter = mode;
+  document.querySelectorAll('#etf-controls-bar .filter-btn').forEach(b=>b.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderETFSection();
+}
+
+function setETFSearch(value){
+  etfSearch = String(value || '').trim().toLowerCase();
+  renderETFSection();
+}
+
+function etfSortBy(col){
+  if(etfSort.col===col) etfSort.dir *= -1;
+  else { etfSort.col = col; etfSort.dir = -1; }
+  renderETFSection();
+}
+
 let currentView = 'stocks';
 async function setView(view, el){
   currentView = view;
@@ -1135,15 +1167,9 @@ async function setView(view, el){
   document.getElementById('stock-content').style.display = view==='stocks' ? 'block' : 'none';
   document.getElementById('etf-section').style.display = view==='etfs' ? 'block' : 'none';
   if(view==='etfs'){
-    if(!ETF_ASSETS.length){
-      await loadPresetETFs();
-      document.getElementById('stock-content').style.display='none';
-      document.getElementById('etf-section').style.display='block';
-      if(el) el.classList.add('active');
-    } else {
-      await fetchAdditionalSymbols(ETF_ASSETS.map(e=>e.sym));
-      renderETFSection();
-    }
+    await loadPresetETFs();
+    await fetchAdditionalSymbols(ETF_ASSETS.map(e=>e.sym));
+    renderETFSection();
   } else renderTable();
 }
 
@@ -1282,9 +1308,8 @@ async function loadPresetETFs(){
     ETF_ASSETS.push({ ...etf });
     newSymbols.push(etf.sym);
   }
-  if(!newSymbols.length){ alert('ETF presets already loaded'); return; }
+  if(!newSymbols.length) return;
   await fetchAdditionalSymbols(newSymbols);
-  renderDashboard();
 }
 
 function renderETFSection(){
@@ -1292,11 +1317,43 @@ function renderETFSection(){
   const tbody = document.getElementById('etf-tbody');
   const status = document.getElementById('etf-status-bar');
   section.style.display = currentView==='etfs' ? 'block' : 'none';
-  const rows = ETF_ASSETS.map((s,i)=>({ ...s, rank:i+1, data: stockData[s.sym] || null }));
+  let rows = ETF_ASSETS.map((s,i)=>({ ...s, rank:i+1, data: stockData[s.sym] || null }));
+
+  if(etfFilter==='buy') rows = rows.filter(r=>getSignal(r,r.data)==='buy');
+  else if(etfFilter==='watch') rows = rows.filter(r=>getSignal(r,r.data)==='watch');
+  else if(etfFilter==='sell') rows = rows.filter(r=>getSignal(r,r.data)==='sell');
+  else if(etfFilter==='gainers') rows = rows.filter(r=>(r.data?.change||0)>0);
+  else if(etfFilter==='losers') rows = rows.filter(r=>(r.data?.change||0)<0);
+  else if(etfFilter==='custom') rows = rows.filter(r=>EXTRA_SYMBOLS.includes(r.sym));
+  else if(etfFilter==='preset') rows = rows.filter(r=>!EXTRA_SYMBOLS.includes(r.sym));
+
+  if(etfSearch){
+    rows = rows.filter(r => {
+      const search = etfSearch;
+      return r.sym.toLowerCase().includes(search)
+        || r.name.toLowerCase().includes(search)
+        || (r.sector||'').toLowerCase().includes(search);
+    });
+  }
+
+  const {col,dir} = etfSort;
+  rows.sort((a,b)=>{
+    let av,bv;
+    if(col==='symbol'){av=a.sym; bv=b.sym;}
+    else if(col==='price'){av=a.data?.price||0; bv=b.data?.price||0;}
+    else if(col==='change'){av=a.data?.change||0; bv=b.data?.change||0;}
+    else {av=a.rank; bv=b.rank;}
+    return typeof av==='string' ? dir*av.localeCompare(bv) : dir*(av-bv);
+  });
+  rows = rows.map((row,i)=>({ ...row, rank:i+1 }));
+
   tbody.innerHTML='';
   if(!rows.length){
-    tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">No ETFs loaded yet. Use the button above to load ETF presets or add a symbol.</td></tr>';
-    if(status) status.textContent='No ETFs loaded';
+    const note = etfFilter==='all'
+      ? 'No ETFs loaded yet. Use the button above to load ETF presets or add a symbol.'
+      : 'No ETFs match the selected filter.';
+    tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">${note}</td></tr>`;
+    if(status) status.textContent='0 ETFs loaded';
     return;
   }
   if(status) status.textContent=`${rows.length} ETF${rows.length===1?'':'s'} loaded`;
