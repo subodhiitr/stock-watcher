@@ -109,19 +109,19 @@
   #stats-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:13px;color:var(--muted);}
   .stat-pill{display:flex;align-items:center;gap:6px;}
   .stat-dot{width:8px;height:8px;border-radius:50%;}
-  #table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  #table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow-x:auto;}
   table{width:100%;border-collapse:collapse;}
-  thead th{padding:12px 16px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;background:var(--card);border-bottom:1px solid var(--border);text-align:left;cursor:pointer;user-select:none;white-space:nowrap;}
+  thead th{padding:9px 10px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;background:var(--card);border-bottom:1px solid var(--border);text-align:left;cursor:pointer;user-select:none;white-space:nowrap;}
   thead th:hover{color:var(--accent);}
   tbody tr{border-bottom:1px solid rgba(30,45,66,.5);transition:background .15s;}
   tbody tr:hover{background:rgba(255,255,255,.02);}
   tbody tr:last-child{border-bottom:none;}
-  td{padding:12px 16px;font-size:13px;white-space:nowrap;}
+  td{padding:8px 10px;font-size:12px;white-space:nowrap;}
   .stock-name-cell{display:flex;flex-direction:column;}
   .stock-symbol{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;}
   .stock-fullname{font-size:11px;color:var(--muted);margin-top:2px;}
   .sector-badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;background:var(--dim);color:var(--muted);}
-  .price-cell{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;}
+  .price-cell{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;}
   .chg-cell{font-weight:600;font-size:13px;}
   .chg-cell.up{color:var(--green);}
   .chg-cell.down{color:var(--red);}
@@ -151,6 +151,14 @@
   .loading-progress{width:240px;height:4px;background:var(--dim);border-radius:2px;overflow:hidden;margin-top:4px;}
   .loading-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;transition:width .4s ease;}
 
+  /* BACKGROUND REFRESH INDICATOR */
+  #bg-refresh-pill{display:none;align-items:center;gap:7px;padding:5px 13px;border-radius:20px;background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);font-size:12px;color:var(--accent);animation:fadeInPill .3s ease;}
+  #bg-refresh-pill.show{display:flex;}
+  @keyframes fadeInPill{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+  .mini-spinner{width:12px;height:12px;border:2px solid rgba(0,212,170,.25);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+  #bg-progress-bar{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:0 2px 2px 0;transition:width .5s ease;z-index:200;pointer-events:none;width:0;opacity:0;}
+  #bg-progress-bar.active{opacity:1;}
+
   .modal-overlay{position:fixed;inset:0;background:rgba(3,12,26,.75);display:flex;align-items:center;justify-content:center;padding:18px;z-index:999;}
   .modal-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:420px;width:100%;padding:22px;box-shadow:0 18px 60px rgba(0,0,0,.45);}
   .modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
@@ -163,6 +171,45 @@
   .fav-btn:hover{border-color:var(--accent);color:var(--accent);}
   .fav-btn.active{border-color:var(--accent);background:rgba(0,212,170,.12);color:var(--accent);}
 
+
+  /* ── FUNDAMENTALS CHAT BOT ───────────────────────────────── */
+  #fund-chat-fab{position:fixed;bottom:28px;right:28px;width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#000;font-size:22px;cursor:pointer;box-shadow:0 4px 20px rgba(0,212,170,.35);z-index:500;display:flex;align-items:center;justify-content:center;transition:transform .2s,box-shadow .2s;}
+  #fund-chat-fab:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(0,212,170,.5);}
+  #fund-chat-fab .fab-badge{position:absolute;top:-3px;right:-3px;width:18px;height:18px;border-radius:50%;background:var(--accent3);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;display:none;}
+  #fund-chat-panel{position:fixed;bottom:94px;right:28px;width:380px;max-height:560px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 12px 48px rgba(0,0,0,.5);z-index:500;display:none;flex-direction:column;overflow:hidden;animation:chatSlideUp .25s ease;}
+  @keyframes chatSlideUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+  #fund-chat-panel.open{display:flex;}
+  .chat-header{padding:14px 18px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  .chat-header-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+  .chat-header-text{flex:1;}
+  .chat-header-text strong{font-size:14px;display:block;}
+  .chat-header-text span{font-size:11px;color:var(--muted);}
+  .chat-close{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px 6px;border-radius:6px;}
+  .chat-close:hover{background:var(--dim);color:var(--text);}
+  .chat-key-row{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;}
+  .chat-key-input{flex:1;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:11px;font-family:"Space Mono",monospace;outline:none;}
+  .chat-key-input:focus{border-color:var(--accent);}
+  .chat-key-btn{padding:7px 12px;border-radius:7px;border:none;background:var(--accent);color:#000;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
+  .chat-messages{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:200px;max-height:360px;}
+  .chat-msg{max-width:90%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.6;animation:msgFade .2s ease;}
+  @keyframes msgFade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  .chat-msg.user{background:rgba(0,212,170,.12);border:1px solid rgba(0,212,170,.2);color:var(--text);align-self:flex-end;border-bottom-right-radius:4px;}
+  .chat-msg.bot{background:var(--card);border:1px solid var(--border);color:var(--text);align-self:flex-start;border-bottom-left-radius:4px;}
+  .chat-msg.bot.thinking{color:var(--muted);font-style:italic;}
+  .chat-msg table{width:100%;border-collapse:collapse;margin-top:6px;font-size:12px;}
+  .chat-msg th{padding:4px 8px;border-bottom:1px solid var(--border);color:var(--muted);text-align:left;font-weight:600;}
+  .chat-msg td{padding:4px 8px;border-bottom:1px solid rgba(30,45,66,.4);}
+  .chat-input-row{padding:12px 14px;border-top:1px solid var(--border);display:flex;gap:8px;}
+  .chat-input{flex:1;padding:9px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:"DM Sans",sans-serif;outline:none;resize:none;}
+  .chat-input:focus{border-color:var(--accent);}
+  .chat-send{padding:9px 14px;border-radius:8px;border:none;background:var(--accent);color:#000;font-size:14px;font-weight:700;cursor:pointer;transition:background .2s;}
+  .chat-send:hover{background:#00bfa0;}
+  .chat-send:disabled{opacity:.4;cursor:not-allowed;}
+  .chat-suggestions{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 10px;}
+  .chat-sug{padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:11px;cursor:pointer;transition:all .15s;}
+  .chat-sug:hover{border-color:var(--accent);color:var(--accent);}
+  @media(max-width:480px){#fund-chat-panel{width:calc(100vw - 24px);right:12px;bottom:80px;}}
+
   /* MISC */
   .live-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 2s ease infinite;display:inline-block;}
   @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.8);}}
@@ -170,10 +217,14 @@
   ::-webkit-scrollbar-track{background:var(--bg);}
   ::-webkit-scrollbar-thumb{background:var(--dim);border-radius:3px;}
   @media(max-width:900px){.hide-mobile{display:none!important;}#search-box{width:150px;}}
+  @media(max-width:1200px){.hide-1200{display:none!important;}}
   @media(max-width:600px){header{flex-direction:column;align-items:flex-start;}td,th{padding:10px;}}
 </style>
 </head>
 <body>
+
+<!-- TOP PROGRESS BAR -->
+<div id="bg-progress-bar"></div>
 
 <!-- LOADING OVERLAY -->
 <div id="loading-overlay">
@@ -195,6 +246,7 @@
       </div>
     </div>
     <div class="header-right">
+      <div id="bg-refresh-pill"><div class="mini-spinner"></div><span id="bg-refresh-txt">Refreshing…</span></div>
       <span id="source-indicator" style="display:none"></span>
       <div id="clock">--:--:--</div>
       <div id="countdown-wrap">
@@ -323,6 +375,9 @@
         <button class="filter-btn" onclick="setFilter('buy',this)">🟢 Buy</button>
         <button class="filter-btn" onclick="setFilter('watch',this)">🟡 Watch</button>
         <button class="filter-btn" onclick="setFilter('sell',this)">🔴 Sell</button>
+        <button class="filter-btn" onclick="setFilter('strong',this)">💚 Strong</button>
+        <button class="filter-btn" onclick="setFilter('fair',this)">🟡 Fair</button>
+        <button class="filter-btn" onclick="setFilter('weak',this)">🔴 Weak</button>
         <button class="filter-btn" onclick="setFilter('gainers',this)">Top Gainers</button>
         <button class="filter-btn" onclick="setFilter('losers',this)">Top Losers</button>
         <input id="stock-symbol-input" class="text-input" style="width:180px" placeholder="Add stock symbol" />
@@ -351,14 +406,14 @@
         <table>
           <thead><tr>
             <th></th>
-            <th onclick="sortBy('rank')"># ↕</th>
+            
             <th onclick="sortBy('symbol')">Stock ↕</th>
             <th onclick="sortBy('sector')">Sector ↕</th>
             <th onclick="sortBy('price')">Price ₹ ↕</th>            
             <th onclick="sortBy('change')">Change% ↕</th>
             <th class="hide-mobile">52W Range</th>
             <th class="hide-mobile">Volume</th>
-            <th>Health</th>
+            <th onclick="sortBy('health')" style="cursor:pointer">Health ↕</th>
             <th>Trend</th>
             <th>Signal</th>
 			<th onclick="sortBy('target')">Target ₹ ↕</th>
@@ -388,7 +443,7 @@
         <table>
           <thead><tr>
             <th></th>
-            <th onclick="etfSortBy('rank')"># ↕</th>
+            
             <th onclick="etfSortBy('symbol')">ETF ↕</th>
             <th onclick="etfSortBy('price')">Price ₹ ↕</th>
             <th onclick="etfSortBy('target')">Target ₹ ↕</th>
@@ -451,11 +506,48 @@
 
 </div><!-- /container -->
 
+<!-- FUNDAMENTALS CHAT BOT FAB -->
+<button id="fund-chat-fab" onclick="toggleFundChat()" title="Ask about stock fundamentals">
+  🧠
+  <span class="fab-badge" id="fund-chat-badge">!</span>
+</button>
+
+<!-- FUNDAMENTALS CHAT PANEL -->
+<div id="fund-chat-panel">
+  <div class="chat-header">
+    <div class="chat-header-icon">🧠</div>
+    <div class="chat-header-text">
+      <strong>Fundamentals Analyst</strong>
+      <span>Ask about health, EPS, ROE, P/E, debt…</span>
+    </div>
+    <button class="chat-close" onclick="toggleFundChat()">✕</button>
+  </div>
+  <div class="chat-key-row" id="chat-key-row">
+    <input id="chat-api-key" class="chat-key-input" type="password" placeholder="Paste Anthropic API key (sk-ant-…)" autocomplete="off" />
+    <button class="chat-key-btn" onclick="saveChatKey()">Save</button>
+  </div>
+  <div class="chat-messages" id="chat-messages">
+    <div class="chat-msg bot">👋 Hi! Ask me anything about stock fundamentals — health scores, EPS, ROE, debt ratios, or compare stocks. I use the live data already loaded on this dashboard.</div>
+  </div>
+  <div class="chat-suggestions" id="chat-suggestions">
+    <span class="chat-sug" onclick="sendSuggestion(this)">Healthiest stocks</span>
+    <span class="chat-sug" onclick="sendSuggestion(this)">Low debt stocks</span>
+    <span class="chat-sug" onclick="sendSuggestion(this)">Best ROE stocks</span>
+    <span class="chat-sug" onclick="sendSuggestion(this)">Undervalued by P/E</span>
+    <span class="chat-sug" onclick="sendSuggestion(this)">Is RELIANCE healthy?</span>
+  </div>
+  <div class="chat-input-row">
+    <input id="chat-input" class="chat-input" type="text" placeholder="Ask about fundamentals…" onkeydown="if(event.key==='Enter')sendChatMessage()" />
+    <button id="chat-send-btn" class="chat-send" onclick="sendChatMessage()">↑</button>
+  </div>
+</div>
+
+
 <script>
 // ═══════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════
-const REFRESH_INTERVAL = 300; // refresh every 300 seconds (5 minutes)
+const REFRESH_INTERVAL = 60; // refresh every 60 seconds
 const PROXY = 'http://localhost:3001';
 const ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;
 const ETF_STORAGE_KEY = 'stock-watcher-etf-symbols';
@@ -1080,26 +1172,34 @@ async function fetchYahooIndices() {
   }
 }
 
-async function fetchYahooStocks() {
+async function fetchYahooStocks(firstLoad = false) {
   const symbols = MIDCAP_STOCKS.map(s=>s.sym);
-  // Proxy fetches concurrently via v8/chart — send all at once, proxy handles batching
-  document.getElementById('loading-msg').textContent = 'Fetching Yahoo Finance data…';
-  document.getElementById('loading-sub').textContent = 'Source: query1.finance.yahoo.com/v8/finance/chart (crumb-free)';
-  setProgress(15);
+  if (firstLoad) {
+    document.getElementById('loading-msg').textContent = 'Fetching Yahoo Finance data…';
+    document.getElementById('loading-sub').textContent = 'Source: query1.finance.yahoo.com/v8/finance/chart (crumb-free)';
+    setProgress(15);
+  }
 
   const batchSize = 25;
   for (let i = 0; i < symbols.length; i += batchSize) {
     const batch = symbols.slice(i, i + batchSize);
-    document.getElementById('loading-msg').textContent =
-      `Fetching Yahoo Finance… (${i+1}–${Math.min(i+batchSize, symbols.length)} of ${symbols.length})`;
-    setProgress(15 + ((i / symbols.length) * 75));
+    const pct = Math.round(((i + batchSize) / symbols.length) * 100);
+
+    if (firstLoad) {
+      document.getElementById('loading-msg').textContent =
+        `Fetching Yahoo Finance… (${i+1}–${Math.min(i+batchSize, symbols.length)} of ${symbols.length})`;
+      setProgress(15 + ((i / symbols.length) * 75));
+    } else {
+      showBgRefreshing(`Refreshing ${i+1}–${Math.min(i+batchSize, symbols.length)} of ${symbols.length}…`);
+      setBgProgress(20 + (i / symbols.length) * 75);
+    }
 
     try {
       const url = `${PROXY}/yahoo?symbols=${encodeURIComponent(batch.join(','))}`;
       const r   = await fetch(url, { signal: AbortSignal.timeout(30000) });
       const raw = await r.json();
-      // Proxy returns { ok: true, quotes: { SYMBOL: { price, change, ... } } }
       const quotes = raw?.quotes || {};
+      let changed = false;
       for (const [sym, q] of Object.entries(quotes)) {
         if (!q) continue;
         marketOpen = (q.marketState || '').toUpperCase() === 'REGULAR';
@@ -1112,6 +1212,13 @@ async function fetchYahooStocks() {
           open     : q.open    || 0,
           prevClose: q.prevClose || 0,
         };
+        changed = true;
+      }
+      // Render incrementally after each batch so UI stays live
+      if (changed && !firstLoad) {
+        renderMarketStatus();
+        renderTable();
+        renderETFSection();
       }
     } catch(e) {
       console.warn('Yahoo batch error:', e.message);
@@ -1167,10 +1274,15 @@ async function fetchNSEMarketStatus() {
   } catch(e) { console.warn('NSE market status:', e.message); }
 }
 
-async function fetchNSEStocks() {
-  document.getElementById('loading-msg').textContent = 'Fetching Nifty Midcap 150 from NSE…';
-  document.getElementById('loading-sub').textContent = 'Source: nseindia.com/api/equity-stockIndices';
-  setProgress(20);
+async function fetchNSEStocks(firstLoad = false) {
+  if (firstLoad) {
+    document.getElementById('loading-msg').textContent = 'Fetching Nifty Midcap 150 from NSE…';
+    document.getElementById('loading-sub').textContent = 'Source: nseindia.com/api/equity-stockIndices';
+    setProgress(20);
+  } else {
+    showBgRefreshing('Refreshing NSE data…');
+    setBgProgress(25);
+  }
   const data  = await nseGet('/api/equity-stockIndices?index=NIFTY%20MIDCAP%20150');
   const items = data.data || [];
   for (const item of items) {
@@ -1185,8 +1297,12 @@ async function fetchNSEStocks() {
       prevClose: parseFloat(item.previousClose||0),
     };
   }
-  setProgress(80);
-  // Fill missing
+  // Render immediately after bulk fetch so table is live
+  if (!firstLoad) { renderTable(); renderSectors(); }
+  if (firstLoad) setProgress(80);
+  else setBgProgress(75);
+
+  // Fill missing symbols
   const missing = MIDCAP_STOCKS.filter(s=>!stockData[s.sym]||stockData[s.sym].price===0);
   if (missing.length && missing.length<=15) {
     for (const s of missing) {
@@ -1194,6 +1310,7 @@ async function fetchNSEStocks() {
         const q  = await nseGet(`/api/quote-equity?symbol=${encodeURIComponent(s.sym)}`);
         const pd = q.priceInfo||{};
         stockData[s.sym] = { price:parseFloat(pd.lastPrice||0), change:parseFloat(pd.pChange||0), high52:parseFloat(pd.weekHighLow?.max||0), low52:parseFloat(pd.weekHighLow?.min||0), volume:0, open:parseFloat(pd.open||0), prevClose:parseFloat(pd.previousClose||0) };
+        if (!firstLoad) renderTable();
       } catch(e) {}
       await new Promise(r=>setTimeout(r,120));
     }
@@ -1230,30 +1347,71 @@ function extractJSON(data) {
   try{return JSON.parse(clean);}catch(e){const m=clean.match(/\{[\s\S]*\}/);if(m){try{return JSON.parse(m[0]);}catch(e2){}}return null;}
 }
 
-async function fetchAIData() {
-  document.getElementById('loading-msg').textContent='Fetching indices via AI…';
-  setProgress(10);
+async function fetchAIData(firstLoad = false) {
+  if (firstLoad) {
+    document.getElementById('loading-msg').textContent='Fetching indices via AI…';
+    setProgress(10);
+  } else {
+    showBgRefreshing('Refreshing via AI…');
+    setBgProgress(10);
+  }
   try {
     const d=await callClaude(`Current prices of: Nifty 50, Bank Nifty, Nifty Midcap 150, Nifty Smallcap 100.
 Return raw JSON only: {"nifty50":{"price":24500,"change":0.45},"banknifty":{"price":52000,"change":-0.2},"midcap":{"price":12500,"change":0.3},"smallcap":{"price":8900,"change":0.15}}`);
     const p=extractJSON(d); if(p) indexData=p;
   } catch(e){console.warn('AI indices:',e.message);}
-  setProgress(20);
+  if (firstLoad) setProgress(20); else setBgProgress(20);
+  if (!firstLoad) { renderIndices(); renderSectors(); }
 
   const batches=[];
   for (let i=0;i<MIDCAP_STOCKS.length;i+=20) batches.push(MIDCAP_STOCKS.slice(i,i+20));
   for (let bi=0;bi<batches.length;bi++) {
     const batch=batches[bi];
-    document.getElementById('loading-msg').textContent=`AI fetch batch ${bi+1}/${batches.length}…`;
-    document.getElementById('loading-sub').textContent=batch.map(s=>s.sym).join(', ');
-    setProgress(20 + ((bi+1)/batches.length)*70);
+    const pct = 20 + ((bi+1)/batches.length)*70;
+    if (firstLoad) {
+      document.getElementById('loading-msg').textContent=`AI fetch batch ${bi+1}/${batches.length}…`;
+      document.getElementById('loading-sub').textContent=batch.map(s=>s.sym).join(', ');
+      setProgress(pct);
+    } else {
+      showBgRefreshing(`AI batch ${bi+1}/${batches.length}…`);
+      setBgProgress(pct);
+    }
     const syms=batch.map(s=>s.sym).join(', ');
     try {
       const d=await callClaude(`NSE stock prices for: ${syms}. Raw JSON only: {"SYMBOL":{"price":1234.5,"change":1.23,"high52":1500,"low52":900,"volume":1250000}}`);
       const p=extractJSON(d); if(p) Object.assign(stockData,p);
+      // Render incrementally in background mode
+      if (!firstLoad) { renderTable(); renderSectors(); }
     } catch(e){console.warn(`AI batch ${bi+1}:`,e);}
     if (bi<batches.length-1) await new Promise(r=>setTimeout(r,400));
   }
+}
+
+// ═══════════════════════════════════
+//  BACKGROUND REFRESH HELPERS
+// ═══════════════════════════════════
+let isFirstLoad = true;
+let bgRefreshActive = false;
+
+function setBgProgress(pct) {
+  const bar = document.getElementById('bg-progress-bar');
+  if (!bar) return;
+  bar.style.width = pct + '%';
+  if (pct > 0) bar.classList.add('active');
+  else { bar.classList.remove('active'); bar.style.width = '0'; }
+}
+
+function showBgRefreshing(text) {
+  const pill = document.getElementById('bg-refresh-pill');
+  const txt  = document.getElementById('bg-refresh-txt');
+  if (pill) pill.classList.add('show');
+  if (txt)  txt.textContent = text || 'Refreshing…';
+}
+
+function hideBgRefreshing() {
+  const pill = document.getElementById('bg-refresh-pill');
+  if (pill) pill.classList.remove('show');
+  setBgProgress(0);
 }
 
 // ═══════════════════════════════════
@@ -1261,36 +1419,79 @@ Return raw JSON only: {"nifty50":{"price":24500,"change":0.45},"banknifty":{"pri
 // ═══════════════════════════════════
 async function fetchAll() {
   if (!dataSource) return;
-  document.getElementById('loading-overlay').classList.add('show');
-  document.getElementById('refresh-btn').disabled=true;
-  setProgress(5);
+  if (bgRefreshActive) return; // prevent concurrent refreshes
+  bgRefreshActive = true;
+
+  const firstLoad = isFirstLoad;
+  isFirstLoad = false;
+
+  document.getElementById('refresh-btn').disabled = true;
+
+  if (firstLoad) {
+    // First load: show full blocking overlay
+    document.getElementById('loading-overlay').classList.add('show');
+    setProgress(5);
+  } else {
+    // Subsequent: show subtle top bar + pill only
+    setBgProgress(3);
+    showBgRefreshing('Refreshing data…');
+  }
+
   try {
-    if (dataSource==='yahoo') {
-      document.getElementById('loading-msg').textContent='Fetching indices from Yahoo Finance…';
+    if (dataSource === 'yahoo') {
+      if (firstLoad) document.getElementById('loading-msg').textContent = 'Fetching indices from Yahoo Finance…';
       await fetchYahooIndices();
-      await fetchYahooStocks();
-    } else if (dataSource==='nse') {
-      document.getElementById('loading-msg').textContent='Fetching NSE indices…';
+      renderIndices();
+      renderSectors();
+      if (firstLoad) setProgress(15);
+      else setBgProgress(20);
+      await fetchYahooStocks(firstLoad);
+    } else if (dataSource === 'nse') {
+      if (firstLoad) document.getElementById('loading-msg').textContent = 'Fetching NSE indices…';
       await fetchNSEMarketStatus();
       await fetchNSEIndices();
-      await fetchNSEStocks();
+      renderIndices();
+      renderSectors();
+      if (firstLoad) setProgress(20);
+      else setBgProgress(20);
+      await fetchNSEStocks(firstLoad);
     } else {
-      await fetchAIData();
+      await fetchAIData(firstLoad);
     }
+
     await fetchAdditionalSymbols([...ETF_ASSETS.map(e=>e.sym), ...STOCK_ASSETS.map(e=>e.sym)]);
-    setProgress(100);
+
+    if (firstLoad) setProgress(100);
+    else setBgProgress(100);
+
     renderDashboard();
-    document.getElementById('last-update').textContent = 'Updated: '+new Date().toLocaleTimeString('en-IN')+' via '+
-      (dataSource==='yahoo'?'Yahoo Finance':dataSource==='nse'?'NSE Direct':'AI');
-    document.getElementById('status-bar').className='success';
-    const loaded=MIDCAP_STOCKS.filter(s=>stockData[s.sym]&&stockData[s.sym].price>0).length;
-    document.getElementById('status-bar').textContent=`✓ ${loaded}/${MIDCAP_STOCKS.length} stocks loaded`;
+
+    // Kick off fundamentals fetch in the background — non-blocking so UI stays interactive.
+    // On first load fetch all stocks; on refresh only re-fetch stocks whose fundamentals are missing.
+    const allStockSyms = [...MIDCAP_STOCKS.map(s=>s.sym), ...STOCK_ASSETS.map(s=>s.sym)];
+    const needsMeta = firstLoad
+      ? allStockSyms
+      : allStockSyms.filter(sym => {
+          const asset = MIDCAP_STOCKS.find(s=>s.sym===sym) || STOCK_ASSETS.find(s=>s.sym===sym);
+          return !asset?.fund?.computed?.pe; // only refresh if we never got data
+        });
+    if (needsMeta.length) {
+      fetchSymbolMetadata(needsMeta).catch(e => console.warn('bg metadata failed', e));
+    }
+
+    document.getElementById('last-update').textContent = 'Updated: ' + new Date().toLocaleTimeString('en-IN') + ' via ' +
+      (dataSource === 'yahoo' ? 'Yahoo Finance' : dataSource === 'nse' ? 'NSE Direct' : 'AI');
+    document.getElementById('status-bar').className = 'success';
+    const loaded = MIDCAP_STOCKS.filter(s => stockData[s.sym] && stockData[s.sym].price > 0).length;
+    document.getElementById('status-bar').textContent = `✓ ${loaded}/${MIDCAP_STOCKS.length} stocks loaded`;
   } catch(e) {
-    document.getElementById('status-bar').className='error';
-    document.getElementById('status-bar').textContent='⚠ '+e.message;
+    document.getElementById('status-bar').className = 'error';
+    document.getElementById('status-bar').textContent = '⚠ ' + e.message;
   } finally {
     document.getElementById('loading-overlay').classList.remove('show');
-    document.getElementById('refresh-btn').disabled=false;
+    hideBgRefreshing();
+    document.getElementById('refresh-btn').disabled = false;
+    bgRefreshActive = false;
     setProgress(0);
   }
 }
@@ -1342,8 +1543,19 @@ function renderIndices(){
 
 function renderSectors(){
   const sectors={};
-  for(const s of MIDCAP_STOCKS){const d=stockData[s.sym];if(!d||d===null)continue;if(!sectors[s.sector])sectors[s.sector]=[];sectors[s.sector].push(d.change||0);}
-  const avgs=Object.entries(sectors).map(([n,cs])=>({name:n,avg:cs.reduce((a,b)=>a+b,0)/cs.length,count:cs.length})).sort((a,b)=>b.avg-a.avg);
+  // Use ALL stocks so sector tiles never disappear during partial refresh —
+  // stocks with no live data yet fall back to change=0 (neutral grey)
+  for(const s of MIDCAP_STOCKS){
+    if(!sectors[s.sector]) sectors[s.sector]=[];
+    const d=stockData[s.sym];
+    if(d && d.price>0) sectors[s.sector].push(d.change||0);
+    // else: stock not yet loaded, just don't include its change — tile still shows if any peer loaded
+  }
+  // Only show sectors that have at least one loaded stock
+  const avgs=Object.entries(sectors)
+    .filter(([n,cs])=>cs.length>0)
+    .map(([n,cs])=>({name:n,avg:cs.reduce((a,b)=>a+b,0)/cs.length,count:cs.length}))
+    .sort((a,b)=>b.avg-a.avg);
   const grid=document.getElementById('sector-grid');grid.innerHTML='';
   for(const s of avgs){
     const intensity=Math.min(Math.abs(s.avg)/3,1);
@@ -1400,6 +1612,11 @@ function healthHTML(data){
   return `<div class="health-cell"><div class="health-bar-wrap"><span class="health-label">52W</span><div class="health-bar"><div class="health-fill" style="width:${rPct}%;background:${rCol}"></div></div></div><div class="health-bar-wrap"><span class="health-label">Mom</span><div class="health-bar"><div class="health-fill" style="width:${mPct}%;background:${mCol}"></div></div></div></div>`;
 }
 
+function getHealthScore(sym){
+  const asset = MIDCAP_STOCKS.find(s=>s.sym===sym) || STOCK_ASSETS.find(s=>s.sym===sym) || null;
+  return computeHealthScore(asset);
+}
+
 function setFilter(mode,el){
   currentFilter=mode;
   document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
@@ -1417,7 +1634,7 @@ function setTargetFilter(mode, el){
 
 function getTargetDeltaPct(row){
   const sym = row.sym;
-  const asset = STOCK_ASSETS.find(s=>s.sym===sym) || ETF_ASSETS.find(s=>s.sym===sym) || null;
+  const asset = MIDCAP_STOCKS.find(s=>s.sym===sym) || STOCK_ASSETS.find(s=>s.sym===sym) || ETF_ASSETS.find(s=>s.sym===sym) || null;
   const target = asset?.fund?.priceTarget ?? null;
   const price = row.data?.price ?? null;
   if(target==null || !price) return null;
@@ -1485,6 +1702,9 @@ function renderTable(){
   else if(currentFilter==='buy')        rows=rows.filter(r=>getSignal(r,r.data)==='buy');
   else if(currentFilter==='watch') rows=rows.filter(r=>getSignal(r,r.data)==='watch');
   else if(currentFilter==='sell')  rows=rows.filter(r=>getSignal(r,r.data)==='sell');
+  else if(currentFilter==='strong') rows=rows.filter(r=>{ const s=getHealthScore(r.sym); return s!=null && s>=80; });
+  else if(currentFilter==='fair')   rows=rows.filter(r=>{ const s=getHealthScore(r.sym); return s!=null && s>=50 && s<80; });
+  else if(currentFilter==='weak')   rows=rows.filter(r=>{ const s=getHealthScore(r.sym); return s!=null && s<50; });
   else if(currentFilter==='large') rows=rows.filter(r=>r.cap==='large');
   else if(currentFilter==='mid')   rows=rows.filter(r=>r.cap==='mid');
   else if(currentFilter==='gainers') rows=rows.filter(r=>(r.data?.change||0)>0).sort((a,b)=>(b.data?.change||0)-(a.data?.change||0)).slice(0,20);
@@ -1528,6 +1748,7 @@ function renderTable(){
     else if(col==='price'){av=a.data?.price||0;bv=b.data?.price||0;}
     else if(col==='target'){ av=a.fund?.priceTarget ?? (a.fund && a.fund.computed?.pe ? a.fund.computed.pe : 0); bv=b.fund?.priceTarget ?? (b.fund && b.fund.computed?.pe ? b.fund.computed.pe : 0); }
     else if(col==='change'){av=a.data?.change||0;bv=b.data?.change||0;}
+    else if(col==='health'){av=getHealthScore(a.sym)??-1;bv=getHealthScore(b.sym)??-1;}
     else{av=a.rank;bv=b.rank;}
     return typeof av==='string'?dir*av.localeCompare(bv):dir*(av-bv);
   });
@@ -1546,14 +1767,13 @@ function renderTable(){
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td><button class="fav-btn ${isStockFavorite(row.sym)?'active':''}" onclick="toggleStockFavorite('${row.sym}')">${isStockFavorite(row.sym)?'★':'☆'}</button></td>
-      <td style="color:var(--muted);font-size:12px">${row.rank}</td>
       <td><div class="stock-name-cell"><span class="stock-symbol">${row.sym}</span><span class="stock-fullname">${row.name}</span>${STOCK_EXTRA_SYMBOLS.includes(row.sym)?'<button class="meta-btn" style="margin-left:8px;padding:4px 6px;font-size:12px;border-radius:6px" onclick="openStockMetadataModal(\''+row.sym+'\')">✎</button>':''}</div></td>
       <td><span class="sector-badge">${row.sector}</span> <span class="sector-badge" style="background:${row.cap==='large'?'rgba(14,165,233,.15)':row.cap==='mid'?'rgba(167,139,250,.15)':row.cap==='etf'?'rgba(167,139,250,.06)':'rgba(167,139,250,.06)'};color:${row.cap==='large'?'var(--accent2)':row.cap==='mid'?'var(--accent3)':row.cap==='etf'?'var(--muted)':'var(--muted)'}">${row.cap==='large'?'L-Cap':row.cap==='mid'?'M-Cap':row.cap==='etf'?'ETF':'Custom'}</span></td>
       <td class="price-cell">${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</td>
      
       <td class="chg-cell ${chg>=0?'up':'down'}">${d?(chg>=0?'▲ +':'▼ ')+chg.toFixed(2)+'%':'--'}</td>
       <td class="hide-mobile" style="font-size:11px;color:var(--muted)">${d&&d.low52&&d.high52?'₹'+d.low52.toLocaleString('en-IN',{maximumFractionDigits:0})+' – ₹'+d.high52.toLocaleString('en-IN',{maximumFractionDigits:0}):'--'}</td>
-      <td class="hide-mobile" style="font-size:12px;color:var(--muted)">${d?.volume?(d.volume/100000).toFixed(1)+'L':'--'}</td>
+      <td class="hide-mobile hide-1200" style="font-size:12px;color:var(--muted)">${d?.volume?(d.volume/100000).toFixed(1)+'L':'--'}</td>
       <td>${renderHealthCell(row)}</td>
       <td><div class="spark">${d?sparkBars(chg):'<span style="color:var(--muted);font-size:11px">--</span>'}</div></td>
       <td><span class="signal-badge ${sig}">${sigLabels[sig]}</span></td>
@@ -1580,19 +1800,35 @@ function computeHealthScore(asset){
 
 function renderHealthCell(row){
   const sym = row.sym;
-  let asset = STOCK_ASSETS.find(s=>s.sym===sym) || ETF_ASSETS.find(s=>s.sym===sym) || null;
+  let asset = MIDCAP_STOCKS.find(s=>s.sym===sym) || STOCK_ASSETS.find(s=>s.sym===sym) || ETF_ASSETS.find(s=>s.sym===sym) || null;
+
+  // ETFs: show the 52W / momentum bars instead
+  if(asset?.cap === 'etf') return healthHTML(row.data);
+
   const score = computeHealthScore(asset);
+
   if(score == null){
-    // fallback to existing market/52w visual
-    return healthHTML(row.data);
+    // Fundamentals not yet loaded — show a grey loading button that's still clickable
+    return `<button onclick="openFundModal('${sym}')" title="Fundamentals loading…"
+      style="background:var(--dim);border:none;padding:6px 10px;border-radius:8px;
+             color:var(--muted);font-size:11px;cursor:pointer;white-space:nowrap;">
+      ⏳ …
+    </button>`;
   }
+
   const color = score >= 80 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : 'var(--red)';
-  return `<button class="health-score-btn" onclick="openFundModal('${sym}')" title="Click to view fundamentals" style="background:${color};border:none;padding:6px 8px;border-radius:8px;color:var(--bg);font-weight:600;cursor:pointer">${score}</button>`;
+  const label = score >= 80 ? 'Strong' : score >= 50 ? 'Fair' : 'Weak';
+  return `<button onclick="openFundModal('${sym}')" title="Health score ${score}/100 — click to view fundamentals"
+    style="background:${color};border:none;padding:5px 10px;border-radius:8px;
+           color:var(--bg);font-weight:700;cursor:pointer;font-size:12px;
+           display:inline-flex;align-items:center;gap:5px;white-space:nowrap;">
+    <span>${score}</span><span style="font-weight:400;font-size:10px;opacity:.8">${label}</span>
+  </button>`;
 }
 
 function renderTargetCell(row){
   const sym = row.sym;
-  let asset = STOCK_ASSETS.find(s=>s.sym===sym) || ETF_ASSETS.find(s=>s.sym===sym) || null;
+  let asset = MIDCAP_STOCKS.find(s=>s.sym===sym) || STOCK_ASSETS.find(s=>s.sym===sym) || ETF_ASSETS.find(s=>s.sym===sym) || null;
   const f = asset?.fund || {};
   const target = f.priceTarget ?? null;
   const price = row.data?.price ?? null;
@@ -1601,9 +1837,9 @@ function renderTargetCell(row){
   const pct = pctRaw == null ? null : Math.abs(pctRaw);
   const arrow = pctRaw == null ? '' : (pctRaw > 0 ? '▲' : (pctRaw < 0 ? '▼' : '–'));
   const col = pctRaw != null ? (pctRaw >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--muted)';
-  const txt = '₹' + Number(target).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
-  const pctHtml = pct != null ? `<span style="font-size:11px;color:${col};margin-left:6px;font-weight:700">${arrow} ${pct}%</span>` : '';
-  return `<div style="display:flex;align-items:center;gap:8px"><span style="font-weight:600">${txt}</span>${pctHtml}</div>`;
+  const txt = '₹' + Number(target).toLocaleString('en-IN',{minimumFractionDigits:0,maximumFractionDigits:0});
+  const pctHtml = pct != null ? `<span style="font-size:10px;color:${col};margin-left:4px;font-weight:700">${arrow}${pct}%</span>` : '';
+  return `<div style="display:flex;align-items:center;gap:4px"><span style="font-weight:600;font-size:12px">${txt}</span>${pctHtml}</div>`;
 }
 
 async function fetchAdditionalSymbols(symbols){
@@ -1683,64 +1919,73 @@ async function addCustomStockSymbol(){
   renderDashboard();
 }
 
-// Fetch sector / marketCap metadata for symbols and merge into STOCK_ASSETS
+// Fetch fundamentals for any symbols — works for MIDCAP_STOCKS, STOCK_ASSETS, ETF_ASSETS
 async function fetchSymbolMetadata(symbols){
   if(!symbols || !symbols.length) return;
-  // Only fetch fundamentals/summary for stock assets (skip ETFs)
-  symbols = (symbols || []).filter(sym => STOCK_ASSETS.some(s => s.sym === sym));
+  // Skip pure ETFs (cap==='etf') — fundamentals not meaningful for them
+  symbols = symbols.filter(sym => {
+    const etf = ETF_ASSETS.find(s => s.sym === sym);
+    return !etf || etf.cap !== 'etf';
+  });
   if(!symbols.length) return;
-  try {
-    const res = await fetch(`${PROXY}/yahoo/summary?symbols=${encodeURIComponent(symbols.join(','))}`);
-    if (!res.ok) return;
-    const payload = await res.json().catch(()=>null);
-    const metas = payload?.metas || {};
-    for (const sym of Object.keys(metas)) {
-      const m = metas[sym]; if (!m) continue;
-      let idx = STOCK_ASSETS.findIndex(s=>s.sym===sym);
-      let arr = STOCK_ASSETS;
-      if (idx === -1) {
-        idx = ETF_ASSETS.findIndex(s=>s.sym===sym);
-        arr = ETF_ASSETS;
-      }
-      if (idx === -1) continue;
-      const asset = arr[idx];
-      asset.sector = m.sector || asset.sector || (arr===STOCK_ASSETS ? 'Custom' : 'ETF');
-      asset.fund = asset.fund || {};
-      asset.fund.marketCap = m.marketCap ?? asset.fund.marketCap ?? null;
-      asset.fund.totalDebt = m.totalDebt ?? asset.fund.totalDebt ?? null;
-      asset.fund.totalEquity = m.totalEquity ?? asset.fund.totalEquity ?? null;
-      asset.fund.trailingEps = m.trailingEps ?? asset.fund.trailingEps ?? null;
-      asset.fund.trailingPE = m.trailingPE ?? asset.fund.trailingPE ?? null;
-      asset.fund.forwardPE = m.forwardPE ?? asset.fund.forwardPE ?? null;
-      asset.fund.roe = m.roe ?? asset.fund.roe ?? null;
-      asset.fund.sharesOutstanding = m.sharesOutstanding ?? asset.fund.sharesOutstanding ?? null;
-      asset.fund.epsGrowth = m.epsGrowth ?? asset.fund.epsGrowth ?? null;
-      asset.fund.pegRaw = m.peg ?? asset.fund.pegRaw ?? null;
-      asset.fund.priceTarget = m.priceTarget ?? asset.fund.priceTarget ?? null;
+  // Fetch in batches of 10 to keep requests manageable
+  const BATCH = 10;
+  for (let i = 0; i < symbols.length; i += BATCH) {
+    const batch = symbols.slice(i, i + BATCH);
+    try {
+      const res = await fetch(`${PROXY}/yahoo/summary?symbols=${encodeURIComponent(batch.join(','))}`);
+      if (!res.ok) continue;
+      const payload = await res.json().catch(()=>null);
+      const metas = payload?.metas || {};
+      for (const sym of Object.keys(metas)) {
+        const m = metas[sym]; if (!m) continue;
+        // Look up in all asset lists
+        const asset = MIDCAP_STOCKS.find(s=>s.sym===sym)
+                   || STOCK_ASSETS.find(s=>s.sym===sym)
+                   || ETF_ASSETS.find(s=>s.sym===sym);
+        if (!asset) continue;
+        if (m.sector) asset.sector = m.sector;
+        asset.fund = asset.fund || {};
+        asset.fund.marketCap = m.marketCap ?? asset.fund.marketCap ?? null;
+        asset.fund.totalDebt = m.totalDebt ?? asset.fund.totalDebt ?? null;
+        asset.fund.totalEquity = m.totalEquity ?? asset.fund.totalEquity ?? null;
+        asset.fund.trailingEps = m.trailingEps ?? asset.fund.trailingEps ?? null;
+        asset.fund.trailingPE = m.trailingPE ?? asset.fund.trailingPE ?? null;
+        asset.fund.forwardPE = m.forwardPE ?? asset.fund.forwardPE ?? null;
+        asset.fund.priceToBook = m.priceToBook ?? asset.fund.priceToBook ?? null;
+        asset.fund.dividendYield = m.dividendYield ?? asset.fund.dividendYield ?? null;
+        asset.fund.fiftyDayAvg = m.fiftyDayAvg ?? asset.fund.fiftyDayAvg ?? null;
+        asset.fund.twoHundredDayAvg = m.twoHundredDayAvg ?? asset.fund.twoHundredDayAvg ?? null;
+        asset.fund.roe = m.roe ?? asset.fund.roe ?? null;
+        asset.fund.sharesOutstanding = m.sharesOutstanding ?? asset.fund.sharesOutstanding ?? null;
+        asset.fund.epsGrowth = m.epsGrowth ?? asset.fund.epsGrowth ?? null;
+        asset.fund.pegRaw = m.peg ?? asset.fund.pegRaw ?? null;
+        asset.fund.priceTarget = m.priceTarget ?? asset.fund.priceTarget ?? null;
 
-      const price = stockData[sym]?.price ?? null;
-      const eps = asset.fund.trailingEps ?? null;
-      asset.fund.computed = asset.fund.computed || {};
-      asset.fund.computed.eps = eps;
-      asset.fund.computed.pe = (price && eps) ? (price / eps) : (asset.fund.trailingPE ?? null);
-      asset.fund.computed.roe = asset.fund.roe ?? null;
-      const td = asset.fund.totalDebt, te = asset.fund.totalEquity;
-      asset.fund.computed.de = (td != null && te != null && te !== 0) ? (td / te) : null;
+        const price = stockData[sym]?.price ?? null;
+        const eps = asset.fund.trailingEps ?? null;
+        asset.fund.computed = asset.fund.computed || {};
+        asset.fund.computed.eps = eps;
+        asset.fund.computed.pe = (price && eps) ? (price / eps) : (asset.fund.trailingPE ?? null);
+        asset.fund.computed.roe = asset.fund.roe ?? null;
+        const td = asset.fund.totalDebt, te = asset.fund.totalEquity;
+        asset.fund.computed.de = (td != null && te != null && te !== 0) ? (td / te) : null;
 
-      let peg = asset.fund.pegRaw ?? null;
-      const g = asset.fund.epsGrowth ?? null;
-      if (peg == null && g != null && asset.fund.computed.pe) {
-        let growthPercent = (typeof g === 'number' && g > 1) ? g : (typeof g === 'number' ? g * 100 : null);
-        if (growthPercent && typeof growthPercent === 'number') {
-          peg = asset.fund.computed.pe / growthPercent;
-        } else {
-          peg = null;
+        let peg = asset.fund.pegRaw ?? null;
+        const g = asset.fund.epsGrowth ?? null;
+        if (peg == null && g != null && asset.fund.computed.pe) {
+          const growthPercent = (typeof g === 'number' && g > 1) ? g : (typeof g === 'number' ? g * 100 : null);
+          peg = (growthPercent && typeof growthPercent === 'number') ? asset.fund.computed.pe / growthPercent : null;
         }
+        asset.fund.computed.peg = peg;
       }
-      asset.fund.computed.peg = peg;
+      // Re-render table after each batch so health scores appear incrementally
+      renderTable();
+    } catch (e) {
+      console.warn('fetchSymbolMetadata batch failed', e);
     }
-  } catch (e) {
-    console.warn('fetchSymbolMetadata failed', e);
+    // Small delay between batches to avoid hammering the proxy
+    if (i + BATCH < symbols.length) await new Promise(r=>setTimeout(r, 300));
   }
 }
 
@@ -1779,7 +2024,7 @@ function saveStockMetadata(){
 
 function openFundModal(sym){
   if(!sym) return;
-  let asset = STOCK_ASSETS.find(s=>s.sym===sym) || ETF_ASSETS.find(s=>s.sym===sym) || null;
+  let asset = MIDCAP_STOCKS.find(s=>s.sym===sym) || STOCK_ASSETS.find(s=>s.sym===sym) || ETF_ASSETS.find(s=>s.sym===sym) || null;
   const body = document.getElementById('fund-modal-body');
   if(!asset || !body){ closeFundModal(); return; }
   const f = asset.fund || {};
@@ -1791,18 +2036,17 @@ function openFundModal(sym){
   const html = `
     <div style="font-weight:700;margin-bottom:8px">${asset.sym} — ${asset.name || ''}</div>
     <table style="width:100%;border-collapse:collapse">
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Price Target</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(f.priceTarget)}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Target Δ</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${pctDelta}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">EPS</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(c.eps)}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">P/E</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(c.pe)}</td></tr>
+      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Trailing EPS</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(c.eps)}</td></tr>
+      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Trailing P/E</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(c.pe)}</td></tr>
+      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Forward P/E</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(f.forwardPE)}</td></tr>
+      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Price/Book</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(f.priceToBook)}</td></tr>
       <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">ROE (%)</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${roe}</td></tr>
       <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">D/E</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(c.de)}</td></tr>
       <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">PEG</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(c.peg)}</td></tr>
       <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Market Cap</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(f.marketCap)}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Total Debt</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(f.totalDebt)}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Total Equity</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(f.totalEquity)}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Shares</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(f.sharesOutstanding)}</td></tr>
-      <tr><td style="padding:6px 8px;vertical-align:top">EPS Growth</td><td style="padding:6px 8px">${fmt(f.epsGrowth)}</td></tr>
+      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Dividend Yield</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${f.dividendYield != null ? (f.dividendYield*100).toFixed(2)+'%' : '--'}</td></tr>
+      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">50D Avg</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${f.fiftyDayAvg != null ? '₹'+f.fiftyDayAvg.toLocaleString('en-IN',{maximumFractionDigits:2}) : '--'}</td></tr>
+      <tr><td style="padding:6px 8px;vertical-align:top">200D Avg</td><td style="padding:6px 8px">${f.twoHundredDayAvg != null ? '₹'+f.twoHundredDayAvg.toLocaleString('en-IN',{maximumFractionDigits:2}) : '--'}</td></tr>
     </table>
   `;
   body.innerHTML = html;
@@ -1889,7 +2133,6 @@ function renderETFSection(){
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td><button class="fav-btn ${isETFFavorite(row.sym)?'active':''}" onclick="toggleETFFavorite('${row.sym}')">${isETFFavorite(row.sym)?'★':'☆'}</button></td>
-      <td style="color:var(--muted);font-size:12px">${row.rank}</td>
       <td><div class="stock-name-cell"><span class="stock-symbol">${row.sym}</span><span class="stock-fullname">${row.name}</span></div></td>
       <td class="price-cell">${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</td>
       <td class="target-cell">${renderTargetCell(row)}</td>
@@ -1921,6 +2164,156 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadSavedETFs();
   await loadSavedStocks();
 });
+
+// ═══════════════════════════════════
+//  FUNDAMENTALS CHAT BOT
+// ═══════════════════════════════════
+let chatApiKey = localStorage.getItem('fund-chat-key') || apiKey || '';
+let chatOpen = false;
+let chatBusy = false;
+
+function toggleFundChat(){
+  chatOpen = !chatOpen;
+  const panel = document.getElementById('fund-chat-panel');
+  panel.classList.toggle('open', chatOpen);
+  if(chatOpen){
+    // Sync key from AI mode if available
+    if(!chatApiKey && apiKey) { chatApiKey = apiKey; localStorage.setItem('fund-chat-key', chatApiKey); }
+    const keyRow = document.getElementById('chat-key-row');
+    if(keyRow) keyRow.style.display = chatApiKey ? 'none' : 'flex';
+    document.getElementById('chat-input')?.focus();
+  }
+}
+
+function saveChatKey(){
+  const val = document.getElementById('chat-api-key')?.value.trim();
+  if(!val || !val.startsWith('sk-ant-')){ alert('Key must start with sk-ant-…'); return; }
+  chatApiKey = val;
+  localStorage.setItem('fund-chat-key', chatApiKey);
+  document.getElementById('chat-key-row').style.display = 'none';
+  addChatMsg('bot', '✓ API key saved. Now ask me anything about stock fundamentals!');
+}
+
+function sendSuggestion(el){
+  const text = el.textContent;
+  document.getElementById('chat-input').value = text;
+  sendChatMessage();
+}
+
+function addChatMsg(role, html){
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + role;
+  div.innerHTML = html;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function buildFundamentalsContext(){
+  // Build a compact snapshot of all stocks with available fundamentals
+  const rows = [];
+  const allAssets = [...MIDCAP_STOCKS, ...STOCK_ASSETS];
+  for(const asset of allAssets){
+    const d = stockData[asset.sym];
+    const f = asset.fund;
+    const c = f?.computed;
+    if(!d && !f) continue;
+    const norm = v => (v != null && Math.abs(v) <= 1) ? +(v*100).toFixed(2) : (v != null ? +v.toFixed(2) : null);
+    rows.push({
+      sym: asset.sym,
+      name: asset.name,
+      sector: asset.sector,
+      cap: asset.cap,
+      price: d?.price ?? null,
+      change: d?.change ?? null,
+      high52: d?.high52 ?? null,
+      low52:  d?.low52  ?? null,
+      eps:    c?.eps    ?? null,
+      pe:     c?.pe != null ? +c.pe.toFixed(2) : null,
+      roe:    c?.roe != null ? norm(c.roe) : null,
+      de:     c?.de  != null ? +c.de.toFixed(2) : null,
+      peg:    c?.peg != null ? +c.peg.toFixed(2) : null,
+      marketCap: f?.marketCap ?? null,
+      priceTarget: f?.priceTarget ?? null,
+      epsGrowth: f?.epsGrowth != null ? norm(f.epsGrowth) : null,
+    });
+  }
+  return rows;
+}
+
+async function sendChatMessage(){
+  const input = document.getElementById('chat-input');
+  const question = (input?.value || '').trim();
+  if(!question || chatBusy) return;
+
+  if(!chatApiKey){
+    document.getElementById('chat-key-row').style.display = 'flex';
+    addChatMsg('bot', '⚠️ Please enter your Anthropic API key above first.');
+    return;
+  }
+
+  input.value = '';
+  chatBusy = true;
+  document.getElementById('chat-send-btn').disabled = true;
+  addChatMsg('user', question);
+  const thinking = addChatMsg('bot thinking', '⏳ Analysing fundamentals…');
+
+  try {
+    const fundamentals = buildFundamentalsContext();
+    const loadedCount = fundamentals.filter(r=>r.pe||r.roe||r.eps).length;
+
+    const systemPrompt = `You are a sharp Indian equity analyst assistant embedded in an NSE stock dashboard.
+You have access to live fundamentals data for ${fundamentals.length} stocks (${loadedCount} with full data).
+Answer questions concisely using the provided data. 
+- For rankings/comparisons, show a compact HTML table with relevant columns.
+- For single stock analysis, give a brief paragraph + key metrics table.
+- Use ₹ for prices. ROE and EPS growth are in %. D/E is ratio.
+- Health scoring: ROE>20 = strong, P/E<20 = value, D/E<1 = low debt, PEG<2 = growth at value.
+- If fundamentals data is missing (null) for a stock, say so.
+- Keep responses concise — max 300 words or 10 table rows.
+- Return plain HTML only (no markdown, no backticks). Tables should use basic inline styles.`;
+
+    const userPrompt = `Fundamentals data (JSON array):
+${JSON.stringify(fundamentals, null, 0)}
+
+User question: ${question}`;
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': chatApiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+
+    if(!resp.ok){
+      const err = await resp.json().catch(()=>({}));
+      throw new Error(err.error?.message || 'API error ' + resp.status);
+    }
+
+    const data = await resp.json();
+    const text = data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || 'No response.';
+    thinking.remove();
+    addChatMsg('bot', text);
+  } catch(e) {
+    thinking.remove();
+    addChatMsg('bot', '⚠️ Error: ' + e.message);
+  } finally {
+    chatBusy = false;
+    document.getElementById('chat-send-btn').disabled = false;
+    input.focus();
+  }
+}
+
 </script>
 </body>
 </html>

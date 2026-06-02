@@ -285,44 +285,159 @@ async function yahooQuote(nseSymbols) {
   return { ok: true, quotes: results };
 }
 
-// Fetch summary/metadata (assetProfile, price.marketCap) via quoteSummary
+// ══════════════════════════════════════════════════════════
+//  YAHOO CRUMB SESSION  (needed for quoteSummary fundamentals)
+// ══════════════════════════════════════════════════════════
+const yahooCrumb = { value: null, cookies: '', lastFetch: 0, TTL: 30 * 60 * 1000, fetching: false };
+
+async function refreshYahooCrumb() {
+  if (yahooCrumb.fetching) return;
+  yahooCrumb.fetching = true;
+  try {
+    console.log('[crumb] Fetching Yahoo session...');
+    // Step 1: hit finance.yahoo.com to get A3/GUC cookies
+    const r0 = await httpsGet({
+      hostname: 'finance.yahoo.com', path: '/',
+      method: 'GET', timeout: 10000,
+      headers: { ...YAHOO_HEADERS, 'Accept': 'text/html,application/xhtml+xml', 'Accept-Encoding': 'gzip, deflate' }
+    });
+    const rawCookies = r0.headers['set-cookie'] || [];
+    const cookieMap = {};
+    for (const c of rawCookies) {
+      const pair = c.split(';')[0];
+      const idx = pair.indexOf('=');
+      if (idx > -1) cookieMap[pair.slice(0, idx).trim()] = pair.slice(idx + 1).trim();
+    }
+    yahooCrumb.cookies = Object.entries(cookieMap).map(([k,v]) => `${k}=${v}`).join('; ');
+    console.log('[crumb] Got cookies, length:', yahooCrumb.cookies.length);
+
+    // Step 2: fetch crumb
+    const r1 = await httpsGet({
+      hostname: 'query1.finance.yahoo.com', path: '/v1/test/getcrumb',
+      method: 'GET', timeout: 10000,
+      headers: { ...YAHOO_HEADERS, 'Cookie': yahooCrumb.cookies }
+    });
+    if (r1.status === 200 && r1.body && !r1.body.includes('<!DOCTYPE')) {
+      yahooCrumb.value = r1.body.trim();
+      yahooCrumb.lastFetch = Date.now();
+      console.log('[crumb] Got crumb:', yahooCrumb.value);
+    } else {
+      console.warn('[crumb] Failed to get crumb, status:', r1.status, r1.body.slice(0, 100));
+    }
+  } catch(e) {
+    console.warn('[crumb] Error:', e.message);
+  } finally {
+    yahooCrumb.fetching = false;
+  }
+}
+
+async function ensureCrumb() {
+  if (yahooCrumb.value && (Date.now() - yahooCrumb.lastFetch) < yahooCrumb.TTL) return true;
+  await refreshYahooCrumb();
+  return !!yahooCrumb.value;
+}
+
+// Fetch fundamentals via Yahoo quoteSummary (requires crumb session)
 async function yahooSummary(nseSymbols) {
   const results = {};
-  // request additional modules for fundamentals: financialData, defaultKeyStatistics, balanceSheetHistory, earnings
-  const MODULES = 'assetProfile,price,summaryDetail,financialData,defaultKeyStatistics,balanceSheetHistory,earnings';
+  const hasCrumb = await ensureCrumb();
+
+  const MODULES = 'financialData,defaultKeyStatistics,summaryDetail,assetProfile';
+
   for (let i = 0; i < nseSymbols.length; i += CONCURRENCY) {
     const chunk = nseSymbols.slice(i, i + CONCURRENCY);
     const settled = await Promise.allSettled(
       chunk.map(sym => (async () => {
-        const path = `/v10/finance/quoteSummary/${encodeURIComponent(sym)}.NS?modules=${MODULES}`;
         try {
-          const res = await httpsGet({ hostname: 'query2.finance.yahoo.com', path, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS });
-          if (res.status !== 200) return { sym, data: null };
-          const json = JSON.parse(res.body);
-          const r = json?.quoteSummary?.result?.[0] || null;
-          if (!r) return { sym, data: null };
-          const sector = r.assetProfile?.sector || null;
-          const industry = r.assetProfile?.industry || null;
-          const marketCap = r.price?.marketCap?.raw || (r.summaryDetail?.marketCap?.raw || null);
-          const financial = r.financialData || {};
-          const keyStats = r.defaultKeyStatistics || {};
-          const balance = r.balanceSheetHistory?.balanceSheetStatements?.[0] || {};
-          const earnings = r.earnings || {};
-          const totalDebt = financial?.totalDebt?.raw ?? null;
-          // price target: prefer targetMeanPrice or targetMedianPrice from financialData
-          const targetMean = financial?.targetMeanPrice?.raw ?? financial?.targetMedianPrice?.raw ?? null;
-          // try multiple possible equity fields
-          const totalEquity = (balance?.totalStockholderEquity?.raw ?? balance?.totalStockholdersEquity?.raw) ?? null;
-          const trailingEps = (financial?.trailingEps?.raw ?? keyStats?.trailingEps?.raw) ?? null;
-          const trailingPE = (financial?.trailingPE?.raw ?? keyStats?.trailingPE?.raw ?? r.summaryDetail?.trailingPE?.raw) ?? null;
-          const forwardPE = (financial?.forwardPE?.raw ?? r.summaryDetail?.forwardPE?.raw) ?? null;
-          const roe = financial?.returnOnEquity?.raw ?? null;
-          const sharesOutstanding = keyStats?.sharesOutstanding?.raw ?? null;
-          const epsGrowth = financial?.earningsGrowth?.raw ?? earnings?.earningsChart?.yearly?.[0]?.growth ?? null;
-          const peg = financial?.pegRatio?.raw ?? null;
+          let path, headers;
+          if (hasCrumb && yahooCrumb.value) {
+            // Use quoteSummary with crumb — returns full fundamentals
+            path = `/v10/finance/quoteSummary/${encodeURIComponent(sym)}.NS?modules=${MODULES}&crumb=${encodeURIComponent(yahooCrumb.value)}`;
+            headers = { ...YAHOO_HEADERS, 'Cookie': yahooCrumb.cookies };
+          } else {
+            // Fallback: v8/chart meta (limited fields only)
+            path = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=1d&range=1d&includePrePost=false`;
+            headers = YAHOO_HEADERS;
+          }
 
-          return { sym, data: { sector, industry, marketCap, totalDebt, totalEquity, trailingEps, trailingPE, forwardPE, roe, sharesOutstanding, epsGrowth, peg, priceTarget: targetMean } };
-        } catch (e) {
+          let res = await httpsGet({ hostname: 'query1.finance.yahoo.com', path, method: 'GET', timeout: 12000, headers });
+          // Retry with query2 on failure
+          if (res.status !== 200) {
+            res = await httpsGet({ hostname: 'query2.finance.yahoo.com', path, method: 'GET', timeout: 12000, headers });
+          }
+          // If crumb expired, refresh and retry once
+          if (res.status === 401 || res.status === 403) {
+            await refreshYahooCrumb();
+            if (yahooCrumb.value) {
+              path = `/v10/finance/quoteSummary/${encodeURIComponent(sym)}.NS?modules=${MODULES}&crumb=${encodeURIComponent(yahooCrumb.value)}`;
+              headers = { ...YAHOO_HEADERS, 'Cookie': yahooCrumb.cookies };
+              res = await httpsGet({ hostname: 'query1.finance.yahoo.com', path, method: 'GET', timeout: 12000, headers });
+            }
+          }
+          if (res.status !== 200) {
+            console.warn(`[summary] ${sym} HTTP ${res.status}`);
+            return { sym, data: null };
+          }
+
+          const json = JSON.parse(res.body);
+
+          // Parse quoteSummary response
+          const r = json?.quoteSummary?.result?.[0];
+          if (r) {
+            const fin   = r.financialData || {};
+            const stats = r.defaultKeyStatistics || {};
+            const detail = r.summaryDetail || {};
+            const profile = r.assetProfile || {};
+
+            const trailingEps   = fin.trailingEps?.raw ?? stats.trailingEps?.raw ?? null;
+            const trailingPE    = fin.trailingPE?.raw ?? stats.trailingPE?.raw ?? detail.trailingPE?.raw ?? null;
+            const forwardPE     = fin.forwardPE?.raw ?? detail.forwardPE?.raw ?? null;
+            const marketCap     = detail.marketCap?.raw ?? null;
+            const priceToBook   = stats.priceToBook?.raw ?? null;
+            const dividendYield = detail.dividendYield?.raw ?? detail.trailingAnnualDividendYield?.raw ?? null;
+            const roe           = fin.returnOnEquity?.raw ?? null;
+            const totalDebt     = fin.totalDebt?.raw ?? null;
+            const totalEquity   = fin.totalStockholdersEquity?.raw ?? null;
+            const epsGrowth     = fin.earningsGrowth?.raw ?? null;
+            const peg           = stats.pegRatio?.raw ?? null;
+            const priceTarget   = fin.targetMeanPrice?.raw ?? fin.targetMedianPrice?.raw ?? null;
+            const sharesOut     = stats.sharesOutstanding?.raw ?? null;
+            const sector        = profile.sector ?? null;
+            const industry      = profile.industry ?? null;
+            const fiftyDayAvg   = detail.fiftyDayAverage?.raw ?? null;
+            const twoHundredDayAvg = detail.twoHundredDayAverage?.raw ?? null;
+            const high52        = detail.fiftyTwoWeekHigh?.raw ?? null;
+            const low52         = detail.fiftyTwoWeekLow?.raw ?? null;
+            const forwardEps    = stats.forwardEps?.raw ?? null;
+
+            console.log(`[summary] ${sym} OK — PE:${trailingPE} EPS:${trailingEps} ROE:${roe} MCap:${marketCap}`);
+            return { sym, data: { trailingEps, forwardEps, trailingPE, forwardPE, marketCap, priceToBook,
+              dividendYield, fiftyDayAvg, twoHundredDayAvg, high52, low52, roe, totalDebt, totalEquity,
+              epsGrowth, peg, priceTarget, sharesOutstanding: sharesOut, sector, industry } };
+          }
+
+          // Fallback: parse v8/chart meta
+          const meta = json?.chart?.result?.[0]?.meta;
+          if (meta) {
+            const trailingEps = meta.epsTrailingTwelveMonths ?? null;
+            const forwardEps  = meta.epsForward ?? null;
+            const trailingPE  = meta.trailingPE ?? null;
+            const price       = meta.regularMarketPrice ?? null;
+            const forwardPE   = (forwardEps && price) ? +(price / forwardEps).toFixed(2) : null;
+            console.log(`[summary] ${sym} chart-meta fallback — PE:${trailingPE} EPS:${trailingEps}`);
+            return { sym, data: { trailingEps, forwardEps, trailingPE, forwardPE,
+              marketCap: meta.marketCap ?? null, priceToBook: meta.priceToBook ?? null,
+              dividendYield: meta.dividendYield ?? null,
+              fiftyDayAvg: meta.fiftyDayAverage ?? null, twoHundredDayAvg: meta.twoHundredDayAverage ?? null,
+              high52: meta.fiftyTwoWeekHigh ?? null, low52: meta.fiftyTwoWeekLow ?? null,
+              roe: null, totalDebt: null, totalEquity: null, epsGrowth: null,
+              peg: null, priceTarget: null, sharesOutstanding: null, sector: null, industry: null } };
+          }
+
+          console.warn(`[summary] ${sym} no parseable data`);
+          return { sym, data: null };
+        } catch(e) {
+          console.warn(`[summary] ${sym} error:`, e.message);
           return { sym, data: null };
         }
       })())
@@ -396,6 +511,28 @@ const server = http.createServer(async (req, res) => {
       res.end(r.body);
     } catch(e) {
       res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // /debug-meta?symbol=X  -- dump raw Yahoo chart meta for debugging
+  if (pathname === '/debug-meta') {
+    const sym = searchParams.get('symbol') || 'RELIANCE';
+    try {
+      // Try both 1d and 3mo ranges to see which has more fields
+      const path1d  = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=1d&range=1d&includePrePost=false`;
+      const path3mo = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=1d&range=3mo&includePrePost=false`;
+      const [r1, r3] = await Promise.all([
+        httpsGet({ hostname: 'query1.finance.yahoo.com', path: path1d,  method: 'GET', timeout: 12000, headers: YAHOO_HEADERS }),
+        httpsGet({ hostname: 'query1.finance.yahoo.com', path: path3mo, method: 'GET', timeout: 12000, headers: YAHOO_HEADERS }),
+      ]);
+      const meta1d  = JSON.parse(r1.body)?.chart?.result?.[0]?.meta || {};
+      const meta3mo = JSON.parse(r3.body)?.chart?.result?.[0]?.meta || {};
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ sym, range_1d: meta1d, range_3mo: meta3mo }, null, 2));
+    } catch(e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
     }
     return;
@@ -626,8 +763,8 @@ server.listen(PORT, async () => {
 ║  Press Ctrl+C to stop.                           ║
 ╚══════════════════════════════════════════════════╝
 `);
-  // Only NSE needs session warming; Yahoo v8/chart is stateless
-  await warmNSESession();
+  // Warm NSE session and fetch Yahoo crumb in parallel
+  await Promise.all([warmNSESession(), refreshYahooCrumb()]);
 });
 
 server.on('error', e => {
