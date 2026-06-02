@@ -38,6 +38,9 @@ const fs    = require('fs');
 const path  = require('path');
 const PORT  = 3001;
 const SAVED_ETF_FILE = path.join(__dirname, 'saved_etfs.json');
+const SAVED_STOCK_FILE = path.join(__dirname, 'saved_stocks.json');
+const SAVED_ETF_FAV_FILE = path.join(__dirname, 'saved_etf_favs.json');
+const SAVED_STOCK_FAV_FILE = path.join(__dirname, 'saved_stock_favs.json');
 
 function loadSavedETFsFile() {
   try {
@@ -56,9 +59,60 @@ function saveSavedETFsFile(symbols) {
   }
 }
 
+function loadSavedStocksFile() {
+  try {
+    if (!fs.existsSync(SAVED_STOCK_FILE)) fs.writeFileSync(SAVED_STOCK_FILE, '[]', 'utf8');
+    const content = fs.readFileSync(SAVED_STOCK_FILE, 'utf8');
+    return JSON.parse(content || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+function saveSavedStocksFile(symbols) {
+  try {
+    fs.writeFileSync(SAVED_STOCK_FILE, JSON.stringify(Array.isArray(symbols) ? symbols : [], null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[proxy] Could not save stock prefs:', e.message);
+  }
+}
+
+function loadSavedETFFavsFile() {
+  try {
+    if (!fs.existsSync(SAVED_ETF_FAV_FILE)) fs.writeFileSync(SAVED_ETF_FAV_FILE, '[]', 'utf8');
+    const content = fs.readFileSync(SAVED_ETF_FAV_FILE, 'utf8');
+    return JSON.parse(content || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+function saveSavedETFFavsFile(symbols) {
+  try {
+    fs.writeFileSync(SAVED_ETF_FAV_FILE, JSON.stringify(Array.isArray(symbols) ? symbols : [], null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[proxy] Could not save ETF favorites:', e.message);
+  }
+}
+
+function loadSavedStockFavsFile() {
+  try {
+    if (!fs.existsSync(SAVED_STOCK_FAV_FILE)) fs.writeFileSync(SAVED_STOCK_FAV_FILE, '[]', 'utf8');
+    const content = fs.readFileSync(SAVED_STOCK_FAV_FILE, 'utf8');
+    return JSON.parse(content || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+function saveSavedStockFavsFile(symbols) {
+  try {
+    fs.writeFileSync(SAVED_STOCK_FAV_FILE, JSON.stringify(Array.isArray(symbols) ? symbols : [], null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[proxy] Could not save stock favorites:', e.message);
+  }
+}
+
 // ══════════════════════════════════════════════════════════
 //  SHARED HELPER — HTTPS GET with auto-decompression
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════
 function httpsGet(opts) {
   return new Promise((resolve, reject) => {
     const req = https.request(opts, (res) => {
@@ -231,6 +285,55 @@ async function yahooQuote(nseSymbols) {
   return { ok: true, quotes: results };
 }
 
+// Fetch summary/metadata (assetProfile, price.marketCap) via quoteSummary
+async function yahooSummary(nseSymbols) {
+  const results = {};
+  // request additional modules for fundamentals: financialData, defaultKeyStatistics, balanceSheetHistory, earnings
+  const MODULES = 'assetProfile,price,summaryDetail,financialData,defaultKeyStatistics,balanceSheetHistory,earnings';
+  for (let i = 0; i < nseSymbols.length; i += CONCURRENCY) {
+    const chunk = nseSymbols.slice(i, i + CONCURRENCY);
+    const settled = await Promise.allSettled(
+      chunk.map(sym => (async () => {
+        const path = `/v10/finance/quoteSummary/${encodeURIComponent(sym)}.NS?modules=${MODULES}`;
+        try {
+          const res = await httpsGet({ hostname: 'query2.finance.yahoo.com', path, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS });
+          if (res.status !== 200) return { sym, data: null };
+          const json = JSON.parse(res.body);
+          const r = json?.quoteSummary?.result?.[0] || null;
+          if (!r) return { sym, data: null };
+          const sector = r.assetProfile?.sector || null;
+          const industry = r.assetProfile?.industry || null;
+          const marketCap = r.price?.marketCap?.raw || (r.summaryDetail?.marketCap?.raw || null);
+          const financial = r.financialData || {};
+          const keyStats = r.defaultKeyStatistics || {};
+          const balance = r.balanceSheetHistory?.balanceSheetStatements?.[0] || {};
+          const earnings = r.earnings || {};
+          const totalDebt = financial?.totalDebt?.raw ?? null;
+          // price target: prefer targetMeanPrice or targetMedianPrice from financialData
+          const targetMean = financial?.targetMeanPrice?.raw ?? financial?.targetMedianPrice?.raw ?? null;
+          // try multiple possible equity fields
+          const totalEquity = (balance?.totalStockholderEquity?.raw ?? balance?.totalStockholdersEquity?.raw) ?? null;
+          const trailingEps = (financial?.trailingEps?.raw ?? keyStats?.trailingEps?.raw) ?? null;
+          const trailingPE = (financial?.trailingPE?.raw ?? keyStats?.trailingPE?.raw ?? r.summaryDetail?.trailingPE?.raw) ?? null;
+          const forwardPE = (financial?.forwardPE?.raw ?? r.summaryDetail?.forwardPE?.raw) ?? null;
+          const roe = financial?.returnOnEquity?.raw ?? null;
+          const sharesOutstanding = keyStats?.sharesOutstanding?.raw ?? null;
+          const epsGrowth = financial?.earningsGrowth?.raw ?? earnings?.earningsChart?.yearly?.[0]?.growth ?? null;
+          const peg = financial?.pegRatio?.raw ?? null;
+
+          return { sym, data: { sector, industry, marketCap, totalDebt, totalEquity, trailingEps, trailingPE, forwardPE, roe, sharesOutstanding, epsGrowth, peg, priceTarget: targetMean } };
+        } catch (e) {
+          return { sym, data: null };
+        }
+      })())
+    );
+    for (const r of settled) {
+      if (r.status === 'fulfilled' && r.value?.data) results[r.value.sym] = r.value.data;
+    }
+  }
+  return { ok: true, metas: results };
+}
+
 // Indices via v8/chart
 const INDEX_MAP = {
   '^NSEI'   : 'nifty50',
@@ -265,6 +368,8 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
   const { pathname, searchParams } = new URL(req.url, `http://localhost:${PORT}`);
+  // Log incoming requests for debugging client 404s
+  try { console.log('[proxy] >>', req.method, pathname, req.socket && req.socket.remoteAddress); } catch (e) {}
 
   // /health
   if (pathname === '/health') {
@@ -324,10 +429,26 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // /yahoo/summary?symbols=A,B  -- fetch assetProfile + marketCap metadata
+  if (pathname === '/yahoo/summary') {
+    const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!symbols.length) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No symbols' })); return; }
+    try {
+      const data = await yahooSummary(symbols);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch(e) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // /etf-prefs  -- persist custom ETF symbols in workspace
   if (pathname === '/etf-prefs') {
     if (req.method === 'GET') {
       const list = loadSavedETFsFile();
+      console.log('[proxy] /etf-prefs GET -> 200, items=', list.length);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(list));
       return;
@@ -341,6 +462,115 @@ const server = http.createServer(async (req, res) => {
           const payload = JSON.parse(body);
           const symbols = Array.isArray(payload) ? payload.map(s => String(s).trim().toUpperCase()).filter(Boolean) : [];
           saveSavedETFsFile(symbols);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, saved: symbols.length }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Method not allowed' }));
+    return;
+  }
+
+  // /etf-favs  -- persist ETF favorites in workspace
+  if (pathname === '/etf-favs') {
+    if (req.method === 'GET') {
+      const list = loadSavedETFFavsFile();
+      console.log('[proxy] /etf-favs GET -> 200, items=', list.length);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(list));
+      return;
+    }
+    if (req.method === 'POST') {
+      const chunks = [];
+      req.on('data', chunk => chunks.push(chunk));
+      req.on('end', () => {
+        try {
+          const body = Buffer.concat(chunks).toString('utf8');
+          const payload = JSON.parse(body);
+          const symbols = Array.isArray(payload) ? payload.map(s => String(s).trim().toUpperCase()).filter(Boolean) : [];
+          saveSavedETFFavsFile(symbols);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, saved: symbols.length }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Method not allowed' }));
+    return;
+  }
+
+  // /stock-prefs  -- persist custom stock symbols in workspace
+  if (pathname === '/stock-prefs') {
+    if (req.method === 'GET') {
+      const list = loadSavedStocksFile();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(list));
+      return;
+    }
+    if (req.method === 'POST') {
+      const chunks = [];
+      req.on('data', chunk => chunks.push(chunk));
+      req.on('end', () => {
+        try {
+          const body = Buffer.concat(chunks).toString('utf8');
+          const payload = JSON.parse(body);
+          let toSave = [];
+          if (Array.isArray(payload)) {
+            // Support array of strings or array of objects { sym, sector, cap }
+            if (payload.length && typeof payload[0] === 'string') {
+              toSave = payload.map(s => String(s).trim().toUpperCase()).filter(Boolean);
+            } else {
+              toSave = payload.map(item => {
+                if (!item || typeof item === 'string') return null;
+                const sym = String(item.sym||item.symbol||'').trim().toUpperCase();
+                if (!sym) return null;
+                return { sym, sector: item.sector||null, cap: item.cap||null };
+              }).filter(Boolean);
+            }
+          }
+          console.log('[proxy] saving stock prefs:', JSON.stringify(toSave));
+          saveSavedStocksFile(toSave);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, saved: toSave.length }));
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid JSON' }));
+        }
+      });
+      return;
+    }
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Method not allowed' }));
+    return;
+  }
+
+  // /stock-favs  -- persist Stock favorites in workspace
+  if (pathname === '/stock-favs') {
+    if (req.method === 'GET') {
+      const list = loadSavedStockFavsFile();
+      console.log('[proxy] /stock-favs GET -> 200, items=', list.length);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(list));
+      return;
+    }
+    if (req.method === 'POST') {
+      const chunks = [];
+      req.on('data', chunk => chunks.push(chunk));
+      req.on('end', () => {
+        try {
+          const body = Buffer.concat(chunks).toString('utf8');
+          const payload = JSON.parse(body);
+          const symbols = Array.isArray(payload) ? payload.map(s => String(s).trim().toUpperCase()).filter(Boolean) : [];
+          saveSavedStockFavsFile(symbols);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, saved: symbols.length }));
         } catch (e) {
@@ -388,6 +618,10 @@ server.listen(PORT, async () => {
 ║  GET /nse?path=/api/...     NSE India            ║
 ║  GET /yahoo?symbols=A,B     Yahoo Finance        ║
 ║  GET /yahoo/indices         Nifty indices        ║
+║  GET /etf-prefs             ETF prefs storage    ║
+║  GET /etf-favs              ETF favorites storage ║
+║  GET /stock-prefs           Stock prefs storage  ║
+║  GET /stock-favs            Stock favorites storage║
 ║                                                  ║
 ║  Press Ctrl+C to stop.                           ║
 ╚══════════════════════════════════════════════════╝

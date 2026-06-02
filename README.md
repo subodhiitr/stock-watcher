@@ -19,6 +19,7 @@ A lightweight dashboard for Indian NSE midcap stocks, built with a local proxy f
   - `GET /yahoo?symbols=A,B` for Yahoo Finance stock quotes
   - `GET /yahoo/indices` for index summaries
   - `GET /etf-prefs` to persist custom ETF symbol preferences
+  - `GET /stock-prefs` to persist custom stock symbol preferences
 - The dashboard fetches live prices and renders a midcap stock watch table, sector heatmap, and ETF tracker.
 
 ## Notes
@@ -26,4 +27,5 @@ A lightweight dashboard for Indian NSE midcap stocks, built with a local proxy f
 - Yahoo and NSE modes require the proxy to be running on `http://localhost:3001`.
 - AI mode requires an Anthropic API key and may be slower.
 - Custom ETF symbols are saved to `saved_etfs.json` on the proxy and also cached in browser localStorage for refresh persistence.
+- Custom stock symbols are saved to `saved_stocks.json` on the proxy and also cached in browser localStorage for refresh persistence.
  
