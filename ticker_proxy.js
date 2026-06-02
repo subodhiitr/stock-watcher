@@ -286,6 +286,65 @@ async function yahooQuote(nseSymbols) {
 }
 
 // ══════════════════════════════════════════════════════════
+//  ETF DATA  — 52W range + NAV discount/premium via quoteSummary
+// ══════════════════════════════════════════════════════════
+async function fetchETFData(etfSymbols) {
+  const results = {};
+  // Try NSE /api/etf for iNAV data first
+  let navMap = {};
+  try {
+    const nseRes = await nseGet('/api/etf');
+    const items = JSON.parse(nseRes.body)?.data || [];
+    for (const item of items) {
+      const sym = (item.symbol || item.Symbol || '').trim().toUpperCase();
+      if (!sym) continue;
+      navMap[sym] = {
+        nav     : parseFloat(item.iNavValue || item.nav || item.NAV || 0) || null,
+        high52  : parseFloat(item['52WeekHigh'] || item.yearHigh || 0) || null,
+        low52   : parseFloat(item['52WeekLow']  || item.yearLow  || 0) || null,
+        aum     : item.aum || item.AUM || null,
+        expRatio: item.expenseRatio || null,
+      };
+    }
+    console.log('[etf-nav] NSE ETF data fetched, count:', Object.keys(navMap).length);
+  } catch(e) {
+    console.warn('[etf-nav] NSE ETF fetch failed:', e.message);
+  }
+
+  // For each symbol, merge NSE nav data with Yahoo price data
+  for (let i = 0; i < etfSymbols.length; i += CONCURRENCY) {
+    const chunk = etfSymbols.slice(i, i + CONCURRENCY);
+    const settled = await Promise.allSettled(
+      chunk.map(sym => (async () => {
+        const nse = navMap[sym] || {};
+        // Yahoo chart for price + 52W if NSE didn't have it
+        try {
+          const path = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=1d&range=1d&includePrePost=false`;
+          let r = await httpsGet({ hostname: 'query1.finance.yahoo.com', path, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS });
+          if (r.status !== 200) r = await httpsGet({ hostname: 'query2.finance.yahoo.com', path, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS });
+          const meta = r.status === 200 ? JSON.parse(r.body)?.chart?.result?.[0]?.meta : null;
+
+          const price  = meta?.regularMarketPrice ?? null;
+          const high52 = nse.high52 || meta?.fiftyTwoWeekHigh || null;
+          const low52  = nse.low52  || meta?.fiftyTwoWeekLow  || null;
+          const nav    = nse.nav || null;
+          const navPremium = (nav && price) ? +((( price - nav) / nav) * 100).toFixed(2) : null;
+
+          console.log(`[etf-nav] ${sym} price:${price} nav:${nav} premium:${navPremium}% 52W:${low52}-${high52}`);
+          return { sym, data: { price, nav, navPremium, high52, low52, aum: nse.aum || null, expRatio: nse.expRatio || null } };
+        } catch(e) {
+          return { sym, data: { nav: nse.nav||null, high52: nse.high52||null, low52: nse.low52||null, navPremium: null, aum: null, expRatio: null } };
+        }
+      })())
+    );
+    for (const r of settled) {
+      if (r.status === 'fulfilled' && r.value) results[r.value.sym] = r.value.data;
+    }
+  }
+  return { ok: true, etfs: results };
+}
+
+// ══════════════════════════════════════════════════════════
 //  YAHOO CRUMB SESSION  (needed for quoteSummary fundamentals)
 // ══════════════════════════════════════════════════════════
 const yahooCrumb = { value: null, cookies: '', lastFetch: 0, TTL: 30 * 60 * 1000, fetching: false };
@@ -410,7 +469,7 @@ async function yahooSummary(nseSymbols) {
             const low52         = detail.fiftyTwoWeekLow?.raw ?? null;
             const forwardEps    = stats.forwardEps?.raw ?? null;
 
-            console.log(`[summary] ${sym} OK — PE:${trailingPE} EPS:${trailingEps} ROE:${roe} MCap:${marketCap}`);
+            
             return { sym, data: { trailingEps, forwardEps, trailingPE, forwardPE, marketCap, priceToBook,
               dividendYield, fiftyDayAvg, twoHundredDayAvg, high52, low52, roe, totalDebt, totalEquity,
               epsGrowth, peg, priceTarget, sharesOutstanding: sharesOut, sector, industry } };
@@ -538,6 +597,21 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // /etf-nav?symbols=A,B  -- fetch ETF-specific data: NAV, 52W range, expense ratio via quoteSummary
+  if (pathname === '/etf-nav') {
+    const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!symbols.length) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No symbols' })); return; }
+    try {
+      const data = await fetchETFData(symbols);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch(e) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // /yahoo?symbols=...
   if (pathname === '/yahoo') {
     const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -559,6 +633,67 @@ const server = http.createServer(async (req, res) => {
       const data = await yahooIndices();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(data));
+    } catch(e) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // /etf-summary?symbols=A,B  -- fetch ETF-specific data: NAV, expense ratio, category
+  if (pathname === '/etf-summary') {
+    const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!symbols.length) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No symbols' })); return; }
+    try {
+      const results = {};
+      const hasCrumb = await ensureCrumb();
+      const MODULES = 'defaultKeyStatistics,summaryDetail,fundProfile,topHoldings';
+      for (let i = 0; i < symbols.length; i += CONCURRENCY) {
+        const chunk = symbols.slice(i, i + CONCURRENCY);
+        const settled = await Promise.allSettled(chunk.map(sym => (async () => {
+          try {
+            let path, headers;
+            if (hasCrumb && yahooCrumb.value) {
+              path = `/v10/finance/quoteSummary/${encodeURIComponent(sym)}.NS?modules=${MODULES}&crumb=${encodeURIComponent(yahooCrumb.value)}`;
+              headers = { ...YAHOO_HEADERS, 'Cookie': yahooCrumb.cookies };
+            } else {
+              path = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=1d&range=1d`;
+              headers = YAHOO_HEADERS;
+            }
+            let r = await httpsGet({ hostname: 'query1.finance.yahoo.com', path, method: 'GET', timeout: 12000, headers });
+            if (r.status !== 200) r = await httpsGet({ hostname: 'query2.finance.yahoo.com', path, method: 'GET', timeout: 12000, headers });
+            if (r.status !== 200) return { sym, data: null };
+            const json = JSON.parse(r.body);
+            const result = json?.quoteSummary?.result?.[0];
+            if (result) {
+              const stats   = result.defaultKeyStatistics || {};
+              const detail  = result.summaryDetail || {};
+              const profile = result.fundProfile || {};
+              const nav     = stats.nav?.raw ?? stats.navPrice?.raw ?? null;
+              const price   = detail.previousClose?.raw ?? null;
+              const premium = (nav && price) ? +((price - nav) / nav * 100).toFixed(2) : null;
+              const expenseRatio = profile.annualReportExpenseRatio?.raw ?? stats.annualReportExpenseRatio?.raw ?? null;
+              const category = profile.categoryName ?? null;
+              const ytdReturn = stats.ytdReturn?.raw ?? null;
+              const threeYearReturn = stats.threeYearAverageReturn?.raw ?? null;
+              const fiveYearReturn  = stats.fiveYearAverageReturn?.raw ?? null;
+              const high52  = detail.fiftyTwoWeekHigh?.raw ?? null;
+              const low52   = detail.fiftyTwoWeekLow?.raw  ?? null;
+              console.log(`[etf-summary] ${sym} NAV:${nav} Price:${price} Premium:${premium}% ExpRatio:${expenseRatio}`);
+              return { sym, data: { nav, price, premium, expenseRatio, category, ytdReturn, threeYearReturn, fiveYearReturn, high52, low52 } };
+            }
+            // fallback: chart meta
+            const meta = json?.chart?.result?.[0]?.meta;
+            if (meta) return { sym, data: { nav: null, price: meta.regularMarketPrice, premium: null, expenseRatio: null, category: null, ytdReturn: null, threeYearReturn: null, fiveYearReturn: null, high52: meta.fiftyTwoWeekHigh??null, low52: meta.fiftyTwoWeekLow??null } };
+            return { sym, data: null };
+          } catch(e) { console.warn(`[etf-summary] ${sym} error:`, e.message); return { sym, data: null }; }
+        })()));
+        for (const r of settled) {
+          if (r.status === 'fulfilled' && r.value?.data) results[r.value.sym] = r.value.data;
+        }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, etfs: results }));
     } catch(e) {
       res.writeHead(502, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));

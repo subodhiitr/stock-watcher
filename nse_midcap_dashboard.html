@@ -448,8 +448,10 @@
             <th onclick="etfSortBy('price')">Price ₹ ↕</th>
             <th onclick="etfSortBy('target')">Target ₹ ↕</th>
             <th onclick="etfSortBy('change')">Change% ↕</th>
+            <th onclick="etfSortBy('nav')">NAV ↕</th>
+            <th onclick="etfSortBy('premium')">Premium% ↕</th>
             <th class="hide-mobile">52W Range</th>
-            <th class="hide-mobile">Volume</th>
+            <th class="hide-mobile hide-1200">Exp Ratio</th>
             <th>Trend</th>
             <th>Signal</th>
           </tr></thead>
@@ -1670,6 +1672,8 @@ async function setView(view, el){
     await loadPresetETFs();
     await fetchAdditionalSymbols(ETF_ASSETS.map(e=>e.sym));
     renderETFSection();
+    // Fetch NAV + expense ratio in background
+    fetchETFSummary(ETF_ASSETS.map(e=>e.sym)).catch(e=>console.warn('ETF summary failed',e));
   } else renderTable();
 }
 
@@ -1868,6 +1872,42 @@ async function fetchAdditionalSymbols(symbols){
     }
   } else {
     toFetch.forEach(sym => stockData[sym] = { price:0, change:0 });
+  }
+}
+
+// Fetch NAV + expense ratio for ETFs
+async function fetchETFSummary(symbols) {
+  if (!symbols || !symbols.length) return;
+  const BATCH = 8;
+  for (let i = 0; i < symbols.length; i += BATCH) {
+    const batch = symbols.slice(i, i + BATCH);
+    try {
+      const res = await fetch(`${PROXY}/etf-summary?symbols=${encodeURIComponent(batch.join(','))}`);
+      if (!res.ok) continue;
+      const payload = await res.json().catch(() => null);
+      const etfs = payload?.etfs || {};
+      for (const sym of Object.keys(etfs)) {
+        const e = etfs[sym]; if (!e) continue;
+        const asset = ETF_ASSETS.find(s => s.sym === sym);
+        if (!asset) continue;
+        asset.etfData = asset.etfData || {};
+        asset.etfData.nav          = e.nav          ?? null;
+        asset.etfData.premium      = e.premium      ?? null;
+        asset.etfData.expenseRatio = e.expenseRatio ?? null;
+        asset.etfData.category     = e.category     ?? null;
+        asset.etfData.ytdReturn       = e.ytdReturn       ?? null;
+        asset.etfData.threeYearReturn = e.threeYearReturn ?? null;
+        asset.etfData.fiveYearReturn  = e.fiveYearReturn  ?? null;
+        if (e.high52 && !stockData[sym]?.high52) {
+          if (stockData[sym]) stockData[sym].high52 = e.high52;
+        }
+        if (e.low52 && !stockData[sym]?.low52) {
+          if (stockData[sym]) stockData[sym].low52 = e.low52;
+        }
+      }
+      renderETFSection();
+    } catch(e) { console.warn('fetchETFSummary failed', e); }
+    if (i + BATCH < symbols.length) await new Promise(r => setTimeout(r, 300));
   }
 }
 
@@ -2112,6 +2152,8 @@ function renderETFSection(){
     else if(col==='price'){av=a.data?.price||0; bv=b.data?.price||0;}
     else if(col==='target'){ av=a.fund?.priceTarget ?? 0; bv=b.fund?.priceTarget ?? 0; }
     else if(col==='change'){av=a.data?.change||0; bv=b.data?.change||0;}
+    else if(col==='nav'){av=a.etfData?.nav??-1; bv=b.etfData?.nav??-1;}
+    else if(col==='premium'){av=a.etfData?.premium??-999; bv=b.etfData?.premium??-999;}
     else {av=a.rank; bv=b.rank;}
     return typeof av==='string' ? dir*av.localeCompare(bv) : dir*(av-bv);
   });
@@ -2137,13 +2179,37 @@ function renderETFSection(){
       <td class="price-cell">${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</td>
       <td class="target-cell">${renderTargetCell(row)}</td>
       <td class="chg-cell ${chg>=0?'up':'down'}">${d?(chg>=0?'▲ +':'▼ ')+chg.toFixed(2)+'%':'--'}</td>
+      <td style="font-size:12px">${renderETFNavCell(row)}</td>
+      <td style="font-size:12px">${renderETFPremiumCell(row)}</td>
       <td class="hide-mobile" style="font-size:11px;color:var(--muted)">${d&&d.low52&&d.high52?'₹'+d.low52.toLocaleString('en-IN',{maximumFractionDigits:0})+' – ₹'+d.high52.toLocaleString('en-IN',{maximumFractionDigits:0}):'--'}</td>
-      <td class="hide-mobile" style="font-size:12px;color:var(--muted)">${d?.volume?(d.volume/100000).toFixed(1)+'L':'--'}</td>
-      
+      <td class="hide-mobile hide-1200" style="font-size:11px;color:var(--muted)">${renderETFExpenseCell(row)}</td>
       <td><div class="spark">${d?sparkBars(chg):'<span style="color:var(--muted);font-size:11px">--</span>'}</div></td>
       <td><span class="signal-badge ${sig}">${sigLabels[sig]}</span></td>`;
     tbody.appendChild(tr);
   }
+}
+
+function renderETFNavCell(row) {
+  const nav = row.etfData?.nav;
+  if (nav == null) return '<span style="color:var(--muted)">--</span>';
+  return '₹' + nav.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function renderETFPremiumCell(row) {
+  const prem = row.etfData?.premium;
+  if (prem == null) return '<span style="color:var(--muted)">--</span>';
+  const col = Math.abs(prem) < 0.5 ? 'var(--muted)' : prem > 0 ? 'var(--red)' : 'var(--green)';
+  const arrow = prem > 0 ? '▲' : prem < 0 ? '▼' : '–';
+  const label = Math.abs(prem) < 0.5 ? 'At NAV' : prem > 0 ? 'Premium' : 'Discount';
+  return `<span style="color:${col};font-weight:600">${arrow} ${Math.abs(prem).toFixed(2)}%</span> <span style="font-size:10px;color:var(--muted)">${label}</span>`;
+}
+
+function renderETFExpenseCell(row) {
+  const exp = row.etfData?.expenseRatio;
+  if (exp == null) return '<span style="color:var(--muted)">--</span>';
+  const pct = (exp * 100).toFixed(2);
+  const col = exp <= 0.002 ? 'var(--green)' : exp <= 0.005 ? 'var(--yellow)' : 'var(--red)';
+  return `<span style="color:${col}">${pct}%</span>`;
 }
 
 function renderDashboard(){ renderIndices(); renderSectors(); renderTable(); renderETFSection(); if(currentView==='etfs') setView('etfs', document.getElementById('tab-etfs')); }
