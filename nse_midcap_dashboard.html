@@ -354,14 +354,14 @@
             <th onclick="sortBy('rank')"># ↕</th>
             <th onclick="sortBy('symbol')">Stock ↕</th>
             <th onclick="sortBy('sector')">Sector ↕</th>
-            <th onclick="sortBy('price')">Price ₹ ↕</th>
-            <th onclick="sortBy('target')">Target ₹ ↕</th>
+            <th onclick="sortBy('price')">Price ₹ ↕</th>            
             <th onclick="sortBy('change')">Change% ↕</th>
             <th class="hide-mobile">52W Range</th>
             <th class="hide-mobile">Volume</th>
             <th>Health</th>
             <th>Trend</th>
             <th>Signal</th>
+			<th onclick="sortBy('target')">Target ₹ ↕</th>
           </tr></thead>
           <tbody id="stock-tbody"></tbody>
         </table>
@@ -373,13 +373,14 @@
       <div id="etf-controls-bar" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;">
         <input id="extra-symbol-input" class="text-input" style="width:220px" placeholder="Add ETF symbol" />
         <button class="btn" onclick="addCustomSymbol()">＋ Add ETF</button>
+		<button class="filter-btn" onclick="setETFFilter('all', this)">All</button>
 		<button class="filter-btn" onclick="setETFFilter('buy',this)">🟢 Buy</button>
 		<button class="filter-btn" onclick="setETFFilter('sell', this)">🔴 Sell</button>
         <button class="filter-btn" onclick="setETFFilter('gainers', this)">Top Gainers</button>
         <button class="filter-btn" onclick="setETFFilter('losers', this)">Top Losers</button>
         <button class="filter-btn" onclick="setETFFilter('favorite', this)">★ Favorites</button>
         <button class="filter-btn" onclick="setETFFilter('custom', this)">Custom</button>
-        <button class="filter-btn" onclick="setETFFilter('preset', this)">Preset</button>
+       
       </div>
         
      
@@ -394,7 +395,6 @@
             <th onclick="etfSortBy('change')">Change% ↕</th>
             <th class="hide-mobile">52W Range</th>
             <th class="hide-mobile">Volume</th>
-            <th>Health</th>
             <th>Trend</th>
             <th>Signal</th>
           </tr></thead>
@@ -1550,13 +1550,14 @@ function renderTable(){
       <td><div class="stock-name-cell"><span class="stock-symbol">${row.sym}</span><span class="stock-fullname">${row.name}</span>${STOCK_EXTRA_SYMBOLS.includes(row.sym)?'<button class="meta-btn" style="margin-left:8px;padding:4px 6px;font-size:12px;border-radius:6px" onclick="openStockMetadataModal(\''+row.sym+'\')">✎</button>':''}</div></td>
       <td><span class="sector-badge">${row.sector}</span> <span class="sector-badge" style="background:${row.cap==='large'?'rgba(14,165,233,.15)':row.cap==='mid'?'rgba(167,139,250,.15)':row.cap==='etf'?'rgba(167,139,250,.06)':'rgba(167,139,250,.06)'};color:${row.cap==='large'?'var(--accent2)':row.cap==='mid'?'var(--accent3)':row.cap==='etf'?'var(--muted)':'var(--muted)'}">${row.cap==='large'?'L-Cap':row.cap==='mid'?'M-Cap':row.cap==='etf'?'ETF':'Custom'}</span></td>
       <td class="price-cell">${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</td>
-      <td class="target-cell">${renderTargetCell(row)}</td>
+     
       <td class="chg-cell ${chg>=0?'up':'down'}">${d?(chg>=0?'▲ +':'▼ ')+chg.toFixed(2)+'%':'--'}</td>
       <td class="hide-mobile" style="font-size:11px;color:var(--muted)">${d&&d.low52&&d.high52?'₹'+d.low52.toLocaleString('en-IN',{maximumFractionDigits:0})+' – ₹'+d.high52.toLocaleString('en-IN',{maximumFractionDigits:0}):'--'}</td>
       <td class="hide-mobile" style="font-size:12px;color:var(--muted)">${d?.volume?(d.volume/100000).toFixed(1)+'L':'--'}</td>
-     
+      <td>${renderHealthCell(row)}</td>
       <td><div class="spark">${d?sparkBars(chg):'<span style="color:var(--muted);font-size:11px">--</span>'}</div></td>
-      <td><span class="signal-badge ${sig}">${sigLabels[sig]}</span></td>`;
+      <td><span class="signal-badge ${sig}">${sigLabels[sig]}</span></td>
+	   <td class="target-cell">${renderTargetCell(row)}</td>`;
     tbody.appendChild(tr);
   }
 }
