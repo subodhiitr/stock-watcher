@@ -1,0 +1,5218 @@
+{
+  "NIFTYBEES": {
+    "data": {
+      "nav": 265.4257,
+      "price": 265.6,
+      "premium": 0.07,
+      "expenseRatio": 0.0004,
+      "category": null,
+      "ytdReturn": -0.0745,
+      "oneYearReturn": -0.0738,
+      "threeYearReturn": 0.0801,
+      "fiveYearReturn": 0.0935,
+      "high52": 302.25,
+      "low52": 251.7
+    },
+    "savedAt": 1780728356989
+  },
+  "GOLDBEES": {
+    "data": {
+      "nav": 128.0297,
+      "price": 128.5,
+      "premium": 0.37,
+      "expenseRatio": 0.0059,
+      "category": null,
+      "ytdReturn": -0.0255,
+      "oneYearReturn": 0.5974,
+      "threeYearReturn": 0.3735,
+      "fiveYearReturn": 0.2497,
+      "high52": 148.14,
+      "low52": 79
+    },
+    "savedAt": 1780728356989
+  },
+  "LIQUIDBEES": {
+    "data": {
+      "nav": 1000,
+      "price": 999.99,
+      "premium": 0,
+      "expenseRatio": 0.000001,
+      "category": null,
+      "ytdReturn": 0,
+      "oneYearReturn": 0.0131,
+      "threeYearReturn": 0.0365,
+      "fiveYearReturn": 0.0363,
+      "high52": 1029.99,
+      "low52": 969.99
+    },
+    "savedAt": 1780728356989
+  },
+  "SILVERBEES": {
+    "data": {
+      "nav": 246.7097,
+      "price": 246.56,
+      "premium": -0.06,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.1497,
+      "oneYearReturn": 1.3771,
+      "threeYearReturn": 0.5333,
+      "fiveYearReturn": 0.2973,
+      "high52": 360,
+      "low52": 97.92
+    },
+    "savedAt": 1780728385793
+  },
+  "LIQUIDCASE": {
+    "data": {
+      "nav": 114.3705,
+      "price": 114.37,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0166,
+      "oneYearReturn": 0.0472,
+      "threeYearReturn": 0.043,
+      "fiveYearReturn": 0.0256,
+      "high52": 114.43,
+      "low52": 102
+    },
+    "savedAt": 1780728385793
+  },
+  "LIQUIDETF": {
+    "data": {
+      "nav": 1000,
+      "price": 1000,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0113,
+      "oneYearReturn": 0.0377,
+      "threeYearReturn": 0.05,
+      "fiveYearReturn": 0.0456,
+      "high52": 1025,
+      "low52": 997.55
+    },
+    "savedAt": 1780728385793
+  },
+  "SBISILVER": {
+    "data": {
+      "nav": 252.4778,
+      "price": 252.49,
+      "premium": 0,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.2303,
+      "oneYearReturn": 1.3743,
+      "threeYearReturn": 0.4303,
+      "fiveYearReturn": 0.2395,
+      "high52": 362,
+      "low52": 100.07
+    },
+    "savedAt": 1780728385793
+  },
+  "SILVERIETF": {
+    "data": {
+      "nav": 257.533,
+      "price": 257.53,
+      "premium": 0,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.1331,
+      "oneYearReturn": 1.3744,
+      "threeYearReturn": 0.3592,
+      "fiveYearReturn": 0.2022,
+      "high52": 373.5,
+      "low52": 101.85
+    },
+    "savedAt": 1780728385793
+  },
+  "TATSILV": {
+    "data": {
+      "nav": 25.0308,
+      "price": 25,
+      "premium": -0.12,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.192,
+      "oneYearReturn": 1.3796,
+      "threeYearReturn": 0.5268,
+      "fiveYearReturn": 0.289,
+      "high52": 35.1,
+      "low52": 9.8
+    },
+    "savedAt": 1780728385793
+  },
+  "SETFGOLD": {
+    "data": {
+      "nav": 131.9777,
+      "price": 132.56,
+      "premium": 0.44,
+      "expenseRatio": 0.0054,
+      "category": null,
+      "ytdReturn": -0.0583,
+      "oneYearReturn": 0.5994,
+      "threeYearReturn": 0.3751,
+      "fiveYearReturn": 0.2514,
+      "high52": 153.95,
+      "low52": 79.79
+    },
+    "savedAt": 1780728385793
+  },
+  "HDFCSILVER": {
+    "data": {
+      "nav": 246.6773,
+      "price": 246.69,
+      "premium": 0.01,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.1807,
+      "oneYearReturn": 1.3674,
+      "threeYearReturn": 0.384,
+      "fiveYearReturn": 0.2153,
+      "high52": 359,
+      "low52": 98.1
+    },
+    "savedAt": 1780728385793
+  },
+  "SILVER": {
+    "data": {
+      "nav": 257.4014,
+      "price": 257.15,
+      "premium": -0.1,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.1502,
+      "oneYearReturn": 1.3815,
+      "threeYearReturn": 0.5364,
+      "fiveYearReturn": 0.3041,
+      "high52": 371.89,
+      "low52": 101.86
+    },
+    "savedAt": 1780728385793
+  },
+  "TATAGOLD": {
+    "data": {
+      "nav": 15.0285,
+      "price": 15.07,
+      "premium": 0.28,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0488,
+      "oneYearReturn": 0.5974,
+      "threeYearReturn": 0.3449,
+      "fiveYearReturn": 0.1946,
+      "high52": 17.7,
+      "low52": 8
+    },
+    "savedAt": 1780728385793
+  },
+  "HDFCGOLD": {
+    "data": {
+      "nav": 132.2335,
+      "price": 132.71,
+      "premium": 0.36,
+      "expenseRatio": 0.0059,
+      "category": null,
+      "ytdReturn": -0.0312,
+      "oneYearReturn": 0.5995,
+      "threeYearReturn": 0.3643,
+      "fiveYearReturn": 0.2049,
+      "high52": 152.3,
+      "low52": 81.19
+    },
+    "savedAt": 1780728385793
+  },
+  "BANKBEES": {
+    "data": {
+      "nav": 560.7563,
+      "price": 561.27,
+      "premium": 0.09,
+      "expenseRatio": 0.0019,
+      "category": null,
+      "ytdReturn": -0.0855,
+      "oneYearReturn": -0.0444,
+      "threeYearReturn": 0.074,
+      "fiveYearReturn": 0.1008,
+      "high52": 638.99,
+      "low52": 515.98
+    },
+    "savedAt": 1780728385793
+  },
+  "SILVERAG": {
+    "data": {
+      "nav": 250.9114,
+      "price": 250.65,
+      "premium": -0.1,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.1968,
+      "oneYearReturn": 1.3563,
+      "threeYearReturn": 0.5004,
+      "fiveYearReturn": 0.2756,
+      "high52": 380,
+      "low52": 99.22
+    },
+    "savedAt": 1780728385793
+  },
+  "PSUBNKBEES": {
+    "data": {
+      "nav": 91.9047,
+      "price": 92.08,
+      "premium": 0.19,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.082,
+      "oneYearReturn": 0.1465,
+      "threeYearReturn": 0.264,
+      "fiveYearReturn": 0.2824,
+      "high52": 110.4,
+      "low52": 73.82
+    },
+    "savedAt": 1780728385793
+  },
+  "LIQUIDPLUS": {
+    "data": {
+      "nav": 1088.2876,
+      "price": 1088.29,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0167,
+      "oneYearReturn": 0.0478,
+      "threeYearReturn": 0.0254,
+      "fiveYearReturn": 0.0152,
+      "high52": 1088.74,
+      "low52": 1018.24
+    },
+    "savedAt": 1780728385793
+  },
+  "LIQUID1": {
+    "data": {
+      "nav": 1107.2937,
+      "price": 1107.29,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0167,
+      "oneYearReturn": 0.0479,
+      "threeYearReturn": 0.0347,
+      "fiveYearReturn": 0.0207,
+      "high52": 1136.18,
+      "low52": 1030.28
+    },
+    "savedAt": 1780728385793
+  },
+  "GOLDIETF": {
+    "data": {
+      "nav": 132.5084,
+      "price": 133.13,
+      "premium": 0.47,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0525,
+      "oneYearReturn": 0.6014,
+      "threeYearReturn": 0.3411,
+      "fiveYearReturn": 0.1926,
+      "high52": 158,
+      "low52": 81.26
+    },
+    "savedAt": 1780728385793
+  },
+  "ITBEES": {
+    "data": {
+      "nav": 32.4952,
+      "price": 32.56,
+      "premium": 0.2,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.231,
+      "oneYearReturn": -0.2396,
+      "threeYearReturn": 0.0139,
+      "fiveYearReturn": 0.0075,
+      "high52": 44.27,
+      "low52": 29.98
+    },
+    "savedAt": 1780728385793
+  },
+  "SILVERCASE": {
+    "data": {
+      "nav": 24.3712,
+      "price": 26.17,
+      "premium": 7.38,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.1779,
+      "oneYearReturn": 1.3839,
+      "threeYearReturn": 0.3869,
+      "fiveYearReturn": 0.2168,
+      "high52": 38.01,
+      "low52": 10.6865
+    },
+    "savedAt": 1780728385793
+  },
+  "MON100": {
+    "data": {
+      "nav": 284.2109,
+      "price": 341.98,
+      "premium": 20.33,
+      "expenseRatio": 0.0065,
+      "category": null,
+      "ytdReturn": 0.4857,
+      "oneYearReturn": 0.7751,
+      "threeYearReturn": 0.4207,
+      "fiveYearReturn": 0.2562,
+      "high52": 342.55,
+      "low52": 177.99
+    },
+    "savedAt": 1780728385793
+  },
+  "GOLD1": {
+    "data": {
+      "nav": 129.1685,
+      "price": 129.69,
+      "premium": 0.4,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0115,
+      "oneYearReturn": 0.5979,
+      "threeYearReturn": 0.3769,
+      "fiveYearReturn": 0.2501,
+      "high52": 158,
+      "low52": 78.35
+    },
+    "savedAt": 1780728385793
+  },
+  "LIQUIDBETF": {
+    "data": {
+      "nav": 1084.346,
+      "price": 1084.35,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0163,
+      "oneYearReturn": 0.0462,
+      "threeYearReturn": 0.0275,
+      "fiveYearReturn": 0.0164,
+      "high52": 1116.24,
+      "low52": 1009.94
+    },
+    "savedAt": 1780728385793
+  },
+  "LIQUIDADD": {
+    "data": {
+      "nav": 1129.4706,
+      "price": 1129.47,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0164,
+      "oneYearReturn": 0.0469,
+      "threeYearReturn": 0.025,
+      "fiveYearReturn": 0.0149,
+      "high52": 1151.22,
+      "low52": 1052.08
+    },
+    "savedAt": 1780728385793
+  },
+  "LIQUIDIETF": {
+    "data": {
+      "nav": 1000,
+      "price": 999.99,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0,
+      "oneYearReturn": 0,
+      "threeYearReturn": 0,
+      "fiveYearReturn": 0,
+      "high52": 1041.19,
+      "low52": 969.99
+    },
+    "savedAt": 1780728385793
+  },
+  "PVTBANIETF": {
+    "data": {
+      "nav": 26.4026,
+      "price": 26.45,
+      "premium": 0.18,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0792,
+      "oneYearReturn": -0.0656,
+      "threeYearReturn": 0.0517,
+      "fiveYearReturn": 0.0835,
+      "high52": 30.32,
+      "low52": 24.18
+    },
+    "savedAt": 1780728385793
+  },
+  "SILVERADD": {
+    "data": {
+      "nav": 248.756,
+      "price": 248.61,
+      "premium": -0.06,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.1337,
+      "oneYearReturn": 1.3801,
+      "threeYearReturn": 0.5016,
+      "fiveYearReturn": 0.2762,
+      "high52": 390,
+      "low52": 98.27
+    },
+    "savedAt": 1780728385793
+  },
+  "JUNIORBEES": {
+    "data": {
+      "nav": 754.8454,
+      "price": 756.08,
+      "premium": 0.16,
+      "expenseRatio": 0.0019,
+      "category": null,
+      "ytdReturn": 0.0386,
+      "oneYearReturn": 0.0282,
+      "threeYearReturn": 0.1774,
+      "fiveYearReturn": 0.1288,
+      "high52": 780.89,
+      "low52": 632.34
+    },
+    "savedAt": 1780728385793
+  },
+  "HDFCSML250": {
+    "data": {
+      "nav": 171.5845,
+      "price": 171.45,
+      "premium": -0.08,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": 0.081,
+      "oneYearReturn": -0.0437,
+      "threeYearReturn": 0.1747,
+      "fiveYearReturn": 0.1386,
+      "high52": 183.18,
+      "low52": 142.7
+    },
+    "savedAt": 1780728385793
+  },
+  "METALIETF": {
+    "data": {
+      "nav": 13.5074,
+      "price": 13.5,
+      "premium": -0.05,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.1232,
+      "oneYearReturn": 0.3923,
+      "threeYearReturn": 0.0924,
+      "fiveYearReturn": 0.0545,
+      "high52": 14.1,
+      "low52": 8.98
+    },
+    "savedAt": 1780728385793
+  },
+  "MID150BEES": {
+    "data": {
+      "nav": 230.3199,
+      "price": 230.57,
+      "premium": 0.11,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": 0.0382,
+      "oneYearReturn": 0.0186,
+      "threeYearReturn": 0.1894,
+      "fiveYearReturn": 0.1665,
+      "high52": 239.29,
+      "low52": 190.43
+    },
+    "savedAt": 1780728385793
+  },
+  "CASHIETF": {
+    "data": {
+      "nav": 1064.9029,
+      "price": 1064.91,
+      "premium": 0,
+      "expenseRatio": 0.0003,
+      "category": null,
+      "ytdReturn": 0.0166,
+      "oneYearReturn": 0.0475,
+      "threeYearReturn": 0.0185,
+      "fiveYearReturn": 0.0111,
+      "high52": 1066.75,
+      "low52": 1001.71
+    },
+    "savedAt": 1780728385793
+  },
+  "GOLDETF": {
+    "data": {
+      "nav": 150.3815,
+      "price": 150.99,
+      "premium": 0.4,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0337,
+      "oneYearReturn": 0.5967,
+      "threeYearReturn": 0.3744,
+      "fiveYearReturn": 0.2102,
+      "high52": 173.5,
+      "low52": 93.3
+    },
+    "savedAt": 1780728385793
+  },
+  "SILVERBETA": {
+    "data": {
+      "nav": 249.0433,
+      "price": 248.86,
+      "premium": -0.07,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.1422,
+      "oneYearReturn": 1.3735,
+      "threeYearReturn": 0.5286,
+      "fiveYearReturn": 0.2812,
+      "high52": 379.66,
+      "low52": 99.07
+    },
+    "savedAt": 1780728385793
+  },
+  "GOLDCASE": {
+    "data": {
+      "nav": 24.3712,
+      "price": 24.45,
+      "premium": 0.32,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0493,
+      "oneYearReturn": 0.6021,
+      "threeYearReturn": 0.2814,
+      "fiveYearReturn": 0.1604,
+      "high52": 27.94,
+      "low52": 14.72
+    },
+    "savedAt": 1780728385793
+  },
+  "SILVER1": {
+    "data": {
+      "nav": 25.0183,
+      "price": 25,
+      "premium": -0.07,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.9139,
+      "oneYearReturn": -0.7414,
+      "threeYearReturn": -0.2878,
+      "fiveYearReturn": -0.1833,
+      "high52": 388,
+      "low52": 17.77
+    },
+    "savedAt": 1780728385793
+  },
+  "BANKIETF": {
+    "data": {
+      "nav": 55.6094,
+      "price": 55.67,
+      "premium": 0.11,
+      "expenseRatio": 0.0019,
+      "category": null,
+      "ytdReturn": -0.0864,
+      "oneYearReturn": -0.0037,
+      "threeYearReturn": 0.0775,
+      "fiveYearReturn": 0.0458,
+      "high52": 63.9,
+      "low52": 51.17
+    },
+    "savedAt": 1780728385793
+  },
+  "SETFNIF50": {
+    "data": {
+      "nav": 250.8518,
+      "price": 251.09,
+      "premium": 0.09,
+      "expenseRatio": 0.0007,
+      "category": null,
+      "ytdReturn": -0.0731,
+      "oneYearReturn": -0.0751,
+      "threeYearReturn": 0.0801,
+      "fiveYearReturn": 0.0933,
+      "high52": 287.33,
+      "low52": 237.9
+    },
+    "savedAt": 1780728385793
+  },
+  "LIQUID": {
+    "data": {
+      "nav": 1000,
+      "price": 999.99,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0115,
+      "oneYearReturn": 0.0408,
+      "threeYearReturn": 0.0502,
+      "fiveYearReturn": 0.0299,
+      "high52": 1024.98,
+      "low52": 997.15
+    },
+    "savedAt": 1780728391016
+  },
+  "GROWWLIQID": {
+    "data": {
+      "nav": 109.3288,
+      "price": 109.33,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0155,
+      "oneYearReturn": 0.0451,
+      "threeYearReturn": 0.0279,
+      "fiveYearReturn": 0.0166,
+      "high52": 110.9,
+      "low52": 102.89
+    },
+    "savedAt": 1780728391016
+  },
+  "NIFTYIETF": {
+    "data": {
+      "nav": 264.0676,
+      "price": 264.01,
+      "premium": -0.02,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": -0.0748,
+      "oneYearReturn": -0.0741,
+      "threeYearReturn": 0.0804,
+      "fiveYearReturn": 0.0937,
+      "high52": 328.24,
+      "low52": 250.4
+    },
+    "savedAt": 1780728391016
+  },
+  "HNGSNGBEES": {
+    "data": {
+      "nav": 454.5937,
+      "price": 510.68,
+      "premium": 12.34,
+      "expenseRatio": 0.0065,
+      "category": null,
+      "ytdReturn": -0.1141,
+      "oneYearReturn": 0.3053,
+      "threeYearReturn": 0.225,
+      "fiveYearReturn": 0.0861,
+      "high52": 579.92,
+      "low52": 375.05
+    },
+    "savedAt": 1780728391016
+  },
+  "MOGOLD": {
+    "data": {
+      "nav": 153.0245,
+      "price": 153.35,
+      "premium": 0.21,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0691,
+      "oneYearReturn": 0.5005,
+      "threeYearReturn": 0.1448,
+      "fiveYearReturn": 0.0845,
+      "high52": 175,
+      "low52": 96.3
+    },
+    "savedAt": 1780728391016
+  },
+  "MODEFENCE": {
+    "data": {
+      "nav": 99.5448,
+      "price": 99.59,
+      "premium": 0.05,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.1089,
+      "oneYearReturn": 0.0218,
+      "threeYearReturn": 0.1088,
+      "fiveYearReturn": 0.0639,
+      "high52": 104.44,
+      "low52": 77.8
+    },
+    "savedAt": 1780728391016
+  },
+  "ALPHA": {
+    "data": {
+      "nav": 50.1217,
+      "price": 50.36,
+      "premium": 0.48,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.0755,
+      "oneYearReturn": -0.0283,
+      "threeYearReturn": 0.1872,
+      "fiveYearReturn": 0.0813,
+      "high52": 53.6,
+      "low52": 42
+    },
+    "savedAt": 1780728391016
+  },
+  "BSLNIFTY": {
+    "data": {
+      "nav": 27.3122,
+      "price": 27.35,
+      "premium": 0.14,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.0743,
+      "oneYearReturn": -0.0739,
+      "threeYearReturn": 0.0802,
+      "fiveYearReturn": 0.0935,
+      "high52": 31.45,
+      "low52": 25.7
+    },
+    "savedAt": 1780728391016
+  },
+  "GOLDBETA": {
+    "data": {
+      "nav": 130.2689,
+      "price": 130.7,
+      "premium": 0.33,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0211,
+      "oneYearReturn": 0.6075,
+      "threeYearReturn": 0.3808,
+      "fiveYearReturn": 0.2542,
+      "high52": 149.35,
+      "low52": 79.1
+    },
+    "savedAt": 1780728391016
+  },
+  "ESILVER": {
+    "data": {
+      "nav": 257.2842,
+      "price": 257.18,
+      "premium": -0.04,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.1451,
+      "oneYearReturn": 1.374,
+      "threeYearReturn": 0.5005,
+      "fiveYearReturn": 0.2757,
+      "high52": 375,
+      "low52": 101.75
+    },
+    "savedAt": 1780728391016
+  },
+  "CPSEETF": {
+    "data": {
+      "nav": 100.9754,
+      "price": 101.02,
+      "premium": 0.04,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": 0.0202,
+      "oneYearReturn": 0.063,
+      "threeYearReturn": 0.3133,
+      "fiveYearReturn": 0.3094,
+      "high52": 110.5,
+      "low52": 85.67
+    },
+    "savedAt": 1780728391016
+  },
+  "PHARMABEES": {
+    "data": {
+      "nav": 24.8019,
+      "price": 24.79,
+      "premium": -0.05,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.1196,
+      "oneYearReturn": 0.1077,
+      "threeYearReturn": 0.2139,
+      "fiveYearReturn": 0.1164,
+      "high52": 26.52,
+      "low52": 21.11
+    },
+    "savedAt": 1780728391016
+  },
+  "NEXT50IETF": {
+    "data": {
+      "nav": 73.7547,
+      "price": 73.94,
+      "premium": 0.25,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": 0.039,
+      "oneYearReturn": 0.0296,
+      "threeYearReturn": 0.0899,
+      "fiveYearReturn": 0.053,
+      "high52": 77.61,
+      "low52": 62.6
+    },
+    "savedAt": 1780728391016
+  },
+  "GSEC10YEAR": {
+    "data": {
+      "nav": 29.8019,
+      "price": 29.61,
+      "premium": -0.64,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": 0.0051,
+      "oneYearReturn": 0.0216,
+      "threeYearReturn": 0.0654,
+      "fiveYearReturn": 0.0388,
+      "high52": 30.8,
+      "low52": 28.37
+    },
+    "savedAt": 1780728391016
+  },
+  "AONELIQUID": {
+    "data": {
+      "nav": 1062.2762,
+      "price": 1062.28,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0165,
+      "oneYearReturn": 0.0474,
+      "threeYearReturn": 0.0185,
+      "fiveYearReturn": 0.0111,
+      "high52": 1070,
+      "low52": 988.25
+    },
+    "savedAt": 1780728391016
+  },
+  "SETFNN50": {
+    "data": {
+      "nav": 747.9947,
+      "price": 749.7,
+      "premium": 0.23,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": 0.0395,
+      "oneYearReturn": 0.0284,
+      "threeYearReturn": 0.1794,
+      "fiveYearReturn": 0.1309,
+      "high52": 840,
+      "low52": 636.01
+    },
+    "savedAt": 1780728391016
+  },
+  "ITETF": {
+    "data": {
+      "nav": 30.9756,
+      "price": 30.98,
+      "premium": 0.01,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.2329,
+      "oneYearReturn": -0.2395,
+      "threeYearReturn": -0.0601,
+      "fiveYearReturn": -0.0365,
+      "high52": 42.02,
+      "low52": 28.59
+    },
+    "savedAt": 1780728391016
+  },
+  "MOCAPITAL": {
+    "data": {
+      "nav": 53.6767,
+      "price": 53.69,
+      "premium": 0.02,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0123,
+      "oneYearReturn": -0.0123,
+      "threeYearReturn": -0.0041,
+      "fiveYearReturn": -0.0025,
+      "high52": 57.16,
+      "low52": 52.05
+    },
+    "savedAt": 1780728391016
+  },
+  "MOSMALL250": {
+    "data": {
+      "nav": 17.1109,
+      "price": 17.14,
+      "premium": 0.17,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": 0.0804,
+      "oneYearReturn": -0.0432,
+      "threeYearReturn": 0.024,
+      "fiveYearReturn": 0.0143,
+      "high52": 19.38,
+      "low52": 14.22
+    },
+    "savedAt": 1780728391016
+  },
+  "NEXT50": {
+    "data": {
+      "nav": 720.8279,
+      "price": 721.84,
+      "premium": 0.14,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": 0.0387,
+      "oneYearReturn": 0.026,
+      "threeYearReturn": 0.1663,
+      "fiveYearReturn": 0.0967,
+      "high52": 745.34,
+      "low52": 617
+    },
+    "savedAt": 1780728391016
+  },
+  "GROWWSLVR": {
+    "data": {
+      "nav": 25.27,
+      "price": 25.27,
+      "premium": 0,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.9227,
+      "oneYearReturn": -0.7635,
+      "threeYearReturn": -0.3816,
+      "fiveYearReturn": -0.2505,
+      "high52": 367.4977,
+      "low52": 19.27
+    },
+    "savedAt": 1780728391016
+  },
+  "AXISGOLD": {
+    "data": {
+      "nav": 129.0051,
+      "price": 129.46,
+      "premium": 0.35,
+      "expenseRatio": 0.0053,
+      "category": null,
+      "ytdReturn": -0.0603,
+      "oneYearReturn": 0.5974,
+      "threeYearReturn": 0.375,
+      "fiveYearReturn": 0.252,
+      "high52": 150,
+      "low52": 79
+    },
+    "savedAt": 1780728391016
+  },
+  "NIFTYETF": {
+    "data": {
+      "nav": 253.4227,
+      "price": 253.61,
+      "premium": 0.07,
+      "expenseRatio": 0.0007,
+      "category": null,
+      "ytdReturn": -0.0751,
+      "oneYearReturn": -0.0769,
+      "threeYearReturn": 0.0788,
+      "fiveYearReturn": 0.0928,
+      "high52": 289.05,
+      "low52": 239.81
+    },
+    "savedAt": 1780728391016
+  },
+  "PSUBANK": {
+    "data": {
+      "nav": 823.7613,
+      "price": 825.1,
+      "premium": 0.16,
+      "expenseRatio": 0.0019,
+      "category": null,
+      "ytdReturn": -0.079,
+      "oneYearReturn": 0.1517,
+      "threeYearReturn": 0.2656,
+      "fiveYearReturn": 0.2833,
+      "high52": 1010,
+      "low52": 662.59
+    },
+    "savedAt": 1780728391016
+  },
+  "METAL": {
+    "data": {
+      "nav": 13.5216,
+      "price": 13.53,
+      "premium": 0.06,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.1223,
+      "oneYearReturn": 0.3908,
+      "threeYearReturn": 0.1381,
+      "fiveYearReturn": 0.0807,
+      "high52": 13.97,
+      "low52": 8.7
+    },
+    "savedAt": 1780728391016
+  },
+  "ICICIB22": {
+    "data": {
+      "nav": 118.4799,
+      "price": 118.7,
+      "premium": 0.19,
+      "expenseRatio": 0.0014,
+      "category": null,
+      "ytdReturn": -0.02,
+      "oneYearReturn": 0.0654,
+      "threeYearReturn": 0.2106,
+      "fiveYearReturn": 0.2404,
+      "high52": 131,
+      "low52": 103.6
+    },
+    "savedAt": 1780728391016
+  },
+  "SBILIQETF": {
+    "data": {
+      "nav": 1041.6279,
+      "price": 1041.64,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0165,
+      "oneYearReturn": 0.034,
+      "threeYearReturn": 0.0112,
+      "fiveYearReturn": 0.0067,
+      "high52": 1087.09,
+      "low52": 984.99
+    },
+    "savedAt": 1780728391016
+  },
+  "EBBETF0430": {
+    "data": {
+      "nav": 1573.4652,
+      "price": 1568.72,
+      "premium": -0.3,
+      "expenseRatio": 0.0008,
+      "category": null,
+      "ytdReturn": 0.0103,
+      "oneYearReturn": 0.036,
+      "threeYearReturn": 0.069,
+      "fiveYearReturn": 0.0627,
+      "high52": 1612.43,
+      "low52": 1232
+    },
+    "savedAt": 1780728391016
+  },
+  "GROWWGOLD": {
+    "data": {
+      "nav": 15.119,
+      "price": 15.17,
+      "premium": 0.34,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.9042,
+      "oneYearReturn": -0.8407,
+      "threeYearReturn": -0.4178,
+      "fiveYearReturn": -0.2772,
+      "high52": 179.96,
+      "low52": 12.71
+    },
+    "savedAt": 1780728391016
+  },
+  "AUTOBEES": {
+    "data": {
+      "nav": 269.085,
+      "price": 269.39,
+      "premium": 0.11,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0164,
+      "oneYearReturn": 0.1061,
+      "threeYearReturn": 0.2081,
+      "fiveYearReturn": 0.1997,
+      "high52": 299.92,
+      "low52": 237.2136
+    },
+    "savedAt": 1780728391016
+  },
+  "FMCGIETF": {
+    "data": {
+      "nav": 51.6266,
+      "price": 51.72,
+      "premium": 0.18,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0549,
+      "oneYearReturn": -0.1159,
+      "threeYearReturn": -0.0132,
+      "fiveYearReturn": 0.0501,
+      "high52": 62.3,
+      "low52": 48.55
+    },
+    "savedAt": 1780728391016
+  },
+  "SMALLCAP": {
+    "data": {
+      "nav": 45.0061,
+      "price": 45.04,
+      "premium": 0.08,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": 0.0683,
+      "oneYearReturn": -0.0738,
+      "threeYearReturn": -0.0181,
+      "fiveYearReturn": -0.0109,
+      "high52": 54.5,
+      "low52": 37.34
+    },
+    "savedAt": 1780728391016
+  },
+  "MOSILVER": {
+    "data": {
+      "nav": 254.6286,
+      "price": 254.53,
+      "premium": -0.04,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.1793,
+      "oneYearReturn": 0.7797,
+      "threeYearReturn": 0.2118,
+      "fiveYearReturn": 0.1222,
+      "high52": 385,
+      "low52": 112.32
+    },
+    "savedAt": 1780728391016
+  },
+  "AXISILVER": {
+    "data": {
+      "nav": 256.1094,
+      "price": 255.96,
+      "premium": -0.06,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.2313,
+      "oneYearReturn": 1.3521,
+      "threeYearReturn": 0.5341,
+      "fiveYearReturn": 0.3392,
+      "high52": 390.01,
+      "low52": 101.41
+    },
+    "savedAt": 1780728391016
+  },
+  "GROWWPOWER": {
+    "data": {
+      "nav": 12.2321,
+      "price": 12.25,
+      "premium": 0.15,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.1681,
+      "oneYearReturn": 0.1681,
+      "threeYearReturn": 0.0532,
+      "fiveYearReturn": 0.0316,
+      "high52": 13.2,
+      "low52": 8.87
+    },
+    "savedAt": 1780728391016
+  },
+  "MIDCAPETF": {
+    "data": {
+      "nav": 22.7729,
+      "price": 22.8,
+      "premium": 0.12,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0398,
+      "oneYearReturn": 0.0179,
+      "threeYearReturn": 0.0093,
+      "fiveYearReturn": 0.0055,
+      "high52": 23.96,
+      "low52": 19.6
+    },
+    "savedAt": 1780728391016
+  },
+  "LTGILTBEES": {
+    "data": {
+      "nav": 29.2855,
+      "price": 29.24,
+      "premium": -0.16,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": 0.0072,
+      "oneYearReturn": 0.0177,
+      "threeYearReturn": 0.0657,
+      "fiveYearReturn": 0.055,
+      "high52": 30.13,
+      "low52": 27.93
+    },
+    "savedAt": 1780728391016
+  },
+  "GOLDADD": {
+    "data": {
+      "nav": 150.3013,
+      "price": 150.93,
+      "premium": 0.42,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.033,
+      "oneYearReturn": 0.6034,
+      "threeYearReturn": 0.3735,
+      "fiveYearReturn": 0.2098,
+      "high52": 181,
+      "low52": 92.49
+    },
+    "savedAt": 1780728391016
+  },
+  "OILIETF": {
+    "data": {
+      "nav": 11.3104,
+      "price": 11.33,
+      "premium": 0.17,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0536,
+      "oneYearReturn": -0.0497,
+      "threeYearReturn": -0.0035,
+      "fiveYearReturn": -0.0021,
+      "high52": 14,
+      "low52": 9.8
+    },
+    "savedAt": 1780728391016
+  },
+  "SETFNIFBK": {
+    "data": {
+      "nav": 556.3071,
+      "price": 556.28,
+      "premium": 0,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": -0.0846,
+      "oneYearReturn": -0.0448,
+      "threeYearReturn": 0.074,
+      "fiveYearReturn": 0.101,
+      "high52": 646.11,
+      "low52": 465.64
+    },
+    "savedAt": 1780728394964
+  },
+  "BANKETF": {
+    "data": {
+      "nav": 551.7264,
+      "price": 552.28,
+      "premium": 0.1,
+      "expenseRatio": 0.0019,
+      "category": null,
+      "ytdReturn": -0.0849,
+      "oneYearReturn": -0.0455,
+      "threeYearReturn": 0.0792,
+      "fiveYearReturn": 0.0468,
+      "high52": 628.27,
+      "low52": 507.01
+    },
+    "savedAt": 1780728394964
+  },
+  "MOREALTY": {
+    "data": {
+      "nav": 76.3295,
+      "price": 76.38,
+      "premium": 0.07,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.019,
+      "oneYearReturn": -0.2222,
+      "threeYearReturn": -0.0762,
+      "fiveYearReturn": -0.0464,
+      "high52": 107.02,
+      "low52": 64
+    },
+    "savedAt": 1780728394964
+  },
+  "HDFCNIFBAN": {
+    "data": {
+      "nav": 55.7499,
+      "price": 55.78,
+      "premium": 0.05,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0859,
+      "oneYearReturn": -0.0445,
+      "threeYearReturn": 0.0002,
+      "fiveYearReturn": 0.0001,
+      "high52": 65.54,
+      "low52": 51.2
+    },
+    "savedAt": 1780728394964
+  },
+  "QGOLDHALF": {
+    "data": {
+      "nav": 128.2594,
+      "price": 128.84,
+      "premium": 0.45,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.026,
+      "oneYearReturn": 0.6044,
+      "threeYearReturn": 0.3762,
+      "fiveYearReturn": 0.2517,
+      "high52": 149.69,
+      "low52": 78.43
+    },
+    "savedAt": 1780728394964
+  },
+  "GILT5YBEES": {
+    "data": {
+      "nav": 64.5202,
+      "price": 64.52,
+      "premium": 0,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": 0.0187,
+      "oneYearReturn": 0.0407,
+      "threeYearReturn": 0.0735,
+      "fiveYearReturn": 0.0609,
+      "high52": 66.31,
+      "low52": 61.45
+    },
+    "savedAt": 1780728394964
+  },
+  "GROWWMETAL": {
+    "data": {
+      "nav": 12.7652,
+      "price": 12.78,
+      "premium": 0.12,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.1195,
+      "oneYearReturn": 0.1195,
+      "threeYearReturn": 0.0383,
+      "fiveYearReturn": 0.0228,
+      "high52": 13.45,
+      "low52": 10.1
+    },
+    "savedAt": 1780728394964
+  },
+  "HDFCNIFTY": {
+    "data": {
+      "nav": 262.5673,
+      "price": 263.03,
+      "premium": 0.18,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.0754,
+      "oneYearReturn": -0.0769,
+      "threeYearReturn": 0.0696,
+      "fiveYearReturn": 0.0412,
+      "high52": 301.88,
+      "low52": 247.56
+    },
+    "savedAt": 1780728394964
+  },
+  "EGOLD": {
+    "data": {
+      "nav": 154.5768,
+      "price": 155.25,
+      "premium": 0.44,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0697,
+      "oneYearReturn": 0.5927,
+      "threeYearReturn": 0.3354,
+      "fiveYearReturn": 0.1895,
+      "high52": 184.95,
+      "low52": 94.85
+    },
+    "savedAt": 1780728394964
+  },
+  "MID150CASE": {
+    "data": {
+      "nav": 11.1958,
+      "price": 11.21,
+      "premium": 0.13,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0363,
+      "oneYearReturn": 0.0211,
+      "threeYearReturn": 0.0098,
+      "fiveYearReturn": 0.0059,
+      "high52": 12,
+      "low52": 9.63
+    },
+    "savedAt": 1780728394964
+  },
+  "MIDCAPIETF": {
+    "data": {
+      "nav": 23.0534,
+      "price": 23.1,
+      "premium": 0.2,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0332,
+      "oneYearReturn": 0.0163,
+      "threeYearReturn": 0.1891,
+      "fiveYearReturn": 0.1664,
+      "high52": 24.13,
+      "low52": 19.89
+    },
+    "savedAt": 1780728394964
+  },
+  "SML100CASE": {
+    "data": {
+      "nav": 10.2682,
+      "price": 10.28,
+      "premium": 0.11,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": 0.0734,
+      "oneYearReturn": -0.011,
+      "threeYearReturn": -0.0037,
+      "fiveYearReturn": -0.0022,
+      "high52": 11.74,
+      "low52": 8.5447
+    },
+    "savedAt": 1780728394964
+  },
+  "BANKNIFTY1": {
+    "data": {
+      "nav": 56.207,
+      "price": 56.62,
+      "premium": 0.73,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.9086,
+      "oneYearReturn": -0.9044,
+      "threeYearReturn": -0.5014,
+      "fiveYearReturn": -0.3055,
+      "high52": 652.87,
+      "low52": 51.71
+    },
+    "savedAt": 1780728394964
+  },
+  "MOMENTUM50": {
+    "data": {
+      "nav": 51.9082,
+      "price": 51.88,
+      "premium": -0.05,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0331,
+      "oneYearReturn": -0.0592,
+      "threeYearReturn": -0.0432,
+      "fiveYearReturn": -0.0262,
+      "high52": 56.9,
+      "low52": 44.96
+    },
+    "savedAt": 1780728394964
+  },
+  "MOM30IETF": {
+    "data": {
+      "nav": 30.5808,
+      "price": 30.55,
+      "premium": -0.1,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0104,
+      "oneYearReturn": -0.0612,
+      "threeYearReturn": -0.0666,
+      "fiveYearReturn": -0.0405,
+      "high52": 33.61,
+      "low52": 26
+    },
+    "savedAt": 1780728394964
+  },
+  "MAFANG": {
+    "data": {
+      "nav": 168.5453,
+      "price": 208.2,
+      "premium": 23.53,
+      "expenseRatio": 0.0065,
+      "category": null,
+      "ytdReturn": 0.2266,
+      "oneYearReturn": 0.4679,
+      "threeYearReturn": 0.4948,
+      "fiveYearReturn": 0.3111,
+      "high52": 208.38,
+      "low52": 129.58
+    },
+    "savedAt": 1780728394964
+  },
+  "BSLGOLDETF": {
+    "data": {
+      "nav": 136.0887,
+      "price": 136.56,
+      "premium": 0.35,
+      "expenseRatio": 0.0054,
+      "category": null,
+      "ytdReturn": -0.0591,
+      "oneYearReturn": 0.6025,
+      "threeYearReturn": 0.3777,
+      "fiveYearReturn": -0.5012,
+      "high52": 155.99,
+      "low52": 83.4
+    },
+    "savedAt": 1780728394964
+  },
+  "ITIETF": {
+    "data": {
+      "nav": 32.4896,
+      "price": 32.61,
+      "premium": 0.37,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.2313,
+      "oneYearReturn": -0.2368,
+      "threeYearReturn": -0.0596,
+      "fiveYearReturn": -0.0362,
+      "high52": 44.3,
+      "low52": 29.98
+    },
+    "savedAt": 1780728394964
+  },
+  "ENERGY": {
+    "data": {
+      "nav": 40.5766,
+      "price": 40.64,
+      "premium": 0.16,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.1506,
+      "oneYearReturn": 0.1446,
+      "threeYearReturn": 0.0461,
+      "fiveYearReturn": 0.0274,
+      "high52": 42.82,
+      "low52": 29
+    },
+    "savedAt": 1780728394964
+  },
+  "GROWWDEFNC": {
+    "data": {
+      "nav": 90.5759,
+      "price": 90.84,
+      "premium": 0.29,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.1094,
+      "oneYearReturn": 0.0276,
+      "threeYearReturn": 0.107,
+      "fiveYearReturn": 0.0629,
+      "high52": 95,
+      "low52": 71.78
+    },
+    "savedAt": 1780728394964
+  },
+  "NIFTY1": {
+    "data": {
+      "nav": 258.4955,
+      "price": 258.45,
+      "premium": -0.02,
+      "expenseRatio": 0.0007,
+      "category": null,
+      "ytdReturn": -0.0743,
+      "oneYearReturn": -0.0739,
+      "threeYearReturn": 0.0802,
+      "fiveYearReturn": 0.0927,
+      "high52": 320,
+      "low52": 244.8
+    },
+    "savedAt": 1780728394964
+  },
+  "HDFCLIQUID": {
+    "data": {
+      "nav": null,
+      "price": 1063.38,
+      "premium": null,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0163,
+      "oneYearReturn": 0.0613,
+      "threeYearReturn": 0.0486,
+      "fiveYearReturn": 0.0289,
+      "high52": 1072.72,
+      "low52": 1009.91
+    },
+    "savedAt": 1780728394964
+  },
+  "GROWWRAIL": {
+    "data": {
+      "nav": 29.6161,
+      "price": 29.5,
+      "premium": -0.39,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.1386,
+      "oneYearReturn": -0.2352,
+      "threeYearReturn": -0.049,
+      "fiveYearReturn": -0.0297,
+      "high52": 41.23,
+      "low52": 27.8
+    },
+    "savedAt": 1780728394964
+  },
+  "SENSEXIETF": {
+    "data": {
+      "nav": 850.8294,
+      "price": 851.55,
+      "premium": 0.08,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": -0.0954,
+      "oneYearReturn": -0.1049,
+      "threeYearReturn": 0.0201,
+      "fiveYearReturn": 0.012,
+      "high52": 999.84,
+      "low52": 731
+    },
+    "savedAt": 1780728394964
+  },
+  "PSUBNKIETF": {
+    "data": {
+      "nav": 83.4481,
+      "price": 83.35,
+      "premium": -0.12,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0783,
+      "oneYearReturn": 0.1571,
+      "threeYearReturn": 0.2677,
+      "fiveYearReturn": 0.1521,
+      "high52": 104,
+      "low52": 66.61
+    },
+    "savedAt": 1780728394964
+  },
+  "MOM100": {
+    "data": {
+      "nav": 65.6955,
+      "price": 65.74,
+      "premium": 0.07,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0435,
+      "oneYearReturn": 0.0223,
+      "threeYearReturn": 0.1994,
+      "fiveYearReturn": 0.1757,
+      "high52": 69.2,
+      "low52": 56.15
+    },
+    "savedAt": 1780728394964
+  },
+  "LIQGRWBEES": {
+    "data": {
+      "nav": 1042.0722,
+      "price": 1042.06,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0157,
+      "oneYearReturn": 0.0364,
+      "threeYearReturn": 0.012,
+      "fiveYearReturn": 0.0072,
+      "high52": 1056.29,
+      "low52": 995.55
+    },
+    "savedAt": 1780728394964
+  },
+  "MOVALUE": {
+    "data": {
+      "nav": 117.5355,
+      "price": 117.48,
+      "premium": -0.05,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0225,
+      "oneYearReturn": 0.1088,
+      "threeYearReturn": 0.2969,
+      "fiveYearReturn": 0.2355,
+      "high52": 128.77,
+      "low52": 98.1
+    },
+    "savedAt": 1780728394964
+  },
+  "NEXT50BETA": {
+    "data": {
+      "nav": 75.3675,
+      "price": 75.28,
+      "premium": -0.12,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": 0.0479,
+      "oneYearReturn": 0.0479,
+      "threeYearReturn": 0.0157,
+      "fiveYearReturn": 0.0094,
+      "high52": 77.99,
+      "low52": 64.34
+    },
+    "savedAt": 1780728394964
+  },
+  "DEFENCE": {
+    "data": {
+      "nav": 75.6689,
+      "price": 75.77,
+      "premium": 0.13,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.2727,
+      "oneYearReturn": 0.2727,
+      "threeYearReturn": 0.0837,
+      "fiveYearReturn": 0.0494,
+      "high52": 79.23,
+      "low52": 58.91
+    },
+    "savedAt": 1780728394964
+  },
+  "COMMOIETF": {
+    "data": {
+      "nav": 103.5196,
+      "price": 103.81,
+      "premium": 0.28,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": 0.046,
+      "oneYearReturn": 0.137,
+      "threeYearReturn": 0.0872,
+      "fiveYearReturn": 0.0515,
+      "high52": 110.56,
+      "low52": 86.03
+    },
+    "savedAt": 1780728394964
+  },
+  "HDFCSENSEX": {
+    "data": {
+      "nav": 83.9465,
+      "price": 83.87,
+      "premium": -0.09,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.0961,
+      "oneYearReturn": -0.1036,
+      "threeYearReturn": 0.0577,
+      "fiveYearReturn": 0.0816,
+      "high52": 98.48,
+      "low52": 80.9
+    },
+    "savedAt": 1780728394964
+  },
+  "INFRAIETF": {
+    "data": {
+      "nav": 94.5876,
+      "price": 94.45,
+      "premium": -0.15,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0056,
+      "oneYearReturn": -0.0156,
+      "threeYearReturn": -0.0081,
+      "fiveYearReturn": -0.0049,
+      "high52": 101,
+      "low52": 86.8
+    },
+    "savedAt": 1780728394964
+  },
+  "LIQUIDSBI": {
+    "data": {
+      "nav": 1000,
+      "price": 1000.01,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0114,
+      "oneYearReturn": 0.0353,
+      "threeYearReturn": 0.0131,
+      "fiveYearReturn": 0.0079,
+      "high52": 1029.99,
+      "low52": 970.23
+    },
+    "savedAt": 1780728394964
+  },
+  "LIQUIDSHRI": {
+    "data": {
+      "nav": 1107.1504,
+      "price": 1107.14,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0159,
+      "oneYearReturn": 0.0454,
+      "threeYearReturn": 0.0312,
+      "fiveYearReturn": 0.0186,
+      "high52": 1107.58,
+      "low52": 1055.95
+    },
+    "savedAt": 1780728394964
+  },
+  "SBIBPB": {
+    "data": {
+      "nav": 47.7724,
+      "price": 47.72,
+      "premium": -0.11,
+      "expenseRatio": 0.0014,
+      "category": null,
+      "ytdReturn": -0.0829,
+      "oneYearReturn": 0.1404,
+      "threeYearReturn": 0.082,
+      "fiveYearReturn": 0.0484,
+      "high52": 58.27,
+      "low52": 38.53
+    },
+    "savedAt": 1780728394964
+  },
+  "MNC": {
+    "data": {
+      "nav": 32.5269,
+      "price": 32.51,
+      "premium": -0.05,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0546,
+      "oneYearReturn": 0.117,
+      "threeYearReturn": 0.144,
+      "fiveYearReturn": 0.1074,
+      "high52": 35.54,
+      "low52": 27.83
+    },
+    "savedAt": 1780728394964
+  },
+  "CHEMICAL": {
+    "data": {
+      "nav": 29.06,
+      "price": 29.1,
+      "premium": 0.14,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.0477,
+      "oneYearReturn": 0.0038,
+      "threeYearReturn": 0.0013,
+      "fiveYearReturn": 0.0008,
+      "high52": 30.45,
+      "low52": 24.5
+    },
+    "savedAt": 1780728394964
+  },
+  "HDFCBSE500": {
+    "data": {
+      "nav": 36.0142,
+      "price": 36.1,
+      "premium": 0.24,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": -0.0249,
+      "oneYearReturn": -0.0407,
+      "threeYearReturn": 0.118,
+      "fiveYearReturn": 0.0874,
+      "high52": 39.55,
+      "low52": 32.65
+    },
+    "savedAt": 1780728394964
+  },
+  "EQUAL50ADD": {
+    "data": {
+      "nav": 334.3564,
+      "price": 334.03,
+      "premium": -0.1,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": -0.0159,
+      "oneYearReturn": 0.0119,
+      "threeYearReturn": 0.0242,
+      "fiveYearReturn": 0.0144,
+      "high52": 361,
+      "low52": 304.78
+    },
+    "savedAt": 1780728394964
+  },
+  "HEALTHIETF": {
+    "data": {
+      "nav": 156.9514,
+      "price": 157.26,
+      "premium": 0.2,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.1118,
+      "oneYearReturn": 0.0735,
+      "threeYearReturn": 0.1102,
+      "fiveYearReturn": 0.0647,
+      "high52": 166.2,
+      "low52": 138.65
+    },
+    "savedAt": 1780728399311
+  },
+  "FINIETF": {
+    "data": {
+      "nav": 30.6772,
+      "price": 30.68,
+      "premium": 0.01,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0228,
+      "oneYearReturn": -0.0194,
+      "threeYearReturn": 0.0471,
+      "fiveYearReturn": 0.028,
+      "high52": 33.82,
+      "low52": 27.4
+    },
+    "savedAt": 1780728399311
+  },
+  "HEALTHY": {
+    "data": {
+      "nav": 15.7358,
+      "price": 15.77,
+      "premium": 0.22,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.1172,
+      "oneYearReturn": 0.0779,
+      "threeYearReturn": 0.2089,
+      "fiveYearReturn": 0.1259,
+      "high52": 16.98,
+      "low52": 13.58
+    },
+    "savedAt": 1780728399311
+  },
+  "IT": {
+    "data": {
+      "nav": 32.4324,
+      "price": 32.49,
+      "premium": 0.18,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.2335,
+      "oneYearReturn": -0.2379,
+      "threeYearReturn": 0.0147,
+      "fiveYearReturn": 0.0098,
+      "high52": 44.49,
+      "low52": 29.93
+    },
+    "savedAt": 1780728399311
+  },
+  "TOP10ADD": {
+    "data": {
+      "nav": 85.5108,
+      "price": 85.71,
+      "premium": 0.23,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.1225,
+      "oneYearReturn": -0.1502,
+      "threeYearReturn": -0.03,
+      "fiveYearReturn": -0.0181,
+      "high52": 103.43,
+      "low52": 83.05
+    },
+    "savedAt": 1780728399311
+  },
+  "SBINEQWETF": {
+    "data": {
+      "nav": 32.5471,
+      "price": 32.51,
+      "premium": -0.11,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": -0.0178,
+      "oneYearReturn": 0.0081,
+      "threeYearReturn": 0.0234,
+      "fiveYearReturn": 0.014,
+      "high52": 35.25,
+      "low52": 29.64
+    },
+    "savedAt": 1780728399311
+  },
+  "GROWWHOSPI": {
+    "data": {
+      "nav": 50.2565,
+      "price": 50.52,
+      "premium": 0.52,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0571,
+      "oneYearReturn": 0.0571,
+      "threeYearReturn": 0.0187,
+      "fiveYearReturn": 0.0112,
+      "high52": 52.9,
+      "low52": 43.35
+    },
+    "savedAt": 1780728399311
+  },
+  "GROWWCAPM": {
+    "data": {
+      "nav": 11.2649,
+      "price": 11.28,
+      "premium": 0.13,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.1389,
+      "oneYearReturn": 0.1389,
+      "threeYearReturn": 0.0443,
+      "fiveYearReturn": 0.0264,
+      "high52": 12.66,
+      "low52": 8.02
+    },
+    "savedAt": 1780728399311
+  },
+  "GROWWEV": {
+    "data": {
+      "nav": 30.5812,
+      "price": 30.57,
+      "premium": -0.04,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.0413,
+      "oneYearReturn": 0.0459,
+      "threeYearReturn": -0.0426,
+      "fiveYearReturn": -0.0258,
+      "high52": 32.38,
+      "low52": 24
+    },
+    "savedAt": 1780728399311
+  },
+  "MAHKTECH": {
+    "data": {
+      "nav": 20.3837,
+      "price": 25.01,
+      "premium": 22.7,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0851,
+      "oneYearReturn": 0.1287,
+      "threeYearReturn": 0.2158,
+      "fiveYearReturn": 0.0736,
+      "high52": 35.59,
+      "low52": 20.51
+    },
+    "savedAt": 1780728399311
+  },
+  "MIDSMALL": {
+    "data": {
+      "nav": 50.3618,
+      "price": 50.27,
+      "premium": -0.18,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0653,
+      "oneYearReturn": -0.0272,
+      "threeYearReturn": -0.0099,
+      "fiveYearReturn": -0.0059,
+      "high52": 52.62,
+      "low52": 42.41
+    },
+    "savedAt": 1780728399311
+  },
+  "HDFCMID150": {
+    "data": {
+      "nav": 22.5649,
+      "price": 22.55,
+      "premium": -0.07,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0364,
+      "oneYearReturn": 0.019,
+      "threeYearReturn": 0.04,
+      "fiveYearReturn": 0.0238,
+      "high52": 23.61,
+      "low52": 19.42
+    },
+    "savedAt": 1780728399311
+  },
+  "MIDCAP": {
+    "data": {
+      "nav": 17.6165,
+      "price": 17.6,
+      "premium": -0.09,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.8898,
+      "oneYearReturn": -0.8898,
+      "threeYearReturn": -0.4431,
+      "fiveYearReturn": -0.2581,
+      "high52": 175.8942,
+      "low52": 15.01
+    },
+    "savedAt": 1780728399311
+  },
+  "EBBETF0431": {
+    "data": {
+      "nav": 1401.9313,
+      "price": 1396.86,
+      "premium": -0.36,
+      "expenseRatio": 0.0008,
+      "category": null,
+      "ytdReturn": 0.0099,
+      "oneYearReturn": 0.0303,
+      "threeYearReturn": 0.0672,
+      "fiveYearReturn": 0.0612,
+      "high52": 1417.93,
+      "low52": 1357.15
+    },
+    "savedAt": 1780728399311
+  },
+  "EVINDIA": {
+    "data": {
+      "nav": 30.6834,
+      "price": 30.69,
+      "premium": 0.02,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.0381,
+      "oneYearReturn": 0.0438,
+      "threeYearReturn": -0.0318,
+      "fiveYearReturn": -0.0192,
+      "high52": 32.56,
+      "low52": 26.2
+    },
+    "savedAt": 1780728399311
+  },
+  "NIF100BEES": {
+    "data": {
+      "nav": 258.2413,
+      "price": 258.8,
+      "premium": 0.22,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": -0.0552,
+      "oneYearReturn": -0.0273,
+      "threeYearReturn": 0.094,
+      "fiveYearReturn": 0.0928,
+      "high52": 288.39,
+      "low52": 240
+    },
+    "savedAt": 1780728399311
+  },
+  "MULTICAP": {
+    "data": {
+      "nav": 16.0159,
+      "price": 16.02,
+      "premium": 0.03,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.0019,
+      "oneYearReturn": -0.0344,
+      "threeYearReturn": 0.0021,
+      "fiveYearReturn": 0.0013,
+      "high52": 17.5,
+      "low52": 14.2
+    },
+    "savedAt": 1780728399311
+  },
+  "INFRABEES": {
+    "data": {
+      "nav": 950.1719,
+      "price": 952.22,
+      "premium": 0.22,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0047,
+      "oneYearReturn": -0.0211,
+      "threeYearReturn": 0.1684,
+      "fiveYearReturn": 0.1553,
+      "high52": 1018.3,
+      "low52": 871.35
+    },
+    "savedAt": 1780728399311
+  },
+  "LOWVOLIETF": {
+    "data": {
+      "nav": 21.2363,
+      "price": 21.19,
+      "premium": -0.22,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.054,
+      "oneYearReturn": -0.0385,
+      "threeYearReturn": 0.1066,
+      "fiveYearReturn": 0.1018,
+      "high52": 26.81,
+      "low52": 19.84
+    },
+    "savedAt": 1780728399311
+  },
+  "HDFCPVTBAN": {
+    "data": {
+      "nav": 26.6324,
+      "price": 26.88,
+      "premium": 0.93,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0788,
+      "oneYearReturn": -0.0681,
+      "threeYearReturn": -0.5106,
+      "fiveYearReturn": -0.3438,
+      "high52": 30.17,
+      "low52": 24.31
+    },
+    "savedAt": 1780728399311
+  },
+  "GROWWNIFTY": {
+    "data": {
+      "nav": 9.4184,
+      "price": 9.43,
+      "premium": 0.12,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.072,
+      "oneYearReturn": -0.072,
+      "threeYearReturn": -0.0246,
+      "fiveYearReturn": -0.0148,
+      "high52": 11.88,
+      "low52": 8.93
+    },
+    "savedAt": 1780728399311
+  },
+  "MOENERGY": {
+    "data": {
+      "nav": 40.5225,
+      "price": 40.69,
+      "premium": 0.41,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.1508,
+      "oneYearReturn": 0.1366,
+      "threeYearReturn": 0.0436,
+      "fiveYearReturn": 0.0259,
+      "high52": 43,
+      "low52": 33.107
+    },
+    "savedAt": 1780728399311
+  },
+  "AONEGOLD": {
+    "data": {
+      "nav": 14.4483,
+      "price": 14.52,
+      "premium": 0.5,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0456,
+      "oneYearReturn": 0.2759,
+      "threeYearReturn": 0.0846,
+      "fiveYearReturn": 0.0499,
+      "high52": 17.73,
+      "low52": 10
+    },
+    "savedAt": 1780728399311
+  },
+  "VAL30IETF": {
+    "data": {
+      "nav": 15.7515,
+      "price": 15.75,
+      "premium": -0.01,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0221,
+      "oneYearReturn": 0.1723,
+      "threeYearReturn": 0.0653,
+      "fiveYearReturn": 0.0387,
+      "high52": 17.7,
+      "low52": 12.27
+    },
+    "savedAt": 1780728399311
+  },
+  "HDFCNEXT50": {
+    "data": {
+      "nav": 71.3979,
+      "price": 71.41,
+      "premium": 0.02,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": 0.0385,
+      "oneYearReturn": 0.0272,
+      "threeYearReturn": -0.4533,
+      "fiveYearReturn": -0.2979,
+      "high52": 75.04,
+      "low52": 59.99
+    },
+    "savedAt": 1780728399311
+  },
+  "QUAL30IETF": {
+    "data": {
+      "nav": 20.6503,
+      "price": 20.69,
+      "premium": 0.19,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0503,
+      "oneYearReturn": -0.0428,
+      "threeYearReturn": 0.0785,
+      "fiveYearReturn": 0.0464,
+      "high52": 23,
+      "low52": 18
+    },
+    "savedAt": 1780728399311
+  },
+  "AUTOIETF": {
+    "data": {
+      "nav": 26.9521,
+      "price": 26.98,
+      "premium": 0.1,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0138,
+      "oneYearReturn": 0.1124,
+      "threeYearReturn": 0.077,
+      "fiveYearReturn": 0.0455,
+      "high52": 30.5,
+      "low52": 23.3
+    },
+    "savedAt": 1780728399311
+  },
+  "MAKEINDIA": {
+    "data": {
+      "nav": 160.1861,
+      "price": 160.05,
+      "premium": -0.08,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.0457,
+      "oneYearReturn": 0.0855,
+      "threeYearReturn": 0.1718,
+      "fiveYearReturn": 0.0998,
+      "high52": 167.77,
+      "low52": 120
+    },
+    "savedAt": 1780728399311
+  },
+  "CONSUMBEES": {
+    "data": {
+      "nav": 124.2445,
+      "price": 124.33,
+      "premium": 0.07,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0243,
+      "oneYearReturn": -0.0497,
+      "threeYearReturn": 0.1104,
+      "fiveYearReturn": 0.1235,
+      "high52": 144.38,
+      "low52": 114
+    },
+    "savedAt": 1780728399311
+  },
+  "ABSLBANETF": {
+    "data": {
+      "nav": 55.5177,
+      "price": 55.55,
+      "premium": 0.06,
+      "expenseRatio": 0.006,
+      "category": null,
+      "ytdReturn": -0.0846,
+      "oneYearReturn": -0.0448,
+      "threeYearReturn": 0.0741,
+      "fiveYearReturn": -0.3051,
+      "high52": 64.94,
+      "low52": 50.97
+    },
+    "savedAt": 1780728399311
+  },
+  "AONESILVER": {
+    "data": {
+      "nav": 9.8397,
+      "price": 9.83,
+      "premium": -0.1,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.0752,
+      "oneYearReturn": 0.0752,
+      "threeYearReturn": 0.0245,
+      "fiveYearReturn": 0.0146,
+      "high52": 12,
+      "low52": 7.68
+    },
+    "savedAt": 1780728399311
+  },
+  "MONIFTY500": {
+    "data": {
+      "nav": 22.9331,
+      "price": 22.99,
+      "premium": 0.25,
+      "expenseRatio": 0.0014,
+      "category": null,
+      "ytdReturn": -0.025,
+      "oneYearReturn": -0.0369,
+      "threeYearReturn": 0.1081,
+      "fiveYearReturn": 0.0635,
+      "high52": 24.88,
+      "low52": 20.75
+    },
+    "savedAt": 1780728399311
+  },
+  "HEALTHCARE": {
+    "data": {
+      "nav": 19.8297,
+      "price": 19.84,
+      "premium": 0.05,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.1135,
+      "oneYearReturn": 0.1135,
+      "threeYearReturn": 0.0365,
+      "fiveYearReturn": 0.0217,
+      "high52": 21.17,
+      "low52": 17.18
+    },
+    "savedAt": 1780728399311
+  },
+  "ALPL30IETF": {
+    "data": {
+      "nav": 26.183,
+      "price": 26.23,
+      "premium": 0.18,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0318,
+      "oneYearReturn": -0.063,
+      "threeYearReturn": 0.1055,
+      "fiveYearReturn": 0.0988,
+      "high52": 28.72,
+      "low52": 24.35
+    },
+    "savedAt": 1780728399311
+  },
+  "NIFTYCASE": {
+    "data": {
+      "nav": 9.3475,
+      "price": 9.35,
+      "premium": 0.03,
+      "expenseRatio": 0.0007,
+      "category": null,
+      "ytdReturn": -0.0763,
+      "oneYearReturn": -0.1064,
+      "threeYearReturn": -0.0368,
+      "fiveYearReturn": -0.0223,
+      "high52": 10.97,
+      "low52": 8.84
+    },
+    "savedAt": 1780728399311
+  },
+  "SILVER360": {
+    "data": {
+      "nav": 253.4961,
+      "price": 252.94,
+      "premium": -0.22,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.1734,
+      "oneYearReturn": 1.374,
+      "threeYearReturn": 0.3725,
+      "fiveYearReturn": 0.2092,
+      "high52": 358,
+      "low52": 100.99
+    },
+    "savedAt": 1780728399311
+  },
+  "ENIFTY": {
+    "data": {
+      "nav": 23.4698,
+      "price": 23.39,
+      "premium": -0.34,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.0794,
+      "oneYearReturn": -0.102,
+      "threeYearReturn": -0.0352,
+      "fiveYearReturn": -0.0213,
+      "high52": 27.99,
+      "low52": 22.28
+    },
+    "savedAt": 1780728399311
+  },
+  "BBETF0432": {
+    "data": {
+      "nav": 1314.1089,
+      "price": 1308.62,
+      "premium": -0.42,
+      "expenseRatio": 0.0008,
+      "category": null,
+      "ytdReturn": 0.0083,
+      "oneYearReturn": 0.0273,
+      "threeYearReturn": 0.0684,
+      "fiveYearReturn": 0.0559,
+      "high52": 1346.89,
+      "low52": 1262.29
+    },
+    "savedAt": 1780728399311
+  },
+  "ABSLLIQUID": {
+    "data": {
+      "nav": 1000,
+      "price": 1000,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0128,
+      "oneYearReturn": 0.0328,
+      "threeYearReturn": 0.0391,
+      "fiveYearReturn": 0.024,
+      "high52": 1044.99,
+      "low52": 999.56
+    },
+    "savedAt": 1780728399311
+  },
+  "SETF10GILT": {
+    "data": {
+      "nav": 258.7243,
+      "price": 258.72,
+      "premium": 0,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": 0.0043,
+      "oneYearReturn": 0.0092,
+      "threeYearReturn": 0.0631,
+      "fiveYearReturn": 0.0507,
+      "high52": 266.1,
+      "low52": 250.37
+    },
+    "savedAt": 1780728399311
+  },
+  "BFSI": {
+    "data": {
+      "nav": 25.9017,
+      "price": 25.92,
+      "premium": 0.07,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0811,
+      "oneYearReturn": -0.0736,
+      "threeYearReturn": 0.088,
+      "fiveYearReturn": 0.0519,
+      "high52": 29.94,
+      "low52": 24.03
+    },
+    "savedAt": 1780728403855
+  },
+  "AXISVALUE": {
+    "data": {
+      "nav": 33.904,
+      "price": 34.01,
+      "premium": 0.31,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0357,
+      "oneYearReturn": 0.1574,
+      "threeYearReturn": 0.0762,
+      "fiveYearReturn": 0.0451,
+      "high52": 35.27,
+      "low52": 22.84
+    },
+    "savedAt": 1780728403855
+  },
+  "TOP100CASE": {
+    "data": {
+      "nav": 10.2106,
+      "price": 10.2,
+      "premium": -0.1,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": -0.0574,
+      "oneYearReturn": -0.0617,
+      "threeYearReturn": -0.0168,
+      "fiveYearReturn": -0.0101,
+      "high52": 11.57,
+      "low52": 9.48
+    },
+    "savedAt": 1780728403855
+  },
+  "PSUBANKADD": {
+    "data": {
+      "nav": 83.1137,
+      "price": 83.13,
+      "premium": 0.02,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0816,
+      "oneYearReturn": 0.1539,
+      "threeYearReturn": 0.1665,
+      "fiveYearReturn": 0.0968,
+      "high52": 99.88,
+      "low52": 67.2
+    },
+    "savedAt": 1780728403855
+  },
+  "SMALL250": {
+    "data": {
+      "nav": 17.072,
+      "price": 17.09,
+      "premium": 0.11,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": 0.0818,
+      "oneYearReturn": 0.0209,
+      "threeYearReturn": 0.0069,
+      "fiveYearReturn": 0.0042,
+      "high52": 18.89,
+      "low52": 14.16
+    },
+    "savedAt": 1780728403855
+  },
+  "ALPHAETF": {
+    "data": {
+      "nav": 25.5864,
+      "price": 25.59,
+      "premium": 0.01,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.0505,
+      "oneYearReturn": -0.0154,
+      "threeYearReturn": 0.0314,
+      "fiveYearReturn": 0.0188,
+      "high52": 26.53,
+      "low52": 21.8
+    },
+    "savedAt": 1780728403855
+  },
+  "MOMIDMTM": {
+    "data": {
+      "nav": 63.2151,
+      "price": 63.16,
+      "premium": -0.09,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0288,
+      "oneYearReturn": 0.0149,
+      "threeYearReturn": 0.0049,
+      "fiveYearReturn": 0.003,
+      "high52": 68.5,
+      "low52": 54.78
+    },
+    "savedAt": 1780728403855
+  },
+  "SBIETFIT": {
+    "data": {
+      "nav": 324.4043,
+      "price": 326.93,
+      "premium": 0.78,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.2316,
+      "oneYearReturn": -0.2368,
+      "threeYearReturn": 0.0139,
+      "fiveYearReturn": 0.0073,
+      "high52": 439.27,
+      "low52": 299.23
+    },
+    "savedAt": 1780728403855
+  },
+  "NV20IETF": {
+    "data": {
+      "nav": 13.6972,
+      "price": 13.71,
+      "premium": 0.09,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.094,
+      "oneYearReturn": -0.0707,
+      "threeYearReturn": 0.0824,
+      "fiveYearReturn": 0.0949,
+      "high52": 16,
+      "low52": 12.5
+    },
+    "savedAt": 1780728403855
+  },
+  "NIFTYBETA": {
+    "data": {
+      "nav": 258.314,
+      "price": 258.84,
+      "premium": 0.2,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": -0.0763,
+      "oneYearReturn": -0.0763,
+      "threeYearReturn": -0.0261,
+      "fiveYearReturn": -0.0157,
+      "high52": 296,
+      "low52": 244.9
+    },
+    "savedAt": 1780728403855
+  },
+  "LTGILTCASE": {
+    "data": {
+      "nav": 29.821,
+      "price": 29.82,
+      "premium": 0,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": 0.0057,
+      "oneYearReturn": 0.0149,
+      "threeYearReturn": 0.005,
+      "fiveYearReturn": 0.003,
+      "high52": 30.94,
+      "low52": 28.71
+    },
+    "savedAt": 1780728403855
+  },
+  "BANKBETA": {
+    "data": {
+      "nav": 56.0191,
+      "price": 55.96,
+      "premium": -0.11,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0861,
+      "oneYearReturn": -0.0861,
+      "threeYearReturn": -0.0296,
+      "fiveYearReturn": -0.0178,
+      "high52": 73.7,
+      "low52": 51.3
+    },
+    "savedAt": 1780728403855
+  },
+  "LICMFGOLD": {
+    "data": {
+      "nav": null,
+      "price": 140.1,
+      "premium": null,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.9907,
+      "oneYearReturn": -0.984,
+      "threeYearReturn": -0.7031,
+      "fiveYearReturn": -0.4999,
+      "high52": 16200,
+      "low52": 117.85
+    },
+    "savedAt": 1780728403855
+  },
+  "MIDSELIETF": {
+    "data": {
+      "nav": 18.2483,
+      "price": 18.31,
+      "premium": 0.34,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0328,
+      "oneYearReturn": 0.0184,
+      "threeYearReturn": 0.1815,
+      "fiveYearReturn": 0.1354,
+      "high52": 20,
+      "low52": 14.55
+    },
+    "savedAt": 1780728403855
+  },
+  "MASPTOP50": {
+    "data": {
+      "nav": 68.5607,
+      "price": 82.38,
+      "premium": 20.16,
+      "expenseRatio": 0.0025,
+      "category": null,
+      "ytdReturn": 0.1538,
+      "oneYearReturn": 0.4852,
+      "threeYearReturn": 0.3709,
+      "fiveYearReturn": 0.2272,
+      "high52": 82.78,
+      "low52": 52.52
+    },
+    "savedAt": 1780728403855
+  },
+  "DIVOPPBEES": {
+    "data": {
+      "nav": 77.0451,
+      "price": 77.23,
+      "premium": 0.24,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0821,
+      "oneYearReturn": -0.0321,
+      "threeYearReturn": 0.1288,
+      "fiveYearReturn": 0.1334,
+      "high52": 87.09,
+      "low52": 72.13
+    },
+    "savedAt": 1780728403855
+  },
+  "EBBETF0433": {
+    "data": {
+      "nav": 1275.495,
+      "price": 1271.44,
+      "premium": -0.32,
+      "expenseRatio": 0.0008,
+      "category": null,
+      "ytdReturn": 0.0071,
+      "oneYearReturn": 0.0227,
+      "threeYearReturn": 0.0099,
+      "fiveYearReturn": 0.0059,
+      "high52": 1315.12,
+      "low52": 1241.38
+    },
+    "savedAt": 1780728403855
+  },
+  "TNIDETF": {
+    "data": {
+      "nav": 81.8845,
+      "price": 81.48,
+      "premium": -0.49,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.1384,
+      "oneYearReturn": -0.1447,
+      "threeYearReturn": 0.1029,
+      "fiveYearReturn": 0.0573,
+      "high52": 103.26,
+      "low52": 74.5
+    },
+    "savedAt": 1780728403855
+  },
+  "EVIETF": {
+    "data": {
+      "nav": 30.6442,
+      "price": 30.65,
+      "premium": 0.02,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.0411,
+      "oneYearReturn": 0.0471,
+      "threeYearReturn": 0.0194,
+      "fiveYearReturn": 0.0116,
+      "high52": 33.75,
+      "low52": 23.56
+    },
+    "savedAt": 1780728403855
+  },
+  "BANKADD": {
+    "data": {
+      "nav": 55.4442,
+      "price": 55.56,
+      "premium": 0.21,
+      "expenseRatio": 0.0019,
+      "category": null,
+      "ytdReturn": -0.0852,
+      "oneYearReturn": -0.0469,
+      "threeYearReturn": 0.0739,
+      "fiveYearReturn": 0.0675,
+      "high52": 62.9,
+      "low52": 51.01
+    },
+    "savedAt": 1780728403855
+  },
+  "MOHEALTH": {
+    "data": {
+      "nav": 47.2635,
+      "price": 47.26,
+      "premium": -0.01,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.1355,
+      "oneYearReturn": 0.0666,
+      "threeYearReturn": 0.2223,
+      "fiveYearReturn": 0.1525,
+      "high52": 49.13,
+      "low52": 40.79
+    },
+    "savedAt": 1780728403855
+  },
+  "BANKPSU": {
+    "data": {
+      "nav": 82.9478,
+      "price": 82.99,
+      "premium": 0.05,
+      "expenseRatio": 0.0019,
+      "category": null,
+      "ytdReturn": -0.0802,
+      "oneYearReturn": 0.1517,
+      "threeYearReturn": 0.0697,
+      "fiveYearReturn": 0.0412,
+      "high52": 99.52,
+      "low52": 67.43
+    },
+    "savedAt": 1780728403855
+  },
+  "SHARIABEES": {
+    "data": {
+      "nav": 460.675,
+      "price": 461.76,
+      "premium": 0.24,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": -0.1066,
+      "oneYearReturn": -0.1091,
+      "threeYearReturn": 0.0316,
+      "fiveYearReturn": 0.026,
+      "high52": 537.63,
+      "low52": 433.68
+    },
+    "savedAt": 1780728403855
+  },
+  "TOP15IETF": {
+    "data": {
+      "nav": 9.4579,
+      "price": 9.47,
+      "premium": 0.13,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": -0.1105,
+      "oneYearReturn": -0.0668,
+      "threeYearReturn": -0.0228,
+      "fiveYearReturn": -0.0137,
+      "high52": 11.36,
+      "low52": 9.15
+    },
+    "savedAt": 1780728403855
+  },
+  "ELIQUID": {
+    "data": {
+      "nav": 1033.5492,
+      "price": 1033.55,
+      "premium": 0,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": 0.0167,
+      "oneYearReturn": 0.0254,
+      "threeYearReturn": 0.0084,
+      "fiveYearReturn": 0.005,
+      "high52": 1043,
+      "low52": 996
+    },
+    "savedAt": 1780728403855
+  },
+  "HDFCMOMENT": {
+    "data": {
+      "nav": 30.3054,
+      "price": 30.24,
+      "premium": -0.22,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0052,
+      "oneYearReturn": -0.0551,
+      "threeYearReturn": 0.0656,
+      "fiveYearReturn": 0.0388,
+      "high52": 33.23,
+      "low52": 27.13
+    },
+    "savedAt": 1780728403855
+  },
+  "HDFCPSUBK": {
+    "data": {
+      "nav": 83.2153,
+      "price": 83.35,
+      "premium": 0.16,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0784,
+      "oneYearReturn": 0.1566,
+      "threeYearReturn": 0.0622,
+      "fiveYearReturn": 0.0369,
+      "high52": 101.25,
+      "low52": 67.53
+    },
+    "savedAt": 1780728403855
+  },
+  "NIFTYADD": {
+    "data": {
+      "nav": 245.4384,
+      "price": 245.59,
+      "premium": 0.06,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.076,
+      "oneYearReturn": -0.0751,
+      "threeYearReturn": 0.0793,
+      "fiveYearReturn": 0.0722,
+      "high52": 300,
+      "low52": 232.64
+    },
+    "savedAt": 1780728403855
+  },
+  "MOMOMENTUM": {
+    "data": {
+      "nav": 60.8078,
+      "price": 60.66,
+      "premium": -0.24,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0075,
+      "oneYearReturn": -0.0588,
+      "threeYearReturn": 0.0076,
+      "fiveYearReturn": 0.0046,
+      "high52": 66.37,
+      "low52": 54.32
+    },
+    "savedAt": 1780728403855
+  },
+  "NIFTYBETF": {
+    "data": {
+      "nav": 239.7891,
+      "price": 240.15,
+      "premium": 0.15,
+      "expenseRatio": 0.0007,
+      "category": null,
+      "ytdReturn": -0.078,
+      "oneYearReturn": -0.077,
+      "threeYearReturn": -0.0086,
+      "fiveYearReturn": -0.0052,
+      "high52": 279.99,
+      "low52": 227.01
+    },
+    "savedAt": 1780728403855
+  },
+  "AONETMMQ50": {
+    "data": {
+      "nav": 10.1875,
+      "price": 10.2,
+      "premium": 0.12,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0714,
+      "oneYearReturn": 0.0624,
+      "threeYearReturn": 0.0204,
+      "fiveYearReturn": 0.0122,
+      "high52": 10.87,
+      "low52": 8
+    },
+    "savedAt": 1780728403855
+  },
+  "TECH": {
+    "data": {
+      "nav": 31.9696,
+      "price": 32.01,
+      "premium": 0.13,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.227,
+      "oneYearReturn": -0.2303,
+      "threeYearReturn": -0.0559,
+      "fiveYearReturn": -0.0339,
+      "high52": 49.41,
+      "low52": 29.52
+    },
+    "savedAt": 1780728403855
+  },
+  "CONSUMIETF": {
+    "data": {
+      "nav": 115.5594,
+      "price": 115.2,
+      "premium": -0.31,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0228,
+      "oneYearReturn": -0.0502,
+      "threeYearReturn": 0.0189,
+      "fiveYearReturn": 0.0113,
+      "high52": 141.27,
+      "low52": 94.65
+    },
+    "savedAt": 1780728403855
+  },
+  "ECAPINSURE": {
+    "data": {
+      "nav": 23.492,
+      "price": 23.54,
+      "premium": 0.2,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0055,
+      "oneYearReturn": -0.0244,
+      "threeYearReturn": 0.0705,
+      "fiveYearReturn": 0.0417,
+      "high52": 25.88,
+      "low52": 20.5
+    },
+    "savedAt": 1780728403855
+  },
+  "GROWWMC150": {
+    "data": {
+      "nav": 223.4678,
+      "price": 224.1,
+      "premium": 0.28,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0401,
+      "oneYearReturn": -0.0003,
+      "threeYearReturn": -0.0001,
+      "fiveYearReturn": -0.0001,
+      "high52": 245,
+      "low52": 193.6
+    },
+    "savedAt": 1780728403855
+  },
+  "SENSEXETF": {
+    "data": {
+      "nav": 76.3631,
+      "price": 76.43,
+      "premium": 0.09,
+      "expenseRatio": 0.0007,
+      "category": null,
+      "ytdReturn": -0.0947,
+      "oneYearReturn": -0.1054,
+      "threeYearReturn": 0.0454,
+      "fiveYearReturn": 0.027,
+      "high52": 88.7,
+      "low52": 73.33
+    },
+    "savedAt": 1780728403855
+  },
+  "GROWWPSUBK": {
+    "data": {
+      "nav": 82.545,
+      "price": 82.37,
+      "premium": -0.21,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0203,
+      "oneYearReturn": -0.0203,
+      "threeYearReturn": -0.0068,
+      "fiveYearReturn": -0.0041,
+      "high52": 91.19,
+      "low52": 78.06
+    },
+    "savedAt": 1780728403855
+  },
+  "MOMENTUM": {
+    "data": {
+      "nav": 30.4161,
+      "price": 30.39,
+      "premium": -0.09,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0094,
+      "oneYearReturn": -0.0567,
+      "threeYearReturn": 0.1226,
+      "fiveYearReturn": 0.094,
+      "high52": 33.15,
+      "low52": 27.05
+    },
+    "savedAt": 1780728408709
+  },
+  "AONETOTAL": {
+    "data": {
+      "nav": 11.4353,
+      "price": 11.43,
+      "premium": -0.05,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": -0.0155,
+      "oneYearReturn": -0.0415,
+      "threeYearReturn": 0.0109,
+      "fiveYearReturn": 0.0065,
+      "high52": 12.51,
+      "low52": 9.6
+    },
+    "savedAt": 1780728408709
+  },
+  "LOWVOL1": {
+    "data": {
+      "nav": 20.2091,
+      "price": 20.18,
+      "premium": -0.14,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0567,
+      "oneYearReturn": -0.0345,
+      "threeYearReturn": 0.1124,
+      "fiveYearReturn": 0.097,
+      "high52": 22.9,
+      "low52": 18.77
+    },
+    "savedAt": 1780728408709
+  },
+  "ESG": {
+    "data": {
+      "nav": 39.9993,
+      "price": 40.01,
+      "premium": 0.03,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0733,
+      "oneYearReturn": -0.0778,
+      "threeYearReturn": 0.0726,
+      "fiveYearReturn": 0.043,
+      "high52": 45.06,
+      "low52": 37.52
+    },
+    "savedAt": 1780728408709
+  },
+  "HDFCNIF100": {
+    "data": {
+      "nav": 25.1577,
+      "price": 25.15,
+      "premium": -0.03,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": -0.058,
+      "oneYearReturn": -0.0597,
+      "threeYearReturn": -0.4922,
+      "fiveYearReturn": -0.3221,
+      "high52": 29,
+      "low52": 22
+    },
+    "savedAt": 1780728408709
+  },
+  "GROWWSC250": {
+    "data": {
+      "nav": 9.8295,
+      "price": 9.81,
+      "premium": -0.2,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": 0.0776,
+      "oneYearReturn": 0.0151,
+      "threeYearReturn": 0.005,
+      "fiveYearReturn": 0.003,
+      "high52": 10.31,
+      "low52": 8
+    },
+    "savedAt": 1780728408709
+  },
+  "NIF100IETF": {
+    "data": {
+      "nav": 27.1688,
+      "price": 27.14,
+      "premium": -0.11,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": -0.058,
+      "oneYearReturn": 0.1422,
+      "threeYearReturn": -0.4933,
+      "fiveYearReturn": -0.3104,
+      "high52": 30.88,
+      "low52": 23.762
+    },
+    "savedAt": 1780728408709
+  },
+  "ITADD": {
+    "data": {
+      "nav": 30.9802,
+      "price": 31.09,
+      "premium": 0.35,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.2324,
+      "oneYearReturn": -0.2374,
+      "threeYearReturn": 0.0001,
+      "fiveYearReturn": 0.0001,
+      "high52": 41.92,
+      "low52": 28.56
+    },
+    "savedAt": 1780728408709
+  },
+  "NEXT50ADD": {
+    "data": {
+      "nav": 70.1805,
+      "price": 70.46,
+      "premium": 0.4,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": 0.1604,
+      "oneYearReturn": 0.1604,
+      "threeYearReturn": 0.0508,
+      "fiveYearReturn": 0.0302,
+      "high52": 74.8,
+      "low52": 56.25
+    },
+    "savedAt": 1780728408709
+  },
+  "SBIETFPB": {
+    "data": {
+      "nav": 266.9416,
+      "price": 267.3,
+      "premium": 0.13,
+      "expenseRatio": 0.0014,
+      "category": null,
+      "ytdReturn": -0.0761,
+      "oneYearReturn": -0.0653,
+      "threeYearReturn": 0.0522,
+      "fiveYearReturn": 0.0832,
+      "high52": 304.58,
+      "low52": 244.18
+    },
+    "savedAt": 1780728408709
+  },
+  "GROWWNET": {
+    "data": {
+      "nav": 8.8482,
+      "price": 8.88,
+      "premium": 0.36,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0766,
+      "oneYearReturn": -0.1884,
+      "threeYearReturn": -0.0672,
+      "fiveYearReturn": -0.0409,
+      "high52": 11.1269,
+      "low52": 7.94
+    },
+    "savedAt": 1780728408709
+  },
+  "FLEXIADD": {
+    "data": {
+      "nav": 9.6445,
+      "price": 9.64,
+      "premium": -0.05,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0736,
+      "oneYearReturn": -0.1044,
+      "threeYearReturn": -0.0361,
+      "fiveYearReturn": -0.0218,
+      "high52": 11.55,
+      "low52": 8.73
+    },
+    "savedAt": 1780728408709
+  },
+  "BSE500IETF": {
+    "data": {
+      "nav": 37.9076,
+      "price": 37.87,
+      "premium": -0.1,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": -0.0287,
+      "oneYearReturn": -0.0449,
+      "threeYearReturn": 0.0455,
+      "fiveYearReturn": 0.027,
+      "high52": 41.64,
+      "low52": 34.5
+    },
+    "savedAt": 1780728408709
+  },
+  "INFRA": {
+    "data": {
+      "nav": 11.9893,
+      "price": 12,
+      "premium": 0.09,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.1765,
+      "oneYearReturn": 0.1765,
+      "threeYearReturn": 0.0557,
+      "fiveYearReturn": 0.033,
+      "high52": 12.6,
+      "low52": 10.14
+    },
+    "savedAt": 1780728408709
+  },
+  "QNIFTY": {
+    "data": {
+      "nav": 256.4683,
+      "price": 256.7,
+      "premium": 0.09,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.9076,
+      "oneYearReturn": -0.9074,
+      "threeYearReturn": -0.4994,
+      "fiveYearReturn": -0.3106,
+      "high52": 2911.9,
+      "low52": 243.2
+    },
+    "savedAt": 1780728408709
+  },
+  "BANKBETF": {
+    "data": {
+      "nav": 55.0462,
+      "price": 55.08,
+      "premium": 0.06,
+      "expenseRatio": 0.0019,
+      "category": null,
+      "ytdReturn": -0.0843,
+      "oneYearReturn": -0.0471,
+      "threeYearReturn": 0.0634,
+      "fiveYearReturn": 0.0376,
+      "high52": 62.46,
+      "low52": 50.71
+    },
+    "savedAt": 1780728408709
+  },
+  "MONIFTY100": {
+    "data": {
+      "nav": 24.4988,
+      "price": 24.56,
+      "premium": 0.25,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": -0.058,
+      "oneYearReturn": -0.0871,
+      "threeYearReturn": -0.0299,
+      "fiveYearReturn": -0.0181,
+      "high52": 27.97,
+      "low52": 22.38
+    },
+    "savedAt": 1780728408709
+  },
+  "AONENIFTY": {
+    "data": {
+      "nav": 9.623,
+      "price": 9.6,
+      "premium": -0.24,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.0743,
+      "oneYearReturn": -0.0784,
+      "threeYearReturn": -0.0269,
+      "fiveYearReturn": -0.0162,
+      "high52": 11.06,
+      "low52": 9
+    },
+    "savedAt": 1780728408709
+  },
+  "MID150": {
+    "data": {
+      "nav": null,
+      "price": 22.61,
+      "premium": null,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0344,
+      "oneYearReturn": 0.019,
+      "threeYearReturn": 0.0389,
+      "fiveYearReturn": 0.0232,
+      "high52": 24.75,
+      "low52": 18.97
+    },
+    "savedAt": 1780728408709
+  },
+  "PVTBKGROWW": {
+    "data": {
+      "nav": 26.2252,
+      "price": 26.23,
+      "premium": 0.02,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0027,
+      "oneYearReturn": 0.0027,
+      "threeYearReturn": 0.0009,
+      "fiveYearReturn": 0.0005,
+      "high52": 27.86,
+      "low52": 25.6
+    },
+    "savedAt": 1780728408709
+  },
+  "PVTBANKADD": {
+    "data": {
+      "nav": 26.538,
+      "price": 26.76,
+      "premium": 0.84,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0792,
+      "oneYearReturn": -0.068,
+      "threeYearReturn": 0.05,
+      "fiveYearReturn": 0.0297,
+      "high52": 31.88,
+      "low52": 24.02
+    },
+    "savedAt": 1780728408709
+  },
+  "MIDQ50ADD": {
+    "data": {
+      "nav": 243.9651,
+      "price": 245.69,
+      "premium": 0.71,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0282,
+      "oneYearReturn": -0.0485,
+      "threeYearReturn": 0.0145,
+      "fiveYearReturn": 0.0087,
+      "high52": 264.64,
+      "low52": 209.98
+    },
+    "savedAt": 1780728408709
+  },
+  "GOLD360": {
+    "data": {
+      "nav": 150.9901,
+      "price": 151.35,
+      "premium": 0.24,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0163,
+      "oneYearReturn": 0.5911,
+      "threeYearReturn": 0.1693,
+      "fiveYearReturn": 0.0984,
+      "high52": 178,
+      "low52": 78.2
+    },
+    "savedAt": 1780728408709
+  },
+  "GROWWRLTY": {
+    "data": {
+      "nav": 8.5507,
+      "price": 8.56,
+      "premium": 0.11,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0192,
+      "oneYearReturn": -0.1251,
+      "threeYearReturn": -0.0436,
+      "fiveYearReturn": -0.0264,
+      "high52": 10.2697,
+      "low52": 7.17
+    },
+    "savedAt": 1780728408709
+  },
+  "NV20BEES": {
+    "data": {
+      "nav": 140.5796,
+      "price": 140.74,
+      "premium": 0.11,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.096,
+      "oneYearReturn": 0.4733,
+      "threeYearReturn": 0.1379,
+      "fiveYearReturn": 0.0945,
+      "high52": 160,
+      "low52": 95.22
+    },
+    "savedAt": 1780728408709
+  },
+  "SENSEXBETA": {
+    "data": {
+      "nav": 819.8666,
+      "price": 819.63,
+      "premium": -0.03,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": -0.0944,
+      "oneYearReturn": -0.0944,
+      "threeYearReturn": -0.0325,
+      "fiveYearReturn": -0.0196,
+      "high52": 952.91,
+      "low52": 785
+    },
+    "savedAt": 1780728408709
+  },
+  "CONSUMER": {
+    "data": {
+      "nav": 10.9298,
+      "price": 10.93,
+      "premium": 0,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0082,
+      "oneYearReturn": -0.0785,
+      "threeYearReturn": 0.0004,
+      "fiveYearReturn": 0.0003,
+      "high52": 12.87,
+      "low52": 9.69
+    },
+    "savedAt": 1780728408709
+  },
+  "GROWWCHEM": {
+    "data": {
+      "nav": 29.0217,
+      "price": 28.89,
+      "premium": -0.45,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.0463,
+      "oneYearReturn": 0.0463,
+      "threeYearReturn": 0.0152,
+      "fiveYearReturn": 0.0091,
+      "high52": 30.95,
+      "low52": 24.64
+    },
+    "savedAt": 1780728408709
+  },
+  "IVZINGOLD": {
+    "data": {
+      "nav": 134.5502,
+      "price": 135.3,
+      "premium": 0.56,
+      "expenseRatio": 0.0055,
+      "category": null,
+      "ytdReturn": -0.9904,
+      "oneYearReturn": -0.984,
+      "threeYearReturn": -0.7035,
+      "fiveYearReturn": -0.5014,
+      "high52": 15599.8,
+      "low52": 127.5
+    },
+    "savedAt": 1780728408709
+  },
+  "GROWWMOM50": {
+    "data": {
+      "nav": 10.5002,
+      "price": 10.51,
+      "premium": 0.09,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0359,
+      "oneYearReturn": -0.0526,
+      "threeYearReturn": -0.001,
+      "fiveYearReturn": -0.0006,
+      "high52": 11.1089,
+      "low52": 9.12
+    },
+    "savedAt": 1780728408709
+  },
+  "MOGSEC": {
+    "data": {
+      "nav": 63.7021,
+      "price": 63.38,
+      "premium": -0.51,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": 0.0149,
+      "oneYearReturn": 0.0373,
+      "threeYearReturn": 0.0174,
+      "fiveYearReturn": 0.0104,
+      "high52": 66.49,
+      "low52": 60.18
+    },
+    "savedAt": 1780728408709
+  },
+  "INTERNET": {
+    "data": {
+      "nav": 11.9473,
+      "price": 11.94,
+      "premium": -0.06,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0722,
+      "oneYearReturn": -0.1843,
+      "threeYearReturn": -0.0656,
+      "fiveYearReturn": -0.0399,
+      "high52": 15.0092,
+      "low52": 10.7641
+    },
+    "savedAt": 1780728408709
+  },
+  "MANUFGBEES": {
+    "data": {
+      "nav": 158.0148,
+      "price": 157.98,
+      "premium": -0.02,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0455,
+      "oneYearReturn": 0.0652,
+      "threeYearReturn": 0.0213,
+      "fiveYearReturn": 0.0127,
+      "high52": 171.58,
+      "low52": 138.6
+    },
+    "savedAt": 1780728408709
+  },
+  "ABSLNN50ET": {
+    "data": {
+      "nav": 73.5066,
+      "price": 73.77,
+      "premium": 0.36,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": 0.0391,
+      "oneYearReturn": 0.0266,
+      "threeYearReturn": 0.1796,
+      "fiveYearReturn": 0.1293,
+      "high52": 76.1,
+      "low52": 63.02
+    },
+    "savedAt": 1780728408709
+  },
+  "ABSLPSE": {
+    "data": {
+      "nav": 10.4958,
+      "price": 10.51,
+      "premium": 0.14,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": 0.001,
+      "oneYearReturn": 0.0185,
+      "threeYearReturn": -0.0072,
+      "fiveYearReturn": -0.0043,
+      "high52": 11.6,
+      "low52": 9.21
+    },
+    "savedAt": 1780728408709
+  },
+  "MOTOUR": {
+    "data": {
+      "nav": 73.1288,
+      "price": 73.26,
+      "premium": 0.18,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.051,
+      "oneYearReturn": -0.2009,
+      "threeYearReturn": -0.072,
+      "fiveYearReturn": -0.0439,
+      "high52": 94.2278,
+      "low52": 64
+    },
+    "savedAt": 1780728408709
+  },
+  "EMULTIMQ": {
+    "data": {
+      "nav": 42.0027,
+      "price": 42.08,
+      "premium": 0.18,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0287,
+      "oneYearReturn": -0.0471,
+      "threeYearReturn": -0.024,
+      "fiveYearReturn": -0.0145,
+      "high52": 44.97,
+      "low52": 36.25
+    },
+    "savedAt": 1780728408709
+  },
+  "MOQUALITY": {
+    "data": {
+      "nav": 199.8724,
+      "price": 200.77,
+      "premium": 0.45,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.0051,
+      "oneYearReturn": -0.0006,
+      "threeYearReturn": 0.1485,
+      "fiveYearReturn": 0.118,
+      "high52": 225.6,
+      "low52": 176.15
+    },
+    "savedAt": 1780728408709
+  },
+  "NIFTY100EW": {
+    "data": {
+      "nav": 33.935,
+      "price": 34.02,
+      "premium": 0.25,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": 0.0197,
+      "oneYearReturn": 0.028,
+      "threeYearReturn": 0.0317,
+      "fiveYearReturn": 0.0189,
+      "high52": 41.41,
+      "low52": 29.84
+    },
+    "savedAt": 1780728408709
+  },
+  "MOM50": {
+    "data": {
+      "nav": 243.9412,
+      "price": 244.63,
+      "premium": 0.28,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0732,
+      "oneYearReturn": -0.074,
+      "threeYearReturn": 0.0792,
+      "fiveYearReturn": 0.0924,
+      "high52": 279.33,
+      "low52": 231.11
+    },
+    "savedAt": 1780728413931
+  },
+  "AXISTECETF": {
+    "data": {
+      "nav": 322.3118,
+      "price": 321.75,
+      "premium": -0.17,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.2326,
+      "oneYearReturn": -0.2375,
+      "threeYearReturn": 0.0136,
+      "fiveYearReturn": 0.0093,
+      "high52": 439.67,
+      "low52": 297.6
+    },
+    "savedAt": 1780728413931
+  },
+  "HDFCGROWTH": {
+    "data": {
+      "nav": 111.9194,
+      "price": 112.09,
+      "premium": 0.15,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0977,
+      "oneYearReturn": -0.0597,
+      "threeYearReturn": -0.0075,
+      "fiveYearReturn": -0.0045,
+      "high52": 133.3,
+      "low52": 107.86
+    },
+    "savedAt": 1780728413931
+  },
+  "MOINFRA": {
+    "data": {
+      "nav": 61.8815,
+      "price": 61.92,
+      "premium": 0.06,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0624,
+      "oneYearReturn": 0.014,
+      "threeYearReturn": 0.0047,
+      "fiveYearReturn": 0.0028,
+      "high52": 66,
+      "low52": 54.6
+    },
+    "savedAt": 1780728413931
+  },
+  "EQUAL50": {
+    "data": {
+      "nav": 323.495,
+      "price": 323.9,
+      "premium": 0.13,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": -0.0175,
+      "oneYearReturn": 0.0074,
+      "threeYearReturn": 0.0025,
+      "fiveYearReturn": 0.0015,
+      "high52": 339.9588,
+      "low52": 297.7005
+    },
+    "savedAt": 1780728413931
+  },
+  "SMALLADD": {
+    "data": {
+      "nav": 17.0873,
+      "price": 17.13,
+      "premium": 0.25,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": 0.0797,
+      "oneYearReturn": 0.0797,
+      "threeYearReturn": 0.0259,
+      "fiveYearReturn": 0.0155,
+      "high52": 17.73,
+      "low52": 14.01
+    },
+    "savedAt": 1780728413931
+  },
+  "SBIMIDMOM": {
+    "data": {
+      "nav": 62.3427,
+      "price": 62.45,
+      "premium": 0.17,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0174,
+      "oneYearReturn": 0.0174,
+      "threeYearReturn": 0.0058,
+      "fiveYearReturn": 0.0035,
+      "high52": 65,
+      "low52": 53.86
+    },
+    "savedAt": 1780728413931
+  },
+  "AXISBNKETF": {
+    "data": {
+      "nav": 558.4332,
+      "price": 558.57,
+      "premium": 0.02,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0854,
+      "oneYearReturn": -0.0474,
+      "threeYearReturn": 0.0734,
+      "fiveYearReturn": 0.1014,
+      "high52": 647.82,
+      "low52": 512.51
+    },
+    "savedAt": 1780728413931
+  },
+  "CONS": {
+    "data": {
+      "nav": 11.4666,
+      "price": 11.49,
+      "premium": 0.2,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.9022,
+      "oneYearReturn": -0.9046,
+      "threeYearReturn": -0.4834,
+      "fiveYearReturn": -0.3196,
+      "high52": 132,
+      "low52": 10.2
+    },
+    "savedAt": 1780728413931
+  },
+  "NV20": {
+    "data": {
+      "nav": 14.0375,
+      "price": 11942.4,
+      "premium": 84974.98,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 75.8876,
+      "oneYearReturn": 78.3678,
+      "threeYearReturn": 3.7651,
+      "fiveYearReturn": 1.6666,
+      "high52": 12004.9,
+      "low52": 13
+    },
+    "savedAt": 1780728413931
+  },
+  "HEALTHADD": {
+    "data": {
+      "nav": 154.4134,
+      "price": 154.25,
+      "premium": -0.11,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.1102,
+      "oneYearReturn": 0.0735,
+      "threeYearReturn": 0.0328,
+      "fiveYearReturn": 0.0195,
+      "high52": 163.16,
+      "low52": 135.43
+    },
+    "savedAt": 1780728413931
+  },
+  "MSCIINDIA": {
+    "data": {
+      "nav": 28.854,
+      "price": 28.92,
+      "premium": 0.23,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0365,
+      "oneYearReturn": -0.0409,
+      "threeYearReturn": 0.0188,
+      "fiveYearReturn": 0.0112,
+      "high52": 32.14,
+      "low52": 26.5
+    },
+    "savedAt": 1780728413931
+  },
+  "NIFTYQLITY": {
+    "data": {
+      "nav": 20.8593,
+      "price": 20.87,
+      "premium": 0.05,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0463,
+      "oneYearReturn": -0.0392,
+      "threeYearReturn": 0.0982,
+      "fiveYearReturn": 0.0779,
+      "high52": 23.03,
+      "low52": 18.95
+    },
+    "savedAt": 1780728413931
+  },
+  "ELM250": {
+    "data": {
+      "nav": 16.0677,
+      "price": 16.04,
+      "premium": -0.17,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": -0.0068,
+      "oneYearReturn": -0.0342,
+      "threeYearReturn": -0.0115,
+      "fiveYearReturn": -0.0069,
+      "high52": 19.2,
+      "low52": 14.43
+    },
+    "savedAt": 1780728413931
+  },
+  "TWCGOLDETF": {
+    "data": {
+      "nav": 153.7664,
+      "price": 154.46,
+      "premium": 0.45,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": 0.0594,
+      "oneYearReturn": 0.0594,
+      "threeYearReturn": 0.0194,
+      "fiveYearReturn": 0.0116,
+      "high52": 178,
+      "low52": 123.31
+    },
+    "savedAt": 1780728413931
+  },
+  "GROWWN200": {
+    "data": {
+      "nav": 10.9699,
+      "price": 10.91,
+      "premium": -0.55,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": -0.0366,
+      "oneYearReturn": -0.0444,
+      "threeYearReturn": 0.0169,
+      "fiveYearReturn": 0.0101,
+      "high52": 12,
+      "low52": 9.91
+    },
+    "savedAt": 1780728413931
+  },
+  "MOMENTUM30": {
+    "data": {
+      "nav": 30.05,
+      "price": 30.03,
+      "premium": -0.07,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0013,
+      "oneYearReturn": -0.0609,
+      "threeYearReturn": -0.0207,
+      "fiveYearReturn": -0.0125,
+      "high52": 37.38,
+      "low52": 26.91
+    },
+    "savedAt": 1780728413931
+  },
+  "MOLOWVOL": {
+    "data": {
+      "nav": 35.77,
+      "price": 35.82,
+      "premium": 0.14,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0567,
+      "oneYearReturn": -0.066,
+      "threeYearReturn": 0.0965,
+      "fiveYearReturn": -0.2096,
+      "high52": 43.07,
+      "low52": 33.52
+    },
+    "savedAt": 1780728413931
+  },
+  "LICNETFN50": {
+    "data": {
+      "nav": 261.3972,
+      "price": 261.45,
+      "premium": 0.02,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.0757,
+      "oneYearReturn": -0.074,
+      "threeYearReturn": 0.0817,
+      "fiveYearReturn": 0.0917,
+      "high52": 295,
+      "low52": 248.17
+    },
+    "savedAt": 1780728413931
+  },
+  "VALUE": {
+    "data": {
+      "nav": 16.6591,
+      "price": 16.68,
+      "premium": 0.13,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0048,
+      "oneYearReturn": -0.0048,
+      "threeYearReturn": -0.0016,
+      "fiveYearReturn": -0.001,
+      "high52": 19.69,
+      "low52": 14.83
+    },
+    "savedAt": 1780728413931
+  },
+  "LICNETFGSC": {
+    "data": {
+      "nav": 28.814,
+      "price": 28.79,
+      "premium": -0.08,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": 0.0087,
+      "oneYearReturn": 0.0198,
+      "threeYearReturn": 0.0665,
+      "fiveYearReturn": 0.0561,
+      "high52": 30.05,
+      "low52": 27.42
+    },
+    "savedAt": 1780728413931
+  },
+  "SBIETFCON": {
+    "data": {
+      "nav": 115.1216,
+      "price": 115.26,
+      "premium": 0.12,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0187,
+      "oneYearReturn": -0.0454,
+      "threeYearReturn": 0.1118,
+      "fiveYearReturn": 0.1105,
+      "high52": 133.97,
+      "low52": 100
+    },
+    "savedAt": 1780728413931
+  },
+  "DIVIDEND": {
+    "data": {
+      "nav": 36.0169,
+      "price": 36.03,
+      "premium": 0.04,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.065,
+      "oneYearReturn": 0.065,
+      "threeYearReturn": 0.0212,
+      "fiveYearReturn": 0.0127,
+      "high52": 37.97,
+      "low52": 33.15
+    },
+    "savedAt": 1780728413931
+  },
+  "SELECTIPO": {
+    "data": {
+      "nav": 42.9899,
+      "price": 43.05,
+      "premium": 0.14,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": 0.0133,
+      "oneYearReturn": -0.128,
+      "threeYearReturn": -0.0081,
+      "fiveYearReturn": -0.0048,
+      "high52": 50.566,
+      "low52": 38.1193
+    },
+    "savedAt": 1780728413931
+  },
+  "TOP20": {
+    "data": {
+      "nav": 8.3951,
+      "price": 8.4,
+      "premium": 0.06,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": 0.0269,
+      "oneYearReturn": 0.0269,
+      "threeYearReturn": 0.0089,
+      "fiveYearReturn": 0.0053,
+      "high52": 9.64,
+      "low52": 8
+    },
+    "savedAt": 1780728413931
+  },
+  "MIDCAPBETA": {
+    "data": {
+      "nav": 225.1496,
+      "price": 224.65,
+      "premium": -0.22,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0339,
+      "oneYearReturn": 0.0339,
+      "threeYearReturn": 0.0112,
+      "fiveYearReturn": 0.0067,
+      "high52": 232.5,
+      "low52": 192.5
+    },
+    "savedAt": 1780728413931
+  },
+  "ESENSEX": {
+    "data": {
+      "nav": 74.5058,
+      "price": 74.48,
+      "premium": -0.03,
+      "expenseRatio": 0.0007,
+      "category": null,
+      "ytdReturn": -0.1044,
+      "oneYearReturn": -0.1286,
+      "threeYearReturn": -0.0448,
+      "fiveYearReturn": -0.0271,
+      "high52": 88.05,
+      "low52": 71.87
+    },
+    "savedAt": 1780728413931
+  },
+  "BSLSENETFG": {
+    "data": {
+      "nav": 74.6134,
+      "price": 74.73,
+      "premium": 0.16,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.0955,
+      "oneYearReturn": -0.1052,
+      "threeYearReturn": -0.0219,
+      "fiveYearReturn": -0.0132,
+      "high52": 87.82,
+      "low52": 64.38
+    },
+    "savedAt": 1780728413931
+  },
+  "BANK10ADD": {
+    "data": {
+      "nav": 16.0536,
+      "price": 16.08,
+      "premium": 0.16,
+      "expenseRatio": 0.0019,
+      "category": null,
+      "ytdReturn": -0.0177,
+      "oneYearReturn": -0.0177,
+      "threeYearReturn": -0.0059,
+      "fiveYearReturn": -0.0036,
+      "high52": 18.99,
+      "low52": 12.08
+    },
+    "savedAt": 1780728413931
+  },
+  "AXISHCETF": {
+    "data": {
+      "nav": 155.7196,
+      "price": 155.95,
+      "premium": 0.15,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.1079,
+      "oneYearReturn": 0.0679,
+      "threeYearReturn": 0.2021,
+      "fiveYearReturn": 0.1243,
+      "high52": 163.11,
+      "low52": 135.2
+    },
+    "savedAt": 1780728413931
+  },
+  "SBIETFQLTY": {
+    "data": {
+      "nav": 217.1601,
+      "price": 216.67,
+      "premium": -0.23,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0447,
+      "oneYearReturn": -0.0409,
+      "threeYearReturn": 0.0971,
+      "fiveYearReturn": 0.0883,
+      "high52": 240,
+      "low52": 194
+    },
+    "savedAt": 1780728413931
+  },
+  "MON50EQUAL": {
+    "data": {
+      "nav": 32.4701,
+      "price": 32.53,
+      "premium": 0.18,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": -0.0178,
+      "oneYearReturn": 0.0115,
+      "threeYearReturn": 0.0038,
+      "fiveYearReturn": 0.0023,
+      "high52": 34.88,
+      "low52": 29.43
+    },
+    "savedAt": 1780728413931
+  },
+  "SBISMLETF": {
+    "data": {
+      "nav": 17.0382,
+      "price": 17.07,
+      "premium": 0.19,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": 0,
+      "oneYearReturn": 0,
+      "threeYearReturn": 0,
+      "fiveYearReturn": 0,
+      "high52": 17.5,
+      "low52": 16.69
+    },
+    "savedAt": 1780728413931
+  },
+  "SBINMID150": {
+    "data": {
+      "nav": 22.3317,
+      "price": 22.38,
+      "premium": 0.22,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0283,
+      "oneYearReturn": -0.0283,
+      "threeYearReturn": -0.0095,
+      "fiveYearReturn": -0.0057,
+      "high52": 23.81,
+      "low52": 19.81
+    },
+    "savedAt": 1780728413931
+  },
+  "SNXT30BEES": {
+    "data": {
+      "nav": 42.027,
+      "price": 41.98,
+      "premium": -0.11,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": 0.0401,
+      "oneYearReturn": 0.0931,
+      "threeYearReturn": 0.0301,
+      "fiveYearReturn": 0.018,
+      "high52": 43.75,
+      "low52": 36.83
+    },
+    "savedAt": 1780728413931
+  },
+  "GROWWPSE": {
+    "data": {
+      "nav": 101.4946,
+      "price": 101.65,
+      "premium": 0.15,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0559,
+      "oneYearReturn": 0.0559,
+      "threeYearReturn": 0.0183,
+      "fiveYearReturn": 0.0109,
+      "high52": 109.85,
+      "low52": 93.2
+    },
+    "savedAt": 1780728413931
+  },
+  "ITBETA": {
+    "data": {
+      "nav": 307.5133,
+      "price": 307.49,
+      "premium": -0.01,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.2346,
+      "oneYearReturn": -0.242,
+      "threeYearReturn": -0.0697,
+      "fiveYearReturn": -0.0424,
+      "high52": 410,
+      "low52": 283.77
+    },
+    "savedAt": 1780728413931
+  },
+  "AXSENSEX": {
+    "data": {
+      "nav": 76.7901,
+      "price": 76.99,
+      "premium": 0.26,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.0948,
+      "oneYearReturn": -0.1031,
+      "threeYearReturn": 0.0568,
+      "fiveYearReturn": 0.0474,
+      "high52": 91.35,
+      "low52": 73.52
+    },
+    "savedAt": 1780728413931
+  },
+  "NEXT50ETF": {
+    "data": {
+      "nav": 70.367,
+      "price": 70.36,
+      "premium": -0.01,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": 0.0113,
+      "oneYearReturn": 0.0113,
+      "threeYearReturn": 0.0037,
+      "fiveYearReturn": 0.0022,
+      "high52": 72.98,
+      "low52": 60.15
+    },
+    "savedAt": 1780728413931
+  },
+  "CHOICEGOLD": {
+    "data": {
+      "nav": 153.5849,
+      "price": 153.81,
+      "premium": 0.15,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0311,
+      "oneYearReturn": 0.1638,
+      "threeYearReturn": 0.0519,
+      "fiveYearReturn": 0.0308,
+      "high52": 175.49,
+      "low52": 115.79
+    },
+    "savedAt": 1780728419152
+  },
+  "AXISCETF": {
+    "data": {
+      "nav": 114.8427,
+      "price": 114.48,
+      "premium": -0.32,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0259,
+      "oneYearReturn": -0.0559,
+      "threeYearReturn": 0.1077,
+      "fiveYearReturn": 0.101,
+      "high52": 131.85,
+      "low52": 105.63
+    },
+    "savedAt": 1780728419152
+  },
+  "HDFCQUAL": {
+    "data": {
+      "nav": 56.7769,
+      "price": 56.83,
+      "premium": 0.09,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0577,
+      "oneYearReturn": -0.0255,
+      "threeYearReturn": 0.0076,
+      "fiveYearReturn": 0.0046,
+      "high52": 61.87,
+      "low52": 51.91
+    },
+    "savedAt": 1780728419152
+  },
+  "IVZINNIFTY": {
+    "data": {
+      "nav": 2672.1185,
+      "price": 2668.92,
+      "premium": -0.12,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.073,
+      "oneYearReturn": -0.0787,
+      "threeYearReturn": 0.0799,
+      "fiveYearReturn": 0.0933,
+      "high52": 3150,
+      "low52": 2511
+    },
+    "savedAt": 1780728419152
+  },
+  "NPBET": {
+    "data": {
+      "nav": 270.8525,
+      "price": 269.77,
+      "premium": -0.4,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0852,
+      "oneYearReturn": -0.0664,
+      "threeYearReturn": 0.0564,
+      "fiveYearReturn": 0.0736,
+      "high52": 307,
+      "low52": 246.26
+    },
+    "savedAt": 1780728419152
+  },
+  "MOALPHA50": {
+    "data": {
+      "nav": 52.0444,
+      "price": 52.21,
+      "premium": 0.32,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": 0.0763,
+      "oneYearReturn": 0.0577,
+      "threeYearReturn": 0.0189,
+      "fiveYearReturn": 0.0113,
+      "high52": 54.38,
+      "low52": 42.1
+    },
+    "savedAt": 1780728419152
+  },
+  "HDFCVALUE": {
+    "data": {
+      "nav": 126.433,
+      "price": 126.34,
+      "premium": -0.07,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0953,
+      "oneYearReturn": -0.0684,
+      "threeYearReturn": -0.0121,
+      "fiveYearReturn": -0.0073,
+      "high52": 147.05,
+      "low52": 120
+    },
+    "savedAt": 1780728419152
+  },
+  "GSEC5IETF": {
+    "data": {
+      "nav": 64.6511,
+      "price": 64.66,
+      "premium": 0.01,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": 0.0108,
+      "oneYearReturn": 0.0381,
+      "threeYearReturn": 0.0244,
+      "fiveYearReturn": 0.0146,
+      "high52": 66.7,
+      "low52": 62
+    },
+    "savedAt": 1780728419152
+  },
+  "SENSEXADD": {
+    "data": {
+      "nav": 76.3263,
+      "price": 76.22,
+      "premium": -0.14,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.0975,
+      "oneYearReturn": -0.1042,
+      "threeYearReturn": 0.0473,
+      "fiveYearReturn": 0.0281,
+      "high52": 88.2,
+      "low52": 73.27
+    },
+    "savedAt": 1780728419152
+  },
+  "QUALITY30": {
+    "data": {
+      "nav": 20.219,
+      "price": 20.27,
+      "premium": 0.25,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0587,
+      "oneYearReturn": -0.0146,
+      "threeYearReturn": -0.0049,
+      "fiveYearReturn": -0.0029,
+      "high52": 23.18,
+      "low52": 18.09
+    },
+    "savedAt": 1780728419152
+  },
+  "UNIONGOLD": {
+    "data": {
+      "nav": 151.4311,
+      "price": 152.65,
+      "premium": 0.8,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0172,
+      "oneYearReturn": 0.5936,
+      "threeYearReturn": 0.1964,
+      "fiveYearReturn": 0.1136,
+      "high52": 177,
+      "low52": 90
+    },
+    "savedAt": 1780728419152
+  },
+  "GROWWNXT50": {
+    "data": {
+      "nav": 70.1507,
+      "price": 69.83,
+      "premium": -0.46,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": 0.0391,
+      "oneYearReturn": 0.0387,
+      "threeYearReturn": 0.0127,
+      "fiveYearReturn": 0.0076,
+      "high52": 72.58,
+      "low52": 60.01
+    },
+    "savedAt": 1780728419152
+  },
+  "BBNPPGOLD": {
+    "data": {
+      "nav": 149.7878,
+      "price": 150.5,
+      "premium": 0.48,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": -0.0693,
+      "oneYearReturn": 0.6004,
+      "threeYearReturn": 0.1729,
+      "fiveYearReturn": 0.1004,
+      "high52": 184.05,
+      "low52": 93.25
+    },
+    "savedAt": 1780728419152
+  },
+  "SNXT50BETA": {
+    "data": {
+      "nav": 90.0937,
+      "price": 90.85,
+      "premium": 0.84,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": -0.0051,
+      "oneYearReturn": -0.0051,
+      "threeYearReturn": -0.0017,
+      "fiveYearReturn": -0.001,
+      "high52": 99,
+      "low52": 77.87
+    },
+    "savedAt": 1780728419152
+  },
+  "MOMGF": {
+    "data": {
+      "nav": 157.1854,
+      "price": 157.85,
+      "premium": 0.42,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.048,
+      "oneYearReturn": 0.0841,
+      "threeYearReturn": 0.0273,
+      "fiveYearReturn": 0.0163,
+      "high52": 182.16,
+      "low52": 137.9
+    },
+    "savedAt": 1780728419152
+  },
+  "NEXT30ADD": {
+    "data": {
+      "nav": 42.1085,
+      "price": 42.22,
+      "premium": 0.26,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0357,
+      "oneYearReturn": 0.0672,
+      "threeYearReturn": 0.047,
+      "fiveYearReturn": 0.0279,
+      "high52": 43.27,
+      "low52": 36.98
+    },
+    "savedAt": 1780728419152
+  },
+  "LICNMID100": {
+    "data": {
+      "nav": 61.2904,
+      "price": 61.57,
+      "premium": 0.46,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0399,
+      "oneYearReturn": 0.0267,
+      "threeYearReturn": 0.0841,
+      "fiveYearReturn": 0.0496,
+      "high52": 67.5,
+      "low52": 52.3
+    },
+    "savedAt": 1780728419152
+  },
+  "GROWWLOVOL": {
+    "data": {
+      "nav": 10.1224,
+      "price": 10.08,
+      "premium": -0.42,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0307,
+      "oneYearReturn": 0.0169,
+      "threeYearReturn": 0.0056,
+      "fiveYearReturn": 0.0034,
+      "high52": 11,
+      "low52": 9.39
+    },
+    "savedAt": 1780728419152
+  },
+  "SBIVALETF": {
+    "data": {
+      "nav": 15.4401,
+      "price": 15.43,
+      "premium": -0.07,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0,
+      "oneYearReturn": 0,
+      "threeYearReturn": 0,
+      "fiveYearReturn": 0,
+      "high52": 17.49,
+      "low52": 14.43
+    },
+    "savedAt": 1780728419152
+  },
+  "MONEXT50": {
+    "data": {
+      "nav": 69.6943,
+      "price": 69.85,
+      "premium": 0.22,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": 0.0373,
+      "oneYearReturn": 0.0256,
+      "threeYearReturn": 0.0085,
+      "fiveYearReturn": 0.0051,
+      "high52": 73.08,
+      "low52": 59.43
+    },
+    "savedAt": 1780728419152
+  },
+  "IDFNIFTYET": {
+    "data": {
+      "nav": 257.467,
+      "price": 257.09,
+      "premium": -0.15,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.0741,
+      "oneYearReturn": -0.0768,
+      "threeYearReturn": 0.0793,
+      "fiveYearReturn": 0.0919,
+      "high52": 340.8,
+      "low52": 244.32
+    },
+    "savedAt": 1780728419152
+  },
+  "HSBCGOLD": {
+    "data": {
+      "nav": 134.6047,
+      "price": 135.43,
+      "premium": 0.61,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": 0.0342,
+      "oneYearReturn": 0.0342,
+      "threeYearReturn": 0.0113,
+      "fiveYearReturn": 0.0067,
+      "high52": 146.4,
+      "low52": 121.36
+    },
+    "savedAt": 1780728419152
+  },
+  "MOSERVICE": {
+    "data": {
+      "nav": 29.6106,
+      "price": 29.65,
+      "premium": 0.13,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.1093,
+      "oneYearReturn": -0.1212,
+      "threeYearReturn": -0.0422,
+      "fiveYearReturn": -0.0255,
+      "high52": 35.37,
+      "low52": 28.3
+    },
+    "savedAt": 1780728419152
+  },
+  "FMCGADD": {
+    "data": {
+      "nav": 48.2295,
+      "price": 48.33,
+      "premium": 0.21,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": -0.0014,
+      "oneYearReturn": -0.0014,
+      "threeYearReturn": -0.0005,
+      "fiveYearReturn": -0.0003,
+      "high52": 50.8414,
+      "low52": 47.95
+    },
+    "savedAt": 1780728419152
+  },
+  "LICNETFSEN": {
+    "data": {
+      "nav": 835.8794,
+      "price": 837.44,
+      "premium": 0.19,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.0941,
+      "oneYearReturn": -0.1072,
+      "threeYearReturn": 0.0573,
+      "fiveYearReturn": 0.0838,
+      "high52": 974.02,
+      "low52": 803
+    },
+    "savedAt": 1780728419152
+  },
+  "MIDCAPADD": {
+    "data": {
+      "nav": 22.3317,
+      "price": 22.38,
+      "premium": 0.22,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0376,
+      "oneYearReturn": 0.0376,
+      "threeYearReturn": 0.0124,
+      "fiveYearReturn": 0.0074,
+      "high52": 25.5,
+      "low52": 19.27
+    },
+    "savedAt": 1780728419152
+  },
+  "MSCIADD": {
+    "data": {
+      "nav": 28.5737,
+      "price": 28.63,
+      "premium": 0.2,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0.0683,
+      "oneYearReturn": 0.0683,
+      "threeYearReturn": 0.0223,
+      "fiveYearReturn": 0.0133,
+      "high52": 33.6,
+      "low52": 26.4
+    },
+    "savedAt": 1780728419152
+  },
+  "ABSL10BANK": {
+    "data": {
+      "nav": 160.4434,
+      "price": 159.98,
+      "premium": -0.29,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0174,
+      "oneYearReturn": -0.0174,
+      "threeYearReturn": -0.0058,
+      "fiveYearReturn": -0.0035,
+      "high52": 214.42,
+      "low52": 150
+    },
+    "savedAt": 1780728419152
+  },
+  "HDFCLOWVOL": {
+    "data": {
+      "nav": 19.7638,
+      "price": 19.8,
+      "premium": 0.18,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0544,
+      "oneYearReturn": -0.0327,
+      "threeYearReturn": 0.0432,
+      "fiveYearReturn": 0.0257,
+      "high52": 23,
+      "low52": 18.35
+    },
+    "savedAt": 1780728419152
+  },
+  "BBNPNBETF": {
+    "data": {
+      "nav": 54.6027,
+      "price": 54.5,
+      "premium": -0.19,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0846,
+      "oneYearReturn": -0.0396,
+      "threeYearReturn": 0.0002,
+      "fiveYearReturn": 0.0001,
+      "high52": 62.77,
+      "low52": 50.03
+    },
+    "savedAt": 1780728419152
+  },
+  "LOWVOL": {
+    "data": {
+      "nav": 197.8572,
+      "price": 198.16,
+      "premium": 0.15,
+      "expenseRatio": 0.004,
+      "category": null,
+      "ytdReturn": -0.0508,
+      "oneYearReturn": -0.0361,
+      "threeYearReturn": 0.0941,
+      "fiveYearReturn": 0.0555,
+      "high52": 219.1,
+      "low52": 183.58
+    },
+    "savedAt": 1780728419152
+  },
+  "EBANKNIFTY": {
+    "data": {
+      "nav": 54.6243,
+      "price": 54.52,
+      "premium": -0.19,
+      "expenseRatio": 0.0015,
+      "category": null,
+      "ytdReturn": -0.088,
+      "oneYearReturn": -0.0476,
+      "threeYearReturn": 0.0215,
+      "fiveYearReturn": 0.0128,
+      "high52": 69.39,
+      "low52": 50.05
+    },
+    "savedAt": 1780728419152
+  },
+  "LICNFNHGP": {
+    "data": {
+      "nav": 266.5151,
+      "price": 267.22,
+      "premium": 0.26,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": -0.0574,
+      "oneYearReturn": -0.0618,
+      "threeYearReturn": 0.0943,
+      "fiveYearReturn": 0.1062,
+      "high52": 296.41,
+      "low52": 248.02
+    },
+    "savedAt": 1780728419152
+  },
+  "GSEC10IETF": {
+    "data": {
+      "nav": 258.2719,
+      "price": 259.27,
+      "premium": 0.39,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": 0.0019,
+      "oneYearReturn": 0.0078,
+      "threeYearReturn": 0.0158,
+      "fiveYearReturn": 0.0095,
+      "high52": 265.36,
+      "low52": 252.23
+    },
+    "savedAt": 1780728419152
+  },
+  "MOBANK10": {
+    "data": {
+      "nav": 16.0566,
+      "price": 16.06,
+      "premium": 0.02,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0086,
+      "oneYearReturn": -0.0086,
+      "threeYearReturn": -0.0029,
+      "fiveYearReturn": -0.0017,
+      "high52": 17.18,
+      "low52": 15.75
+    },
+    "savedAt": 1780728419152
+  },
+  "MSCI360": {
+    "data": {
+      "nav": 9.7816,
+      "price": 9.82,
+      "premium": 0.39,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": 0,
+      "oneYearReturn": 0,
+      "threeYearReturn": 0,
+      "fiveYearReturn": 0,
+      "high52": 11.6,
+      "low52": 9.71
+    },
+    "savedAt": 1780728419152
+  },
+  "MOPSE": {
+    "data": {
+      "nav": 102.7297,
+      "price": 102.64,
+      "premium": -0.09,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0009,
+      "oneYearReturn": 0.0539,
+      "threeYearReturn": 0.0177,
+      "fiveYearReturn": 0.0106,
+      "high52": 114.7,
+      "low52": 92.55
+    },
+    "savedAt": 1780728419152
+  },
+  "GILT10BETA": {
+    "data": {
+      "nav": 26.0014,
+      "price": 25.95,
+      "premium": -0.2,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": 0.0023,
+      "oneYearReturn": -0.0023,
+      "threeYearReturn": 0.0383,
+      "fiveYearReturn": 0.0228,
+      "high52": 26.99,
+      "low52": 25.1
+    },
+    "savedAt": 1780728419152
+  },
+  "MOMNC": {
+    "data": {
+      "nav": 31.5514,
+      "price": 31.69,
+      "premium": 0.44,
+      "expenseRatio": 0.0035,
+      "category": null,
+      "ytdReturn": 0.0508,
+      "oneYearReturn": 0.0508,
+      "threeYearReturn": 0.0167,
+      "fiveYearReturn": 0.01,
+      "high52": 35.8,
+      "low52": 27.03
+    },
+    "savedAt": 1780728419152
+  },
+  "MOIPO": {
+    "data": {
+      "nav": 43.0349,
+      "price": 43.05,
+      "premium": 0.04,
+      "expenseRatio": 0.005,
+      "category": null,
+      "ytdReturn": 0.016,
+      "oneYearReturn": -0.0676,
+      "threeYearReturn": -0.023,
+      "fiveYearReturn": -0.0139,
+      "high52": 53,
+      "low52": 36.5
+    },
+    "savedAt": 1780728419152
+  },
+  "GILT5BETA": {
+    "data": {
+      "nav": 64.7051,
+      "price": 65.27,
+      "premium": 0.87,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": 0.0279,
+      "oneYearReturn": 0.0387,
+      "threeYearReturn": 0.0511,
+      "fiveYearReturn": 0.0303,
+      "high52": 66.43,
+      "low52": 61.51
+    },
+    "savedAt": 1780728425251
+  },
+  "EQUAL200": {
+    "data": {
+      "nav": 11.306,
+      "price": 13.32,
+      "premium": 17.81,
+      "expenseRatio": 0.003,
+      "category": null,
+      "ytdReturn": 0.0216,
+      "oneYearReturn": 0.0063,
+      "threeYearReturn": 0.0272,
+      "fiveYearReturn": 0.0162,
+      "high52": 13.7,
+      "low52": 11.8225
+    },
+    "savedAt": 1780728425251
+  },
+  "ENEXT50": {
+    "data": {
+      "nav": 70.0188,
+      "price": 70.27,
+      "premium": 0.36,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": 0,
+      "oneYearReturn": 0,
+      "threeYearReturn": 0,
+      "fiveYearReturn": 0,
+      "high52": 73.7,
+      "low52": 69.2
+    },
+    "savedAt": 1780728425251
+  },
+  "ABSLMSCIN": {
+    "data": {
+      "nav": 28.54,
+      "price": 28.59,
+      "premium": 0.18,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.0042,
+      "oneYearReturn": -0.0042,
+      "threeYearReturn": -0.0014,
+      "fiveYearReturn": -0.0008,
+      "high52": 32.69,
+      "low52": 26.34
+    },
+    "savedAt": 1780728425251
+  },
+  "ABGSEC": {
+    "data": {
+      "nav": 111.8768,
+      "price": 112,
+      "premium": 0.11,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": 0.0088,
+      "oneYearReturn": 0.0187,
+      "threeYearReturn": 0.0064,
+      "fiveYearReturn": 0.0038,
+      "high52": 113.31,
+      "low52": 108
+    },
+    "savedAt": 1780728425251
+  },
+  "GSEC10ABSL": {
+    "data": {
+      "nav": 110.1919,
+      "price": 109.44,
+      "premium": -0.68,
+      "expenseRatio": 0.001,
+      "category": null,
+      "ytdReturn": -0.0087,
+      "oneYearReturn": 0,
+      "threeYearReturn": 0.0027,
+      "fiveYearReturn": 0.0016,
+      "high52": 111.9,
+      "low52": 107.65
+    },
+    "savedAt": 1780728425251
+  },
+  "AXISNIFTY": {
+    "data": {
+      "nav": 257.8892,
+      "price": 258.51,
+      "premium": 0.24,
+      "expenseRatio": 0.0005,
+      "category": null,
+      "ytdReturn": -0.0732,
+      "oneYearReturn": -0.074,
+      "threeYearReturn": 0.0806,
+      "fiveYearReturn": 0.0937,
+      "high52": 296.38,
+      "low52": 244
+    },
+    "savedAt": 1780728669358
+  },
+  "HDFCNIFIT": {
+    "data": {
+      "nav": 31.241,
+      "price": 31.24,
+      "premium": 0,
+      "expenseRatio": 0.002,
+      "category": null,
+      "ytdReturn": -0.2328,
+      "oneYearReturn": -0.2399,
+      "threeYearReturn": -0.5295,
+      "fiveYearReturn": -0.3597,
+      "high52": 42.7,
+      "low52": 28.2
+    },
+    "savedAt": 1780728669358
+  },
+  "SILVERBND": {
+    "data": {
+      "nav": 257.8046,
+      "price": 257.88,
+      "premium": 0.03,
+      "expenseRatio": null,
+      "category": null,
+      "ytdReturn": 0.1262,
+      "oneYearReturn": 0.1262,
+      "threeYearReturn": 0.0404,
+      "fiveYearReturn": 0.0241,
+      "high52": 290.19,
+      "low52": 196.88
+    },
+    "savedAt": 1780728669358
+  },
+  "MONQ50": {
+    "data": {
+      "nav": 122.53,
+      "price": 146.35,
+      "premium": 19.44,
+      "expenseRatio": 0.0013,
+      "category": null,
+      "ytdReturn": 0.4878,
+      "oneYearReturn": 0.9443,
+      "threeYearReturn": 0.4007,
+      "fiveYearReturn": 0.2056,
+      "high52": 146.58,
+      "low52": 71.26
+    },
+    "savedAt": 1780728669358
+  },
+  "GOLDBND": {
+    "data": {
+      "nav": 154.4815,
+      "price": 155.15,
+      "premium": 0.43,
+      "expenseRatio": null,
+      "category": null,
+      "ytdReturn": 0.0555,
+      "oneYearReturn": 0.0555,
+      "threeYearReturn": 0.0182,
+      "fiveYearReturn": 0.0109,
+      "high52": 173.4,
+      "low52": 129.62
+    },
+    "savedAt": 1780728669358
+  },
+  "NETF": {
+    "data": {
+      "nav": 253.6208,
+      "price": 253.49,
+      "premium": -0.05,
+      "expenseRatio": 0.0004,
+      "category": null,
+      "ytdReturn": -0.0761,
+      "oneYearReturn": -0.0779,
+      "threeYearReturn": 0.0783,
+      "fiveYearReturn": 0.0549,
+      "high52": 292.9,
+      "low52": 240.66
+    },
+    "savedAt": 1780728669358
+  }
+}

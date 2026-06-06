@@ -1,7 +1,17 @@
 [
   {
-    "sym": "CCC",
-    "sector": "IT",
-    "cap": "large"
+    "sym": "QUESS",
+    "sector": "Custom",
+    "cap": "custom"
+  },
+  {
+    "sym": "BLUSPRING",
+    "sector": "Custom",
+    "cap": "custom"
+  },
+  {
+    "sym": "BANKINDIA",
+    "sector": "Custom",
+    "cap": "custom"
   }
 ]
