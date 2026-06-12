@@ -101,8 +101,8 @@
 
   /* TABLE */
   #controls-bar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
-  .filter-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;}
-  .filter-btn.active,.filter-btn:hover{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600;}
+  .filter-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;transition:background .2s,color .2s,border-color .2s;font-family:'DM Sans',sans-serif;font-weight:600;}
+  .filter-btn.active,.filter-btn:hover{background:var(--accent);color:#000;border-color:var(--accent);}
   #search-box{padding:7px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;width:200px;margin-left:auto;}
   #search-box:focus{border-color:var(--accent);}
   #search-box::placeholder{color:var(--muted);}
@@ -120,6 +120,7 @@
   .stock-name-cell{display:flex;flex-direction:column;}
   .stock-symbol{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;}
   .stock-fullname{font-size:11px;color:var(--muted);margin-top:2px;}
+  .etf-family{font-size:10px;color:var(--accent);opacity:0.8;margin-top:1px;font-weight:500;}
   .sector-badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;background:var(--dim);color:var(--muted);}
   .price-cell{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;}
   .chg-cell{font-weight:600;font-size:13px;}
@@ -448,11 +449,12 @@
             <th onclick="etfSortBy('symbol')">ETF ↕</th>
             <th onclick="etfSortBy('price')">Price ₹ ↕</th>
             <th onclick="etfSortBy('change')">Change% ↕</th>
+            <th class="hide-mobile" onclick="etfSortBy('volume')">Volume ↕</th>
             <th onclick="etfSortBy('nav')">NAV ↕</th>
             <th onclick="etfSortBy('premium')">Premium% ↕</th>
             <th class="hide-mobile hide-1200">52W Range</th>
             <th class="hide-mobile hide-1200">Exp Ratio</th>
-            <th class="hide-mobile" onclick="etfSortBy('ytd')" style="cursor:pointer">YTD ↕</th>
+            <th class="hide-mobile" onclick="etfSortBy('1m')" style="cursor:pointer">1M ↕</th>
             <th class="hide-mobile hide-1200" onclick="etfSortBy('1y')" style="cursor:pointer">1Y ↕</th>
             <th class="hide-mobile hide-1200" onclick="etfSortBy('3y')" style="cursor:pointer">3Y ↕</th>
             <th>Trend</th>
@@ -552,7 +554,15 @@
 // ═══════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════
-const REFRESH_INTERVAL = 60; // refresh every 60 seconds
+// Adaptive refresh: 2 min during market hours (9:15–15:30 IST), 10 min outside
+function getRefreshInterval() {
+  const now = new Date();
+  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);
+  const day = ist.getUTCDay(); // 0=Sun, 6=Sat
+  if (day === 0 || day === 6) return 600; // weekend
+  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();
+  return (hhmm >= 915 && hhmm < 1530) ? 120 : 600;
+}
 const PROXY = 'http://localhost:3001';
 const ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;
 const ETF_STORAGE_KEY = 'stock-watcher-etf-symbols';
@@ -1083,7 +1093,7 @@ let indexData  = {};
 let marketUp   = null;
 let marketOpen = null;
 let paused     = false;
-let countdownSec  = REFRESH_INTERVAL;
+let countdownSec  = 60; // initialised before getRefreshInterval() is first called in startCountdown()
 let countdownTimer = null;
 let stockFilters   = new Set(); // empty = show all; multi-select AND logic
 let currentSort    = { col:'change', dir:-1 };
@@ -1092,6 +1102,7 @@ let _etfRenderTimer = null;
 // scheduleETFRender — coalesces background batch re-renders to ≤1 per 400ms.
 // Direct user interactions (sector select, filter click) call renderETFSection() immediately.
 function scheduleETFRender() {
+  if (currentView !== 'etfs') return; // don't re-render ETF table when on stock tab
   if (_etfRenderTimer) return;
   _etfRenderTimer = setTimeout(() => { _etfRenderTimer = null; renderETFSection(); }, 400);
 }
@@ -1274,7 +1285,7 @@ async function fetchYahooStocks(firstLoad = false) {
         renderMarketStatus();
         renderSectors();
         renderTable();
-        renderETFSection();
+        if (currentView === 'etfs') renderETFSection();
       }
     } catch(e) {
       console.warn('Yahoo batch error:', e.message);
@@ -1515,15 +1526,18 @@ async function fetchAll() {
       await fetchAIData(firstLoad);
     }
 
-    await fetchAdditionalSymbols([...ETF_ASSETS.map(e=>e.sym), ...STOCK_ASSETS.map(e=>e.sym)]);
+    // Only fetch ETF prices/NAV/sparklines when the ETF tab is active — avoids
+    // flooding the proxy on every 60-second refresh after the tab has been visited.
+    const etfSymsToFetch = currentView === 'etfs' ? ETF_ASSETS.map(e=>e.sym) : [];
+    await fetchAdditionalSymbols([...etfSymsToFetch, ...STOCK_ASSETS.map(e=>e.sym)]);
 
     // Fetch ETF NAV/premium data (non-blocking — updates ETF table progressively)
-    if (ETF_ASSETS.length) {
-      fetchETFSummary(ETF_ASSETS.map(e=>e.sym)).catch(e=>console.warn('ETF summary failed',e));
+    if (etfSymsToFetch.length) {
+      fetchETFSummary(etfSymsToFetch).catch(e=>console.warn('ETF summary failed',e));
     }
 
-    // Fetch sparklines for all visible symbols (non-blocking, re-renders as data arrives)
-    const allSyms = [...ETF_ASSETS.map(e=>e.sym), ...STOCK_ASSETS.map(e=>e.sym), ...MIDCAP_STOCKS.map(s=>s.sym)];
+    // Fetch sparklines: always include stocks; include ETFs only when on ETF tab
+    const allSyms = [...etfSymsToFetch, ...STOCK_ASSETS.map(e=>e.sym), ...MIDCAP_STOCKS.map(s=>s.sym)];
     const uniqueSyms = [...new Set(allSyms)];
     fetchSparklines(uniqueSyms).catch(e => console.warn('fetchSparklines failed', e.message));
 
@@ -1567,14 +1581,22 @@ async function fetchAll() {
 // ═══════════════════════════════════
 function startCountdown() {
   clearInterval(countdownTimer);
-  countdownSec=REFRESH_INTERVAL;
+  let interval = getRefreshInterval();
+  countdownSec = interval;
   countdownTimer=setInterval(()=>{
     if(paused) return;
     countdownSec--;
-    const pct=(countdownSec/REFRESH_INTERVAL)*100;
+    const pct=(countdownSec/interval)*100;
     document.getElementById('countdown-fill').style.width=pct+'%';
-    document.getElementById('countdown-txt').textContent=countdownSec+'s';
-    if(countdownSec<=0){countdownSec=REFRESH_INTERVAL;fetchAll();}
+    const display = countdownSec >= 60
+      ? Math.ceil(countdownSec/60)+'m'
+      : countdownSec+'s';
+    document.getElementById('countdown-txt').textContent=display;
+    if(countdownSec<=0){
+      interval=getRefreshInterval(); // re-evaluate each cycle (market open/close)
+      countdownSec=interval;
+      fetchAll();
+    }
   },1000);
 }
 function togglePause(){
@@ -1824,12 +1846,12 @@ async function setView(view, el){
   const sc = document.getElementById('stock-content'); if(sc) sc.style.display = view==='stocks' ? 'block' : 'none';
   const es = document.getElementById('etf-section'); if(es) es.style.display = view==='etfs' ? 'block' : 'none';
   if(view==='etfs'){
-    await loadPresetETFs();
-    populateETFSectorDropdown(); // safety net: ensure dropdown is always populated
-    // Only fetch additional Yahoo data if we didn't already get prices from NSE batch
-    if (!etfListLoaded) await fetchAdditionalSymbols(ETF_ASSETS.map(e=>e.sym));
+    await loadPresetETFs(); // no-op if already loaded
+    populateETFSectorDropdown();
+    const missingPrices = ETF_ASSETS.some(e => !stockData[e.sym] || !(stockData[e.sym].price > 0));
+    if (missingPrices) await fetchAdditionalSymbols(ETF_ASSETS.map(e=>e.sym));
     renderETFSection();
-    // Fetch NAV + expense ratio in background (batched, respects CONCURRENCY)
+    // Pass 1: always fetch summary (returns, TER, family) — proxy serves from cache instantly
     fetchETFSummary(ETF_ASSETS.map(e=>e.sym)).catch(e=>console.warn('ETF summary failed',e));
     fetchSparklines(ETF_ASSETS.map(e=>e.sym)).catch(e=>console.warn('fetchSparklines failed', e.message));
   } else renderTable();
@@ -2022,7 +2044,8 @@ function renderTargetCell(row){
 }
 
 async function fetchAdditionalSymbols(symbols){
-  const toFetch = symbols.filter(sym => !stockData[sym] && sym);
+  // Re-fetch if missing entirely OR if price is 0 (previous fetch failed/returned nothing)
+  const toFetch = symbols.filter(sym => sym && (!stockData[sym] || !(stockData[sym].price > 0)));
   if(!toFetch.length) return;
   if(dataSource==='yahoo'){
     const batches=[];
@@ -2066,6 +2089,7 @@ async function fetchAdditionalSymbols(symbols){
 // Pass 2: /etf-nav      — NSE iNAV + Yahoo live price; batched/throttled, overlays nav/price/premium
 async function fetchETFSummary(symbols) {
   if (!symbols || !symbols.length) return;
+  console.log('[fetchETFSummary] called with', symbols.length, 'symbols, proxy:', PROXY);
 
   // ── Pass 1: cached summary (returns, expense ratio) — fire all batches in parallel ──
   // Proxy serves these from in-memory cache instantly; no need to throttle.
@@ -2076,9 +2100,10 @@ async function fetchETFSummary(symbols) {
     await Promise.all(batches.map(async batch => {
       try {
         const res = await fetch(`${PROXY}/etf-summary?symbols=${encodeURIComponent(batch.join(','))}`);
-        if (!res.ok) return;
-        const payload = await res.json().catch(() => null);
+        if (!res.ok) { console.warn('etf-summary HTTP', res.status); return; }
+        const payload = await res.json().catch((err) => { console.warn('etf-summary JSON parse failed', err); return null; });
         const etfs = payload?.etfs || {};
+        console.log('[etf-summary] response keys:', Object.keys(etfs).length, 'sample:', JSON.stringify(Object.values(etfs)[0]));
         for (const sym of Object.keys(etfs)) {
           const e = etfs[sym]; if (!e) continue;
           const asset = ETF_ASSETS.find(s => s.sym === sym);
@@ -2088,7 +2113,9 @@ async function fetchETFSummary(symbols) {
           if (e.premium      != null && asset.etfData.premium == null) asset.etfData.premium      = e.premium;
           if (e.expenseRatio != null) asset.etfData.expenseRatio = e.expenseRatio;
           if (e.category     != null) asset.etfData.category     = e.category;
+          if (e.fundFamily   != null) asset.etfData.fundFamily   = e.fundFamily;
           if (e.ytdReturn       != null) asset.etfData.ytdReturn       = e.ytdReturn;
+          if (e.oneMonthReturn  != null) asset.etfData.oneMonthReturn  = e.oneMonthReturn;
           if (e.oneYearReturn   != null) asset.etfData.oneYearReturn   = e.oneYearReturn;
           if (e.threeYearReturn != null) asset.etfData.threeYearReturn = e.threeYearReturn;
           if (e.fiveYearReturn  != null) asset.etfData.fiveYearReturn  = e.fiveYearReturn;
@@ -2119,6 +2146,7 @@ async function fetchETFSummary(symbols) {
         if (e.navPremium != null) asset.etfData.premium    = e.navPremium;
         if (e.expRatio != null) asset.etfData.expenseRatio = e.expRatio;
         if (e.aum      != null) asset.etfData.aum          = e.aum;
+        if (e.volume   != null) { stockData[sym] = stockData[sym] || {}; stockData[sym].volume = e.volume; }
         if (e.high52) { stockData[sym] = stockData[sym] || {}; stockData[sym].high52 = e.high52; }
         if (e.low52)  { stockData[sym] = stockData[sym] || {}; stockData[sym].low52  = e.low52;  }
       }
@@ -2128,6 +2156,8 @@ async function fetchETFSummary(symbols) {
   }
 }
 
+
+// ── ETF Holdings ─────────────────────────────────────────────────────────────
 async function addCustomSymbol(){
   const input = document.getElementById('extra-symbol-input');
   if(!input) return;
@@ -2315,7 +2345,7 @@ function openFundModal(sym){
 function closeFundModal(event){ if(event) event.stopPropagation(); const m=document.getElementById('fund-modal'); if(m) m.style.display='none'; }
 
 async function loadPresetETFs(){
-  // Try to load full NSE ETF list (~300+) from /etf-list
+  if (etfListLoaded) return; // already fetched — don't re-hit /etf-list on every tab switch
   try {
     const res = await fetch(`${PROXY}/etf-list`);
     if (res.ok) {
@@ -2325,7 +2355,14 @@ async function loadPresetETFs(){
       for (const etf of allEtfs) {
         if (!etf.sym) continue;
         if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym) || ETF_ASSETS.some(s=>s.sym===etf.sym)) continue;
-        ETF_ASSETS.push({ sym: etf.sym, name: etf.name || etf.sym, sector: etf.sector || 'ETF', cap: 'etf' });
+        ETF_ASSETS.push({
+          sym: etf.sym,
+          name: etf.name || etf.sym,
+          sector: etf.sector || 'ETF',
+          cap: 'etf',
+          fundFamily: etf.fundFamily || null,
+          etfData: etf.expRatio != null ? { expenseRatio: etf.expRatio } : undefined
+        });
         // Seed stockData directly from NSE batch (price, nav, navPremium, 52W)
         if (etf.price || etf.nav) {
           stockData[etf.sym] = Object.assign(stockData[etf.sym] || {}, {
@@ -2335,6 +2372,7 @@ async function loadPresetETFs(){
             navPremium : etf.navPremium,
             high52     : etf.high52,
             low52      : etf.low52,
+            volume     : etf.volume,
             aum        : etf.aum,
             expRatio   : etf.expRatio,
           });
@@ -2356,7 +2394,8 @@ async function loadPresetETFs(){
     ETF_ASSETS.push({ ...etf });
     newSymbols.push(etf.sym);
   }
-  populateETFSectorDropdown(); // populate even in fallback path
+  etfListLoaded = true; // prevent re-running on every tab switch even in fallback
+  populateETFSectorDropdown();
   if(!newSymbols.length) return;
   await fetchAdditionalSymbols(newSymbols);
 }
@@ -2427,9 +2466,10 @@ function renderETFSection(){
     else if(col==='price'){av=a.data?.price||0; bv=b.data?.price||0;}
     else if(col==='target'){ av=a.fund?.priceTarget ?? 0; bv=b.fund?.priceTarget ?? 0; }
     else if(col==='change'){av=a.data?.change||0; bv=b.data?.change||0;}
+    else if(col==='volume'){av=a.data?.volume||0; bv=b.data?.volume||0;}
     else if(col==='nav'){av=a.etfData?.nav??-1; bv=b.etfData?.nav??-1;}
     else if(col==='premium'){av=a.etfData?.premium??-999; bv=b.etfData?.premium??-999;}
-    else if(col==='ytd'){av=a.etfData?.ytdReturn??-999; bv=b.etfData?.ytdReturn??-999;}
+    else if(col==='1m'){av=a.etfData?.oneMonthReturn??-999; bv=b.etfData?.oneMonthReturn??-999;}
     else if(col==='1y'){av=a.etfData?.oneYearReturn??-999; bv=b.etfData?.oneYearReturn??-999;}
     else if(col==='3y'){av=a.etfData?.threeYearReturn??-999; bv=b.etfData?.threeYearReturn??-999;}
     else {av=a.rank; bv=b.rank;}
@@ -2442,7 +2482,7 @@ function renderETFSection(){
     const note = etfFilters.size === 0
       ? 'No ETFs loaded yet. Use the button above to load ETF presets or add a symbol.'
       : 'No ETFs match the selected filter combination.';
-    tbody.innerHTML=`<tr><td colspan="13" style="text-align:center;padding:24px;color:var(--muted)">${note}</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="14" style="text-align:center;padding:24px;color:var(--muted)">${note}</td></tr>`;
     if(status) status.textContent='0 ETFs loaded';
     return;
   }
@@ -2453,14 +2493,15 @@ function renderETFSection(){
     const d=row.data,chg=d?.change||0,price=d?.price||0,sig=getSignal(row,d),fav=isETFFavorite(row.sym);
     return `<tr>
       <td><button class="fav-btn ${fav?'active':''}" onclick="toggleETFFavorite('${row.sym}')">${fav?'★':'☆'}</button></td>
-      <td><div class="stock-name-cell"><span class="stock-symbol">${row.sym}</span><span class="stock-fullname">${row.name}</span></div></td>
+      <td><div class="stock-name-cell"><span class="stock-symbol">${row.sym}</span><span class="stock-fullname">${row.name}</span>${(row.fundFamily||row.etfData?.fundFamily)?`<span class="etf-family">${row.fundFamily||row.etfData.fundFamily}</span>`:''}</div></td>
       <td class="price-cell">${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</td>
       <td class="chg-cell ${chg>=0?'up':'down'}">${d?(chg>=0?'▲ +':'▼ ')+chg.toFixed(2)+'%':'--'}</td>
+      <td class="hide-mobile" style="font-size:11px;color:var(--muted)">${d?.volume?(d.volume/100000).toFixed(1)+'L':'--'}</td>
       <td style="font-size:12px">${renderETFNavCell(row)}</td>
       <td style="font-size:12px">${renderETFPremiumCell(row)}</td>
       <td class="hide-mobile hide-1200" style="font-size:11px;color:var(--muted)">${d&&d.low52&&d.high52?'₹'+d.low52.toLocaleString('en-IN',{maximumFractionDigits:0})+' – ₹'+d.high52.toLocaleString('en-IN',{maximumFractionDigits:0}):'--'}</td>
       <td class="hide-mobile hide-1200" style="font-size:11px;color:var(--muted)">${renderETFExpenseCell(row)}</td>
-      <td class="hide-mobile" style="font-size:11px">${renderETFReturnCell(row.etfData?.ytdReturn, 'YTD')}</td>
+      <td class="hide-mobile" style="font-size:11px">${renderETFReturnCell(row.etfData?.oneMonthReturn, '1M')}</td>
       <td class="hide-mobile hide-1200" style="font-size:11px">${renderETFReturnCell(row.etfData?.oneYearReturn, '1Y')}</td>
       <td class="hide-mobile hide-1200" style="font-size:11px">${renderETFReturnCell(row.etfData?.threeYearReturn, '3Y ann')}</td>
       <td><div class="spark">${d?sparkBars(row.sym,chg):'<span style="color:var(--muted);font-size:11px">--</span>'}</div></td>
@@ -2485,7 +2526,7 @@ function renderETFPremiumCell(row) {
 }
 
 function renderETFExpenseCell(row) {
-  const exp = row.etfData?.expenseRatio;
+  const exp = row.etfData?.expenseRatio ?? row.data?.expRatio ?? stockData[row.sym]?.expRatio;
   if (exp == null) return '<span style="color:var(--muted)">--</span>';
   const pct = (exp * 100).toFixed(2);
   const col = exp <= 0.002 ? 'var(--green)' : exp <= 0.005 ? 'var(--yellow)' : 'var(--red)';
@@ -2500,7 +2541,7 @@ function renderETFReturnCell(val, label) {
   return `<span style="color:${col};font-weight:600">${arrow} ${Math.abs(pct)}%</span>`;
 }
 
-function renderDashboard(){ renderIndices(); renderSectors(); renderTable(); renderETFSection(); if(currentView==='etfs') setView('etfs', document.getElementById('tab-etfs')); }
+function renderDashboard(){ renderIndices(); renderSectors(); renderTable(); if (currentView === 'etfs') renderETFSection(); }
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('.source-card').forEach(card => {

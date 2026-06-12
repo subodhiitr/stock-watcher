@@ -13,5 +13,65 @@
     "sym": "BANKINDIA",
     "sector": "Custom",
     "cap": "custom"
+  },
+  {
+    "sym": "OIL",
+    "sector": "Energy",
+    "cap": "large"
+  },
+  {
+    "sym": "INDIANB",
+    "sector": "Banking",
+    "cap": "large"
+  },
+  {
+    "sym": "LICI",
+    "sector": "Custom",
+    "cap": "large"
+  },
+  {
+    "sym": "ETERNAL",
+    "sector": "Custom",
+    "cap": "custom"
+  },
+  {
+    "sym": "HINDALCO",
+    "sector": "Custom",
+    "cap": "custom"
+  },
+  {
+    "sym": "INDIGO",
+    "sector": "Custom",
+    "cap": "custom"
+  },
+  {
+    "sym": "TMCV",
+    "sector": "Custom",
+    "cap": "custom"
+  },
+  {
+    "sym": "TMPV",
+    "sector": "Custom",
+    "cap": "custom"
+  },
+  {
+    "sym": "NATIONALUM",
+    "sector": "Custom",
+    "cap": "custom"
+  },
+  {
+    "sym": "TITAGARH",
+    "sector": "Custom",
+    "cap": "custom"
+  },
+  {
+    "sym": "ANTELOPUS",
+    "sector": "Custom",
+    "cap": "custom"
+  },
+  {
+    "sym": "SUPRIYA",
+    "sector": "Custom",
+    "cap": "custom"
   }
 ]

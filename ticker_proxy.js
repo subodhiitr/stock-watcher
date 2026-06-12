@@ -41,14 +41,23 @@ const SAVED_ETF_FILE = path.join(__dirname, 'saved_etfs.json');
 const SAVED_STOCK_FILE = path.join(__dirname, 'saved_stocks.json');
 const SAVED_ETF_FAV_FILE  = path.join(__dirname, 'saved_etf_favs.json');
 const ETF_LIST_CACHE_FILE  = path.join(__dirname, 'etf_list_cache.json');
-const ETF_LIST_CACHE_TTL   = 24 * 60 * 60 * 1000;        // 24 hours
+const ETF_LIST_CACHE_TTL   = 24 * 60 * 60 * 1000;        // 24 hours (NSE price/nav batch)
+const ETF_META_TTL         = 30 * 24 * 60 * 60 * 1000;   // 30 days (static: TER, family, 1Y/3Y/5Y — stored in etf_list_cache.json under "meta" key)
 const FUND_CACHE_FILE      = path.join(__dirname, 'fundamentals_cache.json');
 const FUND_CACHE_TTL       = 7  * 24 * 60 * 60 * 1000;   // 7 days
 const ETF_SUM_CACHE_FILE   = path.join(__dirname, 'etf_summary_cache.json');
-const ETF_SUM_CACHE_TTL    = 30 * 24 * 60 * 60 * 1000;   // 30 days
+const ETF_1M_RETURN_TTL    = 24 * 60 * 60 * 1000;        // 24 hours (1M return — base shifts daily)
+const ETF_SUM_CACHE_VERSION = 3;                          // v3: 1M-return-only cache (static fields moved to etf_list_cache meta)
 const NSE_IDX_CACHE_FILE   = path.join(__dirname, 'nse_index_cache.json');
 const NSE_IDX_CACHE_TTL    = 24 * 60 * 60 * 1000;        // 24 hours
 const SAVED_STOCK_FAV_FILE = path.join(__dirname, 'saved_stock_favs.json');
+
+function parseVolumeField(item) {
+  const raw = item.totalTradedVolume ?? item.tradedVolume ?? item.volume ?? item.totalTradedQty ?? item.quantityTraded ?? item.qtyTraded ?? 0;
+  if (typeof raw === 'number') return raw || null;
+  const parsed = parseFloat(String(raw).replace(/,/g, ''));
+  return parsed || null;
+}
 
 function loadSavedETFsFile() {
   try {
@@ -103,14 +112,25 @@ function saveFundCache() {
 }
 loadFundCache();
 
-// ── ETF summary cache (per-symbol, 30-day TTL) ──────────────────────────────
+// ── ETF summary cache (1M return only, 24h TTL) ─────────────────────────────
+// Static fields (TER, category, fundFamily, 1Y/3Y/5Y) now live in etf_list_cache.json under "meta".
+// Structure: { [SYM]: { oneMonthReturn: number, savedAt: timestamp, version: 3 } }
 let etfSumCache = {};
 function loadEtfSumCache() {
   try {
     if (fs.existsSync(ETF_SUM_CACHE_FILE)) {
-      etfSumCache = JSON.parse(fs.readFileSync(ETF_SUM_CACHE_FILE, 'utf8')) || {};
-      const count = Object.keys(etfSumCache).length;
-      if (count) console.log(`[etf-sum-cache] Loaded ${count} cached ETF summaries`);
+      const raw = JSON.parse(fs.readFileSync(ETF_SUM_CACHE_FILE, 'utf8')) || {};
+      const count = Object.keys(raw).length;
+      // Version 3 = 1M-only format. Any older cache (v2 mixed format) is cleared.
+      const isCurrent = count === 0 || Object.values(raw).some(e => e.version === ETF_SUM_CACHE_VERSION);
+      if (!isCurrent) {
+        console.log('[etf-sum-cache] Old mixed-format cache detected (pre-v3) — clearing');
+        fs.unlinkSync(ETF_SUM_CACHE_FILE);
+        etfSumCache = {};
+      } else {
+        etfSumCache = raw;
+        if (count) console.log(`[etf-sum-cache] Loaded ${count} cached 1M returns`);
+      }
     }
   } catch(e) { console.warn('[etf-sum-cache] Load error:', e.message); etfSumCache = {}; }
 }
@@ -119,6 +139,41 @@ function saveEtfSumCache() {
   catch(e) { console.warn('[etf-sum-cache] Save error:', e.message); }
 }
 loadEtfSumCache();
+
+// ── ETF meta cache (static fields: TER, category, fundFamily, 1Y/3Y/5Y — 30d TTL) ──
+// Stored inside etf_list_cache.json as a top-level "meta" dict so we don't need
+// a separate file.  Loaded on startup and written back whenever a symbol is fetched.
+// Structure: { [SYM]: { expenseRatio, category, fundFamily, ytdReturn, oneYearReturn,
+//                        threeYearReturn, fiveYearReturn, savedAt } }
+let etfMetaCache = {};
+function loadEtfMetaCache() {
+  try {
+    if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8')) || {};
+      etfMetaCache = raw.meta || {};
+      const count = Object.keys(etfMetaCache).length;
+      if (count) console.log(`[etf-meta-cache] Loaded ${count} static ETF records from etf_list_cache.json`);
+    }
+  } catch(e) { console.warn('[etf-meta-cache] Load error:', e.message); etfMetaCache = {}; }
+}
+function saveEtfMetaCache() {
+  try {
+    // Merge into existing etf_list_cache.json without overwriting the etfs array
+    let existing = {};
+    if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
+      existing = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8')) || {};
+    }
+    existing.meta = etfMetaCache;
+    fs.writeFileSync(ETF_LIST_CACHE_FILE, JSON.stringify(existing, null, 2), 'utf8');
+  } catch(e) { console.warn('[etf-meta-cache] Save error:', e.message); }
+}
+loadEtfMetaCache();
+
+function getETFExpenseRatio(sym) {
+  const key = String(sym || '').toUpperCase();
+  return etfMetaCache[key]?.expenseRatio ?? STATIC_TER[key] ?? null;
+}
+
 
 // ── NSE index membership cache (per-index, 24h TTL) ─────────────────────────
 let nseIdxCache = {};
@@ -347,12 +402,12 @@ async function yahooQuote(nseSymbols) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  COMPUTED RETURNS  — derive YTD / 1Y / 3Y from chart history
+//  COMPUTED RETURNS  — derive 1M / YTD / 1Y / 3Y / 5Y from chart history
 // ══════════════════════════════════════════════════════════
 async function computeReturns(sym) {
-  // Fetch 5Y monthly chart — one request covers YTD, 1Y, 3Y, 5Y
+  // Single fetch: 5Y daily chart gives a real trailing 1M base and covers all periods.
   try {
-    const path = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=1mo&range=5y&includePrePost=false`;
+    const path = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=1d&range=5y&includePrePost=false`;
     let r = await httpsGet({ hostname: 'query1.finance.yahoo.com', path, method: 'GET', timeout: 12000, headers: YAHOO_HEADERS });
     if (r.status !== 200) r = await httpsGet({ hostname: 'query2.finance.yahoo.com', path, method: 'GET', timeout: 12000, headers: YAHOO_HEADERS });
     if (r.status !== 200) return {};
@@ -362,10 +417,8 @@ async function computeReturns(sym) {
     const closes     = result.indicators?.adjclose?.[0]?.adjclose || result.indicators?.quote?.[0]?.close || [];
     if (!timestamps.length || !closes.length) return {};
 
-    const now   = Date.now() / 1000;
     const msNow = Date.now();
 
-    // Find index of closest timestamp to a target date
     const findIdx = (targetMs) => {
       const targetSec = targetMs / 1000;
       let best = -1, bestDiff = Infinity;
@@ -378,23 +431,30 @@ async function computeReturns(sym) {
 
     const lastIdx = closes.reduce((bi, v, i) => v != null ? i : bi, -1);
     if (lastIdx < 0) return {};
-    const currentPrice = closes[lastIdx];
+    const currentPrice = closes[lastIdx]; // current/partial month — updates intraday
 
-    const ytdStart   = new Date(new Date().getFullYear(), 0, 1).getTime();
-    const y1Start    = msNow - 365  * 24 * 3600 * 1000;
-    const y3Start    = msNow - 3 * 365 * 24 * 3600 * 1000;
-    const y5Start    = msNow - 5 * 365 * 24 * 3600 * 1000;
+    const oneMonthStart = msNow - 30 * 24 * 3600 * 1000;
+    const oneMonthIdx = findIdx(oneMonthStart);
+    const oneMonthReturn = (oneMonthIdx >= 0 && closes[oneMonthIdx] > 0)
+      ? +((currentPrice - closes[oneMonthIdx]) / closes[oneMonthIdx]).toFixed(4)
+      : null;
+    console.log(`[computeReturns] ${sym} 1M: current=${currentPrice} base=${closes[oneMonthIdx]} return=${oneMonthReturn}`);
+
+    const ytdStart = new Date(new Date().getFullYear(), 0, 1).getTime();
+    const y1Start  = msNow - 365     * 24 * 3600 * 1000;
+    const y3Start  = msNow - 3 * 365 * 24 * 3600 * 1000;
+    const y5Start  = msNow - 5 * 365 * 24 * 3600 * 1000;
 
     const ret = (startMs, years) => {
       const idx = findIdx(startMs);
       if (idx < 0 || closes[idx] == null || closes[idx] === 0) return null;
       const raw = (currentPrice - closes[idx]) / closes[idx];
       if (years <= 1) return +raw.toFixed(4);
-      // Annualise for multi-year
       return +(Math.pow(1 + raw, 1 / years) - 1).toFixed(4);
     };
 
     return {
+      oneMonthReturn,
       ytdReturn      : ret(ytdStart, (msNow - ytdStart) / (365 * 24 * 3600 * 1000)),
       oneYearReturn  : ret(y1Start,  1),
       threeYearReturn: ret(y3Start,  3),
@@ -409,6 +469,24 @@ async function computeReturns(sym) {
 // ══════════════════════════════════════════════════════════
 //  SPARKLINES  — 1-month daily closes, normalised to % change
 // ══════════════════════════════════════════════════════════
+function normaliseReturnValue(v) {
+  const raw = v?.raw ?? v;
+  if (raw == null || Number.isNaN(Number(raw))) return null;
+  const n = Number(raw);
+  return Math.abs(n) > 1 ? +(n / 100).toFixed(4) : +n.toFixed(4);
+}
+
+function parseDirectReturns(performance) {
+  const trailing = performance?.trailingReturns || {};
+  return {
+    oneMonthReturn  : normaliseReturnValue(trailing.oneMonth ?? trailing.oneMonthReturn ?? trailing.month1),
+    ytdReturn       : normaliseReturnValue(trailing.ytd),
+    oneYearReturn   : normaliseReturnValue(trailing.oneYear ?? trailing.oneYearReturn ?? trailing.year1),
+    threeYearReturn : normaliseReturnValue(trailing.threeYear ?? trailing.threeYearReturn ?? trailing.year3),
+    fiveYearReturn  : normaliseReturnValue(trailing.fiveYear ?? trailing.fiveYearReturn ?? trailing.year5),
+  };
+}
+
 const sparkCache = {};                              // in-memory only, no disk persistence
 const SPARK_TTL  = 2 * 60 * 60 * 1000;             // 2 hours
 
@@ -432,8 +510,50 @@ async function fetchSparkline(sym) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  ETF SECTOR CATEGORISATION  (name + symbol keyword rules)
+//  STATIC AMC LOOKUP  — fund house name by symbol pattern
+//  Yahoo fundProfile.family is often null for Indian ETFs
 // ══════════════════════════════════════════════════════════
+const AMC_RULES = [
+  { re: /^(NIFTYBEES|BANKBEES|JUNIORBEES|LIQUIDBEES|MID150BEES|NIF100BEES|PSUBNKBEES|INFRABEES|SETF|NIF|NETF|NIFTY|.*BEES$)/, name: 'Nippon India AMC' },
+  { re: /^HDFC/,      name: 'HDFC AMC' },
+  { re: /^(ICICI|ICICIB|ICICINN|ICICIPSUBK|ICICIPHARM|ICICIPRB|ICICINIFTY|ICICINXT|ICICISILVER|ICICIGOLD)/, name: 'ICICI Prudential AMC' },
+  { re: /^(KOTAK|KOTAKGOLD|KOTAKBANK|KOTAKIT|KOTAKSILV|KOTAKPHARMA|KOTAKNN50|KOTAKPSUBK)/, name: 'Kotak Mahindra AMC' },
+  { re: /^(SBI|SBIETF|SBINIFTY|SBINMID|SBISMLETF|SBIETFIT|SBIETFCON|SBIETFPB|SBIGETS|SBIBANK|SBIBPB|SBINEQWETF|LIQUIDSBI)/, name: 'SBI Funds Management' },
+  { re: /^AXIS/,      name: 'Axis AMC' },
+  { re: /^(MIRAE|MAFANG|MASP)|CASE$/, name: 'Mirae Asset AMC' },
+  { re: /^UTINIFTY|^UTISENSX/, name: 'UTI AMC' },
+  { re: /^(ABSL|BSL|ABGSEC|GSEC10ABSL)|ADD$/, name: 'Aditya Birla Sun Life AMC' },
+  { re: /^(MOSL|MO|MON|MOBANK|MOIPO|MOSMALL|MOMIDCAP|MOSERVICE|MOCAPITAL|MOMNC|MOTOUR)/, name: 'Motilal Oswal AMC' },
+  { re: /^GROWW/,     name: 'Groww AMC' },
+  { re: /^NIP|^NIPPON/, name: 'Nippon India AMC' },
+  { re: /^LIC/,       name: 'LIC Mutual Fund' },
+  { re: /^DSP/,       name: 'DSP AMC' },
+  { re: /^(TATA|TAT|TNID)/, name: 'Tata AMC' },
+  { re: /^PGIM/,      name: 'PGIM India AMC' },
+  { re: /^FRANK|^TEMPLETON/, name: 'Franklin Templeton AMC' },
+  { re: /^INVESCO|^IVZ/, name: 'Invesco AMC' },
+  { re: /^MAHINDRA|^MAH/, name: 'Mahindra Manulife AMC' },
+  { re: /^(EDELWEISS|ELM|EBANK|EBBETF|BBETF|E(GOLD|SILVER|NIFTY|NEXT|LIQUID|SENSEX|MULTI)|ECAP)/, name: 'Edelweiss AMC' },
+  { re: /^QUANTUM|^QNIFTY|^QGOLD/, name: 'Quantum AMC' },
+  { re: /^HSBC/,      name: 'HSBC AMC' },
+  { re: /^CPSE|^CPSEETF/, name: 'Bharat Bond / CPSE ETF' },
+  { re: /^AONE/, name: 'Angel One AMC' },
+  { re: /^ITI/, name: 'ITI Mutual Fund' },
+  { re: /^LIQUIDSHRI/, name: 'Shriram AMC' },
+  { re: /^UNION/, name: 'Union Mutual Fund' },
+  { re: /^BBNPP/, name: 'Baroda BNP Paribas Mutual Fund' },
+  { re: /^IDF/, name: 'Bandhan Mutual Fund' },
+  { re: /IETF$/, name: 'ICICI Prudential AMC' },
+];
+
+function lookupAMC(sym) {
+  for (const rule of AMC_RULES) {
+    if (rule.re.test(sym)) return rule.name;
+  }
+  return null;
+}
+
+
 const ETF_SECTOR_RULES = [
   // Broad market / index
   { sector: 'Broad Market',  syms: /NIFTYBEES|UTINIFTY|KOTAKNIFTY|HDFCNIFTY|SETFNIF50|ICICINIFTY|AXISLNIFTY|SBINIFTY|BSLNIFTY/, names: /nifty 50|nifty50|sensex|broad market/i },
@@ -443,7 +563,7 @@ const ETF_SECTOR_RULES = [
 
   // Commodities
   { sector: 'Gold',          syms: /GOLDBEES|KOTAKGOLD|SBIGETS|HDFCGOLD|AXISGOLD|BSLGOLDETF|NIPGOLD|SETFGOLD|ICICIGOLD|LICMFGOLD|DSPGOLD|QGOLDHALF/, names: /gold/i },
-  { sector: 'Silver',        syms: /SILVERBEES|SILVERETF|SETFSILVER|KOTAKSILV|ICICISILVER/, names: /silver/i },
+  { sector: 'Silver',        syms: /SILVERBEES|SILVERETF|SETFSILVER|KOTAKSILV|ICICISILVER|SILVERCASE/, names: /silver/i },
 
   // Sectoral
   { sector: 'Banking',       syms: /BANKBEES|KOTAKBANK|SETFBANK|HDFCNIFBAN|ICICIB22|AXISNIFBK|SBIBANK/, names: /bank|banking/i },
@@ -586,8 +706,9 @@ async function refreshNavMapFromNSE() {
           nav     : parseFloat(item.iNavValue || item.nav || item.NAV || 0) || null,
           high52  : parseFloat(item['52WeekHigh'] || item.yearHigh || 0) || null,
           low52   : parseFloat(item['52WeekLow']  || item.yearLow  || 0) || null,
+          volume  : parseVolumeField(item),
           aum     : item.aum || item.AUM || null,
-          expRatio: item.expenseRatio || null,
+          expRatio: item.expenseRatio || getETFExpenseRatio(sym),
         };
       }
       navMapCache.data    = newMap;
@@ -662,6 +783,7 @@ async function fetchETFData(etfSymbols) {
           // Price: live chart first; fall back to cached previousClose from etf-summary
           // (thinly-traded ETFs may have no intraday chart data)
           const price  = meta?.regularMarketPrice ?? etfSumCache[sym]?.data?.price ?? null;
+          const volume = meta?.regularMarketVolume ?? nse.volume ?? disk.volume ?? null;
           // 52W: prefer NSE navMap → disk etf_list_cache → Yahoo chart
           const high52 = nse.high52 || disk.high52 || meta?.fiftyTwoWeekHigh || null;
           const low52  = nse.low52  || disk.low52  || meta?.fiftyTwoWeekLow  || null;
@@ -697,10 +819,10 @@ async function fetchETFData(etfSymbols) {
 
           const navPremium = (nav && price) ? +((( price - nav) / nav) * 100).toFixed(2) : null;
 
-          console.log(`[etf-nav] ${sym} price:${price} nav:${nav} (nseNav:${nse.nav??'–'} yahooNav:${meta?.navPrice??'–'}) premium:${navPremium}% 52W:${low52}-${high52}`);
-          return { sym, data: { price, nav, navPremium, high52, low52, aum: nse.aum || null, expRatio: nse.expRatio || null } };
+          console.log(`[etf-nav] ${sym} price:${price} nav:${nav} volume:${volume ?? '–'} (nseNav:${nse.nav??'–'} yahooNav:${meta?.navPrice??'–'}) premium:${navPremium}% 52W:${low52}-${high52}`);
+          return { sym, data: { price, nav, navPremium, high52, low52, volume, aum: nse.aum || null, expRatio: nse.expRatio || null } };
         } catch(e) {
-          return { sym, data: { nav: nse.nav||disk.nav||null, high52: nse.high52||disk.high52||null, low52: nse.low52||disk.low52||null, navPremium: null, aum: nse.aum||null, expRatio: nse.expRatio||null } };
+          return { sym, data: { nav: nse.nav||disk.nav||null, high52: nse.high52||disk.high52||null, low52: nse.low52||disk.low52||null, volume: nse.volume||disk.volume||null, navPremium: null, aum: nse.aum||null, expRatio: nse.expRatio||null } };
         }
       })())
     );
@@ -985,16 +1107,39 @@ const server = http.createServer(async (req, res) => {
   // /etf-list  -- return full NSE ETF list (all ~300+ ETFs) with NAV, price, 52W from NSE batch
   if (pathname === '/etf-list') {
     try {
-      // Serve from cache if fresh
+      // Serve from cache if fresh and has fundFamily (invalidate old cache that predates this field)
       if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
         const cached = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8'));
-        if (Date.now() - (cached.savedAt || 0) < ETF_LIST_CACHE_TTL) {
+        const hasFundFamily = (cached.etfs || []).some(e => e.fundFamily != null);
+        if (!hasFundFamily) {
+          console.log('[etf-list] cache predates fundFamily — deleting for re-fetch');
+          fs.unlinkSync(ETF_LIST_CACHE_FILE);
+        } else if (Date.now() - (cached.savedAt || 0) < ETF_LIST_CACHE_TTL) {
+          let patchedFamily = false;
+          for (const etf of (cached.etfs || [])) {
+            if (etf?.sym && etf.fundFamily == null) {
+              const family = lookupAMC(etf.sym);
+              if (family) { etf.fundFamily = family; patchedFamily = true; }
+            }
+            if (etf?.sym && etf.expRatio == null && getETFExpenseRatio(etf.sym) != null) {
+              etf.expRatio = getETFExpenseRatio(etf.sym);
+              patchedFamily = true;
+            }
+          }
+          if (patchedFamily) {
+            try {
+              fs.writeFileSync(ETF_LIST_CACHE_FILE, JSON.stringify(cached, null, 2), 'utf8');
+            } catch(e) {
+              console.warn('[etf-list] cache family patch save failed:', e.message);
+            }
+          }
           console.log(`[etf-list] serving ${cached.etfs.length} ETFs from cache (age ${Math.round((Date.now()-cached.savedAt)/60000)}m)`);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, count: cached.etfs.length, etfs: cached.etfs, fromCache: true }));
           return;
+        } else {
+          console.log('[etf-list] cache stale, refreshing from NSE…');
         }
-        console.log('[etf-list] cache stale, refreshing from NSE…');
       }
 
       // Fetch fresh from NSE — retry up to 3 times on ECONNRESET
@@ -1019,17 +1164,19 @@ const server = http.createServer(async (req, res) => {
         const nav     = parseFloat(item.iNavValue  || item.nav || item.NAV || 0) || null;
         const high52  = parseFloat(item['52WeekHigh'] || item.yearHigh || 0) || null;
         const low52   = parseFloat(item['52WeekLow']  || item.yearLow  || 0) || null;
+        const volume  = parseVolumeField(item);
         const aum     = item.aum || item.AUM || null;
-        const expRatio= item.expenseRatio || null;
+        const expRatio= item.expenseRatio || getETFExpenseRatio(sym);
         const chg     = parseFloat(item.change || item.pChange || 0) || null;
         const chgPct  = parseFloat(item.pChange || item.perChange || 0) || null;
         const navPremium = (nav && price) ? +((( price - nav) / nav) * 100).toFixed(2) : null;
-        const sector  = categorizeETF(sym, name);
-        return { sym, name, sector, price, nav, navPremium, high52, low52, aum, expRatio, chg, chgPct };
+        const sector     = categorizeETF(sym, name);
+        const fundFamily = lookupAMC(sym);
+        return { sym, name, sector, fundFamily, price, nav, navPremium, high52, low52, volume, aum, expRatio, chg, chgPct };
       }).filter(e => e.sym);
 
       // Persist to cache file
-      fs.writeFileSync(ETF_LIST_CACHE_FILE, JSON.stringify({ savedAt: Date.now(), etfs }, null, 2), 'utf8');
+      fs.writeFileSync(ETF_LIST_CACHE_FILE, JSON.stringify({ savedAt: Date.now(), etfs, meta: etfMetaCache }, null, 2), 'utf8');
       console.log(`[etf-list] fetched ${etfs.length} ETFs from NSE, saved to cache`);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1172,45 +1319,61 @@ const server = http.createServer(async (req, res) => {
         }
       } catch(_) {}
 
-      // Serve slow-changing fields (expenseRatio, category, returns) from cache
-      // NAV and price are always live — only the static fields are cached
+      // ── Cache read: two-tier lookup ─────────────────────────────────────────
+      // etfMetaCache  → static fields (TER, category, fundFamily, 1Y/3Y/5Y) — 30d TTL
+      // etfSumCache   → oneMonthReturn only — 24h TTL
+      // etfListForSum → nav fallback (from NSE batch, always fresh from etf_list_cache.json)
+      // A symbol goes to stale[] only when its static meta is missing/expired.
+      // staleOneMOnly[] = static fields are fresh but 1M return is >24h old.
       const stale = [];
-      let navPatched = false;
+      const staleOneMOnly = [];
       for (const sym of symbols) {
-        const entry = etfSumCache[sym];
-        if (entry && (now - entry.savedAt) < ETF_SUM_CACHE_TTL) {
-          let data = entry.data;
-          // Patch nav/premium from etf_list_cache if cache has nav=null
-          // (happens when Yahoo quoteSummary returned null at cache-write time, e.g. BANKIETF)
-          if (data.nav == null && etfListForSum[sym]?.nav) {
-            const diskNav = etfListForSum[sym].nav;
-            const price   = data.price;
-            data = { ...data, nav: diskNav, premium: (price ? +((price - diskNav) / diskNav * 100).toFixed(2) : null) };
-            etfSumCache[sym] = { data, savedAt: entry.savedAt }; // update in-memory cache
-            navPatched = true;
-            console.log(`[etf-sum-cache] ${sym} nav patched from etf_list_cache: nav=${diskNav} premium=${data.premium}%`);
-          }
-          results[sym] = data;
+        const meta     = etfMetaCache[sym];
+        const metaFresh = meta && (now - (meta.savedAt || 0)) < ETF_META_TTL;
+        const oneMEntry = etfSumCache[sym];
+        const oneMFresh = oneMEntry && oneMEntry.version === ETF_SUM_CACHE_VERSION
+                          && (now - (oneMEntry.savedAt || 0)) < ETF_1M_RETURN_TTL;
+
+        if (metaFresh) {
+          // Assemble result from the two caches + live nav from etfListForSum
+          const nav    = etfListForSum[sym]?.nav ?? null;
+          const price  = etfListForSum[sym]?.price ?? null;
+          const premium = (nav && price) ? +((price - nav) / nav * 100).toFixed(2) : null;
+          results[sym] = {
+            nav, price, premium,
+            expenseRatio   : getETFExpenseRatio(sym),
+            category       : meta.category       ?? null,
+            fundFamily     : meta.fundFamily      ?? lookupAMC(sym),
+            ytdReturn      : meta.ytdReturn       ?? null,
+            oneMonthReturn : oneMEntry?.oneMonthReturn ?? null,
+            oneYearReturn  : meta.oneYearReturn   ?? null,
+            threeYearReturn: meta.threeYearReturn ?? null,
+            fiveYearReturn : meta.fiveYearReturn  ?? null,
+            high52         : etfListForSum[sym]?.high52 ?? null,
+            low52          : etfListForSum[sym]?.low52  ?? null,
+          };
+          if (!oneMFresh) staleOneMOnly.push(sym);
         } else {
           stale.push(sym);
         }
       }
-      if (navPatched) saveEtfSumCache(); // persist nav patches to disk immediately
-      const hits = symbols.length - stale.length;
-      if (hits) console.log(`[etf-sum-cache] ${hits} hits, ${stale.length} stale/missing`);
+      const hits = symbols.length - stale.length - staleOneMOnly.length;
+      if (hits || staleOneMOnly.length)
+        console.log(`[etf-cache] ${hits} full-hits, ${staleOneMOnly.length} 1M-stale, ${stale.length} full-miss`);
 
       // Fetch only stale/missing symbols from Yahoo
       if (stale.length) {
 
         const hasCrumb = await ensureCrumb();
-        const MODULES = 'defaultKeyStatistics,summaryDetail,fundProfile,topHoldings';
+        const MODULES = 'defaultKeyStatistics,summaryDetail,fundProfile,fundPerformance';
         for (let i = 0; i < stale.length; i += CONCURRENCY) {
           const chunk = stale.slice(i, i + CONCURRENCY);
           const settled = await Promise.allSettled(chunk.map(sym => (async () => {
             try {
               // Base fields from quoteSummary (or chart meta fallback)
               let nav = null, price = null, premium = null, expenseRatio = null,
-                  category = null, high52 = null, low52 = null;
+                  category = null, fundFamily = null, high52 = null, low52 = null,
+                  directReturns = {};
 
               if (hasCrumb && yahooCrumb.value) {
                 const path    = `/v10/finance/quoteSummary/${encodeURIComponent(sym)}.NS?modules=${MODULES}&crumb=${encodeURIComponent(yahooCrumb.value)}`;
@@ -1221,49 +1384,100 @@ const server = http.createServer(async (req, res) => {
                   const json   = JSON.parse(r.body);
                   const result = json?.quoteSummary?.result?.[0];
                   if (result) {
-                    const stats   = result.defaultKeyStatistics || {};
-                    const detail  = result.summaryDetail || {};
-                    const profile = result.fundProfile || {};
+                    const stats    = result.defaultKeyStatistics || {};
+                    const detail   = result.summaryDetail || {};
+                    const profile  = result.fundProfile || {};
+                    const performance = result.fundPerformance || {};
                     nav          = stats.nav?.raw ?? stats.navPrice?.raw ?? null;
                     price        = detail.previousClose?.raw ?? null;
                     premium      = (nav && price) ? +((price - nav) / nav * 100).toFixed(2) : null;
                     expenseRatio = profile.annualReportExpenseRatio?.raw ?? stats.annualReportExpenseRatio?.raw ?? null;
                     category     = profile.categoryName ?? null;
+                    fundFamily   = profile.family ?? null;
                     high52       = detail.fiftyTwoWeekHigh?.raw ?? null;
                     low52        = detail.fiftyTwoWeekLow?.raw  ?? null;
+                    directReturns = parseDirectReturns(performance);
                   }
                 }
               }
 
               // Fallback: static TER table (Yahoo rarely has this for Indian ETFs)
-              if (expenseRatio == null) expenseRatio = STATIC_TER[sym] ?? null;
+              if (expenseRatio == null) expenseRatio = getETFExpenseRatio(sym);
+              // Fallback: static AMC lookup when Yahoo fundProfile.family is null
+              if (fundFamily == null) fundFamily = lookupAMC(sym);
 
               // Fallback: etf_list_cache nav (NSE iNAV) when Yahoo quoteSummary has none
               // Also recompute premium if we now have nav from fallback
               if (nav == null) nav = etfListForSum[sym]?.nav ?? null;
               if (nav && price && premium == null) premium = +((price - nav) / nav * 100).toFixed(2);
 
-              // Always compute returns from chart history (Yahoo doesn't return them for Indian ETFs)
-              const computed = await computeReturns(sym);
-              const { ytdReturn=null, oneYearReturn=null, threeYearReturn=null, fiveYearReturn=null } = computed;
+              // Prefer Yahoo's direct trailing returns; fall back to local chart-derived values.
+              const needsComputedReturns = ['oneMonthReturn', 'ytdReturn', 'oneYearReturn', 'threeYearReturn', 'fiveYearReturn']
+                .some(k => directReturns[k] == null);
+              const computed = needsComputedReturns ? await computeReturns(sym) : {};
+              const oneMonthReturn  = directReturns.oneMonthReturn  ?? computed.oneMonthReturn  ?? null;
+              const ytdReturn       = directReturns.ytdReturn       ?? computed.ytdReturn       ?? null;
+              const oneYearReturn   = directReturns.oneYearReturn   ?? computed.oneYearReturn   ?? null;
+              const threeYearReturn = directReturns.threeYearReturn ?? computed.threeYearReturn ?? null;
+              const fiveYearReturn  = directReturns.fiveYearReturn  ?? computed.fiveYearReturn  ?? null;
               if (ytdReturn != null)
-                console.log(`[etf-summary] ${sym} YTD=${(ytdReturn*100).toFixed(1)}% 1Y=${(oneYearReturn*100).toFixed(1)}% 3Y=${(threeYearReturn*100).toFixed(1)}%`);
+                console.log(`[etf-summary] ${sym} 1M=${oneMonthReturn!=null?(oneMonthReturn*100).toFixed(1)+'%':'–'} YTD=${(ytdReturn*100).toFixed(1)}% 1Y=${oneYearReturn!=null?(oneYearReturn*100).toFixed(1)+'%':'–'} source=${directReturns.oneMonthReturn != null ? 'direct' : 'computed'}`);
 
-              return { sym, data: { nav, price, premium, expenseRatio, category, ytdReturn, oneYearReturn, threeYearReturn, fiveYearReturn, high52, low52 } };
+              return { sym, data: { nav, price, premium, expenseRatio, category, fundFamily, oneMonthReturn, ytdReturn, oneYearReturn, threeYearReturn, fiveYearReturn, high52, low52 } };
             } catch(e) { console.warn(`[etf-summary] ${sym} error:`, e.message); return { sym, data: null }; }
           })()));
           for (const r of settled) {
             if (r.status === 'fulfilled' && r.value?.data) {
               const { sym, data } = r.value;
               results[sym] = data;
-              // Only cache if we got at least one return value — don't cache nulls
-              if (data.ytdReturn != null || data.threeYearReturn != null || data.expenseRatio != null) {
-                etfSumCache[sym] = { data, savedAt: now };
+              // Write static fields to etfMetaCache (30d TTL in etf_list_cache.json)
+              if (data.expenseRatio != null || data.fundFamily != null || data.oneYearReturn != null) {
+                etfMetaCache[sym] = {
+                  expenseRatio   : data.expenseRatio    ?? null,
+                  category       : data.category        ?? null,
+                  fundFamily     : data.fundFamily       ?? null,
+                  ytdReturn      : data.ytdReturn        ?? null,
+                  oneYearReturn  : data.oneYearReturn    ?? null,
+                  threeYearReturn: data.threeYearReturn  ?? null,
+                  fiveYearReturn : data.fiveYearReturn   ?? null,
+                  savedAt        : now,
+                };
+              }
+              // Write 1M return to etfSumCache (24h TTL in etf_summary_cache.json)
+              if (data.oneMonthReturn != null) {
+                etfSumCache[sym] = { oneMonthReturn: data.oneMonthReturn, savedAt: now, version: ETF_SUM_CACHE_VERSION };
               }
             }
           }
         }
+        saveEtfMetaCache();
         saveEtfSumCache();
+      } // end if (stale.length)
+
+      // ── Background 1M return refresh ────────────────────────────────────────
+      // For symbols with fresh static fields but a stale 1M return (>24h), recompute
+      // oneMonthReturn from chart history and update the cache entry in the background.
+      // Results are NOT awaited — response has already been built from cached values;
+      // the next request will see the fresh 1M return.
+      if (staleOneMOnly.length) {
+        console.log(`[etf-cache] refreshing 1M return in background for ${staleOneMOnly.length} symbols`);
+        (async () => {
+          const refreshNow = Date.now();
+          for (let i = 0; i < staleOneMOnly.length; i += CONCURRENCY) {
+            const chunk = staleOneMOnly.slice(i, i + CONCURRENCY);
+            await Promise.allSettled(chunk.map(async sym => {
+              try {
+                const computed = await computeReturns(sym);
+                if (computed.oneMonthReturn == null) return;
+                etfSumCache[sym] = { oneMonthReturn: computed.oneMonthReturn, savedAt: refreshNow, version: ETF_SUM_CACHE_VERSION };
+                // Also patch into the already-sent results (in-memory only; next request will see it)
+                console.log(`[etf-cache] ${sym} 1M return refreshed: ${(computed.oneMonthReturn * 100).toFixed(2)}%`);
+              } catch(e) { console.warn(`[etf-cache] 1M refresh error ${sym}:`, e.message); }
+            }));
+            if (i + CONCURRENCY < staleOneMOnly.length) await new Promise(r => setTimeout(r, 300));
+          }
+          saveEtfSumCache();
+        })().catch(e => console.warn('[etf-cache] background 1M refresh failed:', e.message));
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1319,6 +1533,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Holdings are populated as a side-effect of /etf-summary fetches.
+  // This endpoint ONLY serves from cache — no live fetch.
   // /etf-prefs  -- persist custom ETF symbols in workspace
   if (pathname === '/etf-prefs') {
     if (req.method === 'GET') {
