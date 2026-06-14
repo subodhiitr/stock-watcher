@@ -51,12 +51,22 @@ const ETF_SUM_CACHE_VERSION = 3;                          // v3: 1M-return-only 
 const NSE_IDX_CACHE_FILE   = path.join(__dirname, 'nse_index_cache.json');
 const NSE_IDX_CACHE_TTL    = 24 * 60 * 60 * 1000;        // 24 hours
 const SAVED_STOCK_FAV_FILE = path.join(__dirname, 'saved_stock_favs.json');
+const PAPER_TRADES_FILE    = path.join(__dirname, 'paper_trades.json');
+const STOCK_NEWS_TTL       = 30 * 60 * 1000;             // 30 minutes
+const INTRADAY_SIGNAL_TTL  = 2 * 60 * 1000;              // 2 minutes
 
 function parseVolumeField(item) {
   const raw = item.totalTradedVolume ?? item.tradedVolume ?? item.volume ?? item.totalTradedQty ?? item.quantityTraded ?? item.qtyTraded ?? 0;
   if (typeof raw === 'number') return raw || null;
   const parsed = parseFloat(String(raw).replace(/,/g, ''));
   return parsed || null;
+}
+
+function parseExplicitINav(item) {
+  if (!item || typeof item !== 'object') return null;
+  const raw = item.iNavValue ?? item.iNAV ?? item.inav ?? item.indicativeNAV ?? item.indicativeNav ?? item.indicativeValue;
+  const parsed = typeof raw === 'number' ? raw : parseFloat(String(raw ?? '').replace(/,/g, ''));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 function loadSavedETFsFile() {
@@ -229,6 +239,120 @@ function saveSavedStockFavsFile(symbols) {
 // ══════════════════════════════════════════════════════════
 //  SHARED HELPER — HTTPS GET with auto-decompression
 // ══════════════════════════════════════════════════
+function loadPaperTradesFile() {
+  try {
+    if (!fs.existsSync(PAPER_TRADES_FILE)) {
+      fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), trades: [] }, null, 2), 'utf8');
+    }
+    const raw = JSON.parse(fs.readFileSync(PAPER_TRADES_FILE, 'utf8') || '{}');
+    if (Array.isArray(raw)) return raw;
+    return Array.isArray(raw.trades) ? raw.trades : [];
+  } catch (e) {
+    console.warn('[paper-trades] Load error:', e.message);
+    return [];
+  }
+}
+
+function savePaperTradesFile(trades) {
+  try {
+    fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), trades: Array.isArray(trades) ? trades : [] }, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[paper-trades] Save error:', e.message);
+  }
+}
+
+function computePaperTradePnl(trade, exitPrice) {
+  const entry = Number(trade?.entryPrice);
+  const exit = Number(exitPrice);
+  const qty = Number(trade?.qty);
+  if (!Number.isFinite(entry) || !Number.isFinite(exit) || !Number.isFinite(qty) || entry <= 0 || qty <= 0) {
+    return { pnl: null, pnlPct: null };
+  }
+  const side = String(trade.side || 'buy').toLowerCase();
+  const grossPnl = side === 'sell' ? (entry - exit) * qty : (exit - entry) * qty;
+  const charges = estimateZerodhaIntradayCharges(entry, exit, qty, side);
+  const pnl = grossPnl - charges.total;
+  const pnlPct = (pnl / (entry * qty)) * 100;
+  return { pnl:+pnl.toFixed(2), pnlPct:+pnlPct.toFixed(2), grossPnl:+grossPnl.toFixed(2), charges:charges.total, chargeBreakup:charges };
+}
+
+function estimateZerodhaIntradayCharges(entryPrice, exitPrice, qty, side = 'buy') {
+  const entry = Number(entryPrice);
+  const exit = Number(exitPrice);
+  const quantity = Number(qty);
+  if (!Number.isFinite(entry) || !Number.isFinite(exit) || !Number.isFinite(quantity) || entry <= 0 || exit <= 0 || quantity <= 0) {
+    return { total:0, totalPct:0, brokerage:0, stt:0, transaction:0, gst:0, sebi:0, stamp:0, turnover:0 };
+  }
+  const isShort = String(side || '').toLowerCase() === 'sell';
+  const buyValue = (isShort ? exit : entry) * quantity;
+  const sellValue = (isShort ? entry : exit) * quantity;
+  const turnover = buyValue + sellValue;
+  const brokerage = Math.min(20, buyValue * 0.0003) + Math.min(20, sellValue * 0.0003);
+  const stt = sellValue * 0.00025;
+  const transaction = turnover * 0.0000307;
+  const sebi = turnover * 0.000001;
+  const stamp = buyValue * 0.00003;
+  const gst = (brokerage + transaction + sebi) * 0.18;
+  const total = brokerage + stt + transaction + sebi + stamp + gst;
+  return {
+    total:+total.toFixed(2),
+    totalPct: buyValue > 0 ? +((total / buyValue) * 100).toFixed(3) : 0,
+    brokerage:+brokerage.toFixed(2),
+    stt:+stt.toFixed(2),
+    transaction:+transaction.toFixed(2),
+    gst:+gst.toFixed(2),
+    sebi:+sebi.toFixed(2),
+    stamp:+stamp.toFixed(2),
+    turnover:+turnover.toFixed(2),
+  };
+}
+
+function cleanTradingSymbol(symbol) {
+  return String(symbol || '').trim().toUpperCase().replace(/\.NS$/i, '');
+}
+
+function buildZerodhaDryRunOrder(payload, trade, phase = 'entry') {
+  const side = String(payload?.side || trade?.side || 'buy').toLowerCase();
+  const isExit = phase === 'exit';
+  const assetType = payload?.assetType || trade?.assetType || 'stock';
+  const qty = Math.floor(Number(payload?.qty ?? trade?.qty));
+  const price = Number(isExit ? payload?.exitPrice : payload?.entryPrice ?? trade?.entryPrice);
+  const symbol = cleanTradingSymbol(payload?.symbol || trade?.symbol);
+  if (!symbol || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(price) || price <= 0) return null;
+  const transactionType = isExit
+    ? (side === 'sell' ? 'BUY' : 'SELL')
+    : (side === 'sell' ? 'SELL' : 'BUY');
+  const product = assetType === 'etf' && side !== 'sell' ? 'CNC' : 'MIS';
+  return {
+    exchange: 'NSE',
+    tradingsymbol: symbol,
+    transaction_type: transactionType,
+    quantity: qty,
+    product,
+    order_type: 'LIMIT',
+    price:+price.toFixed(2),
+    validity: 'DAY',
+    variety: 'regular',
+    tag: 'stockdash-dry',
+  };
+}
+
+function readJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => {
+      try {
+        const body = Buffer.concat(chunks).toString('utf8');
+        resolve(body ? JSON.parse(body) : {});
+      } catch (e) {
+        reject(e);
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
 function httpsGet(opts) {
   return new Promise((resolve, reject) => {
     const req = https.request(opts, (res) => {
@@ -249,9 +373,447 @@ function httpsGet(opts) {
 }
 
 // ══════════════════════════════════════════════════════════
+//  STOCK NEWS / EVENTS
+// ══════════════════════════════════════════════════════════
+const stockNewsCache = {};
+
+function decodeXmlEntities(str) {
+  return String(str || '')
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+}
+
+function stripHtml(str) {
+  return decodeXmlEntities(str).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function classifyNewsItem(text) {
+  const s = String(text || '').toLowerCase();
+  if (/quarter|q[1-4]\b|financial result|earnings|profit|net profit|revenue|sales|ebitda/.test(s)) return 'Results';
+  if (/dividend/.test(s)) return 'Dividend';
+  if (/large deal|bulk deal|block deal|stake sale|acquisition|merger|joint venture|mou|contract|order win|wins order|bags order/.test(s)) return 'Deal';
+  if (/board meeting|record date|dividend|bonus|split|buyback|agm|egm|conference call|investor meet/.test(s)) return 'Event';
+  if (/announcement|press release|exchange filing|clarification|disclosure|intimation/.test(s)) return 'Announcement';
+  return 'News';
+}
+
+function parseNSEDate(value) {
+  const s = String(value || '').trim();
+  const m = s.match(/^(\d{2})-([A-Za-z]{3})-(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (m) {
+    const months = { Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11 };
+    const mo = months[m[2]];
+    if (mo != null) return new Date(Number(m[3]), mo, Number(m[1]), Number(m[4] || 0), Number(m[5] || 0), Number(m[6] || 0));
+  }
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function toISODateOrNull(value) {
+  if (!value) return null;
+  const d = parseNSEDate(value);
+  return d ? d.toISOString() : null;
+}
+
+function pickLatestByDate(rows, fields) {
+  return [...(Array.isArray(rows) ? rows : [])].sort((a, b) => {
+    const ad = fields.map(f => parseNSEDate(a?.[f])).find(Boolean);
+    const bd = fields.map(f => parseNSEDate(b?.[f])).find(Boolean);
+    return (bd?.getTime() || 0) - (ad?.getTime() || 0);
+  })[0] || null;
+}
+
+function getXbrlFact(xml, tag) {
+  const re = new RegExp(`<(?:[A-Za-z0-9_\\-.]+:)?${tag}\\b([^>]*)>([\\s\\S]*?)<\\/(?:[A-Za-z0-9_\\-.]+:)?${tag}>`, 'gi');
+  let fallback = null;
+  let m;
+  while ((m = re.exec(xml))) {
+    const attrs = m[1] || '';
+    const context = (attrs.match(/\bcontextRef=["']([^"']+)["']/i) || [])[1] || '';
+    const value = Number(stripHtml(m[2]).replace(/,/g, ''));
+    if (!Number.isFinite(value)) continue;
+    const fact = { context, value };
+    if (!fallback) fallback = fact;
+    if (/^(OneD|CurrentYearDuration|CurrentPeriodDuration|D_)/i.test(context)) return fact;
+  }
+  return fallback;
+}
+
+function getFirstXbrlFact(xml, tags) {
+  for (const tag of tags) {
+    const fact = getXbrlFact(xml, tag);
+    if (fact) return fact;
+  }
+  return null;
+}
+
+function inrToCrore(value) {
+  return Number.isFinite(value) ? +(value / 10000000).toFixed(2) : null;
+}
+
+function pctChange(newVal, oldVal) {
+  if (!Number.isFinite(newVal) || !Number.isFinite(oldVal) || oldVal === 0) return null;
+  return +(((newVal - oldVal) / Math.abs(oldVal)) * 100).toFixed(1);
+}
+
+async function fetchResultMetricsFromXbrl(url) {
+  if (!url) return {};
+  const u = new URL(url);
+  const xr = await httpsGet({
+    hostname: u.hostname,
+    path: u.pathname + (u.search || ''),
+    method: 'GET',
+    timeout: 15000,
+    headers: { ...NSE_HEADERS, Referer: 'https://www.nseindia.com/' },
+  });
+  if (xr.status !== 200) return {};
+  const revenue = getFirstXbrlFact(xr.body, [
+    'RevenueFromOperations',
+    'RevenueFromOperationsNet',
+    'InterestEarned',
+    'TotalIncome',
+    'Income',
+  ]);
+  const pbt = getFirstXbrlFact(xr.body, [
+    'ProfitBeforeTax',
+    'ProfitLossBeforeTax',
+    'ProfitBeforeExceptionalItemsAndTax',
+  ]);
+  const pat = getFirstXbrlFact(xr.body, [
+    'ProfitLossForPeriod',
+    'ProfitAfterTax',
+    'NetProfitLossForThePeriod',
+    'ProfitLoss',
+    'ProfitLossAttributableToOwnersOfParent',
+  ]);
+  const eps = getFirstXbrlFact(xr.body, [
+    'BasicEarningsLossPerShareFromContinuingAndDiscontinuedOperations',
+    'BasicEarningsLossPerShareFromContinuingOperations',
+    'BasicEarningsLossPerShare',
+    'BasicEarningsPerShare',
+  ]);
+  return {
+    revenueCr: inrToCrore(revenue?.value),
+    profitBeforeTaxCr: inrToCrore(pbt?.value),
+    profitAfterTaxCr: inrToCrore(pat?.value),
+    eps: eps?.value ?? null,
+  };
+}
+
+function classifyResultVerdict(cur, prev) {
+  const revGrowth = pctChange(cur?.revenueCr, prev?.revenueCr);
+  const patGrowth = pctChange(cur?.profitAfterTaxCr, prev?.profitAfterTaxCr);
+  const epsGrowth = pctChange(cur?.eps, prev?.eps);
+  const checks = [revGrowth, patGrowth, epsGrowth].filter(v => v != null);
+  if (!checks.length) return { verdict: null, revenueGrowthPct: revGrowth, patGrowthPct: patGrowth, epsGrowthPct: epsGrowth, reason: null };
+  let score = 0;
+  if (revGrowth != null) score += revGrowth >= 5 ? 1 : revGrowth <= -5 ? -1 : 0;
+  if (patGrowth != null) score += patGrowth >= 5 ? 2 : patGrowth <= -5 ? -2 : 0;
+  if (epsGrowth != null) score += epsGrowth >= 5 ? 1 : epsGrowth <= -5 ? -1 : 0;
+  const verdict = score >= 2 ? 'Positive' : score <= -2 ? 'Negative' : 'Mixed';
+  const parts = [];
+  if (revGrowth != null) parts.push(`Revenue ${revGrowth >= 0 ? '+' : ''}${revGrowth}%`);
+  if (patGrowth != null) parts.push(`PAT ${patGrowth >= 0 ? '+' : ''}${patGrowth}%`);
+  if (epsGrowth != null) parts.push(`EPS ${epsGrowth >= 0 ? '+' : ''}${epsGrowth}%`);
+  return { verdict, revenueGrowthPct: revGrowth, patGrowthPct: patGrowth, epsGrowthPct: epsGrowth, reason: parts.join(', ') };
+}
+
+function conciseAnnouncementTitle(item) {
+  const desc = stripHtml(item?.desc || item?.subject || '');
+  const text = stripHtml(item?.attchmntText || '');
+  if (!text) return desc || 'Corporate announcement';
+  const sentence = text.split(/(?<=[.!?])\s+/)[0] || text;
+  if (/^(updates|press release|outcome of board meeting|copy of newspaper publication|record date)$/i.test(desc)) {
+    return sentence.slice(0, 260);
+  }
+  return `${desc}: ${sentence}`.slice(0, 280);
+}
+
+function parseRssItems(xml, sourceLabel) {
+  const items = [];
+  const matches = String(xml || '').match(/<item\b[\s\S]*?<\/item>/gi) || [];
+  for (const raw of matches) {
+    const get = tag => {
+      const m = raw.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+      return m ? stripHtml(m[1]) : '';
+    };
+    const title = get('title');
+    const link = get('link');
+    const pubDate = get('pubDate');
+    const source = get('source') || sourceLabel;
+    if (!title || !link) continue;
+    items.push({
+      title,
+      url: link,
+      source,
+      publishedAt: toISODateOrNull(pubDate),
+      type: classifyNewsItem(title),
+    });
+  }
+  return items;
+}
+
+async function fetchGoogleNews(query) {
+  const path = `/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en`;
+  const r = await httpsGet({
+    hostname: 'news.google.com',
+    path,
+    method: 'GET',
+    timeout: 12000,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125 Safari/537.36',
+      'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+      'Accept-Language': 'en-IN,en;q=0.9',
+      'Accept-Encoding': 'gzip, deflate, br',
+    },
+  });
+  if (r.status !== 200) throw new Error(`Google News RSS ${r.status}`);
+  return parseRssItems(r.body, 'Google News');
+}
+
+async function nseJsonWithRetry(path, label, retries = 3) {
+  let lastErr = null;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      if (Date.now() - nse.lastRefresh > nse.TTL || attempt > 1) await warmNSESession();
+      let r = await nseGet(path);
+      if (r.status === 401 || r.status === 403) {
+        await warmNSESession();
+        r = await nseGet(path);
+      }
+      if (r.status !== 200) throw new Error(`${label} HTTP ${r.status}`);
+      return JSON.parse(r.body);
+    } catch(e) {
+      lastErr = e;
+      const retryable = e.code === 'ECONNRESET' || e.code === 'ETIMEDOUT' || e.code === 'ECONNREFUSED' ||
+                        /socket hang up|timed out|ECONNRESET/i.test(e.message || '');
+      if (!retryable || attempt === retries) break;
+      await new Promise(r => setTimeout(r, attempt * 750));
+    }
+  }
+  throw lastErr || new Error(`${label} failed`);
+}
+
+async function fetchNSEStockAnnouncements(symbol) {
+  try {
+    const payload = await nseJsonWithRetry(`/api/corporate-announcements?index=equities&symbol=${encodeURIComponent(symbol)}`, 'announcements');
+    const rows = payload?.data || payload || [];
+    if (!Array.isArray(rows)) return [];
+    return rows.slice(0, 40).map(item => {
+      const title = conciseAnnouncementTitle(item);
+      const dateRaw = item.an_dt || item.sort_date || item.dissemDT || item.dt || null;
+      const attachment = item.attchmntFile || item.attchmntFileName || item.fileURL || '';
+      const url = attachment
+        ? (String(attachment).startsWith('http') ? attachment : `https://www.nseindia.com${attachment}`)
+        : `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}`;
+      const kind = classifyNewsItem(`${title} ${item.subject || ''} ${item.attchmntText || ''}`);
+      return {
+        title,
+        url,
+        source: 'NSE',
+        publishedAt: toISODateOrNull(dateRaw),
+        type: kind === 'Results' ? 'Result Filing' : kind,
+      };
+    }).filter(x => x.title);
+  } catch(e) {
+    console.warn(`[stock-news] NSE announcements failed for ${symbol}:`, e.message);
+    return [];
+  }
+}
+
+async function fetchNSELatestResult(symbol) {
+  try {
+    const rows = await nseJsonWithRetry(`/api/corporates-financial-results?index=equities&symbol=${encodeURIComponent(symbol)}&period=Quarterly`, 'results');
+    const latest = pickLatestByDate(rows, ['filingDate', 'broadCastDate', 'toDate']);
+    if (!latest) return null;
+    const result = {
+      type: 'Results',
+      source: 'NSE',
+      symbol,
+      title: `${latest.relatingTo || latest.period || 'Quarterly'} result (${latest.consolidated || 'reported'})`,
+      period: latest.relatingTo || latest.period || null,
+      toDate: toISODateOrNull(latest.toDate),
+      filingDate: toISODateOrNull(latest.filingDate || latest.broadCastDate),
+      publishedAt: toISODateOrNull(latest.filingDate || latest.broadCastDate || latest.toDate),
+      consolidated: latest.consolidated || null,
+      audited: latest.audited || null,
+      url: latest.xbrl || latest.resultDetailedDataLink || `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}`,
+      revenueCr: null,
+      profitBeforeTaxCr: null,
+      profitAfterTaxCr: null,
+      eps: null,
+      resultVerdict: null,
+      resultVerdictReason: null,
+      revenueGrowthPct: null,
+      patGrowthPct: null,
+      epsGrowthPct: null,
+    };
+    if (latest.xbrl) {
+      try {
+        const metrics = await fetchResultMetricsFromXbrl(latest.xbrl);
+        Object.assign(result, metrics);
+        const candidates = [...(Array.isArray(rows) ? rows : [])]
+          .filter(r => r && r !== latest && r.xbrl)
+          .filter(r => !latest.consolidated || !r.consolidated || r.consolidated === latest.consolidated)
+          .sort((a, b) => {
+            const ad = ['filingDate', 'broadCastDate', 'toDate'].map(f => parseNSEDate(a?.[f])).find(Boolean);
+            const bd = ['filingDate', 'broadCastDate', 'toDate'].map(f => parseNSEDate(b?.[f])).find(Boolean);
+            return (bd?.getTime() || 0) - (ad?.getTime() || 0);
+          });
+        const previous = candidates[0] ? await fetchResultMetricsFromXbrl(candidates[0].xbrl).catch(() => ({})) : {};
+        const verdict = classifyResultVerdict(metrics, previous);
+        result.resultVerdict = verdict.verdict;
+        result.resultVerdictReason = verdict.reason;
+        result.revenueGrowthPct = verdict.revenueGrowthPct;
+        result.patGrowthPct = verdict.patGrowthPct;
+        result.epsGrowthPct = verdict.epsGrowthPct;
+      } catch(e) {
+        console.warn(`[stock-news] result XBRL parse failed for ${symbol}:`, e.message);
+      }
+    }
+    return result;
+  } catch(e) {
+    console.warn(`[stock-news] NSE results failed for ${symbol}:`, e.message);
+    return null;
+  }
+}
+
+async function fetchNSECorporateActions(symbol) {
+  try {
+    const rows = await nseJsonWithRetry(`/api/corporates-corporateActions?index=equities&symbol=${encodeURIComponent(symbol)}`, 'corporate actions');
+    return rows.slice(0, 20).map(item => ({
+      type: /dividend/i.test(item.subject || '') ? 'Dividend' : 'Corporate Action',
+      title: stripHtml(item.subject || 'Corporate action'),
+      source: 'NSE',
+      exDate: toISODateOrNull(item.exDate),
+      recordDate: toISODateOrNull(item.recDate),
+      publishedAt: toISODateOrNull(item.exDate || item.recDate),
+      url: `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}`,
+    })).filter(x => x.title);
+  } catch(e) {
+    console.warn(`[stock-news] NSE corporate actions failed for ${symbol}:`, e.message);
+    return [];
+  }
+}
+
+async function fetchNSEBoardMeetings(symbol) {
+  try {
+    const rows = await nseJsonWithRetry(`/api/corporate-board-meetings?index=equities&symbol=${encodeURIComponent(symbol)}`, 'board meetings');
+    return rows.slice(0, 20).map(item => ({
+      type: /result/i.test(`${item.bm_purpose || ''} ${item.bm_desc || ''}`) ? 'Result Date' : 'Board Meeting',
+      title: stripHtml(item.bm_desc || item.bm_purpose || 'Board meeting'),
+      source: 'NSE',
+      eventDate: toISODateOrNull(item.bm_date),
+      publishedAt: toISODateOrNull(item.bm_date || item.bm_timestamp),
+      url: `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}`,
+    })).filter(x => x.title);
+  } catch(e) {
+    console.warn(`[stock-news] NSE board meetings failed for ${symbol}:`, e.message);
+    return [];
+  }
+}
+
+function dedupeNews(items) {
+  const seen = new Set();
+  const out = [];
+  for (const item of items) {
+    const key = String(item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 120);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out.sort((a, b) => (Date.parse(b.publishedAt || 0) || 0) - (Date.parse(a.publishedAt || 0) || 0));
+}
+
+function sortEvents(items) {
+  const priority = { Results: 0, 'Result Filing': 1, Dividend: 2, 'Corporate Action': 3, 'Result Date': 4, 'Board Meeting': 5 };
+  return dedupeNews(items).sort((a, b) => {
+    const ap = priority[a.type] ?? 9;
+    const bp = priority[b.type] ?? 9;
+    if (ap !== bp) return ap - bp;
+    return (Date.parse(b.publishedAt || b.filingDate || b.exDate || b.eventDate || 0) || 0)
+      - (Date.parse(a.publishedAt || a.filingDate || a.exDate || a.eventDate || 0) || 0);
+  });
+}
+
+function eventHighlights(items, max = 10) {
+  const sorted = sortEvents(items);
+  const preferred = ['Results', 'Result Filing', 'Dividend', 'Corporate Action', 'Result Date', 'Board Meeting'];
+  const out = [];
+  for (const type of preferred) {
+    const found = type === 'Results'
+      ? sorted.find(item => item.type === type && !/transcript|audio recording|analyst|institutional investor|conference call|con\. call/i.test(item.title || '') && !out.includes(item))
+        || sorted.find(item => item.type === type && !out.includes(item))
+      : sorted.find(item => item.type === type && !out.includes(item));
+    if (found) out.push(found);
+  }
+  for (const item of sorted) {
+    if (out.length >= max) break;
+    if (!out.includes(item)) out.push(item);
+  }
+  return out.slice(0, max);
+}
+
+async function fetchStockNews(symbol, name, assetType = 'stock') {
+  const sym = String(symbol || '').trim().toUpperCase();
+  const company = String(name || '').trim();
+  const isETF = String(assetType || '').toLowerCase() === 'etf';
+  const cacheKey = `${sym}|${isETF ? 'etf' : 'stock'}|${company}`;
+  const cached = stockNewsCache[cacheKey];
+  if (cached && (Date.now() - cached.savedAt) < STOCK_NEWS_TTL) return { ...cached.data, fromCache: true };
+
+  const base = company && company.toUpperCase() !== sym
+    ? `"${company}" ${sym} NSE ${isETF ? 'ETF' : 'stock'}`
+    : `${sym} NSE ${isETF ? 'ETF' : 'stock'}`;
+  const queries = isETF
+    ? [
+        `${base} announcement NAV expense ratio tracking error`,
+        `${base} dividend distribution record date`,
+        `${base} index change rebalancing fund update`,
+      ]
+    : [
+        `${base} NSE quarterly results earnings`,
+        `${base} NSE announcement board meeting dividend`,
+        `${base} "large deal" OR "bulk deal" OR "order win" OR contract`,
+      ];
+  const sources = isETF
+    ? [fetchNSEStockAnnouncements(sym), ...queries.map(fetchGoogleNews)]
+    : [fetchNSELatestResult(sym), fetchNSECorporateActions(sym), fetchNSEBoardMeetings(sym), fetchNSEStockAnnouncements(sym), ...queries.map(fetchGoogleNews)];
+  const settled = await Promise.allSettled(sources);
+  const items = [];
+  const events = [];
+  for (const r of settled) {
+    if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+      for (const item of r.value) {
+        if (item?.source === 'NSE' && ['Results', 'Dividend', 'Corporate Action', 'Board Meeting', 'Result Date'].includes(item?.type)) events.push(item);
+        else items.push(item);
+      }
+    }
+    else if (r.status === 'fulfilled' && r.value && r.value.type === 'Results') events.unshift(r.value);
+    else if (r.status === 'rejected') console.warn('[stock-news] source failed:', r.reason?.message || r.reason);
+  }
+  const data = {
+    ok: true,
+    symbol: sym,
+    name: company || sym,
+    assetType: isETF ? 'etf' : 'stock',
+    savedAt: Date.now(),
+    events: eventHighlights(events, 10),
+    news: dedupeNews(items).slice(0, 24),
+  };
+  stockNewsCache[cacheKey] = { savedAt: Date.now(), data };
+  return data;
+}
+
+// ══════════════════════════════════════════════════════════
 //  NSE SESSION
 // ══════════════════════════════════════════════════════════
-const nse = { cookies: '', lastRefresh: 0, refreshing: false, TTL: 5 * 60 * 1000 };
+const nse = { cookies: '', lastRefresh: 0, refreshing: false, warmPromise: null, TTL: 5 * 60 * 1000 };
 
 const NSE_HEADERS = {
   'User-Agent'     : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
@@ -305,6 +867,41 @@ async function warmNSESession() {
   } finally {
     nse.refreshing = false;
   }
+}
+
+async function warmNSESession() {
+  if (nse.warmPromise) return nse.warmPromise;
+  nse.refreshing = true;
+  nse.warmPromise = (async () => {
+    const warmPaths = ['/', '/market-data/live-equity-market-data', '/market-data/exchange-traded-funds-etf'];
+    let lastErr = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      console.log(`[NSE] Warming session${attempt > 1 ? ` (retry ${attempt}/3)` : ''}...`);
+      if (attempt > 1) nse.cookies = '';
+      for (const warmPath of warmPaths) {
+        try {
+          const r = await nseGet(warmPath);
+          if (r.status >= 200 && r.status < 400 && nse.cookies) {
+            nse.lastRefresh = Date.now();
+            console.log('[NSE] Session ready (' + nse.cookies.length + ' chars)');
+            return true;
+          }
+          lastErr = new Error(`warm ${warmPath} HTTP ${r.status}`);
+        } catch(e) {
+          lastErr = e;
+          console.warn(`[NSE] Warm path ${warmPath} failed: ${e.message}`);
+        }
+        await new Promise(r => setTimeout(r, 250));
+      }
+      await new Promise(r => setTimeout(r, attempt * 1000));
+    }
+    console.warn('[NSE] Warm failed:', lastErr?.message || 'unknown error');
+    return false;
+  })().finally(() => {
+    nse.refreshing = false;
+    nse.warmPromise = null;
+  });
+  return nse.warmPromise;
 }
 
 const NSE_ALLOWED = new Set(['/api/allIndices', '/api/marketStatus']);
@@ -513,6 +1110,268 @@ async function fetchSparkline(sym) {
 //  STATIC AMC LOOKUP  — fund house name by symbol pattern
 //  Yahoo fundProfile.family is often null for Indian ETFs
 // ══════════════════════════════════════════════════════════
+const intradaySignalCache = {};
+
+function compactFinite(values) {
+  return (values || []).map(Number).filter(Number.isFinite);
+}
+
+function ema(values, period) {
+  const arr = compactFinite(values);
+  if (arr.length < period) return null;
+  const k = 2 / (period + 1);
+  let out = arr.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < arr.length; i++) out = (arr[i] * k) + (out * (1 - k));
+  return out;
+}
+
+function rsi(values, period = 14) {
+  const arr = compactFinite(values);
+  if (arr.length <= period) return null;
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= period; i++) {
+    const diff = arr[i] - arr[i - 1];
+    if (diff >= 0) gains += diff;
+    else losses -= diff;
+  }
+  let avgGain = gains / period;
+  let avgLoss = losses / period;
+  for (let i = period + 1; i < arr.length; i++) {
+    const diff = arr[i] - arr[i - 1];
+    avgGain = ((avgGain * (period - 1)) + Math.max(diff, 0)) / period;
+    avgLoss = ((avgLoss * (period - 1)) + Math.max(-diff, 0)) / period;
+  }
+  if (avgLoss === 0) return 100;
+  return 100 - (100 / (1 + (avgGain / avgLoss)));
+}
+
+function atr(highs, lows, closes, period = 14) {
+  const h = compactFinite(highs), l = compactFinite(lows), c = compactFinite(closes);
+  const len = Math.min(h.length, l.length, c.length);
+  if (len <= period) return null;
+  const ranges = [];
+  for (let i = 1; i < len; i++) {
+    ranges.push(Math.max(h[i] - l[i], Math.abs(h[i] - c[i - 1]), Math.abs(l[i] - c[i - 1])));
+  }
+  if (ranges.length < period) return null;
+  return ranges.slice(-period).reduce((a, b) => a + b, 0) / period;
+}
+
+function computeVWAP(highs, lows, closes, volumes) {
+  let pv = 0, vol = 0;
+  for (let i = 0; i < closes.length; i++) {
+    const h = Number(highs[i]), l = Number(lows[i]), c = Number(closes[i]), v = Number(volumes[i]);
+    if (![h, l, c, v].every(Number.isFinite) || v <= 0) continue;
+    pv += ((h + l + c) / 3) * v;
+    vol += v;
+  }
+  return vol > 0 ? pv / vol : null;
+}
+
+function buildDailyTradeContext(result) {
+  const quote = result?.indicators?.quote?.[0] || {};
+  const highs = quote.high || [];
+  const lows = quote.low || [];
+  const closes = quote.close || [];
+  const volumes = quote.volume || [];
+  const rows = [];
+  for (let i = 0; i < closes.length; i++) {
+    const high = Number(highs[i]), low = Number(lows[i]), close = Number(closes[i]), volume = Number(volumes[i]);
+    if ([high, low, close].every(Number.isFinite)) rows.push({ high, low, close, volume: Number.isFinite(volume) ? volume : 0 });
+  }
+  if (!rows.length) return {};
+  const prev = rows.length >= 2 ? rows[rows.length - 2] : rows[0];
+  const pivot = (prev.high + prev.low + prev.close) / 3;
+  const r1 = (2 * pivot) - prev.low;
+  const s1 = (2 * pivot) - prev.high;
+  const avgVolRows = rows.slice(0, -1).filter(r => r.volume > 0).slice(-20);
+  const avgVolume20 = avgVolRows.length ? avgVolRows.reduce((a, r) => a + r.volume, 0) / avgVolRows.length : null;
+  const recent5 = rows.slice(-6, -1);
+  const recent20 = rows.slice(-21, -1);
+  const rangeHigh = arr => arr.length ? Math.max(...arr.map(r => r.high)) : null;
+  const rangeLow = arr => arr.length ? Math.min(...arr.map(r => r.low)) : null;
+  const high5 = rangeHigh(recent5);
+  const low5 = rangeLow(recent5);
+  const high20 = rangeHigh(recent20);
+  const low20 = rangeLow(recent20);
+  return {
+    prevDayHigh: +prev.high.toFixed(2),
+    prevDayLow: +prev.low.toFixed(2),
+    prevDayClose: +prev.close.toFixed(2),
+    pivot: +pivot.toFixed(2),
+    r1: +r1.toFixed(2),
+    s1: +s1.toFixed(2),
+    high5: high5 == null ? null : +high5.toFixed(2),
+    low5: low5 == null ? null : +low5.toFixed(2),
+    high20: high20 == null ? null : +high20.toFixed(2),
+    low20: low20 == null ? null : +low20.toFixed(2),
+    avgVolume20: avgVolume20 == null ? null : Math.round(avgVolume20),
+  };
+}
+
+function buildIntradaySignal(sym, result, dailyContext = {}) {
+  const quote = result?.indicators?.quote?.[0] || {};
+  const meta = result?.meta || {};
+  const closes = compactFinite(quote.close);
+  const highs = compactFinite(quote.high);
+  const lows = compactFinite(quote.low);
+  const volumes = compactFinite(quote.volume);
+  if (closes.length < 6) return null;
+
+  const price = Number(meta.regularMarketPrice) || closes[closes.length - 1];
+  const prevClose = Number(meta.previousClose) || closes[0];
+  const openPrice = Number(meta.regularMarketOpen) || closes[0];
+  const lastClose = closes[closes.length - 1];
+  const prevBarClose = closes.length > 1 ? closes[closes.length - 2] : lastClose;
+  const ema9 = ema(closes, 9);
+  const ema20 = ema(closes, 20);
+  const rsi14 = rsi(closes, 14);
+  const vwap = computeVWAP(highs, lows, closes, volumes);
+  const atr14 = atr(highs, lows, closes, 14) || (price * 0.006);
+  const openingHigh = highs.slice(0, 3).length ? Math.max(...highs.slice(0, 3)) : null;
+  const openingLow = lows.slice(0, 3).length ? Math.min(...lows.slice(0, 3)) : null;
+  const recentVol = volumes.slice(-10, -1).filter(v => v > 0);
+  const avgRecentVol = recentVol.length ? recentVol.reduce((a, b) => a + b, 0) / recentVol.length : 0;
+  const lastVolume = volumes[volumes.length - 1] || 0;
+  const volumeSpike = avgRecentVol > 0 && lastVolume > avgRecentVol * 1.5;
+  const dayVolume = volumes.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
+  const relVolume = dailyContext.avgVolume20 ? dayVolume / dailyContext.avgVolume20 : null;
+  const gapPct = prevClose ? +(((openPrice - prevClose) / prevClose) * 100).toFixed(2) : null;
+  let gapQuality = 'flat';
+  if (gapPct != null && Math.abs(gapPct) >= 0.35) {
+    if (gapPct > 0) gapQuality = price >= openPrice ? 'gap-up holding' : 'gap-up fading';
+    else gapQuality = price <= openPrice ? 'gap-down weak' : 'gap-down recovering';
+  }
+
+  let score = 0;
+  const reasons = [];
+  if (vwap != null) {
+    if (price > vwap) { score += 16; reasons.push('Above VWAP'); }
+    else { score -= 16; reasons.push('Below VWAP'); }
+  }
+  if (ema9 != null && ema20 != null) {
+    if (ema9 > ema20) { score += 16; reasons.push('EMA 9 above EMA 20'); }
+    else { score -= 16; reasons.push('EMA 9 below EMA 20'); }
+  }
+  if (rsi14 != null) {
+    if (rsi14 >= 55 && rsi14 <= 75) { score += 10; reasons.push('RSI bullish'); }
+    else if (rsi14 >= 25 && rsi14 <= 45) { score -= 10; reasons.push('RSI weak'); }
+    else if (rsi14 > 80) { score -= 5; reasons.push('RSI stretched'); }
+    else if (rsi14 < 20) { score += 5; reasons.push('RSI oversold bounce zone'); }
+  }
+  if (openingHigh != null && price > openingHigh) { score += 8; reasons.push('Opening range breakout'); }
+  if (openingLow != null && price < openingLow) { score -= 8; reasons.push('Opening range breakdown'); }
+  if (dailyContext.prevDayHigh != null && price > dailyContext.prevDayHigh) { score += 8; reasons.push('Above previous day high'); }
+  if (dailyContext.prevDayLow != null && price < dailyContext.prevDayLow) { score -= 8; reasons.push('Below previous day low'); }
+  if (dailyContext.high5 != null && price > dailyContext.high5) { score += 6; reasons.push('5D breakout'); }
+  if (dailyContext.low5 != null && price < dailyContext.low5) { score -= 6; reasons.push('5D breakdown'); }
+  if (dailyContext.high20 != null && price > dailyContext.high20) { score += 8; reasons.push('20D breakout'); }
+  if (dailyContext.low20 != null && price < dailyContext.low20) { score -= 8; reasons.push('20D breakdown'); }
+  if (gapQuality === 'gap-up holding') { score += 5; reasons.push('Gap-up holding'); }
+  else if (gapQuality === 'gap-up fading') { score -= 5; reasons.push('Gap-up fading'); }
+  else if (gapQuality === 'gap-down recovering') { score += 5; reasons.push('Gap-down recovering'); }
+  else if (gapQuality === 'gap-down weak') { score -= 5; reasons.push('Gap-down weak'); }
+  if (relVolume != null && relVolume >= 1.5) {
+    if (lastClose >= prevBarClose) { score += 5; reasons.push('High relative volume'); }
+    else { score -= 5; reasons.push('High relative volume selloff'); }
+  }
+  if (volumeSpike) {
+    if (lastClose >= prevBarClose) { score += 6; reasons.push('Volume spike on uptick'); }
+    else { score -= 6; reasons.push('Volume spike on downtick'); }
+  }
+
+  const signal = score >= 35 ? 'buy' : score <= -35 ? 'sell' : Math.abs(score) >= 18 ? 'watch' : 'hold';
+  const tradeRisk = Math.max(atr14 * 1.25, price * 0.006);
+  const stopRisk = Math.max(atr14 * 0.8, price * 0.004);
+  const bullish = score >= 0;
+  const target = price + (bullish ? tradeRisk : -tradeRisk);
+  const stop = price - (bullish ? stopRisk : -stopRisk);
+  const reward = Math.abs(target - price);
+  const risk = Math.abs(price - stop);
+  let entryTrigger = 'Wait for clear VWAP/pivot confirmation';
+  let invalidation = stop ? `Invalid below ${stop.toFixed(2)}` : 'Invalid on setup failure';
+  let entryPrice = null;
+  let entryStatus = 'Wait';
+  if (signal === 'buy') {
+    const trigger = Math.max(openingHigh || 0, dailyContext.prevDayHigh || 0, dailyContext.pivot || 0);
+    entryPrice = trigger || price;
+    entryTrigger = `Buy above ${trigger ? trigger.toFixed(2) : price.toFixed(2)} with VWAP hold`;
+    invalidation = `Invalid below ${stop.toFixed(2)} or VWAP loss`;
+    entryStatus = price >= entryPrice ? 'Triggered' : ((entryPrice - price) / price <= 0.005 ? 'Near trigger' : 'Wait');
+  } else if (signal === 'sell') {
+    const trigger = Math.min(...[openingLow, dailyContext.prevDayLow, dailyContext.pivot].filter(Number.isFinite));
+    entryPrice = Number.isFinite(trigger) ? trigger : price;
+    entryTrigger = `Sell below ${entryPrice.toFixed(2)} with VWAP rejection`;
+    invalidation = `Invalid above ${stop.toFixed(2)} or VWAP reclaim`;
+    entryStatus = price <= entryPrice ? 'Triggered' : ((price - entryPrice) / price <= 0.005 ? 'Near trigger' : 'Wait');
+  } else if (signal === 'watch') {
+    entryPrice = bullish ? Math.max(openingHigh || 0, dailyContext.prevDayHigh || 0, dailyContext.pivot || 0) : Math.min(...[openingLow, dailyContext.prevDayLow, dailyContext.pivot].filter(Number.isFinite));
+    if (!Number.isFinite(entryPrice) || entryPrice <= 0) entryPrice = null;
+    entryTrigger = bullish ? 'Watch for breakout with volume' : 'Watch for breakdown with volume';
+    entryStatus = 'Watch';
+  }
+  return {
+    symbol: sym,
+    price: +price.toFixed(2),
+    open: +openPrice.toFixed(2),
+    signal,
+    score: Math.max(-100, Math.min(100, Math.round(score))),
+    target: +target.toFixed(2),
+    stop: +stop.toFixed(2),
+    rr: risk > 0 ? +(reward / risk).toFixed(2) : null,
+    vwap: vwap == null ? null : +vwap.toFixed(2),
+    ema9: ema9 == null ? null : +ema9.toFixed(2),
+    ema20: ema20 == null ? null : +ema20.toFixed(2),
+    rsi: rsi14 == null ? null : +rsi14.toFixed(1),
+    atr: atr14 == null ? null : +atr14.toFixed(2),
+    openingHigh: openingHigh == null ? null : +openingHigh.toFixed(2),
+    openingLow: openingLow == null ? null : +openingLow.toFixed(2),
+    volumeSpike,
+    dayVolume,
+    relVolume: relVolume == null ? null : +relVolume.toFixed(2),
+    gapPct,
+    gapQuality,
+    prevDayHigh: dailyContext.prevDayHigh ?? null,
+    prevDayLow: dailyContext.prevDayLow ?? null,
+    prevDayClose: dailyContext.prevDayClose ?? null,
+    pivot: dailyContext.pivot ?? null,
+    r1: dailyContext.r1 ?? null,
+    s1: dailyContext.s1 ?? null,
+    high5: dailyContext.high5 ?? null,
+    low5: dailyContext.low5 ?? null,
+    high20: dailyContext.high20 ?? null,
+    low20: dailyContext.low20 ?? null,
+    entryPrice: entryPrice == null ? null : +entryPrice.toFixed(2),
+    entryStatus,
+    entryTrigger,
+    invalidation,
+    dayChange: prevClose ? +(((price - prevClose) / prevClose) * 100).toFixed(2) : null,
+    reasons: reasons.slice(0, 4),
+    savedAt: new Date().toISOString(),
+  };
+}
+
+async function fetchIntradaySignal(sym) {
+  const now = Date.now();
+  if (intradaySignalCache[sym] && (now - intradaySignalCache[sym].t) < INTRADAY_SIGNAL_TTL) {
+    return intradaySignalCache[sym].v;
+  }
+  const intradayPath = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=5m&range=1d&includePrePost=false`;
+  const dailyPath = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=1d&range=1mo&includePrePost=false`;
+  let [r, daily] = await Promise.all([
+    httpsGet({ hostname: 'query1.finance.yahoo.com', path: intradayPath, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS }),
+    httpsGet({ hostname: 'query1.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS }),
+  ]);
+  if (r.status !== 200) r = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: intradayPath, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS });
+  if (daily.status !== 200) daily = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS });
+  if (r.status !== 200) return null;
+  const result = JSON.parse(r.body)?.chart?.result?.[0];
+  const dailyResult = daily.status === 200 ? JSON.parse(daily.body)?.chart?.result?.[0] : null;
+  const signal = buildIntradaySignal(sym, result, buildDailyTradeContext(dailyResult));
+  if (signal) intradaySignalCache[sym] = { v: signal, t: now };
+  return signal;
+}
+
 const AMC_RULES = [
   { re: /^(NIFTYBEES|BANKBEES|JUNIORBEES|LIQUIDBEES|MID150BEES|NIF100BEES|PSUBNKBEES|INFRABEES|SETF|NIF|NETF|NIFTY|.*BEES$)/, name: 'Nippon India AMC' },
   { re: /^HDFC/,      name: 'HDFC AMC' },
@@ -703,7 +1562,7 @@ async function refreshNavMapFromNSE() {
         const sym = (item.symbol || item.Symbol || '').trim().toUpperCase();
         if (!sym) continue;
         newMap[sym] = {
-          nav     : parseFloat(item.iNavValue || item.nav || item.NAV || 0) || null,
+          nav     : parseExplicitINav(item),
           high52  : parseFloat(item['52WeekHigh'] || item.yearHigh || 0) || null,
           low52   : parseFloat(item['52WeekLow']  || item.yearLow  || 0) || null,
           volume  : parseVolumeField(item),
@@ -787,7 +1646,8 @@ async function fetchETFData(etfSymbols) {
           // 52W: prefer NSE navMap → disk etf_list_cache → Yahoo chart
           const high52 = nse.high52 || disk.high52 || meta?.fiftyTwoWeekHigh || null;
           const low52  = nse.low52  || disk.low52  || meta?.fiftyTwoWeekLow  || null;
-          // NAV: NSE iNAV → Yahoo chart navPrice → Yahoo quoteSummary/price → etf_list_cache disk
+          // NAV: NSE iNAV → Yahoo chart navPrice → Yahoo quoteSummary navPrice → etf_list_cache disk.
+          // Do not use regularMarketPrice as NAV; that makes premium/discount always 0.
           let nav = nse.nav || meta?.navPrice || null;
 
           if (!nav) {
@@ -806,7 +1666,7 @@ async function fetchETFData(etfSymbols) {
               if (qr.status !== 200) qr = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: qPath, method: 'GET', timeout: 10000, headers: qHeaders });
               if (qr.status === 200) {
                 const pr = JSON.parse(qr.body)?.quoteSummary?.result?.[0]?.price;
-                nav = pr?.navPrice?.raw ?? pr?.regularMarketPrice?.raw ?? null;
+                nav = pr?.navPrice?.raw ?? null;
                 if (nav) console.log(`[etf-nav] ${sym} navPrice from quoteSummary/price: ${nav}`);
               }
             } catch(qe) {
@@ -816,6 +1676,9 @@ async function fetchETFData(etfSymbols) {
 
           // Final fallback: etf_list_cache disk nav (NSE iNAV from last batch fetch)
           if (!nav) nav = disk.nav || null;
+          if (nav && price && disk.nav && Math.abs(nav - price) < 0.0001 && Math.abs(disk.nav - price) > 0.0001) {
+            nav = disk.nav;
+          }
 
           const navPremium = (nav && price) ? +((( price - nav) / nav) * 100).toFixed(2) : null;
 
@@ -1161,7 +2024,7 @@ const server = http.createServer(async (req, res) => {
         const sym     = (item.symbol || item.Symbol || '').trim().toUpperCase();
         const name    = item.companyName || item.name || item.schemeName || sym;
         const price   = parseFloat(item.lastPrice  || item.ltp || item.LTP || 0) || null;
-        const nav     = parseFloat(item.iNavValue  || item.nav || item.NAV || 0) || null;
+        const nav     = parseExplicitINav(item);
         const high52  = parseFloat(item['52WeekHigh'] || item.yearHigh || 0) || null;
         const low52   = parseFloat(item['52WeekLow']  || item.yearLow  || 0) || null;
         const volume  = parseVolumeField(item);
@@ -1264,6 +2127,23 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // /stock-news?symbol=RELIANCE&name=Reliance%20Industries
+  if (pathname === '/stock-news') {
+    const symbol = (searchParams.get('symbol') || '').trim().toUpperCase();
+    const name = (searchParams.get('name') || '').trim();
+    const assetType = (searchParams.get('assetType') || searchParams.get('type') || 'stock').trim().toLowerCase();
+    if (!symbol) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No symbol' })); return; }
+    try {
+      const data = await fetchStockNews(symbol, name, assetType);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch(e) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // /sparklines?symbols=A,B  -- 1-month daily closes normalised to % (in-memory cache, 2h TTL)
   if (pathname === '/sparklines') {
     const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
@@ -1290,6 +2170,28 @@ const server = http.createServer(async (req, res) => {
               sparkCache[sym] = { v, t: now };
             }
           }
+        }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, data: results }));
+    } catch(e) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // /intraday-signals?symbols=A,B  -- 5-minute VWAP/EMA/RSI/ATR setup for short-term trades
+  if (pathname === '/intraday-signals') {
+    const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    if (!symbols.length) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No symbols' })); return; }
+    try {
+      const results = {};
+      for (let i = 0; i < symbols.length; i += CONCURRENCY) {
+        const chunk = symbols.slice(i, i + CONCURRENCY);
+        const settled = await Promise.allSettled(chunk.map(sym => fetchIntradaySignal(sym).then(v => ({ sym, v }))));
+        for (const r of settled) {
+          if (r.status === 'fulfilled' && r.value?.v) results[r.value.sym] = r.value.v;
         }
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1535,6 +2437,139 @@ const server = http.createServer(async (req, res) => {
 
   // Holdings are populated as a side-effect of /etf-summary fetches.
   // This endpoint ONLY serves from cache — no live fetch.
+  // /paper-trades -- local paper trading journal for locked intraday entries
+  if (pathname === '/paper-trades') {
+    if (req.method === 'GET') {
+      const trades = loadPaperTradesFile();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, trades }));
+      return;
+    }
+    if (req.method === 'POST') {
+      try {
+        const payload = await readJsonBody(req);
+        const action = String(payload.action || '').toLowerCase();
+        const trades = loadPaperTradesFile();
+
+        if (action === 'open') {
+          const symbol = String(payload.symbol || '').trim().toUpperCase();
+          const side = String(payload.side || 'buy').toLowerCase();
+          const qty = Number(payload.qty);
+          const entryPrice = Number(payload.entryPrice);
+          if (!symbol || !['buy', 'sell'].includes(side) || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(entryPrice) || entryPrice <= 0) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'symbol, side, qty and entryPrice are required' }));
+            return;
+          }
+          const existing = trades.find(t => t.symbol === symbol && t.status === 'open');
+          if (existing) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Open paper trade already exists for this symbol', trade: existing }));
+            return;
+          }
+          const brokerMode = String(payload.brokerMode || payload.executionMode || '').toLowerCase();
+          const dryRunEntryOrder = brokerMode === 'zerodha_dry_run'
+            ? buildZerodhaDryRunOrder({ ...payload, symbol, side, qty, entryPrice, assetType: payload.assetType === 'etf' ? 'etf' : 'stock' }, null, 'entry')
+            : null;
+          const trade = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            status: 'open',
+            symbol,
+            name: String(payload.name || symbol),
+            side,
+            qty: Math.floor(qty),
+            entryPrice:+entryPrice.toFixed(2),
+            target: Number.isFinite(Number(payload.target)) ? +Number(payload.target).toFixed(2) : null,
+            stop: Number.isFinite(Number(payload.stop)) ? +Number(payload.stop).toFixed(2) : null,
+            signal: payload.signal || null,
+            score: Number.isFinite(Number(payload.score)) ? Number(payload.score) : null,
+            rr: Number.isFinite(Number(payload.rr)) ? Number(payload.rr) : null,
+            reservedCapital: Number.isFinite(Number(payload.reservedCapital)) ? +Number(payload.reservedCapital).toFixed(2) : +(entryPrice * Math.floor(qty)).toFixed(2),
+            portfolioInitial: Number.isFinite(Number(payload.portfolioInitial)) ? +Number(payload.portfolioInitial).toFixed(2) : null,
+            source: payload.source === 'simulation' ? 'simulation' : 'manual',
+            assetType: payload.assetType === 'etf' ? 'etf' : 'stock',
+            setup: payload.setup || null,
+            notes: payload.notes || '',
+            openedAt: new Date().toISOString(),
+          };
+          if (dryRunEntryOrder) {
+            trade.broker = {
+              name: 'zerodha',
+              mode: 'dry-run',
+              status: 'entry_dry_run',
+              entryOrder: dryRunEntryOrder,
+              exitPlan: {
+                target: trade.target,
+                stop: trade.stop,
+                squareOff: 'intraday dashboard managed exit',
+              },
+              audit: [{ at: trade.openedAt, event: 'entry_dry_run_created', order: dryRunEntryOrder }],
+            };
+          }
+          trades.unshift(trade);
+          savePaperTradesFile(trades);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, trade }));
+          return;
+        }
+
+        if (action === 'close') {
+          const id = String(payload.id || '');
+          const exitPrice = Number(payload.exitPrice);
+          const trade = trades.find(t => t.id === id && t.status === 'open');
+          if (!trade || !Number.isFinite(exitPrice) || exitPrice <= 0) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Open trade id and exitPrice are required' }));
+            return;
+          }
+          const pnl = computePaperTradePnl(trade, exitPrice);
+          const closedAt = new Date().toISOString();
+          Object.assign(trade, {
+            status: 'closed',
+            exitPrice:+exitPrice.toFixed(2),
+            closedAt,
+            closeReason: payload.reason || 'Manual exit',
+            pnl: pnl.pnl,
+            pnlPct: pnl.pnlPct,
+            grossPnl: pnl.grossPnl,
+            charges: pnl.charges,
+            chargeBreakup: pnl.chargeBreakup,
+          });
+          if (trade.broker?.name === 'zerodha' && trade.broker?.mode === 'dry-run') {
+            const exitOrder = buildZerodhaDryRunOrder({ ...trade, exitPrice }, trade, 'exit');
+            trade.broker.status = 'exit_dry_run';
+            trade.broker.exitOrder = exitOrder;
+            trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+            trade.broker.audit.push({ at: closedAt, event: 'exit_dry_run_created', reason: trade.closeReason, order: exitOrder });
+          }
+          savePaperTradesFile(trades);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, trade }));
+          return;
+        }
+
+        if (action === 'delete') {
+          const id = String(payload.id || '');
+          const next = trades.filter(t => t.id !== id);
+          savePaperTradesFile(next);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, deleted: trades.length - next.length }));
+          return;
+        }
+
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Unknown action' }));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+      return;
+    }
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Method not allowed' }));
+    return;
+  }
+
   // /etf-prefs  -- persist custom ETF symbols in workspace
   if (pathname === '/etf-prefs') {
     if (req.method === 'GET') {
@@ -1686,7 +2721,10 @@ const server = http.createServer(async (req, res) => {
     if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
       const ext = path.extname(resolved).toLowerCase();
       const mime = ext === '.html' ? 'text/html' : ext === '.js' ? 'application/javascript' : ext === '.css' ? 'text/css' : ext === '.json' ? 'application/json' : ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.ico' ? 'image/x-icon' : 'application/octet-stream';
-      res.writeHead(200, { 'Content-Type': mime });
+      const cacheControl = ext === '.html'
+        ? 'no-cache'
+        : (ext === '.js' || ext === '.css' ? 'public, max-age=3600' : 'public, max-age=300');
+      res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': cacheControl });
       const stream = fs.createReadStream(resolved);
       stream.pipe(res);
       return;
@@ -1713,6 +2751,7 @@ server.listen(PORT, async () => {
 ║  GET /etf-favs              ETF favorites storage ║
 ║  GET /stock-prefs           Stock prefs storage  ║
 ║  GET /stock-favs            Stock favorites storage║
+║  GET /paper-trades          Paper trade journal  ║
 ║                                                  ║
 ║  Press Ctrl+C to stop.                           ║
 ╚══════════════════════════════════════════════════╝
