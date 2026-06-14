@@ -71,9 +71,9 @@
       <!-- AI Mode -->
       <div class="source-card" id="card-ai" data-source="ai" onclick="selectSource('ai')" role="button" tabindex="0">
         <div class="sc-icon">🤖</div>
-        <div class="sc-title">AI (Anthropic)</div>
-        <div class="sc-desc">Uses Claude AI with live web search to gather prices. Works without the proxy but requires an Anthropic API key. Slower but most resilient to API changes.</div>
-        <span class="sc-badge badge-key">No Proxy · API Key Required</span>
+        <div class="sc-title">AI (OpenAI)</div>
+        <div class="sc-desc">Uses OpenAI with live web search to gather prices. Requires the local proxy with OPENAI_API_KEY configured.</div>
+        <span class="sc-badge badge-key">Proxy · OpenAI Key</span>
       </div>
     </div>
 
@@ -107,10 +107,10 @@
 
     <!-- AI extra -->
     <div id="extra-ai" class="source-extra" style="display:none">
-      <label>Anthropic API Key</label>
+      <label>OpenAI API</label>
       <div class="input-row">
-        <input id="api-key-input" class="text-input" type="password" placeholder="sk-ant-api03-…" autocomplete="off" />
-        <button class="btn primary" onclick="connectAI()">Connect →</button>
+        <input id="api-key-input" class="text-input" type="text" value="Use OPENAI_API_KEY in ticker_proxy.js terminal" readonly />
+        <button class="btn primary" onclick="connectAI()">Check &amp; Connect →</button>
       </div>
       <div class="connect-err" id="connect-err-ai"></div>
     </div>
@@ -211,12 +211,10 @@
             
             <th onclick="sortBy('symbol')">Stock ↕</th>
             <th onclick="sortBy('sector')">Sector ↕</th>
-            <th onclick="sortBy('price')">Price ₹ ↕</th>            
-            <th onclick="sortBy('change')">Change% ↕</th>
-            <th class="hide-mobile">52W Range</th>
-            <th class="hide-mobile">Volume</th>
+            <th onclick="sortBy('change')">Price / Chg% ↕</th>
+            <th class="hide-mobile" onclick="sortBy('volume')">Volume ↕</th>
             <th onclick="sortBy('trade')">Trade</th>
-            <th onclick="sortBy('sttarget')">ST Target</th>
+            <th onclick="sortBy('sttarget')">ST Target Net% ↕</th>
             <th onclick="sortBy('health')" style="cursor:pointer">Health ↕</th>
             <th>Trend</th>
             <th>Signal</th>
@@ -259,16 +257,14 @@
             <th></th>
             
             <th onclick="etfSortBy('symbol')">ETF ↕</th>
-            <th onclick="etfSortBy('price')">Price ₹ ↕</th>
-            <th onclick="etfSortBy('change')">Change% ↕</th>
+            <th onclick="etfSortBy('change')">Price / Chg% ↕</th>
             <th class="hide-mobile" onclick="etfSortBy('volume')">Volume ↕</th>
-            <th class="hide-mobile hide-1200">52W Range</th>
             <th class="hide-mobile" onclick="etfSortBy('1m')" style="cursor:pointer">1M ↕</th>
             <th class="hide-mobile hide-1200" onclick="etfSortBy('1y')" style="cursor:pointer">1Y ↕</th>
             <th class="hide-mobile hide-1200" onclick="etfSortBy('3y')" style="cursor:pointer">3Y ↕</th>
             <th>Trend</th>
             <th onclick="etfSortBy('trade')">Trade ↕</th>
-            <th onclick="etfSortBy('sttarget')">ST Target ↕</th>
+            <th onclick="etfSortBy('sttarget')">ST Target Net% ↕</th>
             <th>Signal</th>
             <th onclick="etfSortBy('nav')">NAV ↕</th>
             <th onclick="etfSortBy('premium')">Premium% ↕</th>
@@ -359,8 +355,8 @@
     <button class="chat-close" onclick="toggleFundChat()">✕</button>
   </div>
   <div class="chat-key-row" id="chat-key-row">
-    <input id="chat-api-key" class="chat-key-input" type="password" placeholder="Paste Anthropic API key (sk-ant-…)" autocomplete="off" />
-    <button class="chat-key-btn" onclick="saveChatKey()">Save</button>
+    <input id="chat-api-key" class="chat-key-input" type="text" value="OpenAI is configured through the local proxy" readonly />
+    <button class="chat-key-btn" onclick="saveChatKey()">OK</button>
   </div>
   <div class="chat-messages" id="chat-messages">
     <div class="chat-msg bot">👋 Hi! Ask me anything about stock fundamentals — health scores, EPS, ROE, debt ratios, or compare stocks. I use the live data already loaded on this dashboard.</div>

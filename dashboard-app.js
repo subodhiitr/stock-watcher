@@ -22,6 +22,7 @@ const STOCK_STORAGE_KEY = 'stock-watcher-stock-symbols';
 const STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;
 const STOCK_FAV_STORAGE_KEY = 'stock-watcher-stock-favorites';
 const PAPER_TRADES_ENDPOINT = `${PROXY}/paper-trades`;
+const OPENAI_ENDPOINT = `${PROXY}/openai`;
 
 let STOCK_FAVORITES = new Set();
 let ETF_FAVORITES = new Set();
@@ -537,7 +538,7 @@ const MIDCAP_STOCKS = [
 //  STATE
 // ═══════════════════════════════════
 let dataSource = null; // 'yahoo' | 'nse' | 'ai'
-let apiKey     = '';
+let aiReady    = false;
 let stockData  = {};
 let indexData  = {};
 let marketUp   = null;
@@ -571,7 +572,7 @@ let STOCK_ASSETS = [];
 const sectorTrendCache = {};
 const PORTFOLIO_INITIAL_CAPITAL = 500000;
 const MAX_POSITION_EXPOSURE = 100000;
-const TRADE_CAPITAL = Number(localStorage.getItem('trade-capital') || PORTFOLIO_INITIAL_CAPITAL);
+let portfolioState = { initialCapital: PORTFOLIO_INITIAL_CAPITAL, capitalAdds: [] };
 const TRADE_RISK_PCT = Number(localStorage.getItem('trade-risk-pct') || 1);
 const MIN_NET_PROFIT_PCT = 0.5;
 const SIMULATION_STATE_KEY = 'stock-watcher-simulation-state';
@@ -853,29 +854,39 @@ async function fetchNSEStocks(firstLoad = false) {
 // ═══════════════════════════════════
 //  AI MODE
 // ═══════════════════════════════════
-function connectAI() {
-  const k=document.getElementById('api-key-input').value.trim();
+async function connectAI() {
   const ce=document.getElementById('connect-err-ai');
-  if (!k.startsWith('sk-ant-')) { ce.textContent='Key should start with sk-ant-…'; return; }
-  apiKey=k; dataSource='ai'; ce.textContent='';
-  activateDashboard('ai');
+  ce.textContent='Checking OpenAI proxy...';
+  try {
+    const r = await fetch(`${OPENAI_ENDPOINT}/status`);
+    const data = await r.json().catch(()=>({}));
+    if (!r.ok || !data.configured) throw new Error(data.error || 'OPENAI_API_KEY is not configured in the proxy');
+    aiReady=true; dataSource='ai'; ce.textContent='';
+    activateDashboard('ai');
+  } catch(e) {
+    aiReady=false;
+    ce.textContent=`OpenAI not ready: ${e.message}. Start proxy with OPENAI_API_KEY.`;
+  }
 }
 
-async function callClaude(prompt) {
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
+async function callOpenAI(prompt, opts = {}) {
+  const r = await fetch(OPENAI_ENDPOINT, {
     method:'POST',
-    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
-      tools:[{type:'web_search_20250305',name:'web_search'}],
-      messages:[{role:'user',content:prompt}],
-      system:'Return ONLY raw JSON with no markdown, no preamble, no backticks.' })
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      prompt,
+      mode: opts.mode || 'json',
+      maxOutputTokens: opts.maxOutputTokens || 2000,
+      webSearch: opts.webSearch !== false,
+    })
   });
-  if (!r.ok) { const e=await r.json().catch(()=>({})); throw new Error(e.error?.message||`HTTP ${r.status}`); }
-  return r.json();
+  const data = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+  return data;
 }
 
 function extractJSON(data) {
-  const txt=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+  const txt=data.output_text || data.text || (data.content || []).filter(b=>b.type==='text').map(b=>b.text).join('');
   const clean=txt.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
   try{return JSON.parse(clean);}catch(e){const m=clean.match(/\{[\s\S]*\}/);if(m){try{return JSON.parse(m[0]);}catch(e2){}}return null;}
 }
@@ -889,7 +900,7 @@ async function fetchAIData(firstLoad = false) {
     setBgProgress(10);
   }
   try {
-    const d=await callClaude(`Current prices of: Nifty 50, Bank Nifty, Nifty Midcap 150, Nifty Smallcap 100.
+    const d=await callOpenAI(`Current prices of: Nifty 50, Bank Nifty, Nifty Midcap 150, Nifty Smallcap 100.
 Return raw JSON only: {"nifty50":{"price":24500,"change":0.45},"banknifty":{"price":52000,"change":-0.2},"midcap":{"price":12500,"change":0.3},"smallcap":{"price":8900,"change":0.15}}`);
     const p=extractJSON(d); if(p) indexData=p;
   } catch(e){console.warn('AI indices:',e.message);}
@@ -911,7 +922,7 @@ Return raw JSON only: {"nifty50":{"price":24500,"change":0.45},"banknifty":{"pri
     }
     const syms=batch.map(s=>s.sym).join(', ');
     try {
-      const d=await callClaude(`NSE stock prices for: ${syms}. Raw JSON only: {"SYMBOL":{"price":1234.5,"change":1.23,"high52":1500,"low52":900,"volume":1250000}}`);
+      const d=await callOpenAI(`NSE stock prices for: ${syms}. Raw JSON only: {"SYMBOL":{"price":1234.5,"change":1.23,"high52":1500,"low52":900,"volume":1250000}}`);
       const p=extractJSON(d); if(p) Object.assign(stockData,p);
       // Render incrementally in background mode
       if (!firstLoad) { renderTable(); renderSectors(); }
@@ -1297,11 +1308,12 @@ function getPositionSize(t) {
   if (!t?.price || !t.stop) return null;
   const riskPerShare = Math.abs(Number(t.price) - Number(t.stop));
   if (!Number.isFinite(riskPerShare) || riskPerShare <= 0) return null;
-  const maxLoss = TRADE_CAPITAL * (TRADE_RISK_PCT / 100);
+  const capital = getPortfolioCapital();
+  const maxLoss = capital * (TRADE_RISK_PCT / 100);
   const byRisk = Math.floor(maxLoss / riskPerShare);
-  const byCapital = Math.floor(TRADE_CAPITAL / Number(t.price));
+  const byCapital = Math.floor(capital / Number(t.price));
   const qty = Math.max(0, Math.min(byRisk, byCapital));
-  return { qty, riskPerShare:+riskPerShare.toFixed(2), maxLoss:+maxLoss.toFixed(0), capital:TRADE_CAPITAL, riskPct:TRADE_RISK_PCT };
+  return { qty, riskPerShare:+riskPerShare.toFixed(2), maxLoss:+maxLoss.toFixed(0), capital, riskPct:TRADE_RISK_PCT };
 }
 
 function moneyINR(v) {
@@ -1311,6 +1323,15 @@ function moneyINR(v) {
 function getCurrentTradePrice(sym) {
   const price = Number(intradayData[sym]?.price ?? stockData[sym]?.price);
   return Number.isFinite(price) && price > 0 ? price : null;
+}
+
+function getPortfolioCapital() {
+  const initial = Number(portfolioState?.initialCapital);
+  const base = Number.isFinite(initial) && initial > 0 ? initial : PORTFOLIO_INITIAL_CAPITAL;
+  const added = Array.isArray(portfolioState?.capitalAdds)
+    ? portfolioState.capitalAdds.reduce((sum, item) => sum + (Number(item?.amount) || 0), 0)
+    : 0;
+  return +(base + added).toFixed(2);
 }
 
 function getOpenPaperTrade(sym) {
@@ -1415,13 +1436,24 @@ function getSuggestedPaperQty(t, side, price, availableCash = null, maxExposure 
   if (!t || !Number.isFinite(entry) || entry <= 0) return { qty:0, riskPerShare:null, maxLoss:0, cashLimit:0, exposureCap:maxExposure };
   const plan = getPaperPlanForSide(t, side, entry);
   const riskPerShare = Math.abs(entry - Number(plan.stop));
-  const maxLoss = TRADE_CAPITAL * (TRADE_RISK_PCT / 100);
+  const maxLoss = getPortfolioCapital() * (TRADE_RISK_PCT / 100);
   const cash = availableCash == null ? getPortfolioSummary().cashAvailable : availableCash;
   const exposureCap = Math.max(0, Math.min(Number(maxExposure) || MAX_POSITION_EXPOSURE, Math.max(0, cash)));
   const byRisk = riskPerShare > 0 ? Math.floor(maxLoss / riskPerShare) : 0;
   const byCash = Math.floor(exposureCap / entry);
   const qty = Math.max(0, Math.min(byRisk || byCash, byCash));
   return { qty, riskPerShare:+riskPerShare.toFixed(2), maxLoss:+maxLoss.toFixed(0), cashLimit:byCash, exposureCap:+exposureCap.toFixed(2), plan };
+}
+
+function paperQtyInputId(sym) {
+  return `paper-qty-${String(sym || '').replace(/[^A-Za-z0-9_-]/g, '_')}`;
+}
+
+function getManualPaperQty(sym, suggestion) {
+  const input = document.getElementById(paperQtyInputId(sym));
+  const raw = input?.value;
+  if (raw == null || String(raw).trim() === '') return Number(suggestion.qty || 0);
+  return Math.floor(Number(raw));
 }
 
 function getTradeDateKey(value) {
@@ -1435,6 +1467,11 @@ function getPortfolioSummary() {
   let unrealized = 0;
   let openExposure = 0;
   const dayPnl = {};
+  const baseCapital = Number(portfolioState?.initialCapital) || PORTFOLIO_INITIAL_CAPITAL;
+  const addedCapital = Array.isArray(portfolioState?.capitalAdds)
+    ? portfolioState.capitalAdds.reduce((sum, item) => sum + (Number(item?.amount) || 0), 0)
+    : 0;
+  const capital = +(baseCapital + addedCapital).toFixed(2);
   for (const trade of paperTrades) {
     const status = String(trade.status || '').toLowerCase();
     if (status === 'open') {
@@ -1455,13 +1492,15 @@ function getPortfolioSummary() {
   }
   const totalPnl = realized + unrealized;
   return {
-    initial: PORTFOLIO_INITIAL_CAPITAL,
+    initial:+baseCapital.toFixed(2),
+    addedCapital:+addedCapital.toFixed(2),
+    capital,
     realized:+realized.toFixed(2),
     unrealized:+unrealized.toFixed(2),
     totalPnl:+totalPnl.toFixed(2),
     openExposure:+openExposure.toFixed(2),
-    cashAvailable:+(PORTFOLIO_INITIAL_CAPITAL + realized - openExposure).toFixed(2),
-    portfolioValue:+(PORTFOLIO_INITIAL_CAPITAL + totalPnl).toFixed(2),
+    cashAvailable:+(capital + realized - openExposure).toFixed(2),
+    portfolioValue:+(capital + totalPnl).toFixed(2),
     dayPnl,
   };
 }
@@ -1519,8 +1558,20 @@ function renderPortfolioModal() {
     .join('') : `<tr><td colspan="2" style="color:var(--muted);text-align:center;padding:16px">No closed trades yet</td></tr>`;
 
   body.innerHTML = `
+    <div class="portfolio-capital-row">
+      <div>
+        <div class="portfolio-section-title" style="margin:0 0 4px">Capital</div>
+        <div style="font-size:11px;color:var(--muted)">Add funds to paper portfolio; saved in paper_trades.json.</div>
+      </div>
+      <div class="portfolio-capital-actions">
+        <input id="portfolio-add-capital-input" class="portfolio-capital-input" type="number" min="1" step="1000" placeholder="Amount" />
+        <button class="paper-btn buy" onclick="addPortfolioCapital()">Add</button>
+      </div>
+    </div>
     <div class="portfolio-grid">
       <div class="portfolio-card"><div class="label">Initial capital</div><div class="value">${moneyINR(summary.initial)}</div></div>
+      <div class="portfolio-card"><div class="label">Added capital</div><div class="value">${moneyINR(summary.addedCapital)}</div></div>
+      <div class="portfolio-card"><div class="label">Total capital</div><div class="value">${moneyINR(summary.capital)}</div></div>
       <div class="portfolio-card"><div class="label">Portfolio value</div><div class="value ${portfolioValueClass(summary.totalPnl)}">${moneyINR(summary.portfolioValue)}</div></div>
       <div class="portfolio-card"><div class="label">Total P&L</div><div class="value ${portfolioValueClass(summary.totalPnl)}">${moneyINR(summary.totalPnl)}</div></div>
       <div class="portfolio-card"><div class="label">Available cash</div><div class="value ${summary.cashAvailable >= 0 ? '' : 'down'}">${moneyINR(summary.cashAvailable)}</div></div>
@@ -1544,6 +1595,22 @@ function renderPortfolioModal() {
       </table>
     </div>
   `;
+}
+
+async function addPortfolioCapital() {
+  const input = document.getElementById('portfolio-add-capital-input');
+  const amount = Number(input?.value);
+  if (!Number.isFinite(amount) || amount <= 0) { alert('Enter a positive capital amount.'); return; }
+  try {
+    await postPaperTrade('add-capital', { amount, note:'Manual portfolio capital add' });
+    if (input) input.value = '';
+    await loadPaperTrades();
+    renderTable();
+    if (currentView === 'etfs') renderETFSection();
+    renderPortfolioModal();
+  } catch (e) {
+    alert(e.message || 'Could not add capital');
+  }
 }
 
 function openPortfolioModal() {
@@ -1795,7 +1862,7 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
         brokerMode,
         assetType: isETFAsset(row) ? 'etf' : 'stock',
         reservedCapital:+(qty * price).toFixed(2),
-        portfolioInitial:PORTFOLIO_INITIAL_CAPITAL,
+        portfolioInitial:getPortfolioCapital(),
         setup: ['Simulation', t.entryStatus, t.entryTrigger, ...(t.reasons || []).slice(0, 3)].filter(Boolean).join(' | '),
       });
       await loadPaperTrades();
@@ -1815,6 +1882,12 @@ async function loadPaperTrades() {
     if (!res.ok) throw new Error('paper-trades HTTP ' + res.status);
     const payload = await res.json().catch(() => null);
     paperTrades = Array.isArray(payload?.trades) ? payload.trades : [];
+    if (payload?.portfolio && typeof payload.portfolio === 'object') {
+      portfolioState = {
+        initialCapital: Number(payload.portfolio.initialCapital) || PORTFOLIO_INITIAL_CAPITAL,
+        capitalAdds: Array.isArray(payload.portfolio.capitalAdds) ? payload.portfolio.capitalAdds : [],
+      };
+    }
     if (simulationState === 'settling' && !getSimulationOpenTrades().length) {
       simulationState = 'off';
       localStorage.setItem(SIMULATION_STATE_KEY, simulationState);
@@ -1852,8 +1925,11 @@ async function openPaperTrade(sym, side) {
   const asset = MIDCAP_STOCKS.find(s => s.sym === sym) || STOCK_ASSETS.find(s => s.sym === sym) || ETF_ASSETS.find(s => s.sym === sym) || { sym, name: sym };
   const portfolio = getPortfolioSummary();
   const suggestion = getSuggestedPaperQty(t, side, price, portfolio.cashAvailable);
-  const qty = Number(suggestion.qty || 0);
-  if (qty <= 0) { alert('Not enough available paper cash for this trade. Close another trade or reduce risk.'); return; }
+  const suggestedQty = Number(suggestion.qty || 0);
+  const qty = getManualPaperQty(sym, suggestion);
+  if (!Number.isFinite(qty) || qty <= 0) { alert('Enter a valid quantity greater than 0.'); return; }
+  if (suggestedQty <= 0) { alert('Not enough available paper cash for this trade. Close another trade or reduce risk.'); return; }
+  if (qty > suggestion.cashLimit) { alert(`Quantity exceeds available cash/max exposure. Max allowed: ${suggestion.cashLimit}`); return; }
   const score = adjustedTradeScore(asset);
   const sideScore = side === 'sell' ? -Math.abs(score) : Math.abs(score);
   const plan = suggestion.plan || getPaperPlanForSide(t, side, price);
@@ -1873,7 +1949,7 @@ async function openPaperTrade(sym, side) {
       brokerMode,
       assetType: isETFAsset(sym) ? 'etf' : 'stock',
       reservedCapital:+(qty * price).toFixed(2),
-      portfolioInitial:PORTFOLIO_INITIAL_CAPITAL,
+      portfolioInitial:getPortfolioCapital(),
       setup: [t.entryStatus, t.entryTrigger, ...(t.reasons || []).slice(0, 3)].filter(Boolean).join(' | '),
     });
     await loadPaperTrades();
@@ -1911,10 +1987,13 @@ function renderPaperTradeControls(row, t) {
   const cash = getPortfolioSummary().cashAvailable;
   const buyQty = t && price ? getSuggestedPaperQty(t, 'buy', price, cash).qty : 0;
   const sellQty = t && price ? getSuggestedPaperQty(t, 'sell', price, cash).qty : 0;
+  const defaultQty = buyQty || sellQty || '';
+  const qtyId = paperQtyInputId(row.sym);
   const modeHint = isZerodhaDryRun() ? 'Zerodha dry-run order will be saved; no live order is placed.' : 'Paper trade only.';
   return `<div class="paper-actions">
-    <button class="paper-btn buy"${disabled} title="${escapeHTML(modeHint)} Auto qty from portfolio cash, ${TRADE_RISK_PCT}% risk, max Rs 1L per stock/ETF" onclick="event.stopPropagation();openPaperTrade('${escapeHTML(row.sym)}','buy')">Buy ${buyQty || ''}</button>
-    <button class="paper-btn sell"${disabled} title="${escapeHTML(modeHint)} Auto qty from portfolio cash, ${TRADE_RISK_PCT}% risk, max Rs 1L per stock/ETF" onclick="event.stopPropagation();openPaperTrade('${escapeHTML(row.sym)}','sell')">Sell ${sellQty || ''}</button>
+    <input id="${escapeHTML(qtyId)}" class="paper-qty-input"${disabled} type="number" min="1" step="1" value="${defaultQty}" title="Override quantity. Suggested buy ${buyQty || 0}, sell ${sellQty || 0}. Max Rs 1L exposure." onclick="event.stopPropagation()" />
+    <button class="paper-btn buy"${disabled} title="${escapeHTML(modeHint)} Uses Qty box. Suggested buy qty ${buyQty || 0}." onclick="event.stopPropagation();openPaperTrade('${escapeHTML(row.sym)}','buy')">Buy</button>
+    <button class="paper-btn sell"${disabled} title="${escapeHTML(modeHint)} Uses Qty box. Suggested sell qty ${sellQty || 0}." onclick="event.stopPropagation();openPaperTrade('${escapeHTML(row.sym)}','sell')">Sell</button>
   </div>`;
 }
 
@@ -1927,6 +2006,8 @@ function getRiskGuard(row, t, score = null) {
   const vwap = Number(t.vwap);
   const riskPct = price && stop ? (Math.abs(price - stop) / price) * 100 : null;
   const extensionPct = price && vwap ? (Math.abs(price - vwap) / price) * 100 : null;
+  const bandPos = String(t.vwapBandPosition || '');
+  const stDir = String(t.superTrendDirection || '');
   const liq = getLiquidityInfo(t);
   const time = getTimeWarning();
   const flag = getEventFlag(row.sym);
@@ -1940,17 +2021,23 @@ function getRiskGuard(row, t, score = null) {
     (signal === 'sell' && Number.isFinite(target) && price <= target);
   if (invalidated) return { label:'Invalidated', level:'invalid', reason:'Price already crossed stop or target zone' };
 
-  if ((t.rr != null && t.rr < 1.3) || liq.level === 'thin' || (riskPct != null && riskPct > 1.6) || (cost && !cost.ok)) {
+  const superTrendConflict = (signal === 'buy' && stDir === 'bearish') || (signal === 'sell' && stDir === 'bullish');
+  if ((t.rr != null && t.rr < 1.3) || liq.level === 'thin' || (riskPct != null && riskPct > 1.6) || (cost && !cost.ok) || superTrendConflict) {
     const why = [];
     if (t.rr != null && t.rr < 1.3) why.push(`R:R ${t.rr}`);
     if (liq.level === 'thin') why.push('thin liquidity');
     if (riskPct != null && riskPct > 1.6) why.push(`SL risk ${riskPct.toFixed(1)}%`);
     if (cost && !cost.ok) why.push(`net ${cost.netPct}% < ${cost.minNetPct}% after costs`);
+    if (superTrendConflict) why.push(`SuperTrend ${stDir}`);
     return { label:'Avoid', level:'avoid', reason:why.join(', ') };
   }
 
-  if (extensionPct != null && extensionPct > 1.2 && t.entryStatus === 'Triggered') {
-    return { label:'Chasing', level:'chasing', reason:`Price is ${extensionPct.toFixed(1)}% away from VWAP` };
+  const bandChase = (signal === 'buy' && bandPos === 'above-upper') || (signal === 'sell' && bandPos === 'below-lower');
+  if (bandChase || (extensionPct != null && extensionPct > 1.2 && t.entryStatus === 'Triggered')) {
+    const reason = bandChase
+      ? `Price is outside ${signal === 'buy' ? 'upper' : 'lower'} VWAP band`
+      : `Price is ${extensionPct.toFixed(1)}% away from VWAP`;
+    return { label:'Chasing', level:'chasing', reason };
   }
 
   if (flag?.danger || liq.level === 'fair' || time.level === 'warn' || (size && size.qty <= 0)) {
@@ -2022,6 +2109,10 @@ function renderTradeContext(row, t) {
   if (rs != null) bits.push(`RS ${rs >= 0 ? '+' : ''}${rs}%`);
   const sectorAvg = sectorTrendCache[row.sector];
   if (sectorAvg != null) bits.push(`Sec ${sectorAvg >= 0 ? '+' : ''}${sectorAvg.toFixed(1)}%`);
+  if (t.superTrendDirection) bits.push(`ST${t.superTrendDirection === 'bullish' ? '+' : '-'}`);
+  if (t.vwapBandPosition === 'above-upper') bits.push('VWAP hi');
+  else if (t.vwapBandPosition === 'below-lower') bits.push('VWAP lo');
+  else if (t.vwapBandWidthPct != null) bits.push(`Band ${t.vwapBandWidthPct}%`);
   if (t.prevDayHigh != null && t.price > t.prevDayHigh) bits.push('>PDH');
   else if (t.prevDayLow != null && t.price < t.prevDayLow) bits.push('<PDL');
   else if (t.pivot != null) bits.push(t.price >= t.pivot ? '>Pivot' : '<Pivot');
@@ -2051,8 +2142,7 @@ function renderTradeCell(row) {
   const signal = adjustedTradeSignal(score);
   const guard = getRiskGuard(row, t, score);
   return `<div class="trade-cell" title="${escapeHTML(reason)}">
-    <span class="risk-guard ${guard.level}" title="${escapeHTML(guard.reason)}">${guard.label}</span>
-    <span class="signal-badge ${signal}">${labels[signal] || signal}</span>
+    <span class="trade-badge-row"><span class="risk-guard ${guard.level}" title="${escapeHTML(guard.reason)}">${guard.label}</span><span class="signal-badge ${signal}">${labels[signal] || signal}</span></span>
     <span class="trade-score">Score ${score}</span>
     ${renderTradeContext(row, t)}
     ${renderPaperTradeControls(row, t)}
@@ -2313,8 +2403,9 @@ function renderTable(){
     else if(col==='price'){av=a.data?.price||0;bv=b.data?.price||0;}
     else if(col==='target'){ av=a.fund?.priceTarget ?? (a.fund && a.fund.computed?.pe ? a.fund.computed.pe : 0); bv=b.fund?.priceTarget ?? (b.fund && b.fund.computed?.pe ? b.fund.computed.pe : 0); }
     else if(col==='trade'){av=adjustedTradeScore(a);bv=adjustedTradeScore(b);}
-    else if(col==='sttarget'){av=intradayData[a.sym]?.target||0;bv=intradayData[b.sym]?.target||0;}
+    else if(col==='sttarget'){av=getTradeCostContext(a, intradayData[a.sym])?.netPct ?? -999;bv=getTradeCostContext(b, intradayData[b.sym])?.netPct ?? -999;}
     else if(col==='change'){av=a.data?.change||0;bv=b.data?.change||0;}
+    else if(col==='volume'){av=a.data?.volume||0;bv=b.data?.volume||0;}
     else if(col==='health'){av=getHealthScore(a.sym)??-1;bv=getHealthScore(b.sym)??-1;}
     else{av=a.rank;bv=b.rank;}
     return typeof av==='string'?dir*av.localeCompare(bv):dir*(av-bv);
@@ -2330,19 +2421,16 @@ function renderTable(){
 
   const tbody=document.getElementById('stock-tbody');
   tbody.innerHTML='';
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="13" style="text-align:center;padding:32px;color:var(--muted)">No stocks match</td></tr>';return;}
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--muted)">No stocks match</td></tr>';return;}
   const sigLabels={buy:'🟢 BUY',watch:'🟡 WATCH',hold:'⬜ HOLD',sell:'🔴 SELL'};
   for(const row of rows){
     const d=row.data,chg=d?.change||0,price=d?.price||0,sig=getSignal(row,d);
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td><button class="fav-btn ${isStockFavorite(row.sym)?'active':''}" onclick="toggleStockFavorite('${row.sym}')">${isStockFavorite(row.sym)?'★':'☆'}</button></td>
-      <td><div class="stock-name-cell" onclick="openFundModal('${row.sym}')" title="Open stock details" style="cursor:pointer"><span class="stock-symbol">${row.sym}</span><span class="stock-fullname">${row.name}</span>${STOCK_EXTRA_SYMBOLS.includes(row.sym)?'<button onclick="event.stopPropagation();openStockMetadataModal(\''+row.sym+'\')" style="display:inline;width:auto;margin-left:5px;padding:1px 5px;font-size:10px;border-radius:3px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;vertical-align:middle;line-height:1.4">edit</button>':''}</div></td>
-      <td><span class="sector-badge">${row.sector}</span> <span class="sector-badge" style="background:${row.cap==='large'?'rgba(14,165,233,.15)':row.cap==='mid'?'rgba(167,139,250,.15)':row.cap==='etf'?'rgba(167,139,250,.06)':'rgba(167,139,250,.06)'};color:${row.cap==='large'?'var(--accent2)':row.cap==='mid'?'var(--accent3)':row.cap==='etf'?'var(--muted)':'var(--muted)'}">${row.cap==='large'?'L-Cap':row.cap==='mid'?'M-Cap':row.cap==='etf'?'ETF':'Custom'}</span></td>
-      <td class="price-cell">${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</td>
-     
-      <td class="chg-cell ${chg>=0?'up':'down'}">${d?(chg>=0?'▲ +':'▼ ')+chg.toFixed(2)+'%':'--'}</td>
-      <td class="hide-mobile" style="font-size:11px;color:var(--muted)">${d&&d.low52&&d.high52?'₹'+d.low52.toLocaleString('en-IN',{maximumFractionDigits:0})+' – ₹'+d.high52.toLocaleString('en-IN',{maximumFractionDigits:0}):'--'}</td>
+      <td><div class="stock-name-cell" onclick="openFundModal('${row.sym}')" title="Open stock details" style="cursor:pointer"><span class="stock-symbol">${row.sym}</span><span class="stock-fullname">${row.name}</span>${STOCK_EXTRA_SYMBOLS.includes(row.sym)?'<button class="stock-edit-btn" onclick="event.stopPropagation();openStockMetadataModal(\''+row.sym+'\')">edit</button>':''}</div></td>
+      <td><div class="sector-cell"><span class="sector-badge">${row.sector}</span><span class="sector-badge cap-badge" style="background:${row.cap==='large'?'rgba(14,165,233,.15)':row.cap==='mid'?'rgba(167,139,250,.15)':row.cap==='etf'?'rgba(167,139,250,.06)':'rgba(167,139,250,.06)'};color:${row.cap==='large'?'var(--accent2)':row.cap==='mid'?'var(--accent3)':row.cap==='etf'?'var(--muted)':'var(--muted)'}">${row.cap==='large'?'L-Cap':row.cap==='mid'?'M-Cap':row.cap==='etf'?'ETF':'Custom'}</span></div></td>
+      <td class="price-cell"><div class="price-stack"><span>${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</span><span class="chg-cell ${chg>=0?'up':'down'}">${d?(chg>=0?'▲ +':'▼ ')+chg.toFixed(2)+'%':'--'}</span><span class="range-mini">${d&&d.low52&&d.high52?'52W ₹'+d.low52.toLocaleString('en-IN',{maximumFractionDigits:0})+'–₹'+d.high52.toLocaleString('en-IN',{maximumFractionDigits:0}):'52W --'}</span></div></td>
       <td class="hide-mobile hide-1200" style="font-size:12px;color:var(--muted)">${d?.volume?(d.volume/100000).toFixed(1)+'L':'--'}</td>
       <td>${renderTradeCell(row)}</td>
       <td>${renderShortTargetCell(row)}</td>
@@ -2878,7 +2966,7 @@ function openFundModal(sym){
   const rs = getRelativeStrength(t);
   const sectorAvg = t ? sectorTrendCache[asset.sector] : null;
   const tradeContext = t
-    ? `RS ${rs == null ? '--' : (rs >= 0 ? '+' : '') + rs + '%'} | Sector ${sectorAvg == null ? '--' : (sectorAvg >= 0 ? '+' : '') + sectorAvg.toFixed(1) + '%'} | Gap ${t.gapPct ?? '--'}% (${t.gapQuality || '--'}) | PDH ${fmtMoney(t.prevDayHigh)} | PDL ${fmtMoney(t.prevDayLow)} | Pivot ${fmtMoney(t.pivot)} | 5D ${fmtMoney(t.low5)}-${fmtMoney(t.high5)} | 20D ${fmtMoney(t.low20)}-${fmtMoney(t.high20)} | Vol ${t.relVolume ?? '--'}x | R:R ${t.rr ?? '--'}`
+    ? `RS ${rs == null ? '--' : (rs >= 0 ? '+' : '') + rs + '%'} | Sector ${sectorAvg == null ? '--' : (sectorAvg >= 0 ? '+' : '') + sectorAvg.toFixed(1) + '%'} | SuperTrend ${t.superTrendDirection || '--'} ${fmtMoney(t.superTrend)} | VWAP band ${t.vwapBandPosition || '--'} (${t.vwapBandWidthPct ?? '--'}%) | Gap ${t.gapPct ?? '--'}% (${t.gapQuality || '--'}) | PDH ${fmtMoney(t.prevDayHigh)} | PDL ${fmtMoney(t.prevDayLow)} | Pivot ${fmtMoney(t.pivot)} | 5D ${fmtMoney(t.low5)}-${fmtMoney(t.high5)} | 20D ${fmtMoney(t.low20)}-${fmtMoney(t.high20)} | Vol ${t.relVolume ?? '--'}x | R:R ${t.rr ?? '--'}`
     : '--';
   const liq = t ? getLiquidityInfo(t) : null;
   const timeWarn = getTimeWarning();
@@ -2912,6 +3000,8 @@ function openFundModal(sym){
     detailRow('1Y / 3Y / 5Y Return', `${fmtReturn(e.oneYearReturn)} / ${fmtReturn(e.threeYearReturn)} / ${fmtReturn(e.fiveYearReturn)}`),
     detailRow('Intraday Trade', tradeLabel),
     detailRow('ST Target / SL', `${fmtMoney(t?.target)} / ${fmtMoney(t?.stop)}`),
+    detailRow('VWAP Bands', `${fmtMoney(t?.vwapLower)} / ${fmtMoney(t?.vwap)} / ${fmtMoney(t?.vwapUpper)} (${t?.vwapBandPosition || '--'})`),
+    detailRow('SuperTrend', `${t?.superTrendDirection || '--'} ${fmtMoney(t?.superTrend)}`),
     detailRow('ETF Guard', etfSafety ? `${etfSafety.ok ? 'Allowed' : 'Avoid'}${etfSafety.warn ? ' - Warning' : ''} | ${etfSafety.reason || guard?.reason || '--'}` : '--'),
     detailRow('Trade Context', tradeContext),
     detailRow('Entry Plan', tradePlan),
@@ -2928,6 +3018,8 @@ function openFundModal(sym){
     detailRow('Trade Context', tradeContext),
     detailRow('Entry Plan', tradePlan),
     detailRow('VWAP', fmtMoney(t?.vwap)),
+    detailRow('VWAP Bands', `${fmtMoney(t?.vwapLower)} / ${fmtMoney(t?.vwapUpper)} (${t?.vwapBandPosition || '--'})`),
+    detailRow('SuperTrend', `${t?.superTrendDirection || '--'} ${fmtMoney(t?.superTrend)}`),
     detailRow('EMA 9 / 20', `${fmtMoney(t?.ema9)} / ${fmtMoney(t?.ema20)}`),
     detailRow('RSI / ATR', `${fmt(t?.rsi)} / ${fmtMoney(t?.atr)}`),
     detailRow('Setup', tradeReason),
@@ -3112,7 +3204,7 @@ function renderETFSection(){
     else if(col==='1y'){av=a.etfData?.oneYearReturn??-999; bv=b.etfData?.oneYearReturn??-999;}
     else if(col==='3y'){av=a.etfData?.threeYearReturn??-999; bv=b.etfData?.threeYearReturn??-999;}
     else if(col==='trade'){av=adjustedTradeScore(a); bv=adjustedTradeScore(b);}
-    else if(col==='sttarget'){av=intradayData[a.sym]?.target||0; bv=intradayData[b.sym]?.target||0;}
+    else if(col==='sttarget'){av=getTradeCostContext(a, intradayData[a.sym])?.netPct ?? -999; bv=getTradeCostContext(b, intradayData[b.sym])?.netPct ?? -999;}
     else {av=a.rank; bv=b.rank;}
     return typeof av==='string' ? dir*av.localeCompare(bv) : dir*(av-bv);
   });
@@ -3123,7 +3215,7 @@ function renderETFSection(){
     const note = etfFilters.size === 0
       ? 'No ETFs loaded yet. Use the button above to load ETF presets or add a symbol.'
       : 'No ETFs match the selected filter combination.';
-    tbody.innerHTML=`<tr><td colspan="16" style="text-align:center;padding:24px;color:var(--muted)">${note}</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="14" style="text-align:center;padding:24px;color:var(--muted)">${note}</td></tr>`;
     if(status) status.textContent='0 ETFs loaded';
     return;
   }
@@ -3135,10 +3227,8 @@ function renderETFSection(){
     return `<tr>
       <td><button class="fav-btn ${fav?'active':''}" onclick="toggleETFFavorite('${row.sym}')">${fav?'★':'☆'}</button></td>
       <td><div class="stock-name-cell etf-name-cell"><button class="stock-name-link" type="button" onclick="event.stopPropagation();openFundModal('${escapeHTML(row.sym)}')" title="Open ETF details"><span class="stock-symbol">${escapeHTML(row.sym)}</span><span class="stock-fullname">${escapeHTML(row.name)}</span>${(row.fundFamily||row.etfData?.fundFamily)?`<span class="etf-family">${escapeHTML(row.fundFamily||row.etfData.fundFamily)}</span>`:''}</button></div></td>
-      <td class="price-cell">${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</td>
-      <td class="chg-cell ${chg>=0?'up':'down'}">${d?(chg>=0?'▲ +':'▼ ')+chg.toFixed(2)+'%':'--'}</td>
+      <td class="price-cell"><div class="price-stack"><span>${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</span><span class="chg-cell ${chg>=0?'up':'down'}">${d?(chg>=0?'▲ +':'▼ ')+chg.toFixed(2)+'%':'--'}</span><span class="range-mini">${d&&d.low52&&d.high52?'52W ₹'+d.low52.toLocaleString('en-IN',{maximumFractionDigits:0})+'–₹'+d.high52.toLocaleString('en-IN',{maximumFractionDigits:0}):'52W --'}</span></div></td>
       <td class="hide-mobile" style="font-size:11px;color:var(--muted)">${d?.volume?(d.volume/100000).toFixed(1)+'L':'--'}</td>
-      <td class="hide-mobile hide-1200" style="font-size:11px;color:var(--muted)">${d&&d.low52&&d.high52?'₹'+d.low52.toLocaleString('en-IN',{maximumFractionDigits:0})+' – ₹'+d.high52.toLocaleString('en-IN',{maximumFractionDigits:0}):'--'}</td>
       <td class="hide-mobile" style="font-size:11px">${renderETFReturnCell(row.etfData?.oneMonthReturn, '1M')}</td>
       <td class="hide-mobile hide-1200" style="font-size:11px">${renderETFReturnCell(row.etfData?.oneYearReturn, '1Y')}</td>
       <td class="hide-mobile hide-1200" style="font-size:11px">${renderETFReturnCell(row.etfData?.threeYearReturn, '3Y ann')}</td>
@@ -3347,7 +3437,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ═══════════════════════════════════
 //  FUNDAMENTALS CHAT BOT
 // ═══════════════════════════════════
-let chatApiKey = localStorage.getItem('fund-chat-key') || apiKey || '';
 let chatOpen = false;
 let chatBusy = false;
 
@@ -3356,21 +3445,15 @@ function toggleFundChat(){
   const panel = document.getElementById('fund-chat-panel');
   panel.classList.toggle('open', chatOpen);
   if(chatOpen){
-    // Sync key from AI mode if available
-    if(!chatApiKey && apiKey) { chatApiKey = apiKey; localStorage.setItem('fund-chat-key', chatApiKey); }
     const keyRow = document.getElementById('chat-key-row');
-    if(keyRow) keyRow.style.display = chatApiKey ? 'none' : 'flex';
+    if(keyRow) keyRow.style.display = 'none';
     document.getElementById('chat-input')?.focus();
   }
 }
 
 function saveChatKey(){
-  const val = document.getElementById('chat-api-key')?.value.trim();
-  if(!val || !val.startsWith('sk-ant-')){ alert('Key must start with sk-ant-…'); return; }
-  chatApiKey = val;
-  localStorage.setItem('fund-chat-key', chatApiKey);
   document.getElementById('chat-key-row').style.display = 'none';
-  addChatMsg('bot', '✓ API key saved. Now ask me anything about stock fundamentals!');
+  addChatMsg('bot', 'OpenAI is configured through the local proxy. You can ask now.');
 }
 
 function sendSuggestion(el){
@@ -3426,12 +3509,6 @@ async function sendChatMessage(){
   const question = (input?.value || '').trim();
   if(!question || chatBusy) return;
 
-  if(!chatApiKey){
-    document.getElementById('chat-key-row').style.display = 'flex';
-    addChatMsg('bot', '⚠️ Please enter your Anthropic API key above first.');
-    return;
-  }
-
   input.value = '';
   chatBusy = true;
   document.getElementById('chat-send-btn').disabled = true;
@@ -3458,29 +3535,12 @@ ${JSON.stringify(fundamentals, null, 0)}
 
 User question: ${question}`;
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': chatApiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }]
-      })
+    const data = await callOpenAI(`${systemPrompt}\n\n${userPrompt}`, {
+      mode: 'html',
+      maxOutputTokens: 1200,
+      webSearch: false,
     });
-
-    if(!resp.ok){
-      const err = await resp.json().catch(()=>({}));
-      throw new Error(err.error?.message || 'API error ' + resp.status);
-    }
-
-    const data = await resp.json();
-    const text = data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || 'No response.';
+    const text = data.output_text || data.text || data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || 'No response.';
     thinking.remove();
     addChatMsg('bot', text);
   } catch(e) {

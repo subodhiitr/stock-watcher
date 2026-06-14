@@ -1,6 +1,340 @@
 {
-  "savedAt": 1781431032900,
+  "savedAt": 1781449529833,
+  "portfolio": {
+    "initialCapital": 500000,
+    "capitalAdds": [
+      {
+        "amount": 10000,
+        "at": "2026-06-14T14:58:52.878Z",
+        "note": "Manual portfolio capital add"
+      }
+    ]
+  },
   "trades": [
+    {
+      "id": "1781449364840-81x32q",
+      "status": "closed",
+      "symbol": "TMCV",
+      "name": "TMCV",
+      "side": "buy",
+      "qty": 200,
+      "entryPrice": 390.25,
+      "target": 392.72,
+      "stop": 388.67,
+      "signal": "buy",
+      "score": 88,
+      "rr": 1.56,
+      "reservedCapital": 78050,
+      "portfolioInitial": 510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setup": "Triggered | Buy above 368.45 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "notes": "",
+      "openedAt": "2026-06-14T15:02:44.840Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "exit_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "TMCV",
+          "transaction_type": "BUY",
+          "quantity": 200,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 390.25,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 392.72,
+          "stop": 388.67,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-14T15:02:44.840Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "TMCV",
+              "transaction_type": "BUY",
+              "quantity": 200,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 390.25,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-14T15:05:29.832Z",
+            "event": "exit_dry_run_created",
+            "reason": "Manual exit",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "TMCV",
+              "transaction_type": "SELL",
+              "quantity": 200,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 390.25,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "TMCV",
+          "transaction_type": "SELL",
+          "quantity": 200,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 390.25,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "exitPrice": 390.25,
+      "closedAt": "2026-06-14T15:05:29.832Z",
+      "closeReason": "Manual exit",
+      "pnl": -74.89,
+      "pnlPct": -0.1,
+      "grossPnl": 0,
+      "charges": 74.89,
+      "chargeBreakup": {
+        "total": 74.89,
+        "totalPct": 0.096,
+        "brokerage": 40,
+        "stt": 19.51,
+        "transaction": 4.79,
+        "gst": 8.09,
+        "sebi": 0.16,
+        "stamp": 2.34,
+        "turnover": 156100
+      }
+    },
+    {
+      "id": "1781448184172-07jdkx",
+      "status": "closed",
+      "symbol": "SILVER1",
+      "name": "SILVER1",
+      "side": "sell",
+      "qty": 4288,
+      "entryPrice": 23.32,
+      "target": 23.18,
+      "stop": 23.41,
+      "signal": "sell",
+      "score": -72,
+      "rr": 1.5,
+      "reservedCapital": 99996.16,
+      "portfolioInitial": 500000,
+      "source": "manual",
+      "assetType": "etf",
+      "setup": "Triggered | Buy above 23.22 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "notes": "",
+      "openedAt": "2026-06-14T14:43:04.172Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "exit_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "SILVER1",
+          "transaction_type": "SELL",
+          "quantity": 4288,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 23.32,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 23.18,
+          "stop": 23.41,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-14T14:43:04.172Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "SILVER1",
+              "transaction_type": "SELL",
+              "quantity": 4288,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 23.32,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-14T14:43:11.477Z",
+            "event": "exit_dry_run_created",
+            "reason": "Manual exit",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "SILVER1",
+              "transaction_type": "BUY",
+              "quantity": 4288,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 23.32,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "SILVER1",
+          "transaction_type": "BUY",
+          "quantity": 4288,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 23.32,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "exitPrice": 23.32,
+      "closedAt": "2026-06-14T14:43:11.477Z",
+      "closeReason": "Manual exit",
+      "pnl": -82.68,
+      "pnlPct": -0.08,
+      "grossPnl": 0,
+      "charges": 82.68,
+      "chargeBreakup": {
+        "total": 82.68,
+        "totalPct": 0.083,
+        "brokerage": 40,
+        "stt": 25,
+        "transaction": 6.14,
+        "gst": 8.34,
+        "sebi": 0.2,
+        "stamp": 3,
+        "turnover": 199992.32
+      }
+    },
+    {
+      "id": "1781448140085-xxrimp",
+      "status": "closed",
+      "symbol": "SILVER1",
+      "name": "SILVER1",
+      "side": "buy",
+      "qty": 4288,
+      "entryPrice": 23.32,
+      "target": 23.46,
+      "stop": 23.23,
+      "signal": "buy",
+      "score": 72,
+      "rr": 1.5,
+      "reservedCapital": 99996.16,
+      "portfolioInitial": 500000,
+      "source": "manual",
+      "assetType": "etf",
+      "setup": "Triggered | Buy above 23.22 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "notes": "",
+      "openedAt": "2026-06-14T14:42:20.085Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "exit_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "SILVER1",
+          "transaction_type": "BUY",
+          "quantity": 4288,
+          "product": "CNC",
+          "order_type": "LIMIT",
+          "price": 23.32,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 23.46,
+          "stop": 23.23,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-14T14:42:20.085Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "SILVER1",
+              "transaction_type": "BUY",
+              "quantity": 4288,
+              "product": "CNC",
+              "order_type": "LIMIT",
+              "price": 23.32,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-14T14:42:48.969Z",
+            "event": "exit_dry_run_created",
+            "reason": "Manual exit",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "SILVER1",
+              "transaction_type": "SELL",
+              "quantity": 4288,
+              "product": "CNC",
+              "order_type": "LIMIT",
+              "price": 23.32,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "SILVER1",
+          "transaction_type": "SELL",
+          "quantity": 4288,
+          "product": "CNC",
+          "order_type": "LIMIT",
+          "price": 23.32,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "exitPrice": 23.32,
+      "closedAt": "2026-06-14T14:42:48.969Z",
+      "closeReason": "Manual exit",
+      "pnl": -82.68,
+      "pnlPct": -0.08,
+      "grossPnl": 0,
+      "charges": 82.68,
+      "chargeBreakup": {
+        "total": 82.68,
+        "totalPct": 0.083,
+        "brokerage": 40,
+        "stt": 25,
+        "transaction": 6.14,
+        "gst": 8.34,
+        "sebi": 0.2,
+        "stamp": 3,
+        "turnover": 199992.32
+      }
+    },
     {
       "id": "1781431013056-c1afwz",
       "status": "closed",

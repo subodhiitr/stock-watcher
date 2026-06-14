@@ -36,7 +36,9 @@ const https = require('https');
 const zlib  = require('zlib');
 const fs    = require('fs');
 const path  = require('path');
+const os    = require('os');
 const PORT  = 3001;
+const USER_OPENAI_PROPERTIES = path.join(os.homedir(), 'openai.properties');
 const SAVED_ETF_FILE = path.join(__dirname, 'saved_etfs.json');
 const SAVED_STOCK_FILE = path.join(__dirname, 'saved_stocks.json');
 const SAVED_ETF_FAV_FILE  = path.join(__dirname, 'saved_etf_favs.json');
@@ -54,6 +56,34 @@ const SAVED_STOCK_FAV_FILE = path.join(__dirname, 'saved_stock_favs.json');
 const PAPER_TRADES_FILE    = path.join(__dirname, 'paper_trades.json');
 const STOCK_NEWS_TTL       = 30 * 60 * 1000;             // 30 minutes
 const INTRADAY_SIGNAL_TTL  = 2 * 60 * 1000;              // 2 minutes
+
+function loadPropertiesFile(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return {};
+    const props = {};
+    const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith(';')) continue;
+      const idx = trimmed.indexOf('=');
+      if (idx <= 0) continue;
+      const key = trimmed.slice(0, idx).trim();
+      let value = trimmed.slice(idx + 1).trim();
+      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      props[key] = value;
+    }
+    return props;
+  } catch(e) {
+    console.warn('[openai] Could not read openai.properties:', e.message);
+    return {};
+  }
+}
+
+const openaiProps = loadPropertiesFile(USER_OPENAI_PROPERTIES);
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || openaiProps.OPENAI_API_KEY || openaiProps.api_key || openaiProps.apiKey || '';
+const OPENAI_MODEL = process.env.OPENAI_MODEL || openaiProps.OPENAI_MODEL || openaiProps.model || 'gpt-4.1-mini';
 
 function parseVolumeField(item) {
   const raw = item.totalTradedVolume ?? item.tradedVolume ?? item.volume ?? item.totalTradedQty ?? item.quantityTraded ?? item.qtyTraded ?? 0;
@@ -239,23 +269,57 @@ function saveSavedStockFavsFile(symbols) {
 // ══════════════════════════════════════════════════════════
 //  SHARED HELPER — HTTPS GET with auto-decompression
 // ══════════════════════════════════════════════════
-function loadPaperTradesFile() {
+function defaultPaperPortfolio() {
+  return { initialCapital: 500000, capitalAdds: [] };
+}
+
+function normalizePaperState(raw) {
+  const trades = Array.isArray(raw) ? raw : (Array.isArray(raw?.trades) ? raw.trades : []);
+  const portfolioRaw = raw && !Array.isArray(raw) && raw.portfolio && typeof raw.portfolio === 'object' ? raw.portfolio : {};
+  const initialCapital = Number.isFinite(Number(portfolioRaw.initialCapital)) && Number(portfolioRaw.initialCapital) > 0
+    ? +Number(portfolioRaw.initialCapital).toFixed(2)
+    : 500000;
+  const capitalAdds = Array.isArray(portfolioRaw.capitalAdds)
+    ? portfolioRaw.capitalAdds.map(item => ({
+        amount: +Number(item?.amount || 0).toFixed(2),
+        at: item?.at || new Date().toISOString(),
+        note: String(item?.note || ''),
+      })).filter(item => Number.isFinite(item.amount) && item.amount > 0)
+    : [];
+  return { savedAt: raw?.savedAt || Date.now(), portfolio: { initialCapital, capitalAdds }, trades };
+}
+
+function loadPaperStateFile() {
   try {
     if (!fs.existsSync(PAPER_TRADES_FILE)) {
-      fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), trades: [] }, null, 2), 'utf8');
+      fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: defaultPaperPortfolio(), trades: [] }, null, 2), 'utf8');
     }
     const raw = JSON.parse(fs.readFileSync(PAPER_TRADES_FILE, 'utf8') || '{}');
-    if (Array.isArray(raw)) return raw;
-    return Array.isArray(raw.trades) ? raw.trades : [];
+    return normalizePaperState(raw);
   } catch (e) {
     console.warn('[paper-trades] Load error:', e.message);
-    return [];
+    return { savedAt: Date.now(), portfolio: defaultPaperPortfolio(), trades: [] };
+  }
+}
+
+function loadPaperTradesFile() {
+  return loadPaperStateFile().trades;
+}
+
+function savePaperStateFile(state) {
+  try {
+    const next = normalizePaperState(state || {});
+    fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: next.portfolio, trades: next.trades }, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[paper-trades] Save error:', e.message);
   }
 }
 
 function savePaperTradesFile(trades) {
   try {
-    fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), trades: Array.isArray(trades) ? trades : [] }, null, 2), 'utf8');
+    const state = loadPaperStateFile();
+    state.trades = Array.isArray(trades) ? trades : [];
+    savePaperStateFile(state);
   } catch (e) {
     console.warn('[paper-trades] Save error:', e.message);
   }
@@ -370,6 +434,85 @@ function httpsGet(opts) {
     req.on('error',   reject);
     req.end();
   });
+}
+
+function httpsJsonRequest(opts, payload) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify(payload || {});
+    const req = https.request({
+      ...opts,
+      headers: {
+        ...(opts.headers || {}),
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    }, (res) => {
+      const chunks = [];
+      const enc    = (res.headers['content-encoding'] || '').toLowerCase();
+      const stream =
+        enc === 'gzip'    ? res.pipe(zlib.createGunzip()) :
+        enc === 'br'      ? res.pipe(zlib.createBrotliDecompress()) :
+        enc === 'deflate' ? res.pipe(zlib.createInflate()) : res;
+      stream.on('data',  c  => chunks.push(c));
+      stream.on('end',   () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8') }));
+      stream.on('error', reject);
+    });
+    req.on('timeout', () => { req.destroy(); reject(new Error('Request timed out')); });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+function extractOpenAIText(data) {
+  if (!data || typeof data !== 'object') return '';
+  if (typeof data.output_text === 'string') return data.output_text;
+  const parts = [];
+  for (const item of data.output || []) {
+    for (const c of item.content || []) {
+      if (typeof c.text === 'string') parts.push(c.text);
+    }
+  }
+  return parts.join('');
+}
+
+async function callOpenAIResponse({ prompt, mode = 'json', maxOutputTokens = 2000, webSearch = true }) {
+  const apiKey = OPENAI_API_KEY;
+  if (!apiKey) {
+    const err = new Error(`OPENAI_API_KEY is not set in environment or ${USER_OPENAI_PROPERTIES}`);
+    err.status = 400;
+    throw err;
+  }
+  const instructions = mode === 'html'
+    ? 'Return plain HTML only. Do not use markdown fences.'
+    : 'Return ONLY raw JSON with no markdown, no preamble, no backticks.';
+  const payload = {
+    model: OPENAI_MODEL,
+    instructions,
+    input: String(prompt || ''),
+    max_output_tokens: Math.max(200, Math.min(Number(maxOutputTokens) || 2000, 4000)),
+  };
+  if (webSearch) {
+    payload.tools = [{ type: 'web_search' }];
+    payload.tool_choice = 'auto';
+  }
+  const r = await httpsJsonRequest({
+    hostname: 'api.openai.com',
+    path: '/v1/responses',
+    method: 'POST',
+    timeout: 45000,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  }, payload);
+  const data = JSON.parse(r.body || '{}');
+  if (r.status < 200 || r.status >= 300) {
+    const err = new Error(data.error?.message || `OpenAI HTTP ${r.status}`);
+    err.status = r.status;
+    throw err;
+  }
+  const text = extractOpenAIText(data);
+  return { ok: true, model: data.model || OPENAI_MODEL, output_text: text, content: [{ type: 'text', text }] };
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1168,6 +1311,79 @@ function computeVWAP(highs, lows, closes, volumes) {
   return vol > 0 ? pv / vol : null;
 }
 
+function computeVWAPBands(highs, lows, closes, volumes, vwap, price, multiplier = 1.5) {
+  if (!Number.isFinite(vwap) || !closes.length) return null;
+  let weightedVariance = 0, totalWeight = 0;
+  let plainVariance = 0, plainCount = 0;
+  for (let i = 0; i < closes.length; i++) {
+    const h = Number(highs[i]), l = Number(lows[i]), c = Number(closes[i]), v = Number(volumes[i]);
+    if (![h, l, c].every(Number.isFinite)) continue;
+    const typical = (h + l + c) / 3;
+    const diffSq = Math.pow(typical - vwap, 2);
+    if (Number.isFinite(v) && v > 0) {
+      weightedVariance += diffSq * v;
+      totalWeight += v;
+    }
+    plainVariance += diffSq;
+    plainCount++;
+  }
+  const variance = totalWeight > 0
+    ? weightedVariance / totalWeight
+    : (plainCount ? plainVariance / plainCount : null);
+  if (!Number.isFinite(variance)) return null;
+  const stdev = Math.sqrt(Math.max(variance, 0));
+  const upper = vwap + (stdev * multiplier);
+  const lower = vwap - (stdev * multiplier);
+  let position = 'inside';
+  if (Number.isFinite(price)) {
+    if (price > upper) position = 'above-upper';
+    else if (price < lower) position = 'below-lower';
+    else if (price >= vwap) position = 'upper-half';
+    else position = 'lower-half';
+  }
+  return {
+    upper,
+    lower,
+    stdev,
+    position,
+    widthPct: vwap ? ((upper - lower) / vwap) * 100 : null,
+  };
+}
+
+function superTrend(highs, lows, closes, period = 10, multiplier = 3) {
+  const h = compactFinite(highs), l = compactFinite(lows), c = compactFinite(closes);
+  const len = Math.min(h.length, l.length, c.length);
+  if (len <= period + 1) return null;
+  const trueRanges = [];
+  for (let i = 0; i < len; i++) {
+    if (i === 0) trueRanges.push(h[i] - l[i]);
+    else trueRanges.push(Math.max(h[i] - l[i], Math.abs(h[i] - c[i - 1]), Math.abs(l[i] - c[i - 1])));
+  }
+  const atrSeries = Array(len).fill(null);
+  let seed = trueRanges.slice(1, period + 1).reduce((a, b) => a + b, 0) / period;
+  atrSeries[period] = seed;
+  for (let i = period + 1; i < len; i++) {
+    seed = ((seed * (period - 1)) + trueRanges[i]) / period;
+    atrSeries[i] = seed;
+  }
+  let finalUpper = null, finalLower = null, trend = null, value = null;
+  for (let i = period; i < len; i++) {
+    const atrVal = atrSeries[i];
+    if (!Number.isFinite(atrVal)) continue;
+    const hl2 = (h[i] + l[i]) / 2;
+    const basicUpper = hl2 + (multiplier * atrVal);
+    const basicLower = hl2 - (multiplier * atrVal);
+    if (finalUpper == null || basicUpper < finalUpper || c[i - 1] > finalUpper) finalUpper = basicUpper;
+    if (finalLower == null || basicLower > finalLower || c[i - 1] < finalLower) finalLower = basicLower;
+    if (trend == null) trend = c[i] >= hl2 ? 'bullish' : 'bearish';
+    else if (trend === 'bearish' && c[i] > finalUpper) trend = 'bullish';
+    else if (trend === 'bullish' && c[i] < finalLower) trend = 'bearish';
+    value = trend === 'bullish' ? finalLower : finalUpper;
+  }
+  if (!trend || !Number.isFinite(value)) return null;
+  return { direction: trend, value, upper: finalUpper, lower: finalLower };
+}
+
 function buildDailyTradeContext(result) {
   const quote = result?.indicators?.quote?.[0] || {};
   const highs = quote.high || [];
@@ -1228,6 +1444,8 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
   const rsi14 = rsi(closes, 14);
   const vwap = computeVWAP(highs, lows, closes, volumes);
   const atr14 = atr(highs, lows, closes, 14) || (price * 0.006);
+  const vwapBands = computeVWAPBands(highs, lows, closes, volumes, vwap, price, 1.5);
+  const st = superTrend(highs, lows, closes, 10, 3);
   const openingHigh = highs.slice(0, 3).length ? Math.max(...highs.slice(0, 3)) : null;
   const openingLow = lows.slice(0, 3).length ? Math.min(...lows.slice(0, 3)) : null;
   const recentVol = volumes.slice(-10, -1).filter(v => v > 0);
@@ -1253,6 +1471,8 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     if (ema9 > ema20) { score += 16; reasons.push('EMA 9 above EMA 20'); }
     else { score -= 16; reasons.push('EMA 9 below EMA 20'); }
   }
+  if (st?.direction === 'bullish') { score += 14; reasons.push('SuperTrend bullish'); }
+  else if (st?.direction === 'bearish') { score -= 14; reasons.push('SuperTrend bearish'); }
   if (rsi14 != null) {
     if (rsi14 >= 55 && rsi14 <= 75) { score += 10; reasons.push('RSI bullish'); }
     else if (rsi14 >= 25 && rsi14 <= 45) { score -= 10; reasons.push('RSI weak'); }
@@ -1279,6 +1499,8 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     if (lastClose >= prevBarClose) { score += 6; reasons.push('Volume spike on uptick'); }
     else { score -= 6; reasons.push('Volume spike on downtick'); }
   }
+  if (vwapBands?.position === 'above-upper') { score -= 8; reasons.push('Above upper VWAP band'); }
+  else if (vwapBands?.position === 'below-lower') { score += 8; reasons.push('Below lower VWAP band'); }
 
   const signal = score >= 35 ? 'buy' : score <= -35 ? 'sell' : Math.abs(score) >= 18 ? 'watch' : 'hold';
   const tradeRisk = Math.max(atr14 * 1.25, price * 0.006);
@@ -1320,6 +1542,12 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     stop: +stop.toFixed(2),
     rr: risk > 0 ? +(reward / risk).toFixed(2) : null,
     vwap: vwap == null ? null : +vwap.toFixed(2),
+    vwapUpper: vwapBands?.upper == null ? null : +vwapBands.upper.toFixed(2),
+    vwapLower: vwapBands?.lower == null ? null : +vwapBands.lower.toFixed(2),
+    vwapBandWidthPct: vwapBands?.widthPct == null ? null : +vwapBands.widthPct.toFixed(2),
+    vwapBandPosition: vwapBands?.position || null,
+    superTrend: st?.value == null ? null : +st.value.toFixed(2),
+    superTrendDirection: st?.direction || null,
     ema9: ema9 == null ? null : +ema9.toFixed(2),
     ema20: ema20 == null ? null : +ema20.toFixed(2),
     rsi: rsi14 == null ? null : +rsi14.toFixed(1),
@@ -1903,7 +2131,40 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({ ok: true,
       nse  : { cookies: nse.cookies.length, lastRefresh: nse.lastRefresh },
       yahoo: { mode: 'v8/chart (crumb-free)', ok: true },
+      openai: { configured: !!OPENAI_API_KEY, model: OPENAI_MODEL, propertiesFile: USER_OPENAI_PROPERTIES },
     }));
+    return;
+  }
+
+  // /openai/status -- frontend check for AI mode
+  if (pathname === '/openai/status') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, configured: !!OPENAI_API_KEY, model: OPENAI_MODEL, propertiesFile: USER_OPENAI_PROPERTIES }));
+    return;
+  }
+
+  // /openai -- server-side OpenAI Responses API proxy. Keeps API key out of browser storage.
+  if (pathname === '/openai') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+      return;
+    }
+    try {
+      const payload = await readJsonBody(req);
+      const prompt = String(payload.prompt || '').trim();
+      if (!prompt) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'prompt is required' }));
+        return;
+      }
+      const data = await callOpenAIResponse(payload);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch(e) {
+      res.writeHead(e.status || 502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return;
   }
 
@@ -2440,16 +2701,37 @@ const server = http.createServer(async (req, res) => {
   // /paper-trades -- local paper trading journal for locked intraday entries
   if (pathname === '/paper-trades') {
     if (req.method === 'GET') {
-      const trades = loadPaperTradesFile();
+      const state = loadPaperStateFile();
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, trades }));
+      res.end(JSON.stringify({ ok: true, trades: state.trades, portfolio: state.portfolio }));
       return;
     }
     if (req.method === 'POST') {
       try {
         const payload = await readJsonBody(req);
         const action = String(payload.action || '').toLowerCase();
-        const trades = loadPaperTradesFile();
+        const state = loadPaperStateFile();
+        const trades = state.trades;
+
+        if (action === 'add-capital') {
+          const amount = Number(payload.amount);
+          if (!Number.isFinite(amount) || amount <= 0) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Positive amount is required' }));
+            return;
+          }
+          state.portfolio = state.portfolio || defaultPaperPortfolio();
+          state.portfolio.capitalAdds = Array.isArray(state.portfolio.capitalAdds) ? state.portfolio.capitalAdds : [];
+          state.portfolio.capitalAdds.push({
+            amount:+amount.toFixed(2),
+            at: new Date().toISOString(),
+            note: String(payload.note || 'Manual capital add'),
+          });
+          savePaperStateFile(state);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, portfolio: state.portfolio }));
+          return;
+        }
 
         if (action === 'open') {
           const symbol = String(payload.symbol || '').trim().toUpperCase();
