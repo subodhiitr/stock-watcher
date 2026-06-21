@@ -1,0 +1,10 @@
+{
+  "name": "stock-watcher",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix my-remix-app run dev",
+    "proxy": "node --max-http-header-size=65536 ticker_proxy.js",
+    "start": "npm --prefix my-remix-app run start",
+    "typecheck": "npm --prefix my-remix-app run typecheck"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "my-remix-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --max-http-header-size=65536 --watch --import remix/node-tsx server.ts",
+    "start": "node --max-http-header-size=65536 --import remix/node-tsx server.ts",
+    "test": "node --import remix/node-tsx --test",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=24.3.0"
+  },
+  "dependencies": {
+    "remix": "^3.0.0-beta.4"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "typescript": "latest"
+  }
+}

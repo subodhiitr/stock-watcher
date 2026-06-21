@@ -10,9 +10,8 @@ function getRefreshInterval() {
   const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();
   return (hhmm >= 915 && hhmm < 1530) ? 120 : 600;
 }
-const PROXY = (['localhost', '127.0.0.1'].includes(location.hostname) && location.port === '3001')
-  ? location.origin
-  : 'http://localhost:3001';
+const PROXY = location.protocol === 'file:' ? 'http://localhost:3001' : location.origin;
+const DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;
 const ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;
 const ETF_STORAGE_KEY = 'stock-watcher-etf-symbols';
 const ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;
@@ -22,10 +21,42 @@ const STOCK_STORAGE_KEY = 'stock-watcher-stock-symbols';
 const STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;
 const STOCK_FAV_STORAGE_KEY = 'stock-watcher-stock-favorites';
 const PAPER_TRADES_ENDPOINT = `${PROXY}/paper-trades`;
+const FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;
+const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;
+const SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;
+const SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;
+const SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;
+const REPLAY_FETCH_TIMEOUT_MS = 120000;
+const TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;
+const TRADE_SETTING_OVERRIDES_KEY = 'stock-watcher-trade-setting-overrides';
 const OPENAI_ENDPOINT = `${PROXY}/openai`;
+const OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;
 
 let STOCK_FAVORITES = new Set();
 let ETF_FAVORITES = new Set();
+let tradeSettingOverrides = null;
+let dashboardBootstrap = null;
+let dashboardBootstrapLoaded = false;
+
+async function loadDashboardBootstrap() {
+  if (dashboardBootstrapLoaded) return dashboardBootstrap;
+  dashboardBootstrapLoaded = true;
+  try {
+    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);
+    const payload = await res.json();
+    dashboardBootstrap = payload && payload.ok ? payload : null;
+  } catch (e) {
+    console.warn('Dashboard bootstrap failed:', e.message);
+    dashboardBootstrap = null;
+  }
+  return dashboardBootstrap;
+}
+
+function bootstrapArray(path, fallback = null) {
+  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);
+  return Array.isArray(value) ? value : fallback;
+}
 
 function loadSavedETFsFromStorage() {
   try {
@@ -97,17 +128,23 @@ function saveFavoriteStocksToStorage(symbols) {
 
 async function loadFavoriteETFs() {
   let saved = [];
-  try {
-    const res = await fetch(ETF_FAVS_ENDPOINT);
-    if (!res.ok) throw new Error('ETF favs endpoint unavailable');
-    const payload = await res.json();
-    if (Array.isArray(payload)) {
-      saved = payload;
-      saveFavoriteETFsToStorage(saved);
+  const boot = bootstrapArray(['prefs', 'etfFavorites']);
+  if (boot) {
+    saved = boot;
+    saveFavoriteETFsToStorage(saved);
+  } else {
+    try {
+      const res = await fetch(ETF_FAVS_ENDPOINT);
+      if (!res.ok) throw new Error('ETF favs endpoint unavailable');
+      const payload = await res.json();
+      if (Array.isArray(payload)) {
+        saved = payload;
+        saveFavoriteETFsToStorage(saved);
+      }
+    } catch (e) {
+      console.warn('Saved ETF favorites load failed:', e.message);
+      saved = loadFavoriteETFsFromStorage();
     }
-  } catch (e) {
-    console.warn('Saved ETF favorites load failed:', e.message);
-    saved = loadFavoriteETFsFromStorage();
   }
   if (!Array.isArray(saved)) return;
   ETF_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));
@@ -115,17 +152,23 @@ async function loadFavoriteETFs() {
 
 async function loadFavoriteStocks() {
   let saved = [];
-  try {
-    const res = await fetch(STOCK_FAVS_ENDPOINT);
-    if (!res.ok) throw new Error('Stock favs endpoint unavailable');
-    const payload = await res.json();
-    if (Array.isArray(payload)) {
-      saved = payload;
-      saveFavoriteStocksToStorage(saved);
+  const boot = bootstrapArray(['prefs', 'stockFavorites']);
+  if (boot) {
+    saved = boot;
+    saveFavoriteStocksToStorage(saved);
+  } else {
+    try {
+      const res = await fetch(STOCK_FAVS_ENDPOINT);
+      if (!res.ok) throw new Error('Stock favs endpoint unavailable');
+      const payload = await res.json();
+      if (Array.isArray(payload)) {
+        saved = payload;
+        saveFavoriteStocksToStorage(saved);
+      }
+    } catch (e) {
+      console.warn('Saved stock favorites load failed:', e.message);
+      saved = loadFavoriteStocksFromStorage();
     }
-  } catch (e) {
-    console.warn('Saved stock favorites load failed:', e.message);
-    saved = loadFavoriteStocksFromStorage();
   }
   if (!Array.isArray(saved)) return;
   STOCK_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));
@@ -133,17 +176,23 @@ async function loadFavoriteStocks() {
 
 async function loadSavedETFs() {
   let saved = [];
-  try {
-    const res = await fetch(ETF_PREFS_ENDPOINT);
-    if (!res.ok) throw new Error('ETF prefs endpoint unavailable');
-    const payload = await res.json();
-    if (Array.isArray(payload)) {
-      saved = payload;
-      saveSavedETFsToStorage(saved);
+  const boot = bootstrapArray(['prefs', 'etfs']);
+  if (boot) {
+    saved = boot;
+    saveSavedETFsToStorage(saved);
+  } else {
+    try {
+      const res = await fetch(ETF_PREFS_ENDPOINT);
+      if (!res.ok) throw new Error('ETF prefs endpoint unavailable');
+      const payload = await res.json();
+      if (Array.isArray(payload)) {
+        saved = payload;
+        saveSavedETFsToStorage(saved);
+      }
+    } catch (e) {
+      console.warn('Saved ETFs load failed:', e.message);
+      saved = loadSavedETFsFromStorage();
     }
-  } catch (e) {
-    console.warn('Saved ETFs load failed:', e.message);
-    saved = loadSavedETFsFromStorage();
   }
   if (!Array.isArray(saved)) return;
   const newSymbols = [];
@@ -167,7 +216,6 @@ async function loadSavedETFs() {
   }
   if (newSymbols.length && dataSource) {
     await fetchAdditionalSymbols(newSymbols);
-    try{ await fetchSymbolMetadata(newSymbols); }catch(e){console.warn('saved stocks metadata failed',e);}
   }
   // Initialize preset ETFs if no saved ETFs exist (fallback on page load)
   if (!ETF_ASSETS.length) {
@@ -213,17 +261,23 @@ async function refreshIndexMembership() {
 
 async function loadSavedStocks() {
   let saved = [];
-  try {
-    const res = await fetch(STOCK_PREFS_ENDPOINT);
-    if (!res.ok) throw new Error('Stock prefs endpoint unavailable');
-    const payload = await res.json();
-    if (Array.isArray(payload)) {
-      saved = payload;
-      saveSavedStocksToStorage(saved);
+  const boot = bootstrapArray(['prefs', 'stocks']);
+  if (boot) {
+    saved = boot;
+    saveSavedStocksToStorage(saved);
+  } else {
+    try {
+      const res = await fetch(STOCK_PREFS_ENDPOINT);
+      if (!res.ok) throw new Error('Stock prefs endpoint unavailable');
+      const payload = await res.json();
+      if (Array.isArray(payload)) {
+        saved = payload;
+        saveSavedStocksToStorage(saved);
+      }
+    } catch (e) {
+      console.warn('Saved stocks load failed:', e.message);
+      saved = loadSavedStocksFromStorage();
     }
-  } catch (e) {
-    console.warn('Saved stocks load failed:', e.message);
-    saved = loadSavedStocksFromStorage();
   }
   if (!Array.isArray(saved)) return;
   const newSymbols = [];
@@ -242,7 +296,6 @@ async function loadSavedStocks() {
   }
   if (newSymbols.length && dataSource) {
     await fetchAdditionalSymbols(STOCK_ASSETS.map(e=>e.sym));
-    try{ await fetchSymbolMetadata(newSymbols); }catch(e){console.warn('saved stocks metadata failed',e);}    
   }
 }
 
@@ -254,6 +307,7 @@ async function saveFavoriteETFs() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(favorites),
+      signal: AbortSignal.timeout(3000),
     });
   } catch (e) {
     console.warn('ETF favs save failed:', e.message);
@@ -268,6 +322,7 @@ async function saveFavoriteStocks() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(favorites),
+      signal: AbortSignal.timeout(3000),
     });
   } catch (e) {
     console.warn('Stock favs save failed:', e.message);
@@ -281,22 +336,24 @@ function isETFFavorite(sym) {
   return ETF_FAVORITES.has(sym);
 }
 
-async function toggleStockFavorite(sym) {
+function toggleStockFavorite(sym, event) {
+  if (event) event.stopPropagation();
   const s = String(sym || '').trim().toUpperCase();
   if (!s) return;
   if (STOCK_FAVORITES.has(s)) STOCK_FAVORITES.delete(s);
   else STOCK_FAVORITES.add(s);
-  await saveFavoriteStocks();
   renderTable();
+  saveFavoriteStocks().catch(e => console.warn('Stock favs save failed:', e.message));
 }
 
-async function toggleETFFavorite(sym) {
+function toggleETFFavorite(sym, event) {
+  if (event) event.stopPropagation();
   const s = String(sym || '').trim().toUpperCase();
   if (!s) return;
   if (ETF_FAVORITES.has(s)) ETF_FAVORITES.delete(s);
   else ETF_FAVORITES.add(s);
-  await saveFavoriteETFs();
   renderETFSection();
+  saveFavoriteETFs().catch(e => console.warn('ETF favs save failed:', e.message));
 }
 
 // cap: 'large' = Nifty 100 (Nifty 50 + Nifty Next 50), 'mid' = Nifty Midcap 150
@@ -329,7 +386,7 @@ const MIDCAP_STOCKS = [
   {sym:'POWERGRID',  name:'Power Grid Corp',          sector:'Energy',       cap:'large'},
   {sym:'HCLTECH',    name:'HCL Technologies',         sector:'IT',           cap:'large'},
   {sym:'M&M',        name:'Mahindra & Mahindra',      sector:'Auto',         cap:'large'},
-  {sym:'TATAMOTORS', name:'Tata Motors',              sector:'Auto',         cap:'large'},
+  {sym:'TMPV',       name:'Tata Motors Passenger Vehicles', sector:'Auto',   cap:'large'},
   {sym:'ONGC',       name:'ONGC',                     sector:'Energy',       cap:'large'},
   {sym:'COALINDIA',  name:'Coal India',               sector:'Energy',       cap:'large'},
   {sym:'INDUSINDBK', name:'IndusInd Bank',            sector:'Banking',      cap:'large'},
@@ -350,7 +407,7 @@ const MIDCAP_STOCKS = [
   {sym:'ADANIPORTS', name:'Adani Ports',              sector:'Logistics',    cap:'large'},
   {sym:'SBILIFE',    name:'SBI Life Insurance',       sector:'Insurance',    cap:'large'},
   {sym:'HDFCLIFE',   name:'HDFC Life Insurance',      sector:'Insurance',    cap:'large'},
-  {sym:'ZOMATO',     name:'Zomato',                   sector:'Food',         cap:'large'},
+  {sym:'ETERNAL',    name:'Eternal',                  sector:'Food',         cap:'large'},
   {sym:'BEL',        name:'Bharat Electronics',       sector:'Defence',      cap:'large'},
 
   // ── NIFTY NEXT 50 (Large Cap) ─────────────────────────────────────
@@ -363,14 +420,14 @@ const MIDCAP_STOCKS = [
   {sym:'DLF',        name:'DLF',                      sector:'Realty',       cap:'large'},
   {sym:'HAL',        name:'Hindustan Aeronautics',    sector:'Defence',      cap:'large'},
   {sym:'PIDILITIND', name:'Pidilite Industries',      sector:'Chemicals',    cap:'large'},
-  {sym:'VARUNBEV',   name:'Varun Beverages',          sector:'FMCG',         cap:'large'},
+  {sym:'VBL',        name:'Varun Beverages',          sector:'FMCG',         cap:'large'},
   {sym:'GODREJCP',   name:'Godrej Consumer Products', sector:'FMCG',         cap:'large'},
   {sym:'DABUR',      name:'Dabur India',              sector:'FMCG',         cap:'large'},
   {sym:'MARICO',     name:'Marico',                   sector:'FMCG',         cap:'large'},
   {sym:'BERGEPAINT', name:'Berger Paints',            sector:'Chemicals',    cap:'large'},
   {sym:'TORNTPHARM', name:'Torrent Pharmaceuticals',  sector:'Pharma',       cap:'large'},
   {sym:'HAVELLS',    name:'Havells India',            sector:'Consumer',     cap:'large'},
-  {sym:'LTIM',       name:'LTIMindtree',              sector:'IT',           cap:'large'},
+  {sym:'LTM',        name:'LTM',                      sector:'IT',           cap:'large'},
   {sym:'INDHOTEL',   name:'Indian Hotels (Taj)',      sector:'Hospitality',  cap:'large'},
   {sym:'HINDCOPPER', name:'Hindustan Copper',         sector:'Metals',       cap:'large'},
   {sym:'NAUKRI',     name:'Info Edge (Naukri)',        sector:'IT',           cap:'large'},
@@ -398,12 +455,23 @@ const MIDCAP_STOCKS = [
   {sym:'MAXHEALTH',  name:'Max Healthcare',           sector:'Healthcare',   cap:'large'},
   {sym:'BAJAJHLDNG', name:'Bajaj Holdings',           sector:'Finance',      cap:'large'},
   {sym:'SOLARINDS',  name:'Solar Industries',         sector:'Defence',      cap:'large'},
-  {sym:'MAZAGON',    name:'Mazagon Dock Shipbuilders', sector:'Defence',     cap:'large'},
   {sym:'NHPC',       name:'NHPC',                     sector:'Energy',       cap:'large'},
   {sym:'TATATECH',   name:'Tata Technologies',        sector:'IT',           cap:'large'},
   {sym:'PERSISTENT', name:'Persistent Systems',       sector:'IT',           cap:'large'},
   {sym:'BANKBARODA', name:'Bank of Baroda',           sector:'Banking',      cap:'large'},
   {sym:'ICICIGI',    name:'ICICI Lombard General Ins',sector:'Insurance',    cap:'large'},
+  {sym:'ABB',        name:'ABB India',                sector:'Engineering',  cap:'large'},
+  {sym:'ASHOKLEY',   name:'Ashok Leyland',            sector:'Auto',         cap:'large'},
+  {sym:'COLPAL',     name:'Colgate-Palmolive India',  sector:'FMCG',         cap:'large'},
+  {sym:'GAIL',       name:'GAIL India',               sector:'Energy',       cap:'large'},
+  {sym:'GODREJPROP', name:'Godrej Properties',        sector:'Realty',       cap:'large'},
+  {sym:'HINDPETRO',  name:'Hindustan Petroleum',      sector:'Energy',       cap:'large'},
+  {sym:'JINDALSTEL', name:'Jindal Steel & Power',     sector:'Metals',       cap:'large'},
+  {sym:'JIOFIN',     name:'Jio Financial Services',   sector:'Finance',      cap:'large'},
+  {sym:'NMDC',       name:'NMDC',                     sector:'Metals',       cap:'large'},
+  {sym:'PNB',        name:'Punjab National Bank',     sector:'Banking',      cap:'large'},
+  {sym:'SAIL',       name:'Steel Authority of India', sector:'Metals',       cap:'large'},
+  {sym:'UPL',        name:'UPL',                      sector:'Agro',         cap:'large'},
 
   // ── NIFTY MIDCAP 150 ─────────────────────────────────────────────
   {sym:'3MINDIA',    name:'3M India',                 sector:'Industrials',  cap:'mid'},
@@ -418,6 +486,7 @@ const MIDCAP_STOCKS = [
   {sym:'BALKRISIND', name:'Balkrishna Industries',    sector:'Auto',         cap:'mid'},
   {sym:'BANDHANBNK', name:'Bandhan Bank',             sector:'Banking',      cap:'mid'},
   {sym:'BATAINDIA',  name:'Bata India',               sector:'Retail',       cap:'mid'},
+  {sym:'BDL',        name:'Bharat Dynamics',          sector:'Defence',      cap:'mid'},
   {sym:'BHARATFORG', name:'Bharat Forge',             sector:'Auto',         cap:'mid'},
   {sym:'BHEL',       name:'BHEL',                     sector:'Industrials',  cap:'mid'},
   {sym:'BIOCON',     name:'Biocon',                   sector:'Pharma',       cap:'mid'},
@@ -437,13 +506,17 @@ const MIDCAP_STOCKS = [
   {sym:'ESCORTS',    name:'Escorts Kubota',           sector:'Auto',         cap:'mid'},
   {sym:'FEDERALBNK', name:'Federal Bank',             sector:'Banking',      cap:'mid'},
   {sym:'GLENMARK',   name:'Glenmark Pharma',          sector:'Pharma',       cap:'mid'},
+  {sym:'GLAND',      name:'Gland Pharma',             sector:'Pharma',       cap:'mid'},
   {sym:'GNFC',       name:'Gujarat Narmada Fert.',    sector:'Chemicals',    cap:'mid'},
   {sym:'GODREJIND',  name:'Godrej Industries',        sector:'Conglomerate', cap:'mid'},
   {sym:'GUJGASLTD',  name:'Gujarat Gas',              sector:'Energy',       cap:'mid'},
   {sym:'HDFCAMC',    name:'HDFC AMC',                 sector:'Finance',      cap:'mid'},
   {sym:'HONAUT',     name:'Honeywell Automation',     sector:'Engineering',  cap:'mid'},
   {sym:'IDFCFIRSTB', name:'IDFC First Bank',          sector:'Banking',      cap:'mid'},
+  {sym:'IDEA',       name:'Vodafone Idea',            sector:'Telecom',      cap:'mid'},
+  {sym:'IEX',        name:'Indian Energy Exchange',   sector:'Energy',       cap:'mid'},
   {sym:'IGL',        name:'Indraprastha Gas',         sector:'Energy',       cap:'mid'},
+  {sym:'IPCALAB',    name:'Ipca Laboratories',        sector:'Pharma',       cap:'mid'},
   {sym:'INDIAMART',  name:'IndiaMART',                sector:'IT',           cap:'mid'},
   {sym:'INDUSTOWER', name:'Indus Towers',             sector:'Telecom',      cap:'mid'},
   {sym:'INTELLECT',  name:'Intellect Design',         sector:'IT',           cap:'mid'},
@@ -458,12 +531,13 @@ const MIDCAP_STOCKS = [
   {sym:'MGL',        name:'Mahanagar Gas',            sector:'Energy',       cap:'mid'},
   {sym:'MFSL',       name:'Max Financial Services',   sector:'Insurance',    cap:'mid'},
   {sym:'MPHASIS',    name:'Mphasis',                  sector:'IT',           cap:'mid'},
+  {sym:'MRPL',       name:'MRPL',                     sector:'Energy',       cap:'mid'},
   {sym:'OBEROIRLTY', name:'Oberoi Realty',            sector:'Realty',       cap:'mid'},
   {sym:'OFSS',       name:'Oracle Financial Services',sector:'IT',           cap:'mid'},
   {sym:'PAGEIND',    name:'Page Industries',          sector:'Textile',      cap:'mid'},
   {sym:'PRICOLLTD',  name:'Pricol Ltd',               sector:'Auto',         cap:'mid'},
   {sym:'PETRONET',   name:'Petronet LNG',             sector:'Energy',       cap:'mid'},
-  {sym:'PEL',        name:'Piramal Enterprises',      sector:'Finance',      cap:'mid'},
+  {sym:'PIRAMALFIN', name:'Piramal Finance',          sector:'Finance',      cap:'mid'},
   {sym:'PIIND',      name:'PI Industries',            sector:'Agro',         cap:'mid'},
   {sym:'POLICYBZR',  name:'PB Fintech',               sector:'Finance',      cap:'mid'},
   {sym:'PVRINOX',    name:'PVR INOX',                 sector:'Media',        cap:'mid'},
@@ -513,6 +587,7 @@ const MIDCAP_STOCKS = [
   {sym:'LAURUSLABS',  name:'Laurus Labs',             sector:'Pharma',       cap:'mid'},
   {sym:'MAZDOCK',    name:'Mazagon Dock',             sector:'Defence',      cap:'mid'},
   {sym:'METROPOLIS', name:'Metropolis Healthcare',    sector:'Healthcare',   cap:'mid'},
+  {sym:'NAVINFLUOR', name:'Navin Fluorine',           sector:'Chemicals',    cap:'mid'},
   {sym:'NUVOCO',     name:'Nuvoco Vistas Corp',       sector:'Cement',       cap:'mid'},
   {sym:'OLECTRA',    name:'Olectra Greentech',        sector:'Auto',         cap:'mid'},
   {sym:'PGHH',       name:'Procter & Gamble Hygiene', sector:'FMCG',         cap:'mid'},
@@ -523,7 +598,7 @@ const MIDCAP_STOCKS = [
   {sym:'ROUTE',      name:'Route Mobile',             sector:'IT',           cap:'mid'},
   {sym:'SCHAEFFLER', name:'Schaeffler India',         sector:'Auto',         cap:'mid'},
   {sym:'SUNDRMFAST', name:'Sundram Fasteners',        sector:'Auto',         cap:'mid'},
-  {sym:'SUVENPHAR',  name:'Suven Pharmaceuticals',    sector:'Pharma',       cap:'mid'},
+  {sym:'SUVEN',      name:'Suven Pharmaceuticals',    sector:'Pharma',       cap:'mid'},
   {sym:'TEAMLEASE',  name:'TeamLease Services',       sector:'Services',     cap:'mid'},
   {sym:'THERMAX',    name:'Thermax',                  sector:'Engineering',  cap:'mid'},
   {sym:'TIMKEN',     name:'Timken India',             sector:'Engineering',  cap:'mid'},
@@ -559,7 +634,12 @@ function scheduleETFRender() {
 }
 const sparklineData = {};  // sym -> normalised % array from /sparklines
 const intradayData = {};   // sym -> short-term VWAP/EMA/RSI/ATR setup
+const setupOutcomeTracker = new Map(); // setup key -> rolling max favorable/adverse move
+const simulationPreviousSignalCandidates = new Map(); // sym -> previous refresh candidate for confirmation
+const INTRADAY_STALE_MS = 5 * 60 * 1000;
 let paperTrades = [];      // local paper trades loaded from proxy JSON file
+let paperTradesLoaded = false;
+let paperTradesLoading = null;
 let etfSort        = { col:'change', dir:-1 };
 let etfSearch      = '';
 let targetFilter   = 'all';
@@ -570,18 +650,98 @@ let etfListLoaded = false; // true when loaded from /etf-list (NSE batch)
 let STOCK_EXTRA_SYMBOLS = [];
 let STOCK_ASSETS = [];
 const sectorTrendCache = {};
-const PORTFOLIO_INITIAL_CAPITAL = 500000;
-const MAX_POSITION_EXPOSURE = 100000;
-let portfolioState = { initialCapital: PORTFOLIO_INITIAL_CAPITAL, capitalAdds: [] };
-const TRADE_RISK_PCT = Number(localStorage.getItem('trade-risk-pct') || 1);
-const MIN_NET_PROFIT_PCT = 0.5;
+const PORTFOLIO_FALLBACK_INITIAL_CAPITAL = 500000;
+const TRADE_RULE_DEFAULTS = TradeRules.DEFAULT_SETTINGS;
+const MAX_POSITION_EXPOSURE = TRADE_RULE_DEFAULTS.MAX_POSITION_EXPOSURE;
+let portfolioState = { initialCapital: PORTFOLIO_FALLBACK_INITIAL_CAPITAL, capitalAdds: [] };
+const TRADE_RISK_PCT = Number(localStorage.getItem('trade-risk-pct') || TRADE_RULE_DEFAULTS.TRADE_RISK_PCT);
+const MIN_NET_PROFIT_PCT = TRADE_RULE_DEFAULTS.SIMULATION_MIN_NET_PROFIT_PCT;
+const SIMULATION_MIN_NET_PROFIT_PCT = TRADE_RULE_DEFAULTS.SIMULATION_MIN_NET_PROFIT_PCT;
 const SIMULATION_STATE_KEY = 'stock-watcher-simulation-state';
-const SIMULATION_MAX_OPEN = 20;
-const SIMULATION_TOP_N = 10;
+const SIMULATION_NEW_TRADES_KEY = 'stock-watcher-new-simulation-trades';
+const SIMULATION_MAX_OPEN = TRADE_RULE_DEFAULTS.SIMULATION_MAX_OPEN;
+const SIMULATION_MAX_ACTIVE_OPEN = TRADE_RULE_DEFAULTS.SIMULATION_MAX_ACTIVE_OPEN;
+const SIMULATION_TOP_N = TRADE_RULE_DEFAULTS.SIMULATION_TOP_N;
+const SIMULATION_DAILY_MAX_TRADES = TRADE_RULE_DEFAULTS.SIMULATION_DAILY_MAX_TRADES;
+const SIMULATION_DAILY_MAX_STOPS = TRADE_RULE_DEFAULTS.SIMULATION_DAILY_MAX_STOPS;
+const SIMULATION_DAILY_MAX_STOPS_PROFIT_MULTIPLIER = TRADE_RULE_DEFAULTS.SIMULATION_DAILY_MAX_STOPS_PROFIT_MULTIPLIER;
+const SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT = TRADE_RULE_DEFAULTS.SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT;
+const SIMULATION_DAILY_MAX_NET_LOSS_PCT = TRADE_RULE_DEFAULTS.SIMULATION_DAILY_MAX_NET_LOSS_PCT;
+const SIMULATION_SYMBOL_COOLDOWN_MIN = TRADE_RULE_DEFAULTS.SIMULATION_SYMBOL_COOLDOWN_MIN;
+const SIMULATION_SETUP_COOLDOWN_MIN = TRADE_RULE_DEFAULTS.SIMULATION_SETUP_COOLDOWN_MIN;
+const SIMULATION_SETUP_DAILY_LOSS_GUARD_COUNT = TRADE_RULE_DEFAULTS.SIMULATION_SETUP_DAILY_LOSS_GUARD_COUNT;
+const SIMULATION_FIRST_HOUR_MAX_ENTRIES = TRADE_RULE_DEFAULTS.SIMULATION_FIRST_HOUR_MAX_ENTRIES;
+const SIMULATION_STOP_GRACE_MIN = TRADE_RULE_DEFAULTS.SIMULATION_STOP_GRACE_MIN;
+const SIMULATION_STOP_CONFIRM_BARS = TRADE_RULE_DEFAULTS.SIMULATION_STOP_CONFIRM_BARS;
+const SIMULATION_EMERGENCY_STOP_PCT = TRADE_RULE_DEFAULTS.SIMULATION_EMERGENCY_STOP_PCT;
+const SIMULATION_RUNNER_MIN_SCORE = TRADE_RULE_DEFAULTS.SIMULATION_RUNNER_MIN_SCORE;
+const SIMULATION_RUNNER_MIN_REL_VOL = TRADE_RULE_DEFAULTS.SIMULATION_RUNNER_MIN_REL_VOL;
+const SIMULATION_RUNNER_MAX_TRIGGER_EXTENSION_PCT = TRADE_RULE_DEFAULTS.SIMULATION_RUNNER_MAX_TRIGGER_EXTENSION_PCT;
+const SIMULATION_RUNNER_MAX_VWAP_EXTENSION_PCT = TRADE_RULE_DEFAULTS.SIMULATION_RUNNER_MAX_VWAP_EXTENSION_PCT;
+const SIMULATION_RUNNER_TRAIL_PCT = TRADE_RULE_DEFAULTS.SIMULATION_RUNNER_TRAIL_PCT;
+const SIMULATION_RUNNER_WIDE_TRAIL_PCT = TRADE_RULE_DEFAULTS.SIMULATION_RUNNER_WIDE_TRAIL_PCT;
+const SIMULATION_BREAKEVEN_PROTECT_PCT = TRADE_RULE_DEFAULTS.SIMULATION_BREAKEVEN_PROTECT_PCT;
+const SIMULATION_TRAIL_START_PCT = TRADE_RULE_DEFAULTS.SIMULATION_TRAIL_START_PCT;
+const SIMULATION_LONG_TRAIL_PCT = TRADE_RULE_DEFAULTS.SIMULATION_LONG_TRAIL_PCT;
+const SIMULATION_TIME_STOP_MIN = TRADE_RULE_DEFAULTS.SIMULATION_TIME_STOP_MIN;
+const SIMULATION_TIME_STOP_MIN_PROFIT_PCT = TRADE_RULE_DEFAULTS.SIMULATION_TIME_STOP_MIN_PROFIT_PCT;
+const SIMULATION_TARGET_PARTIAL_QTY_PCT = TRADE_RULE_DEFAULTS.SIMULATION_TARGET_PARTIAL_QTY_PCT;
+const SIMULATION_TARGET_RUNNER_MIN_SCORE = TRADE_RULE_DEFAULTS.SIMULATION_TARGET_RUNNER_MIN_SCORE;
+const SIMULATION_TARGET_RUNNER_MIN_REL_VOL = TRADE_RULE_DEFAULTS.SIMULATION_TARGET_RUNNER_MIN_REL_VOL;
+const SIMULATION_PROFIT_REENTRY_COOLDOWN_MIN = TRADE_RULE_DEFAULTS.SIMULATION_PROFIT_REENTRY_COOLDOWN_MIN;
+const SIMULATION_VWAP_CONT_MIN_SCORE = TRADE_RULE_DEFAULTS.SIMULATION_VWAP_CONT_MIN_SCORE;
+const SIMULATION_VWAP_CONT_MAX_TRIGGER_EXTENSION_PCT = TRADE_RULE_DEFAULTS.SIMULATION_VWAP_CONT_MAX_TRIGGER_EXTENSION_PCT;
+const SIMULATION_VWAP_CONT_MAX_VWAP_EXTENSION_PCT = TRADE_RULE_DEFAULTS.SIMULATION_VWAP_CONT_MAX_VWAP_EXTENSION_PCT;
+const SIMULATION_MAX_NEW_PER_CYCLE = TRADE_RULE_DEFAULTS.SIMULATION_MAX_NEW_PER_CYCLE;
+const SIMULATION_MIN_SCORE = TRADE_RULE_DEFAULTS.SIMULATION_MIN_SCORE;
+const SIMULATION_SHORT_MIN_SCORE = TRADE_RULE_DEFAULTS.SIMULATION_SHORT_MIN_SCORE;
+const SIMULATION_SHORT_MIN_REL_VOL = TRADE_RULE_DEFAULTS.SIMULATION_SHORT_MIN_REL_VOL;
+const SIMULATION_SHORT_ALLOW_AVOID_GUARD = TRADE_RULE_DEFAULTS.SIMULATION_SHORT_ALLOW_AVOID_GUARD;
+const SIMULATION_SHORT_TRIGGER_DISTANCE_PCT = TRADE_RULE_DEFAULTS.SIMULATION_SHORT_TRIGGER_DISTANCE_PCT;
+const SIMULATION_SHORT_CONFIRM_BARS = TRADE_RULE_DEFAULTS.SIMULATION_SHORT_CONFIRM_BARS;
+const SIMULATION_SHORT_MAX_STOP_PCT = TRADE_RULE_DEFAULTS.SIMULATION_SHORT_MAX_STOP_PCT;
+const SIMULATION_SHORT_TRAIL_PCT = TRADE_RULE_DEFAULTS.SIMULATION_SHORT_TRAIL_PCT;
+const SIMULATION_SHORT_MIN_BEARISH_CONFIRMATIONS = TRADE_RULE_DEFAULTS.SIMULATION_SHORT_MIN_BEARISH_CONFIRMATIONS;
+const SIMULATION_MARKET_BREADTH_PCT = TRADE_RULE_DEFAULTS.SIMULATION_MARKET_BREADTH_PCT;
+const SIMULATION_MARKET_REGIME_NIFTY_PCT = TRADE_RULE_DEFAULTS.SIMULATION_MARKET_REGIME_NIFTY_PCT;
+const SIMULATION_MARKET_REGIME_SECTOR_PCT = TRADE_RULE_DEFAULTS.SIMULATION_MARKET_REGIME_SECTOR_PCT;
+const SIMULATION_MARKET_REGIME_RS_PCT = TRADE_RULE_DEFAULTS.SIMULATION_MARKET_REGIME_RS_PCT;
+const SIMULATION_AUTO_SHORTS = TRADE_RULE_DEFAULTS.SIMULATION_AUTO_SHORTS;
 const BROKER_MODE_KEY = 'stock-watcher-broker-mode';
 let simulationState = localStorage.getItem(SIMULATION_STATE_KEY) || 'off'; // off | running | settling
 let simulationBusy = false;
 let brokerMode = localStorage.getItem(BROKER_MODE_KEY) === 'zerodha_dry_run' ? 'zerodha_dry_run' : 'paper';
+const COLUMN_PRESET_KEY = 'stock-watcher-column-preset';
+let columnPreset = localStorage.getItem(COLUMN_PRESET_KEY) || 'trading';
+let notificationsOpen = false;
+let newSimulationTradeKeys = loadNewSimulationTradeKeys();
+let freshNewsSummary = { loading:false, loaded:false, date:null, count:0, symbolCount:0, items:[], scanned:0, error:'' };
+let freshNewsLastFetchAt = 0;
+let freshNewsBusy = false;
+const FRESH_NEWS_PAGE_SIZE = 25;
+let freshNewsOffset = 0;
+let secondaryLoadActive = false;
+let fundamentalsBackgroundStarted = false;
+const detailMetadataLoading = new Set();
+const detailMetadataAttempted = new Set();
+let lastDashboardRefreshAt = null;
+let tableRenderScheduled = false;
+let tableRenderPending = false;
+let dashboardRenderScheduled = false;
+
+function yieldToBrowser() {
+  return new Promise(resolve => requestAnimationFrame(() => resolve()));
+}
+
+function scheduleWork(fn, delay = 0) {
+  return setTimeout(() => {
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(() => fn(), { timeout: 800 });
+    } else {
+      fn();
+    }
+  }, delay);
+}
 
 const PRESET_ETFS = [
   { sym:'NIFTYBEES',   name:'Nippon India Nifty 50 BeES',               sector:'ETF', cap:'etf' },
@@ -643,7 +803,7 @@ function changeSource() {
   clearInterval(countdownTimer);
   ['source-panel'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='block'; });
   ['index-bar','sector-section','main-section','mkt-status-bar',
-   'refresh-btn','pause-btn','change-src-btn','source-indicator']
+   'pause-btn','change-src-btn','source-indicator','top-action-bar','dashboard-health-banner','notification-panel']
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
 }
 
@@ -651,7 +811,8 @@ function activateDashboard(src) {
   const sp = document.getElementById('source-panel'); if(sp) sp.style.display = 'none';
   const ib = document.getElementById('index-bar'); if(ib) ib.style.display = 'grid';
   ['sector-section','main-section'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='block'; });
-  ['refresh-btn','pause-btn','change-src-btn','simulation-btn','broker-mode-btn'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
+  const actionBar = document.getElementById('top-action-bar'); if(actionBar) actionBar.style.display='flex';
+  ['pause-btn','change-src-btn','broker-mode-btn'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
   updateSimulationButton();
 
   const si = document.getElementById('source-indicator');
@@ -660,10 +821,25 @@ function activateDashboard(src) {
   else if (src==='nse') { si.textContent='🏛️ NSE Direct'; si.className='source-indicator nse'; const msb=document.getElementById('mkt-status-bar'); if(msb) msb.style.display='flex'; }
   else { si.textContent='🤖 AI Mode'; si.className='source-indicator ai'; }
 
+  renderDashboardShell('Preparing live rows...');
   fetchAll();
+  if (currentView === 'etfs') setView('etfs', document.getElementById('tab-etfs')).catch(e => console.warn('initial ETF view failed', e.message));
+  else setView('stocks', document.getElementById('tab-stocks')).catch(e => console.warn('initial stock view failed', e.message));
   startCountdown();
   // Background: check NSE index membership for quarterly rebalancing (cached 24h on proxy)
   refreshIndexMembership().catch(e => console.warn('[index-membership]', e.message));
+}
+
+function renderDashboardShell(message = 'Loading live data...') {
+  renderIndices();
+  renderSectors();
+  renderTable({ immediate:true });
+  renderTopActionBar();
+  const status = document.getElementById('status-bar');
+  if (status) {
+    status.className = '';
+    status.textContent = message;
+  }
 }
 
 // ═══════════════════════════════════
@@ -702,12 +878,55 @@ async function fetchYahooIndices() {
   }
 }
 
+function applyYahooQuotes(quotes) {
+  let changed = false;
+  for (const [sym, q] of Object.entries(quotes || {})) {
+    if (!q) continue;
+    marketOpen = (q.marketState || '').toUpperCase() === 'REGULAR';
+    const prev = stockData[sym] || {};
+    stockData[sym] = {
+      price    : q.price    || prev.price    || 0,
+      change   : (q.change  != null) ? q.change  : (prev.change  ?? 0),
+      high52   : q.high52   || prev.high52   || 0,
+      low52    : q.low52    || prev.low52    || 0,
+      volume   : q.volume   || prev.volume   || 0,
+      open     : q.open     || prev.open     || 0,
+      prevClose: q.prevClose || prev.prevClose || 0,
+    };
+    changed = true;
+  }
+  return changed;
+}
+
 async function fetchYahooStocks(firstLoad = false) {
   const symbols = MIDCAP_STOCKS.map(s=>s.sym);
   if (firstLoad) {
     document.getElementById('loading-msg').textContent = 'Fetching Yahoo Finance data…';
     document.getElementById('loading-sub').textContent = 'Source: query1.finance.yahoo.com/v8/finance/chart (crumb-free)';
     setProgress(15);
+  }
+
+  if (firstLoad) {
+    try {
+      const r = await fetch(`${PROXY}/dashboard-market?symbols=${encodeURIComponent(symbols.join(','))}`, { signal: AbortSignal.timeout(45000) });
+      const payload = await r.json().catch(() => ({}));
+      if (r.ok && payload?.ok) {
+        if (payload.indices?.nifty50) indexData = payload.indices;
+        const changed = applyYahooQuotes(payload.quotes || {});
+        if (changed) {
+          setProgress(90);
+          setBgProgress(90);
+          renderMarketStatus();
+          renderSectors();
+          renderTable({ immediate:true });
+          if (currentView === 'etfs') renderETFSection();
+          await yieldToBrowser();
+          return;
+        }
+      }
+    } catch(e) {
+      console.warn('dashboard-market failed, falling back to batches:', e.message);
+    }
   }
 
   const batchSize = 25;
@@ -728,31 +947,14 @@ async function fetchYahooStocks(firstLoad = false) {
       const url = `${PROXY}/yahoo?symbols=${encodeURIComponent(batch.join(','))}`;
       const r   = await fetch(url, { signal: AbortSignal.timeout(30000) });
       const raw = await r.json();
-      const quotes = raw?.quotes || {};
-      let changed = false;
-      for (const [sym, q] of Object.entries(quotes)) {
-        if (!q) continue;
-        marketOpen = (q.marketState || '').toUpperCase() === 'REGULAR';
-        // Preserve previous valid values so a transient null/zero price from Yahoo
-        // doesn't erase good data and cause sectors to disappear on refresh.
-        const prev = stockData[sym] || {};
-        stockData[sym] = {
-          price    : q.price    || prev.price    || 0,
-          change   : (q.change  != null) ? q.change  : (prev.change  ?? 0),
-          high52   : q.high52   || prev.high52   || 0,
-          low52    : q.low52    || prev.low52    || 0,
-          volume   : q.volume   || prev.volume   || 0,
-          open     : q.open     || prev.open     || 0,
-          prevClose: q.prevClose || prev.prevClose || 0,
-        };
-        changed = true;
-      }
+      const changed = applyYahooQuotes(raw?.quotes || {});
       // Render incrementally after each batch so UI stays live
-      if (changed && !firstLoad) {
+      if (changed) {
         renderMarketStatus();
         renderSectors();
         renderTable();
         if (currentView === 'etfs') renderETFSection();
+        await yieldToBrowser();
       }
     } catch(e) {
       console.warn('Yahoo batch error:', e.message);
@@ -832,9 +1034,13 @@ async function fetchNSEStocks(firstLoad = false) {
     };
   }
   // Render immediately after bulk fetch so table is live
-  if (!firstLoad) { renderTable(); renderSectors(); }
-  if (firstLoad) setProgress(80);
-  else setBgProgress(75);
+  renderTable(firstLoad ? { immediate:true } : undefined);
+  renderSectors();
+  if (firstLoad) {
+    setProgress(80);
+    setBgProgress(80);
+    await yieldToBrowser();
+  } else setBgProgress(75);
 
   // Fill missing symbols
   const missing = MIDCAP_STOCKS.filter(s=>!stockData[s.sym]||stockData[s.sym].price===0);
@@ -844,7 +1050,7 @@ async function fetchNSEStocks(firstLoad = false) {
         const q  = await nseGet(`/api/quote-equity?symbol=${encodeURIComponent(s.sym)}`);
         const pd = q.priceInfo||{};
         stockData[s.sym] = { price:parseFloat(pd.lastPrice||0), change:parseFloat(pd.pChange||0), high52:parseFloat(pd.weekHighLow?.max||0), low52:parseFloat(pd.weekHighLow?.min||0), volume:0, open:parseFloat(pd.open||0), prevClose:parseFloat(pd.previousClose||0) };
-        if (!firstLoad) renderTable();
+        renderTable();
       } catch(e) {}
       await new Promise(r=>setTimeout(r,120));
     }
@@ -969,12 +1175,16 @@ async function fetchAll() {
   const firstLoad = isFirstLoad;
   isFirstLoad = false;
 
-  document.getElementById('refresh-btn').disabled = true;
+  const refreshCard = document.getElementById('last-refresh-card');
+  if (refreshCard) refreshCard.disabled = true;
+  renderTopActionBar();
 
   if (firstLoad) {
-    // First load: show full blocking overlay
-    document.getElementById('loading-overlay').classList.add('show');
+    showBgRefreshing('Loading live data...');
     setProgress(5);
+    setBgProgress(5);
+    renderDashboardShell('Loading prices...');
+    await yieldToBrowser();
   } else {
     // Subsequent: show subtle top bar + pill only
     setBgProgress(3);
@@ -984,12 +1194,20 @@ async function fetchAll() {
   try {
     if (dataSource === 'yahoo') {
       if (firstLoad) document.getElementById('loading-msg').textContent = 'Fetching indices from Yahoo Finance…';
-      await fetchYahooIndices();
+      if (!firstLoad) {
+        await fetchYahooIndices();
+        renderIndices();
+        renderSectors();
+        setBgProgress(20);
+      } else {
+        setProgress(10);
+        setBgProgress(10);
+      }
+      await fetchYahooStocks(firstLoad);
+      if (firstLoad && !indexData?.nifty50) await fetchYahooIndices();
       renderIndices();
       renderSectors();
-      if (firstLoad) setProgress(15);
-      else setBgProgress(20);
-      await fetchYahooStocks(firstLoad);
+      await yieldToBrowser();
     } else if (dataSource === 'nse') {
       if (firstLoad) document.getElementById('loading-msg').textContent = 'Fetching NSE indices…';
       await fetchNSEMarketStatus();
@@ -998,68 +1216,93 @@ async function fetchAll() {
       renderSectors();
       if (firstLoad) setProgress(20);
       else setBgProgress(20);
+      await yieldToBrowser();
       await fetchNSEStocks(firstLoad);
     } else {
       await fetchAIData(firstLoad);
     }
 
-    // Only fetch ETF prices/NAV/sparklines when the ETF tab is active — avoids
-    // flooding the proxy on every 60-second refresh after the tab has been visited.
+    // Only fetch ETF prices when the ETF tab is active. Metadata/NAV details load
+    // in the secondary queue so the stock table becomes usable first.
     const etfSymsToFetch = currentView === 'etfs' ? ETF_ASSETS.map(e=>e.sym) : [];
-    await fetchAdditionalSymbols(STOCK_ASSETS.map(e=>e.sym));
+    await fetchAdditionalSymbols(STOCK_ASSETS.map(e=>e.sym), { force: true });
+    await yieldToBrowser();
     if (etfSymsToFetch.length) {
       await fetchAdditionalSymbols(etfSymsToFetch, { force: true });
     }
 
-    // Fetch ETF NAV/premium data (non-blocking — updates ETF table progressively)
-    if (etfSymsToFetch.length) {
-      fetchETFSummary(etfSymsToFetch).catch(e=>console.warn('ETF summary failed',e));
-    }
-
-    // Fetch sparklines: always include stocks; include ETFs only when on ETF tab
-    const allSyms = [...etfSymsToFetch, ...STOCK_ASSETS.map(e=>e.sym), ...MIDCAP_STOCKS.map(s=>s.sym)];
-    const uniqueSyms = [...new Set(allSyms)];
-    fetchSparklines(uniqueSyms).catch(e => console.warn('fetchSparklines failed', e.message));
-    const intradaySyms = [...new Set([
-      ...MIDCAP_STOCKS.map(s=>s.sym),
-      ...STOCK_ASSETS.map(s=>s.sym),
-      ...ETF_ASSETS.map(e=>e.sym),
-    ])];
-    fetchIntradaySignals(intradaySyms).catch(e => console.warn('fetchIntradaySignals failed', e.message));
-
     if (firstLoad) setProgress(100);
     else setBgProgress(100);
 
-    renderDashboard();
-
-    // Kick off fundamentals fetch in the background — non-blocking so UI stays interactive.
-    // On first load fetch all stocks; on refresh only re-fetch stocks whose fundamentals are missing.
-    const allStockSyms = [...MIDCAP_STOCKS.map(s=>s.sym), ...STOCK_ASSETS.map(s=>s.sym)];
-    const needsMeta = firstLoad
-      ? allStockSyms
-      : allStockSyms.filter(sym => {
-          const asset = MIDCAP_STOCKS.find(s=>s.sym===sym) || STOCK_ASSETS.find(s=>s.sym===sym);
-          return !asset?.fund?.computed?.pe; // only refresh if we never got data
-        });
-    if (needsMeta.length) {
-      fetchSymbolMetadata(needsMeta).catch(e => console.warn('bg metadata failed', e));
-    }
+    renderDashboard({ immediate:true });
+    queueSecondaryDashboardLoads(firstLoad);
 
     document.getElementById('last-update').textContent = 'Updated: ' + new Date().toLocaleTimeString('en-IN') + ' via ' +
       (dataSource === 'yahoo' ? 'Yahoo Finance' : dataSource === 'nse' ? 'NSE Direct' : 'AI');
+    lastDashboardRefreshAt = Date.now();
     document.getElementById('status-bar').className = 'success';
-    const loaded = MIDCAP_STOCKS.filter(s => stockData[s.sym] && stockData[s.sym].price > 0).length;
-    document.getElementById('status-bar').textContent = `✓ ${loaded}/${MIDCAP_STOCKS.length} stocks loaded`;
+    const stockUniverse = [...MIDCAP_STOCKS, ...STOCK_ASSETS];
+    const loaded = stockUniverse.filter(s => stockData[s.sym] && stockData[s.sym].price > 0).length;
+    document.getElementById('status-bar').textContent = `✓ ${loaded}/${stockUniverse.length} stocks loaded`;
+    renderTopActionBar();
   } catch(e) {
     document.getElementById('status-bar').className = 'error';
     document.getElementById('status-bar').textContent = '⚠ ' + e.message;
   } finally {
     document.getElementById('loading-overlay').classList.remove('show');
     hideBgRefreshing();
-    document.getElementById('refresh-btn').disabled = false;
+    if (refreshCard) refreshCard.disabled = false;
     bgRefreshActive = false;
     setProgress(0);
+    renderTopActionBar();
   }
+}
+
+function queueSecondaryDashboardLoads(firstLoad = false) {
+  if (secondaryLoadActive || !dataSource) return;
+  secondaryLoadActive = true;
+  const baseDelay = firstLoad ? 700 : 150;
+  const stockSyms = [...MIDCAP_STOCKS.map(s=>s.sym), ...STOCK_ASSETS.map(s=>s.sym)];
+  const etfSymsToFetch = currentView === 'etfs' ? ETF_ASSETS.map(e=>e.sym) : [];
+  const allSyms = [...new Set([...stockSyms, ...etfSymsToFetch])];
+
+  showBgRefreshing('Loading indicators...');
+  setBgProgress(12);
+
+  scheduleWork(() => {
+    fetchSparklines(allSyms).catch(e => console.warn('fetchSparklines failed', e.message));
+    setBgProgress(30);
+  }, baseDelay);
+
+  scheduleWork(() => {
+    fetchIntradaySignals(allSyms).catch(e => console.warn('fetchIntradaySignals failed', e.message));
+    setBgProgress(55);
+  }, baseDelay + 650);
+
+  if (etfSymsToFetch.length) {
+    scheduleWork(() => {
+      fetchETFSummary(etfSymsToFetch).catch(e=>console.warn('ETF summary failed',e));
+      setBgProgress(70);
+    }, baseDelay + 1300);
+  }
+
+  if (!fundamentalsBackgroundStarted) {
+    fundamentalsBackgroundStarted = true;
+    scheduleWork(() => {
+      const needsMeta = stockSyms.filter(sym => {
+        const asset = MIDCAP_STOCKS.find(s=>s.sym===sym) || STOCK_ASSETS.find(s=>s.sym===sym);
+        return !asset?.fund?.computed?.pe;
+      });
+      if (needsMeta.length) fetchSymbolMetadata(needsMeta).catch(e => console.warn('bg metadata failed', e));
+      setBgProgress(92);
+    }, firstLoad ? 4200 : 1800);
+  }
+
+  setTimeout(() => {
+    setBgProgress(100);
+    setTimeout(hideBgRefreshing, 450);
+    secondaryLoadActive = false;
+  }, firstLoad ? 5200 : 2600);
 }
 
 // ═══════════════════════════════════
@@ -1222,31 +1465,66 @@ async function fetchSparklines(symbols) {
   }
 }
 
+async function fetchIntradaySignalBatch(batch, attempt = 1) {
+  const res = await fetch(`${PROXY}/intraday-signals?symbols=${encodeURIComponent(batch.join(','))}`, { signal: AbortSignal.timeout(25000) });
+  if (!res.ok) throw new Error(`intraday HTTP ${res.status}`);
+  const payload = await res.json().catch(() => null);
+  const data = payload?.data || {};
+  let updated = false;
+  const now = Date.now();
+  for (const sym of batch) {
+    const setup = data[sym];
+    if (setup && setup.signal) {
+      rememberPreviousSimulationSignal(sym);
+      intradayData[sym] = { ...setup, fetchedAt:now, stale:false, fetchFailed:false, retryAttempt:attempt };
+      updated = true;
+    }
+  }
+  return updated;
+}
+
+function markIntradayBatchStale(batch, reason) {
+  const now = Date.now();
+  for (const sym of batch) {
+    if (intradayData[sym]) {
+      intradayData[sym] = { ...intradayData[sym], stale:true, fetchFailed:true, staleReason:reason, lastFetchFailedAt:now };
+    }
+  }
+}
+
 async function fetchIntradaySignals(symbols) {
   if (!symbols || !symbols.length) return;
   const BATCH = 25;
   let anyUpdated = false;
+  let anyStale = false;
   for (let i = 0; i < symbols.length; i += BATCH) {
     const batch = symbols.slice(i, i + BATCH);
     try {
-      const res = await fetch(`${PROXY}/intraday-signals?symbols=${encodeURIComponent(batch.join(','))}`);
-      if (!res.ok) continue;
-      const payload = await res.json().catch(() => null);
-      const data = payload?.data || {};
-      let updated = false;
-      for (const [sym, setup] of Object.entries(data)) {
-        if (setup && setup.signal) { intradayData[sym] = setup; updated = true; }
+      const updated = await fetchIntradaySignalBatch(batch, 1);
+      if (updated) anyUpdated = true;
+    } catch(e) {
+      console.warn('fetchIntradaySignals batch failed, retrying once', e.message);
+      await new Promise(r => setTimeout(r, 1500));
+      try {
+        const updated = await fetchIntradaySignalBatch(batch, 2);
+        if (updated) anyUpdated = true;
+      } catch(retryErr) {
+        console.warn('fetchIntradaySignals retry failed', retryErr.message);
+        markIntradayBatchStale(batch, retryErr.message);
+        anyStale = true;
       }
-      if (updated) {
-        anyUpdated = true;
-        renderTable();
-        if (currentView === 'etfs') renderETFSection();
-        if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
-      }
-    } catch(e) { console.warn('fetchIntradaySignals batch failed', e.message); }
+    }
+    if (anyUpdated || anyStale) {
+      renderTable();
+      if (currentView === 'etfs') renderETFSection();
+      if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
+    }
     if (i + BATCH < symbols.length) await new Promise(r => setTimeout(r, 200));
   }
-  if (anyUpdated) runSimulationCycle({ allowEntries:true }).catch(e => console.warn('simulation cycle failed', e.message));
+  if (anyUpdated) {
+    saveSimulationSnapshot('intraday-refresh').catch(e => console.warn('simulation snapshot failed', e.message));
+    runSimulationCycle({ allowEntries:true }).catch(e => console.warn('simulation cycle failed', e.message));
+  }
 }
 
 function adjustedTradeScore(rowOrSym) {
@@ -1258,10 +1536,10 @@ function adjustedTradeScore(rowOrSym) {
   const bullish = score >= 0;
   const sectorAvg = row ? sectorTrendCache[row.sector] : null;
   if (sectorAvg != null) {
-    if (bullish && sectorAvg > 0.25) score += 5;
-    else if (bullish && sectorAvg < -0.25) score -= 5;
-    else if (!bullish && sectorAvg < -0.25) score -= 5;
-    else if (!bullish && sectorAvg > 0.25) score += 5;
+    if (bullish && sectorAvg > 0.25) score += 10;
+    else if (bullish && sectorAvg < -0.25) score -= 12;
+    else if (!bullish && sectorAvg < -0.25) score -= 10;
+    else if (!bullish && sectorAvg > 0.25) score += 12;
   }
   const flag = getEventFlag(sym);
   if (flag?.danger) score += bullish ? -10 : 10;
@@ -1290,6 +1568,17 @@ function getLiquidityInfo(t) {
   if (tradedCr >= 25) return { label:'Liq OK', tradedCr:+tradedCr.toFixed(1), level:'ok' };
   if (tradedCr >= 5) return { label:'Liq Fair', tradedCr:+tradedCr.toFixed(1), level:'fair' };
   return { label:'Thin', tradedCr:+tradedCr.toFixed(1), level:'thin' };
+}
+
+function getIntradayFreshness(t) {
+  if (!t) return { stale:true, ageMs:null, label:'No signal', reason:'Intraday signal not loaded' };
+  const fetchedAt = Number(t.fetchedAt);
+  const ageMs = Number.isFinite(fetchedAt) ? Date.now() - fetchedAt : null;
+  const stale = !!t.stale || !!t.fetchFailed || ageMs == null || ageMs > INTRADAY_STALE_MS;
+  const ageMin = ageMs == null ? null : Math.max(0, Math.round(ageMs / 60000));
+  const label = stale ? `Stale${ageMin != null ? ' ' + ageMin + 'm' : ''}` : `Fresh${ageMin != null ? ' ' + ageMin + 'm' : ''}`;
+  const reason = t.staleReason || (ageMs == null ? 'Signal freshness unknown' : `Signal age ${ageMin}m`);
+  return { stale, ageMs, ageMin, label, reason };
 }
 
 function getTimeWarning() {
@@ -1327,7 +1616,7 @@ function getCurrentTradePrice(sym) {
 
 function getPortfolioCapital() {
   const initial = Number(portfolioState?.initialCapital);
-  const base = Number.isFinite(initial) && initial > 0 ? initial : PORTFOLIO_INITIAL_CAPITAL;
+  const base = Number.isFinite(initial) && initial > 0 ? initial : PORTFOLIO_FALLBACK_INITIAL_CAPITAL;
   const added = Array.isArray(portfolioState?.capitalAdds)
     ? portfolioState.capitalAdds.reduce((sum, item) => sum + (Number(item?.amount) || 0), 0)
     : 0;
@@ -1339,34 +1628,20 @@ function getOpenPaperTrade(sym) {
 }
 
 function estimateZerodhaIntradayCharges(entryPrice, exitPrice, qty, side = 'buy') {
-  const entry = Number(entryPrice);
-  const exit = Number(exitPrice);
-  const quantity = Number(qty);
-  if (!Number.isFinite(entry) || !Number.isFinite(exit) || !Number.isFinite(quantity) || entry <= 0 || exit <= 0 || quantity <= 0) {
-    return { total:0, totalPct:0, brokerage:0, stt:0, transaction:0, gst:0, sebi:0, stamp:0, turnover:0 };
+  return SimulationEngine.estimateZerodhaIntradayCharges(entryPrice, exitPrice, qty, side);
+}
+
+function getEstimatedSlippagePct(row, t) {
+  const liq = getLiquidityInfo(t);
+  let pct = isETFAsset(row) ? 0.04 : 0.06;
+  if (liq.level === 'fair') pct += isETFAsset(row) ? 0.04 : 0.06;
+  else if (liq.level === 'thin') pct += isETFAsset(row) ? 0.12 : 0.18;
+  const bandWidth = Number(t?.vwapBandWidthPct);
+  if (Number.isFinite(bandWidth)) {
+    if (bandWidth > 2.5) pct += 0.06;
+    else if (bandWidth > 1.5) pct += 0.03;
   }
-  const isShort = String(side || '').toLowerCase() === 'sell';
-  const buyValue = (isShort ? exit : entry) * quantity;
-  const sellValue = (isShort ? entry : exit) * quantity;
-  const turnover = buyValue + sellValue;
-  const brokerage = Math.min(20, buyValue * 0.0003) + Math.min(20, sellValue * 0.0003);
-  const stt = sellValue * 0.00025;
-  const transaction = turnover * 0.0000307;
-  const sebi = turnover * 0.000001;
-  const stamp = buyValue * 0.00003;
-  const gst = (brokerage + transaction + sebi) * 0.18;
-  const total = brokerage + stt + transaction + sebi + stamp + gst;
-  return {
-    total:+total.toFixed(2),
-    totalPct: buyValue > 0 ? +((total / buyValue) * 100).toFixed(3) : 0,
-    brokerage:+brokerage.toFixed(2),
-    stt:+stt.toFixed(2),
-    transaction:+transaction.toFixed(2),
-    gst:+gst.toFixed(2),
-    sebi:+sebi.toFixed(2),
-    stamp:+stamp.toFixed(2),
-    turnover:+turnover.toFixed(2),
-  };
+  return +pct.toFixed(3);
 }
 
 function getTradeCostContext(rowOrSym, t, side = null) {
@@ -1382,7 +1657,7 @@ function getTradeCostContext(rowOrSym, t, side = null) {
   const tradeSide = side || (target >= entry ? 'buy' : 'sell');
   const targetPct = Math.abs(target - entry) / entry * 100;
   const charges = estimateZerodhaIntradayCharges(entry, target, qty, tradeSide);
-  const slippagePct = isETFAsset(row) ? 0.04 : 0.08;
+  const slippagePct = getEstimatedSlippagePct(row, t);
   const minTargetPct = isETFAsset(row) ? 0.25 : 0.35;
   const netPct = targetPct - charges.totalPct - slippagePct;
   const requiredPct = Math.max(minTargetPct, MIN_NET_PROFIT_PCT + charges.totalPct + slippagePct);
@@ -1400,29 +1675,11 @@ function getTradeCostContext(rowOrSym, t, side = null) {
 }
 
 function getPaperTradePnl(trade, currentPrice) {
-  const entry = Number(trade?.entryPrice);
-  const price = Number(currentPrice);
-  const qty = Number(trade?.qty);
-  if (!Number.isFinite(entry) || !Number.isFinite(price) || !Number.isFinite(qty) || entry <= 0 || qty <= 0) return null;
-  const side = String(trade.side || 'buy').toLowerCase();
-  const grossPnl = side === 'sell' ? (entry - price) * qty : (price - entry) * qty;
-  const charges = estimateZerodhaIntradayCharges(entry, price, qty, side);
-  const pnl = grossPnl - charges.total;
-  const pnlPct = (pnl / (entry * qty)) * 100;
-  return { pnl:+pnl.toFixed(2), pnlPct:+pnlPct.toFixed(2), grossPnl:+grossPnl.toFixed(2), charges:charges.total, chargeBreakup:charges };
+  return SimulationEngine.getPaperTradePnl(trade, currentPrice);
 }
 
 function getPaperPlanForSide(t, side, price) {
-  const entry = Number(price);
-  const rawTarget = Number(t?.target);
-  const rawStop = Number(t?.stop);
-  const atr = Number(t?.atr);
-  const targetDistance = Number.isFinite(rawTarget) ? Math.abs(rawTarget - entry) : (Number.isFinite(atr) ? atr * 1.25 : entry * 0.008);
-  const stopDistance = Number.isFinite(rawStop) ? Math.abs(entry - rawStop) : (Number.isFinite(atr) ? atr * 0.8 : entry * 0.005);
-  if (side === 'sell') {
-    return { target:+(entry - targetDistance).toFixed(2), stop:+(entry + stopDistance).toFixed(2) };
-  }
-  return { target:+(entry + targetDistance).toFixed(2), stop:+(entry - stopDistance).toFixed(2) };
+  return SimulationEngine.getPaperPlanForCandidate({ indicators:t || {} }, side, price);
 }
 
 function paperTradeExposure(trade) {
@@ -1432,17 +1689,15 @@ function paperTradeExposure(trade) {
 }
 
 function getSuggestedPaperQty(t, side, price, availableCash = null, maxExposure = MAX_POSITION_EXPOSURE) {
-  const entry = Number(price);
-  if (!t || !Number.isFinite(entry) || entry <= 0) return { qty:0, riskPerShare:null, maxLoss:0, cashLimit:0, exposureCap:maxExposure };
-  const plan = getPaperPlanForSide(t, side, entry);
-  const riskPerShare = Math.abs(entry - Number(plan.stop));
-  const maxLoss = getPortfolioCapital() * (TRADE_RISK_PCT / 100);
   const cash = availableCash == null ? getPortfolioSummary().cashAvailable : availableCash;
-  const exposureCap = Math.max(0, Math.min(Number(maxExposure) || MAX_POSITION_EXPOSURE, Math.max(0, cash)));
-  const byRisk = riskPerShare > 0 ? Math.floor(maxLoss / riskPerShare) : 0;
-  const byCash = Math.floor(exposureCap / entry);
-  const qty = Math.max(0, Math.min(byRisk || byCash, byCash));
-  return { qty, riskPerShare:+riskPerShare.toFixed(2), maxLoss:+maxLoss.toFixed(0), cashLimit:byCash, exposureCap:+exposureCap.toFixed(2), plan };
+  return SimulationEngine.getSuggestedQty(
+    { indicators:t || {} },
+    side,
+    price,
+    cash,
+    maxExposure,
+    getSimulationEngineSettings()
+  );
 }
 
 function paperQtyInputId(sym) {
@@ -1462,12 +1717,66 @@ function getTradeDateKey(value) {
   return d.toLocaleDateString('en-IN', { year:'numeric', month:'short', day:'2-digit' });
 }
 
+function formatTradeDateTime(value) {
+  if (!value) return '--';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '--';
+  return d.toLocaleTimeString('en-IN', {
+    hour:'2-digit',
+    minute:'2-digit',
+    hour12:false,
+  });
+}
+
+function getIstMinutes(value = Date.now()) {
+  const d = new Date(new Date(value).getTime() + 5.5 * 3600 * 1000);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+
+function isTradeToday(trade) {
+  const todayKey = getTradeDateKey();
+  return getTradeDateKey(trade?.openedAt) === todayKey || getTradeDateKey(trade?.closedAt) === todayKey;
+}
+
+function getTodaysSimulationTrades() {
+  return paperTrades.filter(t => t.source === 'simulation' && isTradeToday(t));
+}
+
+function isLosingStopExit(trade) {
+  return TradeRules.isLosingStopExit(trade);
+}
+
+function getSimulationDayStats() {
+  return TradeRules.buildDayStats(getTodaysSimulationTrades(), Date.now(), getSimulationEngineSettings(), {
+    sameDay: () => true,
+  });
+}
+
+function getSimulationSafetySummary() {
+  const summary = getPortfolioSummary();
+  return SimulationEngine.summarizeSimulationSafety(paperTrades, getSimulationEngineSettings(), {
+    at:Date.now(),
+    state:simulationState,
+    dayStats:getSimulationDayStats(),
+    cashAvailable:summary.cashAvailable,
+    sameDay:(a, b) => getTradeDateKey(a) === getTradeDateKey(b),
+  });
+}
+
+function getEffectiveSimulationStopLimit(netPnl, capital = getPortfolioCapital()) {
+  return TradeRules.getEffectiveStopLimit(netPnl, { ...getSimulationEngineSettings(), PORTFOLIO_INITIAL_CAPITAL:capital });
+}
+
 function getPortfolioSummary() {
   let realized = 0;
   let unrealized = 0;
   let openExposure = 0;
   const dayPnl = {};
-  const baseCapital = Number(portfolioState?.initialCapital) || PORTFOLIO_INITIAL_CAPITAL;
+  const initialCapital = Number(portfolioState?.initialCapital);
+  const baseCapital = Number.isFinite(initialCapital) && initialCapital > 0
+    ? initialCapital
+    : PORTFOLIO_FALLBACK_INITIAL_CAPITAL;
   const addedCapital = Array.isArray(portfolioState?.capitalAdds)
     ? portfolioState.capitalAdds.reduce((sum, item) => sum + (Number(item?.amount) || 0), 0)
     : 0;
@@ -1505,6 +1814,291 @@ function getPortfolioSummary() {
   };
 }
 
+function todaysClosedPnl() {
+  const key = getTradeDateKey();
+  return paperTrades
+    .filter(t => String(t.status || '').toLowerCase() === 'closed' && getTradeDateKey(t.closedAt || t.openedAt) === key)
+    .reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
+}
+
+function simulationTradeKey(trade) {
+  if (!trade) return '';
+  return String(trade.id || `${trade.symbol || ''}|${trade.openedAt || ''}|${trade.entryPrice || ''}`);
+}
+
+function loadNewSimulationTradeKeys() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SIMULATION_NEW_TRADES_KEY) || '[]');
+    return Array.isArray(parsed) ? new Set(parsed.map(String).filter(Boolean)) : new Set();
+  } catch (_) {
+    return new Set();
+  }
+}
+
+function saveNewSimulationTradeKeys() {
+  localStorage.setItem(SIMULATION_NEW_TRADES_KEY, JSON.stringify([...newSimulationTradeKeys]));
+}
+
+function registerNewSimulationTrade(trade) {
+  const key = simulationTradeKey(trade);
+  if (!key) return;
+  newSimulationTradeKeys.add(key);
+  saveNewSimulationTradeKeys();
+  renderTopActionBar();
+  if (document.getElementById('open-trades-modal')?.style.display === 'flex') renderOpenTradesModal();
+}
+
+function pruneNewSimulationTradeKeys() {
+  const openKeys = new Set(getSimulationOpenTrades().map(simulationTradeKey).filter(Boolean));
+  const before = newSimulationTradeKeys.size;
+  newSimulationTradeKeys = new Set([...newSimulationTradeKeys].filter(key => openKeys.has(key)));
+  if (newSimulationTradeKeys.size !== before) saveNewSimulationTradeKeys();
+}
+
+function getNewSimulationOpenTrades() {
+  const keys = newSimulationTradeKeys;
+  return getSimulationOpenTrades().filter(t => keys.has(simulationTradeKey(t)));
+}
+
+function renderOpenTradeRows(openTrades, newKeys) {
+  return openTrades.length ? openTrades.map(trade => {
+    const current = getCurrentTradePrice(trade.symbol);
+    const pnl = getPaperTradePnl(trade, current);
+    const key = simulationTradeKey(trade);
+    const isNew = newKeys.has(key);
+    const cls = pnl ? portfolioValueClass(pnl.pnl) : '';
+    const isManual = trade.source !== 'simulation';
+    const action = isManual
+      ? `<button class="paper-btn exit" onclick="closePaperTrade('${escapeHTML(trade.id)}','${escapeHTML(trade.symbol)}')">Exit</button>`
+      : '<span style="color:var(--muted);font-size:11px">Auto managed</span>';
+    return `<tr class="${isNew ? 'new-trade-highlight' : ''}">
+      <td>${isNew ? '<span class="new-trade-pill">New</span>' : '--'}</td>
+      <td>${escapeHTML(trade.source === 'simulation' ? 'Sim' : 'Manual')}</td>
+      <td>${escapeHTML(trade.symbol || '--')}</td>
+      <td>${escapeHTML(String(trade.side || '--').toUpperCase())}</td>
+      <td>${Number(trade.qty || 0).toLocaleString('en-IN')}</td>
+      <td>${moneyINR(trade.entryPrice)}</td>
+      <td>${moneyINR(current)}</td>
+      <td>${moneyINR(trade.target)}</td>
+      <td>${moneyINR(trade.stop)}</td>
+      <td class="portfolio-pnl ${cls}">${pnl ? `${moneyINR(pnl.pnl)} (${pnl.pnlPct}% net)` : '--'}</td>
+      <td>${escapeHTML(formatTradeDateTime(trade.openedAt))}</td>
+      <td class="portfolio-journal-cell" title="${escapeHTML(formatEntryJournal(trade))}">${escapeHTML(formatEntryJournal(trade))}</td>
+      <td>${action}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="13" style="color:var(--muted);text-align:center;padding:16px">No open trades</td></tr>`;
+}
+
+function renderOpenTradesModal() {
+  const body = document.getElementById('open-trades-modal-body');
+  if (!body) return;
+  pruneNewSimulationTradeKeys();
+  const openTrades = paperTrades
+    .filter(t => String(t.status || '').toLowerCase() === 'open')
+    .slice()
+    .sort((a, b) => {
+      const anew = newSimulationTradeKeys.has(simulationTradeKey(a)) ? 1 : 0;
+      const bnew = newSimulationTradeKeys.has(simulationTradeKey(b)) ? 1 : 0;
+      if (anew !== bnew) return bnew - anew;
+      return new Date(b.openedAt || 0) - new Date(a.openedAt || 0);
+    });
+  const newCount = openTrades.filter(t => newSimulationTradeKeys.has(simulationTradeKey(t))).length;
+  const rows = renderOpenTradeRows(openTrades, newSimulationTradeKeys);
+  body.innerHTML = `
+    <div class="portfolio-grid">
+      <div class="portfolio-card"><div class="label">Open trades</div><div class="value">${openTrades.length}</div></div>
+      <div class="portfolio-card"><div class="label">New simulation trades</div><div class="value ${newCount ? 'up' : ''}">${newCount}</div></div>
+      <div class="portfolio-card"><div class="label">Open exposure</div><div class="value">${moneyINR(openTrades.reduce((sum, t) => sum + paperTradeExposure(t), 0))}</div></div>
+      <div class="portfolio-card"><div class="label">Open P&L</div><div class="value ${portfolioValueClass(openTrades.reduce((sum, t) => sum + (getPaperTradePnl(t, getCurrentTradePrice(t.symbol))?.pnl || 0), 0))}">${moneyINR(openTrades.reduce((sum, t) => sum + (getPaperTradePnl(t, getCurrentTradePrice(t.symbol))?.pnl || 0), 0))}</div></div>
+    </div>
+    <div class="portfolio-section-title">All Open Trades</div>
+    <div class="portfolio-table-wrap">
+      <table class="portfolio-table open-trades-table">
+        <thead><tr><th>New</th><th>Mode</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Live</th><th>Target</th><th>SL</th><th>Net P&L</th><th>Entry Time</th><th>Entry Why</th><th>Action</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function openOpenTradesModal() {
+  renderOpenTradesModal();
+  const modal = document.getElementById('open-trades-modal');
+  if (modal) modal.style.display = 'flex';
+  if (!paperTradesLoaded) {
+    const body = document.getElementById('open-trades-modal-body');
+    if (body) body.innerHTML = `<div style="color:var(--muted);padding:16px">Loading open trades...</div>`;
+    await loadPaperTrades();
+    renderOpenTradesModal();
+  }
+}
+
+function closeOpenTradesModal(e) {
+  if (e) e.stopPropagation();
+  const modal = document.getElementById('open-trades-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function markNewSimulationTradesSeen() {
+  newSimulationTradeKeys.clear();
+  saveNewSimulationTradeKeys();
+  renderTopActionBar();
+  renderOpenTradesModal();
+}
+
+function getDashboardHealthItems() {
+  const items = [];
+  if (!dataSource) items.push('No data source connected');
+  const allSymbols = [...MIDCAP_STOCKS, ...STOCK_ASSETS];
+  const priced = allSymbols.filter(s => Number(stockData[s.sym]?.price) > 0).length;
+  if (dataSource && priced < Math.max(5, Math.floor(allSymbols.length * 0.5))) items.push(`Only ${priced}/${allSymbols.length} stock prices loaded`);
+  const intradayValues = Object.values(intradayData || {});
+  const stale = intradayValues.filter(t => getIntradayFreshness(t).stale).length;
+  if (stale) items.push(`${stale} intraday signals stale`);
+  const missingOhlc = intradayValues.filter(t => !t?.ohlc?.latestBar && !t?.ohlc?.bars?.length).length;
+  if (missingOhlc && intradayValues.length) items.push(`${missingOhlc} signals missing OHLC`);
+  if (simulationState === 'running' && !isMarketHoursNow()) items.push('Simulation is on outside market hours');
+  if (marketOpen === false) items.push('Market is closed');
+  return items;
+}
+
+function buildDashboardNotifications() {
+  const items = [];
+  const openSim = getSimulationOpenTrades();
+  const newSim = getNewSimulationOpenTrades();
+  const dayPnl = todaysClosedPnl();
+  const health = getDashboardHealthItems();
+  health.slice(0, 4).forEach(text => items.push({ level:'warn', title:'Dashboard health', text }));
+  if (newSim.length) items.push({ level:'good', title:'New simulation trades', text:`${newSim.length} new open trade${newSim.length === 1 ? '' : 's'}: ${newSim.map(t => t.symbol).join(', ')}` });
+  if (simulationState === 'running') items.push({ level:'good', title:'Simulation active', text:`${openSim.length} simulation positions open` });
+  if (simulationState === 'settling') items.push({ level:'warn', title:'Simulation settling', text:'No new entries; exits continue to be managed' });
+  if (Math.abs(dayPnl) > 0) items.push({ level:dayPnl >= 0 ? 'good' : 'danger', title:'Today P/L', text:moneyINR(dayPnl) });
+  getAllStockRows().slice(0, 220).forEach(row => {
+    const t = intradayData[row.sym];
+    if (!t || getIntradayFreshness(t).stale) return;
+    const score = adjustedTradeScore(row);
+    const sig = adjustedTradeSignal(score);
+    const guard = getRiskGuard(row, t, score);
+    const setup = getSetupType(row, t, guard);
+    if (t.entryStatus === 'Triggered' && /FRESH_BREAKOUT|MOMENTUM_RUNNER|VOLUME_SHOCK/i.test(setup)) {
+      items.push({ level:'good', title:`${row.sym} ${setup}`, text:`Score ${score} | ${t.entryTrigger || 'Triggered'}` });
+    } else if (sig === 'sell' && t.entryStatus === 'Triggered') {
+      items.push({ level:'danger', title:`${row.sym} short setup`, text:`Score ${score} | ${setup}` });
+    }
+  });
+  paperTrades
+    .filter(t => isTradeToday(t))
+    .slice(-5)
+    .reverse()
+    .forEach(t => items.push({
+      level:String(t.status).toLowerCase() === 'open' ? 'good' : (Number(t.pnl) >= 0 ? 'good' : 'danger'),
+      title:`${String(t.status || '').toUpperCase()} ${t.symbol}`,
+      text:[String(t.side || '').toUpperCase(), t.qty ? `${t.qty} qty` : '', t.pnl != null ? moneyINR(t.pnl) : moneyINR(t.entryPrice)].filter(Boolean).join(' | '),
+    }));
+  Object.entries(stockNewsCache).slice(-10).forEach(([key, value]) => {
+    const sym = key.split('|')[0];
+    const ev = (value.events || []).find(e => e?.type === 'Results' || /dividend|result|board/i.test(`${e?.type || ''} ${e?.title || ''}`));
+    if (ev) items.push({ level:/dividend/i.test(`${ev.type || ''} ${ev.title || ''}`) ? 'good' : 'warn', title:`${sym} event`, text:ev.title || ev.type || 'Event' });
+  });
+  return items.slice(0, 12);
+}
+
+function renderNotificationPanel() {
+  const panel = document.getElementById('notification-panel');
+  const btn = document.getElementById('notification-btn');
+  const items = buildDashboardNotifications();
+  if (btn) {
+    btn.textContent = items.length ? String(Math.min(9, items.length)) : '!';
+    btn.classList.toggle('has-items', items.length > 0);
+  }
+  if (!panel) return;
+  panel.style.display = notificationsOpen ? 'block' : 'none';
+  panel.innerHTML = items.length
+    ? items.map(item => `<div class="notification-item ${escapeHTML(item.level || '')}"><strong>${escapeHTML(item.title)}</strong><span>${escapeHTML(item.text)}</span></div>`).join('')
+    : '<div class="notification-item"><strong>No alerts</strong><span>Dashboard looks quiet right now.</span></div>';
+}
+
+function toggleNotifications() {
+  notificationsOpen = !notificationsOpen;
+  renderNotificationPanel();
+}
+
+function renderTopActionBar() {
+  const bar = document.getElementById('top-action-bar');
+  if (!bar) return;
+  bar.style.display = dataSource ? 'flex' : 'none';
+  const summary = getPortfolioSummary();
+  const openTrades = paperTrades.filter(t => String(t.status || '').toLowerCase() === 'open');
+  pruneNewSimulationTradeKeys();
+  const newOpenTrades = getNewSimulationOpenTrades();
+  const dayPnl = todaysClosedPnl();
+  const intradayValues = Object.values(intradayData || {});
+  const stale = intradayValues.filter(t => getIntradayFreshness(t).stale).length;
+  const freshText = intradayValues.length ? `${Math.max(0, intradayValues.length - stale)}/${intradayValues.length} fresh` : '--';
+  const set = (id, text, cls = '') => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.className = cls;
+  };
+  set('action-market', marketOpen === true ? 'Open' : marketOpen === false ? 'Closed' : '--', marketOpen === true ? 'up' : marketOpen === false ? 'down' : '');
+  set('action-freshness', freshText, stale ? 'down' : '');
+  set('action-simulation', simulationState.toUpperCase(), simulationState === 'running' ? 'up' : simulationState === 'settling' ? 'down' : '');
+  set('action-open-trades', `${openTrades.length} / ${moneyINR(summary.openExposure)}`);
+  set('action-new-trades', String(newOpenTrades.length), newOpenTrades.length ? 'up' : '');
+  set('action-day-pnl', moneyINR(dayPnl), portfolioValueClass(dayPnl));
+  set('action-last-refresh', bgRefreshActive ? 'Refreshing...' : lastDashboardRefreshAt ? new Date(lastDashboardRefreshAt).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) : '--');
+  const newCard = document.getElementById('new-trades-card');
+  if (newCard) newCard.classList.toggle('has-new', newOpenTrades.length > 0);
+  const openCard = document.getElementById('open-trades-card');
+  if (openCard) openCard.classList.toggle('has-open', openTrades.length > 0);
+  const simCard = document.getElementById('simulation-card');
+  if (simCard) {
+    simCard.classList.toggle('has-open', simulationState === 'settling');
+    simCard.classList.toggle('has-new', simulationState === 'running');
+    simCard.title = simulationState === 'running'
+      ? 'Simulation is running. Click to stop new buys and settle open trades.'
+      : simulationState === 'settling'
+        ? 'Simulation is settling. Click to resume new buys.'
+        : 'Simulation is off. Click to start automatic paper trades.';
+  }
+  const refreshCard = document.getElementById('last-refresh-card');
+  if (refreshCard) {
+    refreshCard.classList.toggle('has-new', !!bgRefreshActive);
+    refreshCard.title = bgRefreshActive ? 'Refresh is running' : 'Refresh dashboard data now';
+  }
+  renderDashboardHealthBanner();
+  renderNotificationPanel();
+}
+
+function renderDashboardHealthBanner() {
+  const banner = document.getElementById('dashboard-health-banner');
+  if (!banner) return;
+  const items = getDashboardHealthItems();
+  if (!dataSource) {
+    banner.style.display = 'none';
+    return;
+  }
+  banner.style.display = 'block';
+  banner.className = items.length ? '' : 'ok';
+  banner.textContent = items.length ? items.join(' | ') : 'Dashboard health OK';
+}
+
+function setColumnPreset(value) {
+  columnPreset = value || 'trading';
+  localStorage.setItem(COLUMN_PRESET_KEY, columnPreset);
+  applyColumnPreset();
+  if (columnPreset === 'etf' && dataSource && currentView !== 'etfs') setView('etfs', document.getElementById('tab-etfs'));
+}
+
+function applyColumnPreset() {
+  document.body.classList.remove('preset-trading', 'preset-fundamentals', 'preset-risk', 'preset-compact', 'preset-etf', 'preset-all');
+  document.body.classList.add(`preset-${columnPreset || 'trading'}`);
+  const select = document.getElementById('column-preset-select');
+  if (select && select.value !== columnPreset) select.value = columnPreset;
+  syncStockScrollSizing();
+}
+
 function computeClosedPaperPnl(trade) {
   const exit = Number(trade?.exitPrice);
   return getPaperTradePnl(trade, exit)?.pnl ?? null;
@@ -1515,13 +2109,65 @@ function portfolioValueClass(v) {
   return n >= 0 ? 'up' : 'down';
 }
 
+function getPortfolioRiskStats(trades = paperTrades, capital = getPortfolioCapital()) {
+  const closed = (Array.isArray(trades) ? trades : [])
+    .filter(t => String(t.status || '').toLowerCase() === 'closed')
+    .slice()
+    .sort((a, b) => new Date(a.closedAt || a.openedAt || 0) - new Date(b.closedAt || b.openedAt || 0));
+  let equity = Number(capital) || 0;
+  let peak = equity;
+  let maxDrawdown = 0;
+  let maxDrawdownPct = 0;
+  let lossStreak = 0;
+  let maxLossStreak = 0;
+  let currentLossStreak = 0;
+  for (const trade of closed) {
+    const pnl = Number.isFinite(Number(trade.pnl)) ? Number(trade.pnl) : Number(computeClosedPaperPnl(trade) || 0);
+    equity += pnl;
+    peak = Math.max(peak, equity);
+    const drawdown = peak - equity;
+    if (drawdown > maxDrawdown) {
+      maxDrawdown = drawdown;
+      maxDrawdownPct = peak > 0 ? (drawdown / peak) * 100 : 0;
+    }
+    if (pnl < 0) {
+      lossStreak += 1;
+      currentLossStreak += 1;
+      maxLossStreak = Math.max(maxLossStreak, lossStreak);
+    } else {
+      lossStreak = 0;
+      currentLossStreak = 0;
+    }
+  }
+  return {
+    maxDrawdown:+maxDrawdown.toFixed(2),
+    maxDrawdownPct:+maxDrawdownPct.toFixed(3),
+    maxLossStreak,
+    currentLossStreak,
+  };
+}
+
+function formatEntryJournal(trade) {
+  const ctx = trade?.entryContext || {};
+  const bits = [
+    ctx.reason || (trade?.source === 'simulation' ? 'simulation selected' : 'manual entry'),
+    trade?.setupType || '',
+    ctx.indicators?.entryTrigger || '',
+    ctx.indicators?.relVolume != null ? `Vol ${Number(ctx.indicators.relVolume).toFixed(2)}x` : '',
+  ].filter(Boolean);
+  return bits.join(' | ') || '--';
+}
+
 function renderPortfolioModal() {
   const body = document.getElementById('portfolio-modal-body');
   if (!body) return;
   const summary = getPortfolioSummary();
+  const riskStats = getPortfolioRiskStats(paperTrades, summary.capital);
+  const safety = getSimulationSafetySummary();
   const openCount = paperTrades.filter(t => t.status === 'open').length;
   const closedCount = paperTrades.filter(t => t.status === 'closed').length;
-  const transactionRows = paperTrades.length ? paperTrades.map(trade => {
+  const todaysTrades = paperTrades.filter(isTradeToday);
+  const transactionRows = todaysTrades.length ? todaysTrades.map(trade => {
     const isOpen = trade.status === 'open';
     const current = isOpen ? getCurrentTradePrice(trade.symbol) : Number(trade.exitPrice);
     const livePnl = getPaperTradePnl(trade, current);
@@ -1531,8 +2177,6 @@ function renderPortfolioModal() {
     const brokerLabel = getBrokerLabel(trade);
     const brokerOrder = trade.broker?.entryOrder ? formatZerodhaOrder(trade.broker.entryOrder) : brokerLabel;
     const breakdown = pnlObj?.chargeBreakup || livePnl?.chargeBreakup || {};
-    const entryCost = Number(breakdown.brokerage || 0) / 2 + Number(breakdown.stamp || 0);
-    const exitCost = Number(pnlObj?.charges || 0) - entryCost;
     const grossPnl = Number.isFinite(Number(pnlObj?.grossPnl)) ? Number(pnlObj.grossPnl) : null;
     const costTitle = `Brokerage ${moneyINR(breakdown.brokerage)} | STT ${moneyINR(breakdown.stt)} | Txn ${moneyINR(breakdown.transaction)} | GST ${moneyINR(breakdown.gst)} | SEBI ${moneyINR(breakdown.sebi)} | Stamp ${moneyINR(breakdown.stamp)}`;
     return `<tr>
@@ -1545,14 +2189,15 @@ function renderPortfolioModal() {
       <td>${moneyINR(trade.entryPrice)}</td>
       <td>${moneyINR(current)}</td>
       <td>${moneyINR(paperTradeExposure(trade))}</td>
-      <td title="${escapeHTML(costTitle)}">${moneyINR(entryCost)}</td>
-      <td title="${escapeHTML(costTitle)}">${moneyINR(exitCost)}</td>
+      <td>${escapeHTML(formatTradeDateTime(trade.openedAt))}</td>
+      <td>${escapeHTML(isOpen ? '--' : formatTradeDateTime(trade.closedAt))}</td>
+      <td class="portfolio-journal-cell" title="${escapeHTML(formatEntryJournal(trade))}">${escapeHTML(formatEntryJournal(trade))}</td>
+      <td class="portfolio-journal-cell" title="${escapeHTML(trade.closeReason || '--')}">${escapeHTML(trade.closeReason || '--')}</td>
       <td title="${escapeHTML(costTitle)}">${moneyINR(pnlObj?.charges)}</td>
       <td class="portfolio-pnl ${portfolioValueClass(grossPnl || 0)}">${moneyINR(grossPnl)}</td>
       <td class="portfolio-pnl ${cls}">${moneyINR(pnl)}</td>
-      <td>${escapeHTML(isOpen ? getTradeDateKey(trade.openedAt) : getTradeDateKey(trade.closedAt))}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="15" style="color:var(--muted);text-align:center;padding:16px">No paper trades yet</td></tr>`;
+  }).join('') : `<tr><td colspan="16" style="color:var(--muted);text-align:center;padding:16px">No transactions today</td></tr>`;
   const dayRows = Object.entries(summary.dayPnl).length ? Object.entries(summary.dayPnl)
     .map(([day, pnl]) => `<tr><td>${escapeHTML(day)}</td><td class="portfolio-pnl ${portfolioValueClass(pnl)}">${moneyINR(pnl)}</td></tr>`)
     .join('') : `<tr><td colspan="2" style="color:var(--muted);text-align:center;padding:16px">No closed trades yet</td></tr>`;
@@ -1579,11 +2224,22 @@ function renderPortfolioModal() {
       <div class="portfolio-card"><div class="label">Open P&L</div><div class="value ${portfolioValueClass(summary.unrealized)}">${moneyINR(summary.unrealized)}</div></div>
       <div class="portfolio-card"><div class="label">Open exposure</div><div class="value">${moneyINR(summary.openExposure)}</div></div>
       <div class="portfolio-card"><div class="label">Trades</div><div class="value">${openCount} open / ${closedCount} closed</div></div>
+      <div class="portfolio-card"><div class="label">Max drawdown</div><div class="value ${riskStats.maxDrawdown > 0 ? 'down' : ''}">${moneyINR(riskStats.maxDrawdown)} (${riskStats.maxDrawdownPct}%)</div></div>
+      <div class="portfolio-card"><div class="label">Loss streak</div><div class="value ${riskStats.currentLossStreak > 0 ? 'down' : ''}">${riskStats.currentLossStreak} now / ${riskStats.maxLossStreak} max</div></div>
     </div>
-    <div class="portfolio-section-title">Transactions</div>
+    <div class="portfolio-section-title">Simulation Safety</div>
+    <div class="portfolio-grid safety-grid">
+      <div class="portfolio-card"><div class="label">State</div><div class="value">${escapeHTML(String(safety.state || '--').toUpperCase())}</div></div>
+      <div class="portfolio-card"><div class="label">Open slots</div><div class="value">${safety.slots} usable / ${safety.activeSlots} active</div></div>
+      <div class="portfolio-card"><div class="label">Daily entries</div><div class="value">${safety.entries} / ${safety.maxEntries}</div></div>
+      <div class="portfolio-card"><div class="label">First hour</div><div class="value">${safety.firstHourEntries} / ${safety.firstHourMax}</div></div>
+      <div class="portfolio-card"><div class="label">Stop guard</div><div class="value ${safety.stops >= safety.stopLimit ? 'down' : ''}">${safety.stops} / ${safety.stopLimit}</div></div>
+      <div class="portfolio-card"><div class="label">Fresh-entry status</div><div class="value ${safety.blocked ? 'down' : ''}">${escapeHTML(safety.blocked ? safety.reasons.join(' | ') : 'Allowed')}</div></div>
+    </div>
+    <div class="portfolio-section-title">Today's Transactions (${todaysTrades.length})</div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table">
-        <thead><tr><th>Status</th><th>Mode</th><th>Broker</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit/Live</th><th>Capital</th><th>Entry Cost</th><th>Exit Cost</th><th>Total Cost</th><th>Gross P&L</th><th>Net P&L</th><th>Date</th></tr></thead>
+        <thead><tr><th>Status</th><th>Mode</th><th>Broker</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit/Live</th><th>Capital</th><th>Entry Time</th><th>Exit Time</th><th>Entry Why</th><th>Exit Reason</th><th>Total Cost</th><th>Gross P&L</th><th>Net P&L</th></tr></thead>
         <tbody>${transactionRows}</tbody>
       </table>
     </div>
@@ -1613,15 +2269,143 @@ async function addPortfolioCapital() {
   }
 }
 
-function openPortfolioModal() {
-  renderPortfolioModal();
+async function openPortfolioModal() {
   const modal = document.getElementById('portfolio-modal');
   if (modal) modal.style.display = 'flex';
+  const body = document.getElementById('portfolio-modal-body');
+  if (!paperTradesLoaded && body) {
+    body.innerHTML = `<div style="color:var(--muted);padding:16px">Loading portfolio...</div>`;
+    await loadPaperTrades();
+  }
+  renderPortfolioModal();
 }
 
 function closePortfolioModal(e) {
   if (e) e.stopPropagation();
   const modal = document.getElementById('portfolio-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function formatSettingValue(value, key) {
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (value == null || value === '') return '--';
+  const n = Number(value);
+  if (!Number.isFinite(n)) return String(value);
+  if (key === 'PORTFOLIO_INITIAL_CAPITAL' || key === 'MAX_POSITION_EXPOSURE') return moneyINR(n);
+  if (/_PCT$/.test(key)) return `${n.toLocaleString('en-IN', { maximumFractionDigits: 3 })}%`;
+  if (/_MIN$/.test(key)) return `${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })} min`;
+  return n.toLocaleString('en-IN', { maximumFractionDigits: 3 });
+}
+
+function loadTradeSettingOverrides() {
+  if (tradeSettingOverrides && typeof tradeSettingOverrides === 'object') return tradeSettingOverrides;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(TRADE_SETTING_OVERRIDES_KEY) || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+async function loadTradeSettingOverridesFromServer() {
+  const bootOverrides = dashboardBootstrap?.tradeSettings?.overrides;
+  if (bootOverrides && typeof bootOverrides === 'object' && !Array.isArray(bootOverrides)) {
+    tradeSettingOverrides = bootOverrides;
+    localStorage.setItem(TRADE_SETTING_OVERRIDES_KEY, JSON.stringify(tradeSettingOverrides));
+    return;
+  }
+  try {
+    const res = await fetch(TRADE_SETTINGS_ENDPOINT, { signal:AbortSignal.timeout(5000) });
+    if (!res.ok) throw new Error('trade-settings HTTP ' + res.status);
+    const payload = await res.json().catch(() => ({}));
+    tradeSettingOverrides = payload.overrides && typeof payload.overrides === 'object' ? payload.overrides : {};
+    localStorage.setItem(TRADE_SETTING_OVERRIDES_KEY, JSON.stringify(tradeSettingOverrides));
+  } catch (e) {
+    tradeSettingOverrides = loadTradeSettingOverrides();
+    console.warn('trade settings load failed', e.message);
+  }
+}
+
+async function saveTradeSettingOverrides(overrides) {
+  tradeSettingOverrides = overrides || {};
+  localStorage.setItem(TRADE_SETTING_OVERRIDES_KEY, JSON.stringify(tradeSettingOverrides));
+  try {
+    const res = await fetch(TRADE_SETTINGS_ENDPOINT, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify({ overrides:tradeSettingOverrides }),
+      signal:AbortSignal.timeout(5000),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.ok === false) throw new Error(payload.error || 'trade-settings HTTP ' + res.status);
+    tradeSettingOverrides = payload.overrides || tradeSettingOverrides;
+  } catch(e) {
+    console.warn('trade settings save failed', e.message);
+  }
+}
+
+async function applyReplaySettings(row) {
+  if (!row) return;
+  const current = loadTradeSettingOverrides();
+  const next = {
+    ...current,
+    SIMULATION_MIN_SCORE:Number(row.minScore),
+    SIMULATION_TOP_N:Number(row.topN),
+    SIMULATION_MAX_NEW_PER_CYCLE:Number(row.perCycle),
+    SIMULATION_FIRST_HOUR_MAX_ENTRIES:Number(row.firstHour),
+    SIMULATION_LONG_TRAIL_PCT:Number(row.trail),
+  };
+  Object.keys(next).forEach(key => {
+    if (!Number.isFinite(Number(next[key]))) delete next[key];
+  });
+  await saveTradeSettingOverrides(next);
+  alert('Applied replay settings. New simulation cycles will use them.');
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+}
+
+function renderSettingsModal() {
+  const body = document.getElementById('settings-modal-body');
+  if (!body) return;
+  const defaults = TradeRules.DEFAULT_SETTINGS || {};
+  const descriptions = TradeRules.SETTING_DESCRIPTIONS || {};
+  const overrides = loadTradeSettingOverrides();
+  const effective = TradeRules.withDefaults ? TradeRules.withDefaults(getSimulationEngineSettings()) : { ...defaults, ...getSimulationEngineSettings() };
+  const summary = getPortfolioSummary();
+  const rows = Object.keys(defaults).map(key => {
+    const current = effective[key];
+    const def = defaults[key];
+    return `<tr>
+      <td class="settings-key">${escapeHTML(key)}</td>
+      <td class="settings-desc">${escapeHTML(descriptions[key] || 'No description available.')}</td>
+      <td class="settings-value">${overrides[key] != null ? '<span class="settings-override">override</span> ' : ''}${escapeHTML(formatSettingValue(current, key))}</td>
+      <td class="settings-value">${escapeHTML(formatSettingValue(def, key))}</td>
+    </tr>`;
+  }).join('');
+  body.innerHTML = `
+    <div class="settings-summary">
+      <div class="settings-card"><div class="label">Portfolio capital</div><div class="value">${moneyINR(effective.PORTFOLIO_INITIAL_CAPITAL)}</div></div>
+      <div class="settings-card"><div class="label">Per position cap</div><div class="value">${moneyINR(effective.MAX_POSITION_EXPOSURE)}</div></div>
+      <div class="settings-card"><div class="label">Minimum net profit</div><div class="value">${formatSettingValue(effective.SIMULATION_MIN_NET_PROFIT_PCT, 'SIMULATION_MIN_NET_PROFIT_PCT')}</div></div>
+    </div>
+    <div class="portfolio-section-title">Effective Trade Rule Settings</div>
+    <div class="settings-table-wrap">
+      <table class="settings-table">
+        <thead><tr><th>Setting</th><th>Description</th><th>Current value</th><th>Default</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function openSettingsModal() {
+  renderSettingsModal();
+  const modal = document.getElementById('settings-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeSettingsModal(e) {
+  if (e) e.stopPropagation();
+  const modal = document.getElementById('settings-modal');
   if (modal) modal.style.display = 'none';
 }
 
@@ -1675,29 +2459,33 @@ function setSimulationState(state) {
   simulationState = ['running', 'settling'].includes(state) ? state : 'off';
   localStorage.setItem(SIMULATION_STATE_KEY, simulationState);
   updateSimulationButton();
+  renderTopActionBar();
 }
 
 function updateSimulationButton() {
   const btn = document.getElementById('simulation-btn');
-  if (!btn) return;
   const openSim = paperTrades.filter(t => t.status === 'open' && t.source === 'simulation').length;
-  btn.classList.remove('primary', 'sim-running', 'sim-settling');
-  if (simulationState === 'running') {
-    btn.classList.add('sim-running');
-    btn.textContent = `Stop Sim (${openSim})`;
-    btn.title = 'Simulation is opening top-10 suggested trades and managing exits';
-  } else if (simulationState === 'settling') {
-    btn.classList.add('sim-settling');
-    btn.textContent = `Settling (${openSim})`;
-    btn.title = 'No new simulation trades. Existing simulation trades exit at target, stop, or end of day.';
-  } else {
-    btn.classList.add('primary');
-    btn.textContent = 'Start Simulation';
-    btn.title = 'Auto paper-trade top-10 buy suggestions with Rs 5L portfolio limit';
+  if (btn) {
+    btn.classList.remove('primary', 'sim-running', 'sim-settling');
+    if (simulationState === 'running') {
+      btn.classList.add('sim-running');
+      btn.textContent = `Stop Sim (${openSim})`;
+      btn.title = 'Simulation is opening top-10 suggested trades and managing exits';
+    } else if (simulationState === 'settling') {
+      btn.classList.add('sim-settling');
+      btn.textContent = `Settling (${openSim})`;
+      btn.title = 'No new simulation trades. Existing simulation trades exit at target, stop, or end of day.';
+    } else {
+      btn.classList.add('primary');
+      btn.textContent = 'Start Simulation';
+      btn.title = 'Auto paper-trade top-10 buy suggestions with Rs 5L portfolio limit';
+    }
   }
+  renderTopActionBar();
 }
 
-function toggleSimulation() {
+async function toggleSimulation() {
+  if (!paperTradesLoaded) await loadPaperTrades();
   if (simulationState === 'running') {
     setSimulationState('settling');
     runSimulationCycle({ allowEntries:false }).catch(e => console.warn('simulation settle failed', e.message));
@@ -1712,6 +2500,11 @@ function getIstClockParts() {
   return { day: ist.getUTCDay(), mins: ist.getUTCHours() * 60 + ist.getUTCMinutes() };
 }
 
+function isMarketHoursNow() {
+  const { day, mins } = getIstClockParts();
+  return day >= 1 && day <= 5 && mins >= 9 * 60 + 15 && mins < 15 * 60 + 30;
+}
+
 function isSimulationEntryWindow() {
   const { day, mins } = getIstClockParts();
   return day >= 1 && day <= 5 && mins >= 9 * 60 + 30 && mins < 14 * 60 + 45;
@@ -1724,6 +2517,187 @@ function isSimulationEodSettlementTime() {
 
 function getSimulationOpenTrades() {
   return paperTrades.filter(t => t.status === 'open' && t.source === 'simulation');
+}
+
+function getSimulationEngineSettings() {
+  const settings = {
+    PORTFOLIO_INITIAL_CAPITAL:getPortfolioCapital(),
+    MAX_POSITION_EXPOSURE,
+    TRADE_RISK_PCT,
+    SIMULATION_MIN_NET_PROFIT_PCT,
+    SIMULATION_MAX_OPEN,
+    SIMULATION_MAX_ACTIVE_OPEN,
+    SIMULATION_MAX_NEW_PER_CYCLE,
+    SIMULATION_TOP_N,
+    SIMULATION_DAILY_MAX_TRADES,
+    SIMULATION_DAILY_MAX_STOPS,
+    SIMULATION_DAILY_MAX_STOPS_PROFIT_MULTIPLIER,
+    SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT,
+    SIMULATION_DAILY_MAX_NET_LOSS_PCT,
+    SIMULATION_SYMBOL_COOLDOWN_MIN,
+    SIMULATION_SETUP_COOLDOWN_MIN,
+    SIMULATION_SETUP_DAILY_LOSS_GUARD_COUNT,
+    SIMULATION_FIRST_HOUR_MAX_ENTRIES,
+    SIMULATION_STOP_GRACE_MIN,
+    SIMULATION_STOP_CONFIRM_BARS,
+    SIMULATION_EMERGENCY_STOP_PCT,
+    SIMULATION_RUNNER_MIN_SCORE,
+    SIMULATION_RUNNER_MIN_REL_VOL,
+    SIMULATION_RUNNER_MAX_TRIGGER_EXTENSION_PCT,
+    SIMULATION_RUNNER_MAX_VWAP_EXTENSION_PCT,
+    SIMULATION_RUNNER_TRAIL_PCT,
+    SIMULATION_RUNNER_WIDE_TRAIL_PCT,
+    SIMULATION_BREAKEVEN_PROTECT_PCT,
+    SIMULATION_TRAIL_START_PCT,
+    SIMULATION_LONG_TRAIL_PCT,
+    SIMULATION_TIME_STOP_MIN,
+    SIMULATION_TIME_STOP_MIN_PROFIT_PCT,
+    SIMULATION_TARGET_PARTIAL_QTY_PCT,
+    SIMULATION_TARGET_RUNNER_MIN_SCORE,
+    SIMULATION_TARGET_RUNNER_MIN_REL_VOL,
+    SIMULATION_PROFIT_REENTRY_COOLDOWN_MIN,
+    SIMULATION_VWAP_CONT_MIN_SCORE,
+    SIMULATION_VWAP_CONT_MAX_TRIGGER_EXTENSION_PCT,
+    SIMULATION_VWAP_CONT_MAX_VWAP_EXTENSION_PCT,
+    SIMULATION_MIN_SCORE,
+    SIMULATION_SHORT_MIN_SCORE,
+    SIMULATION_SHORT_MIN_REL_VOL,
+    SIMULATION_SHORT_ALLOW_AVOID_GUARD,
+    SIMULATION_SHORT_TRIGGER_DISTANCE_PCT,
+    SIMULATION_SHORT_CONFIRM_BARS,
+    SIMULATION_SHORT_MAX_STOP_PCT,
+    SIMULATION_SHORT_TRAIL_PCT,
+    SIMULATION_SHORT_MIN_BEARISH_CONFIRMATIONS,
+    SIMULATION_MARKET_BREADTH_PCT,
+    SIMULATION_MARKET_REGIME_NIFTY_PCT,
+    SIMULATION_MARKET_REGIME_SECTOR_PCT,
+    SIMULATION_MARKET_REGIME_RS_PCT,
+    SIMULATION_AUTO_SHORTS,
+  };
+  return TradeRules.withDefaults ? TradeRules.withDefaults({ ...settings, ...loadTradeSettingOverrides() }) : { ...settings, ...loadTradeSettingOverrides() };
+}
+
+function buildSimulationEngineCandidate(rowOrSym, t = null, score = null, side = null, guard = null, cost = null) {
+  const sym = typeof rowOrSym === 'string' ? rowOrSym : rowOrSym?.sym;
+  const row = typeof rowOrSym === 'string'
+    ? (MIDCAP_STOCKS.find(s => s.sym === sym) || STOCK_ASSETS.find(s => s.sym === sym) || ETF_ASSETS.find(s => s.sym === sym) || { sym })
+    : rowOrSym;
+  const setup = t || intradayData[sym];
+  const finalScore = score == null ? adjustedTradeScore(row || sym) : score;
+  const signal = adjustedTradeSignal(finalScore);
+  const finalSide = side || (signal === 'sell' ? 'sell' : signal === 'buy' ? 'buy' : null);
+  const finalGuard = guard || (setup ? getRiskGuard(row || { sym }, setup, finalScore) : null);
+  const finalCost = cost || (setup && finalSide ? getTradeCostContext(row || sym, setup, finalSide) : null);
+  const price = getCurrentTradePrice(sym) ?? Number(setup?.price);
+  return {
+    symbol:sym,
+    name:row?.name || sym,
+    assetType:isETFAsset(row || sym) ? 'etf' : 'stock',
+    sector:row?.sector || '',
+    cap:row?.cap || '',
+    price,
+    priceAtSnapshot:price,
+    score:finalScore,
+    rawScore:setup?.score ?? null,
+    signal,
+    side:finalSide,
+    guard:finalGuard,
+    cost:finalCost,
+    freshness:setup ? getIntradayFreshness(setup) : null,
+    indicators:setup ? { ...setup, price, reasons:Array.isArray(setup.reasons) ? setup.reasons : [] } : null,
+    quote:row?.data || stockData[sym] || null,
+    row,
+    t:setup,
+  };
+}
+
+function getEntryTriggerPrice(t) {
+  return SimulationEngine.getEntryTriggerPrice({ indicators:t });
+}
+
+function getBreakoutConfirmations(t, side = 'buy') {
+  return SimulationEngine.getBreakoutConfirmations({ indicators:t }, side);
+}
+
+function getMomentumRunnerInfo(row, t, side = 'buy') {
+  return SimulationEngine.getMomentumRunnerInfo(
+    buildSimulationEngineCandidate(row, t, adjustedTradeScore(row), side),
+    getSimulationEngineSettings()
+  );
+}
+
+function getVwapContinuationInfo(row, t, side = 'buy') {
+  return SimulationEngine.getVwapContinuationInfo(
+    buildSimulationEngineCandidate(row, t, adjustedTradeScore(row), side),
+    getSimulationEngineSettings()
+  );
+}
+
+function rememberPreviousSimulationSignal(sym) {
+  const setup = intradayData[sym];
+  if (!setup) return;
+  const candidate = buildSimulationEngineCandidate(sym, setup);
+  const compact = SimulationEngine.toConfirmationCandidate(candidate);
+  if (compact?.indicators) simulationPreviousSignalCandidates.set(sym, compact);
+}
+
+function getSimulationSetupBlockReason(row, t, side, setupType) {
+  return SimulationEngine.getSetupBlockReason(
+    buildSimulationEngineCandidate(row, t, adjustedTradeScore(row), side),
+    setupType,
+    Date.now(),
+    getSimulationEngineSettings(),
+    { previousCandidate: simulationPreviousSignalCandidates.get(row?.sym || row) || null }
+  );
+}
+
+function isSimulationSignalDeteriorated(trade, price) {
+  return SimulationEngine.isSimulationSignalDeteriorated(
+    trade,
+    buildSimulationEngineCandidate(trade?.symbol, intradayData[trade?.symbol], adjustedTradeScore(trade?.symbol), trade?.side),
+    price
+  );
+}
+
+function isSimulationStopDeteriorated(trade) {
+  return SimulationEngine.isSimulationStopDeteriorated(
+    trade,
+    buildSimulationEngineCandidate(trade?.symbol, intradayData[trade?.symbol], adjustedTradeScore(trade?.symbol), trade?.side),
+    getSimulationEngineSettings()
+  );
+}
+
+function getSimulationStopExit(trade, price, side, entry, stop, openedAt) {
+  if (!Number.isFinite(stop) || !Number.isFinite(entry) || entry <= 0 || !Number.isFinite(Number(price))) return null;
+  const breached = side === 'sell' ? price >= stop : price <= stop;
+  if (!breached) {
+    trade._stopBreachCount = 0;
+    trade._stopFirstBreachedAt = null;
+    return null;
+  }
+  const adversePct = side === 'sell'
+    ? ((price - entry) / entry) * 100
+    : ((entry - price) / entry) * 100;
+  if (adversePct >= SIMULATION_EMERGENCY_STOP_PCT) {
+    return { reason:'Simulation emergency stop', exitPrice:Number(price) };
+  }
+  const now = Date.now();
+  const holdMs = Number.isFinite(openedAt) ? now - openedAt : 0;
+  trade._stopBreachCount = (Number(trade._stopBreachCount) || 0) + 1;
+  trade._stopFirstBreachedAt = trade._stopFirstBreachedAt || now;
+  if (holdMs < SIMULATION_STOP_GRACE_MIN * 60000) return null;
+  if (trade._stopBreachCount >= SIMULATION_STOP_CONFIRM_BARS) {
+    if (isSimulationStopDeteriorated(trade)) {
+      return { reason:'Simulation confirmed stop', exitPrice:Number(price) };
+    }
+    return null;
+  }
+  return null;
+}
+
+function getSimulationEntryBlockReason(sym, setupType = '') {
+  const stats = getSimulationDayStats();
+  return TradeRules.getEntryBlockReason(sym, setupType, Date.now(), stats, getSimulationEngineSettings());
 }
 
 function isETFAsset(rowOrSym) {
@@ -1748,20 +2722,65 @@ function getETFTradeSafety(row, t) {
   return { ok:true, warn:false, reason:'' };
 }
 
+function getSimulationMarketRegime(row, t, side) {
+  return SimulationEngine.getMarketRegime(
+    buildSimulationEngineCandidate(row, t, adjustedTradeScore(row), side),
+    side,
+    { ...getSimulationEngineSettings(), indices:indexData, sectorTrend:sectorTrendCache }
+  );
+}
+
+function isSimulationSetupAllowed(setupType) {
+  return SimulationEngine.isSimulationSetupAllowed(setupType);
+}
+
+function getSimulationSetupPriority(setupType) {
+  return SimulationEngine.setupPriority(setupType);
+}
+
+function compareSimulationCandidates(a, b) {
+  const candidateA = buildSimulationEngineCandidate(a.row, a.t, a.score, a.side || a.signal, a.guard);
+  const candidateB = buildSimulationEngineCandidate(b.row, b.t, b.score, b.side || b.signal, b.guard);
+  candidateA.derivedSetupType = a.setupType || getSetupType(a.row, a.t, a.guard);
+  candidateB.derivedSetupType = b.setupType || getSetupType(b.row, b.t, b.guard);
+  return SimulationEngine.compareCandidates(candidateA, candidateB);
+}
+
+function isMomentumRunnerTrade(trade) {
+  return SimulationEngine.isMomentumRunnerTrade(trade);
+}
+
+function isMomentumRunnerBroken(trade, price) {
+  return SimulationEngine.isMomentumRunnerBroken(
+    trade,
+    buildSimulationEngineCandidate(trade?.symbol, intradayData[trade?.symbol], adjustedTradeScore(trade?.symbol), trade?.side),
+    price,
+    getSimulationEngineSettings()
+  );
+}
+
+function getMomentumRunnerExit(trade, price, entry, target) {
+  return SimulationEngine.getMomentumRunnerExit(
+    trade,
+    price,
+    buildSimulationEngineCandidate(trade?.symbol, intradayData[trade?.symbol], adjustedTradeScore(trade?.symbol), trade?.side),
+    getSimulationEngineSettings()
+  );
+}
+
+function getSimulationExit(trade, price) {
+  return SimulationEngine.getSimulationExit(
+    trade,
+    price,
+    buildSimulationEngineCandidate(trade?.symbol, intradayData[trade?.symbol], adjustedTradeScore(trade?.symbol), trade?.side),
+    Date.now(),
+    getSimulationEngineSettings(),
+    { isEodSettlement:isSimulationEodSettlementTime() }
+  );
+}
+
 function getSimulationExitReason(trade, price) {
-  if (!trade || !Number.isFinite(Number(price))) return null;
-  const side = String(trade.side || 'buy').toLowerCase();
-  const target = Number(trade.target);
-  const stop = Number(trade.stop);
-  if (side === 'sell') {
-    if (Number.isFinite(target) && price <= target) return 'Simulation target';
-    if (Number.isFinite(stop) && price >= stop) return 'Simulation stop';
-  } else {
-    if (Number.isFinite(target) && price >= target) return 'Simulation target';
-    if (Number.isFinite(stop) && price <= stop) return 'Simulation stop';
-  }
-  if (isSimulationEodSettlementTime()) return 'Simulation EOD square-off';
-  return null;
+  return getSimulationExit(trade, price)?.reason || null;
 }
 
 function getSimulationCandidates() {
@@ -1770,26 +2789,1130 @@ function getSimulationCandidates() {
     ...STOCK_ASSETS.map((s, i) => ({ ...s, rank:MIDCAP_STOCKS.length + i + 1, data:stockData[s.sym] || null })),
     ...ETF_ASSETS.map((s, i) => ({ ...s, rank:MIDCAP_STOCKS.length + STOCK_ASSETS.length + i + 1, data:stockData[s.sym] || null, cap:'etf' })),
   ];
-  return universe
+  const candidates = universe
     .map(row => {
       const t = intradayData[row.sym];
       const score = t ? adjustedTradeScore(row) : -999;
       const signal = adjustedTradeSignal(score);
       const guard = t ? getRiskGuard(row, t, score) : null;
-      return { row, t, score, signal, guard };
+      const side = signal === 'sell' ? 'sell' : signal === 'buy' ? 'buy' : null;
+      const cost = t && side ? getTradeCostContext(row, t, side) : null;
+      const candidate = buildSimulationEngineCandidate(row, t, score, side, guard, cost);
+      candidate.row = row;
+      candidate.t = t;
+      candidate.signal = signal;
+      candidate.side = side;
+      candidate.guard = guard;
+      candidate.previousCandidate = simulationPreviousSignalCandidates.get(row.sym) || null;
+      candidate.derivedSetupType = t ? getSetupType(row, t, guard) : 'NO_SIGNAL';
+      return candidate;
     })
-    .filter(item => {
-      if (!item.t || item.signal !== 'buy') return false;
-      if (!['ok', 'small'].includes(item.guard?.level)) return false;
-      if (item.t.entryStatus === 'Wait') return false;
-      if (getOpenPaperTrade(item.row.sym)) return false;
-      if (!getCurrentTradePrice(item.row.sym)) return false;
-      const etfSafety = getETFTradeSafety(item.row, item.t);
-      if (!etfSafety.ok || etfSafety.warn) return false;
-      return true;
+    .filter(candidate => candidate.t);
+  return SimulationEngine.selectSimulationEntryCandidates(
+    candidates,
+    Date.now(),
+    getSimulationEngineSettings(),
+    {
+      openSymbols:new Set(paperTrades.filter(t => t.status === 'open').map(t => t.symbol)),
+      entryBlockReason:(sym, setupType) => getSimulationEntryBlockReason(sym, setupType),
+      market:{ indices:indexData },
+    }
+  );
+}
+
+function getSimulationCandidateFailure(item) {
+  if (!item.t) return 'missing intraday signal';
+  const freshness = getIntradayFreshness(item.t);
+  if (freshness.stale) return `stale signal: ${freshness.reason}`;
+  if (!['buy', 'sell'].includes(item.signal)) return `signal ${item.signal}`;
+  if (!SIMULATION_AUTO_SHORTS && item.signal === 'sell') return 'auto shorts disabled';
+  const settings = getSimulationEngineSettings();
+  const minScore = SimulationEngine.getMinScoreForSide(settings, item.signal);
+  if (Math.abs(item.score) < minScore) return `score ${Math.abs(item.score)} < ${minScore}`;
+  if (isETFAsset(item.row) && item.signal === 'sell') return 'ETF short disabled';
+  if (isETFAsset(item.row)) return 'ETF auto simulation disabled';
+  const setupType = getSetupType(item.row, item.t, item.guard);
+  if (!isSimulationSetupAllowed(setupType)) return `setup ${setupType}`;
+  const setupBlock = getSimulationSetupBlockReason(item.row, item.t, item.side || item.signal, setupType);
+  if (setupBlock) return setupBlock;
+  const regime = getSimulationMarketRegime(item.row, item.t, item.side || item.signal);
+  if (!regime.ok) return regime.reason;
+  const allowedGuards = SimulationEngine.getAllowedGuardLevelsForSide(settings, item.side || item.signal);
+  if (item.guard?.level && !allowedGuards.includes(String(item.guard.level).toLowerCase())) return `risk guard ${item.guard?.label || item.guard?.level || 'blocked'}`;
+  if (item.t.entryStatus !== 'Triggered') return `entry ${item.t.entryStatus || 'not triggered'}`;
+  if (getOpenPaperTrade(item.row.sym)) return 'already open';
+  if (!getCurrentTradePrice(item.row.sym)) return 'missing live price';
+  const blockReason = getSimulationEntryBlockReason(item.row.sym, setupType);
+  if (blockReason) return blockReason;
+  const cost = getTradeCostContext(item.row, item.t, item.side || item.signal);
+  if (!cost) return 'missing cost/target context';
+  if (!cost.ok || cost.netPct < SIMULATION_MIN_NET_PROFIT_PCT) return `net ${cost.netPct}% < ${SIMULATION_MIN_NET_PROFIT_PCT}%`;
+  const stopPct = Math.abs(Number(item.t.price) - Number(item.t.stop)) / Number(item.t.price) * 100;
+  const maxStopPct = SimulationEngine.getMaxStopPctForSide(settings, item.side || item.signal);
+  if (!Number.isFinite(stopPct) || stopPct > maxStopPct) return `stop ${Number.isFinite(stopPct) ? stopPct.toFixed(2) : '--'}% > ${maxStopPct}%`;
+  const etfSafety = getETFTradeSafety(item.row, item.t);
+  if (!etfSafety.ok || etfSafety.warn) return etfSafety.reason || 'ETF safety';
+  return '';
+}
+
+function getSetupType(row, t, guard) {
+  if (!t) return 'NO_SIGNAL';
+  const score = adjustedTradeScore(row);
+  const side = adjustedTradeSignal(score);
+  return SimulationEngine.deriveSetupType(
+    buildSimulationEngineCandidate(row, t, score, side, guard),
+    getSimulationEngineSettings()
+  );
+}
+
+function updateSetupOutcome(symbol, side, setupType, price, target, stop) {
+  if (!symbol || !['buy', 'sell'].includes(side) || !Number.isFinite(Number(price)) || Number(price) <= 0) return null;
+  const now = Date.now();
+  const key = `${symbol}|${side}|${setupType}`;
+  let rec = setupOutcomeTracker.get(key);
+  if (!rec || now - rec.firstSeenAt > 90 * 60 * 1000 || rec.hitTarget || rec.hitStop) {
+    rec = {
+      symbol,
+      side,
+      setupType,
+      firstSeenAt:now,
+      firstSeenIso:new Date(now).toISOString(),
+      entryPrice:Number(price),
+      target:Number.isFinite(Number(target)) ? Number(target) : null,
+      stop:Number.isFinite(Number(stop)) ? Number(stop) : null,
+      maxProfitPct:0,
+      maxDrawdownPct:0,
+      hitTarget:false,
+      hitStop:false,
+    };
+    setupOutcomeTracker.set(key, rec);
+  }
+  const current = Number(price);
+  const favorable = side === 'sell'
+    ? ((rec.entryPrice - current) / rec.entryPrice) * 100
+    : ((current - rec.entryPrice) / rec.entryPrice) * 100;
+  const adverse = side === 'sell'
+    ? ((current - rec.entryPrice) / rec.entryPrice) * 100
+    : ((rec.entryPrice - current) / rec.entryPrice) * 100;
+  rec.maxProfitPct = +Math.max(rec.maxProfitPct, favorable).toFixed(3);
+  rec.maxDrawdownPct = +Math.max(rec.maxDrawdownPct, adverse).toFixed(3);
+  rec.lastPrice = +current.toFixed(2);
+  rec.lastSeenAt = now;
+  rec.lastSeenIso = new Date(now).toISOString();
+  rec.ageMin = Math.max(0, Math.round((now - rec.firstSeenAt) / 60000));
+  if (side === 'sell') {
+    if (rec.target != null && current <= rec.target) rec.hitTarget = true;
+    if (rec.stop != null && current >= rec.stop) rec.hitStop = true;
+  } else {
+    if (rec.target != null && current >= rec.target) rec.hitTarget = true;
+    if (rec.stop != null && current <= rec.stop) rec.hitStop = true;
+  }
+  for (const [k, v] of setupOutcomeTracker) {
+    if (now - v.lastSeenAt > 2 * 60 * 60 * 1000) setupOutcomeTracker.delete(k);
+  }
+  return {
+    firstSeenAt:rec.firstSeenIso,
+    ageMin:rec.ageMin,
+    entryPrice:+rec.entryPrice.toFixed(2),
+    lastPrice:rec.lastPrice,
+    maxProfitPct:rec.maxProfitPct,
+    maxDrawdownPct:rec.maxDrawdownPct,
+    hitTarget:rec.hitTarget,
+    hitStop:rec.hitStop,
+  };
+}
+
+function buildSimulationSnapshotCandidates(limit = 30, lowestLimit = 30) {
+  const universe = [
+    ...MIDCAP_STOCKS.map((s, i) => ({ ...s, rank:i + 1, data:stockData[s.sym] || null })),
+    ...STOCK_ASSETS.map((s, i) => ({ ...s, rank:MIDCAP_STOCKS.length + i + 1, data:stockData[s.sym] || null })),
+    ...ETF_ASSETS.map((s, i) => ({ ...s, rank:MIDCAP_STOCKS.length + STOCK_ASSETS.length + i + 1, data:stockData[s.sym] || null, cap:'etf' })),
+  ];
+  const candidates = universe
+    .map(row => {
+      const t = intradayData[row.sym];
+      const score = t ? adjustedTradeScore(row) : -999;
+      const signal = adjustedTradeSignal(score);
+      const side = signal === 'sell' ? 'sell' : signal === 'buy' ? 'buy' : null;
+      const guard = t ? getRiskGuard(row, t, score) : null;
+      const cost = t && side ? getTradeCostContext(row, t, side) : null;
+      const liquidity = t ? getLiquidityInfo(t) : null;
+      const freshness = t ? getIntradayFreshness(t) : null;
+      const stopPct = t?.price && t?.stop ? Math.abs(Number(t.price) - Number(t.stop)) / Number(t.price) * 100 : null;
+      const item = { row, t, score, signal, side, guard };
+      const failure = getSimulationCandidateFailure(item);
+      const priceAtSnapshot = getCurrentTradePrice(row.sym) ?? row.data?.price ?? t?.price ?? null;
+      const setupType = getSetupType(row, t, guard);
+      const entryPrice = t ? getEntryTriggerPrice(t) : null;
+      const triggerDistancePct = t && entryPrice && Number.isFinite(Number(priceAtSnapshot)) && Number(priceAtSnapshot) > 0
+        ? (side === 'sell' ? ((entryPrice - Number(priceAtSnapshot)) / entryPrice) * 100 : ((Number(priceAtSnapshot) - entryPrice) / entryPrice) * 100)
+        : null;
+      const engineCandidate = t ? buildSimulationEngineCandidate(row, t, score, side, guard, cost) : null;
+      if (engineCandidate) engineCandidate.derivedSetupType = setupType;
+      const dataQuality = engineCandidate ? SimulationEngine.getDataQualityIssues(engineCandidate, getSimulationEngineSettings()) : [];
+      const outcome = t && side
+        ? updateSetupOutcome(row.sym, side, setupType, priceAtSnapshot, t.target, t.stop)
+        : null;
+      return {
+        symbol:row.sym,
+        name:row.name || row.sym,
+        universeRank:row.rank ?? null,
+        assetType:isETFAsset(row) ? 'etf' : 'stock',
+        sector:row.sector || '',
+        cap:row.cap || '',
+        price:priceAtSnapshot,
+        priceAtSnapshot,
+        change:row.data?.change ?? null,
+        quote:{
+          price:priceAtSnapshot,
+          change:row.data?.change ?? null,
+          open:row.data?.open ?? null,
+          prevClose:row.data?.prevClose ?? null,
+          high52:row.data?.high52 ?? null,
+          low52:row.data?.low52 ?? null,
+          volume:row.data?.volume ?? t?.dayVolume ?? null,
+        },
+        marketContext:{
+          niftyChange:indexData?.nifty50?.change ?? indexData?.nifty?.change ?? null,
+          bankNiftyChange:indexData?.bankNifty?.change ?? null,
+          sectorAvg:sectorTrendCache[row.sector] ?? null,
+          relativeStrength:row.data?.change != null && (indexData?.nifty50?.change ?? indexData?.nifty?.change) != null
+            ? +(Number(row.data.change) - Number(indexData?.nifty50?.change ?? indexData?.nifty?.change)).toFixed(3)
+            : null,
+        },
+        ohlc:t?.ohlc || null,
+        spreadEstimatePct:t?.spreadEstimatePct ?? row.data?.spreadEstimatePct ?? null,
+        setupType,
+        previousCandidate:simulationPreviousSignalCandidates.get(row.sym) || null,
+        outcome,
+        score,
+        rawScore:t?.score ?? null,
+        signal,
+        side,
+        wouldEnter:!failure,
+        blockReason:failure || '',
+        decision:{ selected:false, selectionRank:null, reason:failure || '', reasons:failure ? [failure] : [] },
+        guard:guard ? { level:guard.level, label:guard.label, reason:guard.reason } : null,
+        cost:cost ? { targetPct:cost.targetPct, costPct:cost.costPct, slippagePct:cost.slippagePct, netPct:cost.netPct, requiredPct:cost.requiredPct, ok:cost.ok } : null,
+        liquidity,
+        freshness,
+        indicators:t ? {
+          entryStatus:t.entryStatus || '',
+          entryTrigger:t.entryTrigger || '',
+          entryPrice,
+          triggerDistancePct:Number.isFinite(triggerDistancePct) ? +triggerDistancePct.toFixed(3) : null,
+          reasons:Array.isArray(t.reasons) ? t.reasons.slice(0, 6) : [],
+          vwap:t.vwap ?? null,
+          vwapBandPosition:t.vwapBandPosition ?? null,
+          vwapBandWidthPct:t.vwapBandWidthPct ?? null,
+          ema9:t.ema9 ?? t.emaShort ?? null,
+          ema20:t.ema20 ?? t.emaLong ?? null,
+          rsi:t.rsi ?? null,
+          atr:t.atr ?? null,
+          superTrendDirection:t.superTrendDirection ?? null,
+          target:t.target ?? null,
+          stop:t.stop ?? null,
+          rr:t.rr ?? null,
+          stopPct:Number.isFinite(stopPct) ? +stopPct.toFixed(3) : null,
+          dayVolume:t.dayVolume ?? null,
+          relVolume:t.relVolume ?? null,
+          relVolumeTimeAdjusted:t.relVolumeTimeAdjusted ?? null,
+          expectedVolumeFraction:t.expectedVolumeFraction ?? null,
+          volumeShock:t.volumeShock ?? null,
+          dataQuality,
+        } : null,
+      };
     })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, SIMULATION_TOP_N);
+    .filter(c => c.indicators)
+    .sort(compareSimulationCandidates);
+  const settings = getSimulationEngineSettings();
+  const selectedEntries = SimulationEngine.selectSimulationEntryCandidates(
+    candidates,
+    Date.now(),
+    settings,
+    {
+      openSymbols:new Set(paperTrades.filter(t => t.status === 'open').map(t => t.symbol)),
+      entryBlockReason:(sym, setupType) => getSimulationEntryBlockReason(sym, setupType),
+      market:{ indices:indexData },
+      topN:SIMULATION_TOP_N,
+    }
+  );
+  const selectedRank = new Map(selectedEntries.map((candidate, index) => [candidate.symbol, index + 1]));
+  for (const candidate of candidates) {
+    const side = candidate.side || candidate.signal;
+    const explanation = SimulationEngine.explainCandidateEligibility(candidate, Date.now(), settings, {
+      previousCandidate:candidate.previousCandidate,
+      market:{ indices:indexData },
+    });
+    const rank = selectedRank.get(candidate.symbol) || null;
+    candidate.selectionRank = rank;
+    candidate.decision = {
+      selected:!!rank,
+      selectionRank:rank,
+      side,
+      setupType:explanation.setupType || candidate.setupType || '',
+      reason:rank ? `selected rank ${rank}` : (explanation.reasons?.[0] || candidate.blockReason || 'not selected'),
+      reasons:rank ? [`selected rank ${rank}`] : (explanation.reasons || (candidate.blockReason ? [candidate.blockReason] : [])),
+    };
+    candidate.wouldEnter = !!rank;
+    candidate.blockReason = rank ? '' : candidate.decision.reason;
+  }
+  const selected = [];
+  const addCandidate = (candidate, reason) => {
+    const existing = selected.find(c => c.symbol === candidate.symbol);
+    if (existing) {
+      existing.captureReasons = Array.isArray(existing.captureReasons) ? existing.captureReasons : [];
+      if (!existing.captureReasons.includes(reason)) existing.captureReasons.push(reason);
+      return;
+    }
+    selected.push({ ...candidate, captureReasons:[reason] });
+  };
+  candidates.slice(0, limit).forEach(candidate => addCandidate(candidate, 'top-ranked'));
+  candidates
+    .filter(candidate => candidate.assetType !== 'etf')
+    .slice()
+    .sort((a, b) => (Number(a.score) || 0) - (Number(b.score) || 0))
+    .slice(0, lowestLimit)
+    .forEach(candidate => addCandidate(candidate, 'lowest-score'));
+  for (const candidate of candidates) {
+    if (candidate.indicators?.volumeShock?.isShock) addCandidate(candidate, 'volume-shock');
+  }
+  return selected;
+}
+
+async function saveSimulationSnapshot(source = 'intraday-refresh') {
+  if (!isMarketHoursNow()) return;
+  const candidates = buildSimulationSnapshotCandidates(30, 30);
+  if (!candidates.length) return;
+  const outcomes = candidates.map(c => c.outcome).filter(Boolean);
+  const avg = (field) => outcomes.length
+    ? +(outcomes.reduce((sum, item) => sum + (Number(item[field]) || 0), 0) / outcomes.length).toFixed(3)
+    : null;
+  const payload = {
+    source,
+    dataSource,
+    currentView,
+    simulationState,
+    caps:{
+      snapshotTopRanked:30,
+      snapshotLowestScorers:30,
+      maxOpen:SIMULATION_MAX_OPEN,
+      maxActiveOpen:SIMULATION_MAX_ACTIVE_OPEN,
+      topN:SIMULATION_TOP_N,
+      dailyMaxTrades:SIMULATION_DAILY_MAX_TRADES,
+      dailyMaxStops:SIMULATION_DAILY_MAX_STOPS,
+      dailyMaxStopsWhenProfitBuffer:SIMULATION_DAILY_MAX_STOPS * SIMULATION_DAILY_MAX_STOPS_PROFIT_MULTIPLIER,
+      dailyStopProfitBufferPct:SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT,
+      dailyMaxNetLossPct:SIMULATION_DAILY_MAX_NET_LOSS_PCT,
+      maxNewPerCycle:SIMULATION_MAX_NEW_PER_CYCLE,
+      firstHourMaxEntries:SIMULATION_FIRST_HOUR_MAX_ENTRIES,
+      stopGraceMin:SIMULATION_STOP_GRACE_MIN,
+      stopConfirmBars:SIMULATION_STOP_CONFIRM_BARS,
+      emergencyStopPct:SIMULATION_EMERGENCY_STOP_PCT,
+      runnerMinScore:SIMULATION_RUNNER_MIN_SCORE,
+      runnerMinRelVol:SIMULATION_RUNNER_MIN_REL_VOL,
+      runnerMaxTriggerExtensionPct:SIMULATION_RUNNER_MAX_TRIGGER_EXTENSION_PCT,
+      runnerMaxVwapExtensionPct:SIMULATION_RUNNER_MAX_VWAP_EXTENSION_PCT,
+      runnerTrailPct:SIMULATION_RUNNER_TRAIL_PCT,
+      breakevenProtectPct:SIMULATION_BREAKEVEN_PROTECT_PCT,
+      trailStartPct:SIMULATION_TRAIL_START_PCT,
+      longTrailPct:SIMULATION_LONG_TRAIL_PCT,
+      timeStopMin:SIMULATION_TIME_STOP_MIN,
+      timeStopMinProfitPct:SIMULATION_TIME_STOP_MIN_PROFIT_PCT,
+      vwapContinuationMinScore:SIMULATION_VWAP_CONT_MIN_SCORE,
+      vwapContinuationMaxTriggerExtensionPct:SIMULATION_VWAP_CONT_MAX_TRIGGER_EXTENSION_PCT,
+      vwapContinuationMaxVwapExtensionPct:SIMULATION_VWAP_CONT_MAX_VWAP_EXTENSION_PCT,
+      minScore:SIMULATION_MIN_SCORE,
+      shortMinScore:SIMULATION_SHORT_MIN_SCORE,
+      shortMinRelVol:SIMULATION_SHORT_MIN_REL_VOL,
+      shortAllowAvoidGuard:SIMULATION_SHORT_ALLOW_AVOID_GUARD,
+      shortTriggerDistancePct:SIMULATION_SHORT_TRIGGER_DISTANCE_PCT,
+      shortConfirmBars:SIMULATION_SHORT_CONFIRM_BARS,
+      shortMaxStopPct:SIMULATION_SHORT_MAX_STOP_PCT,
+      shortTrailPct:SIMULATION_SHORT_TRAIL_PCT,
+      shortMinBearishConfirmations:SIMULATION_SHORT_MIN_BEARISH_CONFIRMATIONS,
+      marketBreadthPct:SIMULATION_MARKET_BREADTH_PCT,
+      marketRegimeNiftyPct:SIMULATION_MARKET_REGIME_NIFTY_PCT,
+      marketRegimeSectorPct:SIMULATION_MARKET_REGIME_SECTOR_PCT,
+      marketRegimeRsPct:SIMULATION_MARKET_REGIME_RS_PCT,
+      autoShorts:SIMULATION_AUTO_SHORTS,
+      minNetProfitPct:SIMULATION_MIN_NET_PROFIT_PCT,
+      symbolCooldownMin:SIMULATION_SYMBOL_COOLDOWN_MIN,
+      setupCooldownMin:SIMULATION_SETUP_COOLDOWN_MIN,
+      setupDailyLossGuardCount:SIMULATION_SETUP_DAILY_LOSS_GUARD_COUNT,
+      maxPositionExposure:MAX_POSITION_EXPOSURE,
+    },
+    dayStats:getSimulationDayStats(),
+    market:{ marketOpen, timeWarning:getTimeWarning(), indices:indexData },
+    openSimulationTrades:getSimulationOpenTrades().map(t => ({
+      symbol:t.symbol,
+      side:t.side,
+      qty:t.qty,
+      entryPrice:t.entryPrice,
+      priceAtSnapshot:getCurrentTradePrice(t.symbol),
+      ohlc:intradayData[t.symbol]?.ohlc || null,
+      setupType:t.setupType || null,
+      target:t.target,
+      stop:t.stop,
+      openedAt:t.openedAt,
+      pnl:getPaperTradePnl(t, getCurrentTradePrice(t.symbol)),
+    })),
+    outcomeSummary:{
+      tracked:outcomes.length,
+      hitTarget:outcomes.filter(o => o.hitTarget).length,
+      hitStop:outcomes.filter(o => o.hitStop).length,
+      avgMaxProfitPct:avg('maxProfitPct'),
+      avgMaxDrawdownPct:avg('maxDrawdownPct'),
+    },
+    candidateCount:candidates.length,
+    candidates,
+  };
+  const res = await fetch(SIM_SNAPSHOT_ENDPOINT, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body:JSON.stringify(payload),
+    signal:AbortSignal.timeout(5000),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(()=>({}));
+    throw new Error(err.error || `simulation-snapshots HTTP ${res.status}`);
+  }
+}
+
+function closeReplayModal(e) {
+  if (e) e.stopPropagation();
+  const modal = document.getElementById('replay-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function replayMoney(n) {
+  return moneyINR(Number.isFinite(Number(n)) ? Number(n) : 0);
+}
+
+function replayTradeNet(trade) {
+  return Number.isFinite(Number(trade?.pnl)) ? Number(trade.pnl) : Number(trade?.net) || 0;
+}
+
+function replayTradeFees(trade) {
+  return Number.isFinite(Number(trade?.charges)) ? Number(trade.charges) : Number(trade?.fees) || 0;
+}
+
+function replayTradeSetup(trade) {
+  return trade?.setupType || trade?.setup || 'UNKNOWN';
+}
+
+function replayTradeEntry(trade) {
+  return Number.isFinite(Number(trade?.entryPrice)) ? Number(trade.entryPrice) : Number(trade?.entry);
+}
+
+function replayTradeExit(trade) {
+  return Number.isFinite(Number(trade?.exitPrice)) ? Number(trade.exitPrice) : Number(trade?.exit);
+}
+
+function replayTradeOpened(trade) {
+  return trade?.openedAt || trade?.opened || null;
+}
+
+function replayTradeClosed(trade) {
+  return trade?.closedAt || trade?.closed || null;
+}
+
+function replayTradeReason(trade) {
+  return trade?.closeReason || trade?.reason || '--';
+}
+
+function summarizeReplaySetupPerformance(trades) {
+  const buckets = {};
+  for (const trade of trades || []) {
+    const key = replayTradeSetup(trade);
+    buckets[key] ||= { setup:key, trades:0, wins:0, net:0, fees:0 };
+    buckets[key].trades += 1;
+    if (replayTradeNet(trade) > 0) buckets[key].wins += 1;
+    buckets[key].net += replayTradeNet(trade);
+    buckets[key].fees += replayTradeFees(trade);
+  }
+  return Object.values(buckets)
+    .map(row => ({
+      ...row,
+      losses:row.trades - row.wins,
+      winRate:+((row.wins / Math.max(1, row.trades)) * 100).toFixed(1),
+      net:+row.net.toFixed(2),
+      fees:+row.fees.toFixed(2),
+    }))
+    .sort((a, b) => b.net - a.net);
+}
+
+function compareReplayWithActual(day, replayTrades) {
+  const actual = paperTrades
+    .filter(t => t.source === 'simulation' && getTradeDateKey(t.openedAt || t.closedAt) === day)
+    .filter(t => String(t.status || '').toLowerCase() === 'closed');
+  const parity = SimulationEngine.summarizeReplayParity(actual, replayTrades || []);
+  return {
+    ...parity,
+    onlyReplay:parity.replayOnly || [],
+    onlyActual:parity.actualOnly || [],
+  };
+}
+
+function cloneReplaySnapshots(snapshots) {
+  return JSON.parse(JSON.stringify(snapshots || []));
+}
+
+function runReplaySweep(snapshots, limit = 10) {
+  const base = getSimulationEngineSettings();
+  const values = list => [...new Set(list.filter(v => Number.isFinite(Number(v))))];
+  const minScores = values([base.SIMULATION_MIN_SCORE, 50, 55, 60, 65]);
+  const topNs = values([base.SIMULATION_TOP_N, 8, 10, 12, 15]);
+  const perCycles = values([base.SIMULATION_MAX_NEW_PER_CYCLE, 3, 4, 5]);
+  const trails = values([base.SIMULATION_LONG_TRAIL_PCT, 0.4, 0.6, 0.8]);
+  const rows = [];
+  for (const minScore of minScores) {
+    for (const topN of topNs) {
+      for (const perCycle of perCycles) {
+        for (const trail of trails) {
+          const settings = { ...base, SIMULATION_MIN_SCORE:minScore, SIMULATION_TOP_N:topN, SIMULATION_MAX_NEW_PER_CYCLE:perCycle, SIMULATION_LONG_TRAIL_PCT:trail };
+          const result = runSnapshotsReplay(cloneReplaySnapshots(snapshots), settings);
+          rows.push({
+            minScore, topN, perCycle, trail,
+            trades:result.summary.trades,
+            winRate:result.summary.winRate,
+            net:result.summary.net,
+            drawdown:result.summary.maxDrawdown,
+            lossStreak:result.summary.maxLossStreak,
+          });
+        }
+      }
+    }
+  }
+  return rows.sort((a, b) => b.net - a.net || a.drawdown - b.drawdown || b.winRate - a.winRate).slice(0, limit);
+}
+
+async function runReplaySweepAsync(snapshots, limit = 10, onProgress = null) {
+  const base = getSimulationEngineSettings();
+  const values = list => [...new Set(list.filter(v => Number.isFinite(Number(v))))];
+  const minScores = values([base.SIMULATION_MIN_SCORE, 50, 55, 60, 65]);
+  const topNs = values([base.SIMULATION_TOP_N, 8, 10, 12, 15]);
+  const perCycles = values([base.SIMULATION_MAX_NEW_PER_CYCLE, 3, 4, 5]);
+  const trails = values([base.SIMULATION_LONG_TRAIL_PCT, 0.4, 0.6, 0.8]);
+  const rows = [];
+  const total = minScores.length * topNs.length * perCycles.length * trails.length;
+  let done = 0;
+  for (const minScore of minScores) {
+    for (const topN of topNs) {
+      for (const perCycle of perCycles) {
+        for (const trail of trails) {
+          const settings = { ...base, SIMULATION_MIN_SCORE:minScore, SIMULATION_TOP_N:topN, SIMULATION_MAX_NEW_PER_CYCLE:perCycle, SIMULATION_LONG_TRAIL_PCT:trail };
+          const result = runSnapshotsReplay(cloneReplaySnapshots(snapshots), settings);
+          rows.push({
+            minScore, topN, perCycle, trail,
+            trades:result.summary.trades,
+            winRate:result.summary.winRate,
+            net:result.summary.net,
+            drawdown:result.summary.maxDrawdown,
+            lossStreak:result.summary.maxLossStreak,
+          });
+          done += 1;
+          if (done % 5 === 0) {
+            if (typeof onProgress === 'function') onProgress(done, total);
+            await new Promise(resolve => setTimeout(resolve, 0));
+          }
+        }
+      }
+    }
+  }
+  if (typeof onProgress === 'function') onProgress(done, total);
+  return rows.sort((a, b) => b.net - a.net || a.drawdown - b.drawdown || b.winRate - a.winRate).slice(0, limit);
+}
+
+let lastReplayDebugResult = null;
+let replayJobHistory = [];
+let replayJobBusyMode = null;
+
+function runSnapshotsReplay(snapshots, settingsOverride = null) {
+  const settings = settingsOverride ? TradeRules.withDefaults(settingsOverride) : getSimulationEngineSettings();
+  const capital = getPortfolioCapital();
+  const trades = [];
+  const rejectedByKey = new Map();
+  const selectedLog = [];
+  let nextId = 1;
+  let currentBySymbol = new Map();
+  const lastKnownBySymbol = new Map();
+  const previousCandidateBySymbol = new Map();
+  const openTrades = () => trades.filter(t => t.status === 'open');
+  const simOpenTrades = () => openTrades().filter(t => t.source === 'simulation');
+  const realizedPnl = () => trades.filter(t => t.status === 'closed').reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
+  const openExposure = () => openTrades().reduce((sum, t) => sum + ((Number(t.entryPrice) || 0) * (Number(t.qty) || 0)), 0);
+  const cashAvailable = () => capital + realizedPnl() - openExposure();
+  const sameDay = (a, b) => getTradeDateKey(a) === getTradeDateKey(b);
+  const dayStats = at => TradeRules.buildDayStats(trades, at, settings, { sameDay });
+  const entryBlockReason = (sym, setupType, at) => TradeRules.getEntryBlockReason(sym, setupType, at, dayStats(at), settings);
+  const replayClock = value => {
+    const d = new Date(new Date(value || Date.now()).getTime() + 5.5 * 3600 * 1000);
+    return { day:d.getUTCDay(), mins:d.getUTCHours() * 60 + d.getUTCMinutes() };
+  };
+  const isReplayEntryWindow = value => {
+    const { day, mins } = replayClock(value);
+    return day >= 1 && day <= 5 && mins >= 9 * 60 + 30 && mins < 14 * 60 + 45;
+  };
+  const isReplayEod = value => {
+    const { day, mins } = replayClock(value);
+    return day === 0 || day === 6 || mins >= 15 * 60 + 20;
+  };
+  const closeTrade = (trade, exitPrice, reason, at, mark = false) => {
+    const pnl = SimulationEngine.getPaperTradePnl(trade, exitPrice);
+    Object.assign(trade, {
+      status:'closed',
+      exitPrice:+Number(exitPrice).toFixed(2),
+      closedAt:at,
+      closeReason:reason,
+      pnl:pnl?.pnl || 0,
+      pnlPct:pnl?.pnlPct || 0,
+      grossPnl:pnl?.grossPnl || 0,
+      charges:pnl?.charges || 0,
+      mark,
+    });
+  };
+  const partialCloseTrade = (trade, exitPrice, reason, at, qty, runner = false) => {
+    const closeQty = Math.floor(Number(qty));
+    const openQty = Math.floor(Number(trade.qty));
+    if (!Number.isFinite(closeQty) || closeQty <= 0 || closeQty >= openQty) return;
+    const partial = { ...trade, id:nextId++, parentId:trade.id, status:'closed', qty:closeQty, exitPrice:+Number(exitPrice).toFixed(2), closedAt:at, closeReason:reason };
+    const pnl = SimulationEngine.getPaperTradePnl(partial, exitPrice);
+    Object.assign(partial, { pnl:pnl?.pnl || 0, pnlPct:pnl?.pnlPct || 0, grossPnl:pnl?.grossPnl || 0, charges:pnl?.charges || 0 });
+    trade.qty = openQty - closeQty;
+    trade.reservedCapital = +(Number(trade.entryPrice) * Number(trade.qty)).toFixed(2);
+    trade._partialTargetBooked = true;
+    trade._runnerArmed = true;
+    trade._runnerWideTrail = !!runner;
+    trade.target = null;
+    trades.push(partial);
+  };
+
+  const ordered = (Array.isArray(snapshots) ? snapshots : []).slice().sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
+  for (const snapshot of ordered) {
+    currentBySymbol = new Map();
+    for (const candidate of snapshot.candidates || []) {
+      candidate.previousCandidate = previousCandidateBySymbol.get(candidate.symbol) || candidate.previousCandidate || null;
+      candidate.derivedSetupType = SimulationEngine.deriveSetupType(candidate, settings);
+      currentBySymbol.set(candidate.symbol, candidate);
+      lastKnownBySymbol.set(candidate.symbol, candidate);
+      previousCandidateBySymbol.set(candidate.symbol, SimulationEngine.toConfirmationCandidate(candidate));
+    }
+    for (const trade of simOpenTrades().slice()) {
+      const candidate = currentBySymbol.get(trade.symbol) || lastKnownBySymbol.get(trade.symbol);
+      const price = Number(candidate?.price ?? candidate?.priceAtSnapshot ?? candidate?.quote?.price);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      const exit = SimulationEngine.getSimulationExit(trade, price, candidate, snapshot.at, settings, { isEodSettlement:isReplayEod(snapshot.at) });
+      if (exit?.action === 'partial') {
+        partialCloseTrade(trade, exit.exitPrice, exit.reason, snapshot.at, Math.max(1, Math.floor(Number(trade.qty || 0) * Number(exit.qtyPct || 50) / 100)), exit.runner);
+      } else if (exit) {
+        closeTrade(trade, exit.exitPrice, exit.reason, snapshot.at);
+      }
+    }
+    if (!isReplayEntryWindow(snapshot.at) || isReplayEod(snapshot.at) || cashAvailable() <= 0) continue;
+    let slots = Math.max(0, Math.min(settings.SIMULATION_MAX_OPEN - openTrades().length, settings.SIMULATION_MAX_ACTIVE_OPEN - simOpenTrades().length));
+    if (slots <= 0) continue;
+    const candidates = SimulationEngine.selectSimulationEntryCandidates(snapshot.candidates || [], snapshot.at, settings, {
+      openSymbols:new Set(openTrades().map(t => t.symbol)),
+      entryBlockReason:(symbol, setupType) => entryBlockReason(symbol, setupType, snapshot.at),
+      market:snapshot.market,
+    });
+    const selectedKeys = new Set(candidates.map(c => `${c.symbol}|${c.side || c.signal}`));
+    const rankedAll = (snapshot.candidates || [])
+      .filter(c => c && c.assetType !== 'etf' && ['buy', 'sell'].includes(c.side || c.signal))
+      .map(c => {
+        c.previousCandidate = previousCandidateBySymbol.get(c.symbol) || c.previousCandidate || null;
+        c.derivedSetupType = c.derivedSetupType || c.setupType || SimulationEngine.deriveSetupType(c, settings);
+        return c;
+      })
+      .sort(SimulationEngine.compareCandidates);
+    rankedAll.forEach((candidate, index) => {
+      const side = candidate.side || candidate.signal;
+      const key = `${candidate.symbol}|${side}`;
+      if (selectedKeys.has(key)) return;
+      const explanation = SimulationEngine.explainCandidateEligibility(candidate, snapshot.at, settings, {
+        previousCandidate:candidate.previousCandidate,
+        market:snapshot.market,
+      });
+      const setupType = explanation.setupType || candidate.derivedSetupType || candidate.setupType || '';
+      let block = entryBlockReason(candidate.symbol, setupType, snapshot.at);
+      if (/profit re-entry cooldown/i.test(String(block || '')) && SimulationEngine.isCandidateContinuationReentryAllowed(candidate, settings)) block = '';
+      const reasons = explanation.eligible
+        ? [block || `not selected: rank ${index + 1}, slots ${slots}, topN ${settings.SIMULATION_TOP_N}, cash ${moneyINR(cashAvailable())}`]
+        : explanation.reasons;
+      const absScore = Math.abs(Number(candidate.score) || 0);
+      const existing = rejectedByKey.get(key);
+      if (!existing || absScore > existing.absScore) {
+        rejectedByKey.set(key, {
+          symbol:candidate.symbol,
+          side,
+          setupType,
+          score:Number(candidate.score) || 0,
+          absScore,
+          rank:index + 1,
+          at:snapshot.at,
+          price:Number(candidate.price ?? candidate.priceAtSnapshot ?? candidate.quote?.price) || null,
+          reason:(reasons || []).slice(0, 4).join(' | '),
+          reasons,
+        });
+      }
+    });
+    let openedThisCycle = 0;
+    for (let i = 0; i < candidates.length; i++) {
+      if (slots <= 0 || openedThisCycle >= settings.SIMULATION_MAX_NEW_PER_CYCLE) break;
+      const candidate = candidates[i];
+      const setupType = candidate.derivedSetupType || candidate.setupType || '';
+      const price = Number(candidate.price ?? candidate.priceAtSnapshot ?? candidate.quote?.price);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      const remainingSlots = Math.max(1, Math.min(slots, Math.max(1, candidates.length - i)));
+      const allocation = Math.min(settings.MAX_POSITION_EXPOSURE, cashAvailable() / remainingSlots);
+      const side = candidate.side || candidate.signal || 'buy';
+      const suggestion = SimulationEngine.getSuggestedQty(candidate, side, price, cashAvailable(), allocation, settings);
+      if (suggestion.qty <= 0) continue;
+      trades.push({
+        id:nextId++,
+        symbol:candidate.symbol,
+        name:candidate.name || candidate.symbol,
+        side,
+        qty:suggestion.qty,
+        entryPrice:+price.toFixed(2),
+        target:suggestion.plan.target,
+        stop:suggestion.plan.stop,
+        signal:side,
+        score:Math.abs(Number(candidate.score) || 0),
+        source:'simulation',
+        assetType:'stock',
+        reservedCapital:+(suggestion.qty * price).toFixed(2),
+        setupType,
+        setup:['Replay', setupType, candidate.indicators?.entryStatus, candidate.indicators?.entryTrigger].filter(Boolean).join(' | '),
+        entryContext:{ reason:`selected rank ${i + 1}`, selectedRank:i + 1 },
+        openedAt:snapshot.at,
+        status:'open',
+      });
+      selectedLog.push({ symbol:candidate.symbol, side, setupType, score:Number(candidate.score) || 0, rank:i + 1, at:snapshot.at, price });
+      slots -= 1;
+      openedThisCycle += 1;
+    }
+  }
+  const lastPrice = new Map();
+  const lastAt = new Map();
+  for (const snapshot of ordered) {
+    for (const candidate of snapshot.candidates || []) {
+      const price = Number(candidate.price ?? candidate.priceAtSnapshot ?? candidate.quote?.price);
+      if (Number.isFinite(price) && price > 0) {
+        lastPrice.set(candidate.symbol, price);
+        lastAt.set(candidate.symbol, snapshot.at);
+      }
+    }
+  }
+  for (const trade of simOpenTrades().slice()) {
+    const price = lastPrice.get(trade.symbol);
+    if (Number.isFinite(price)) closeTrade(trade, price, 'Replay mark at last snapshot', lastAt.get(trade.symbol) || ordered.at(-1)?.at, true);
+  }
+  const closed = trades.filter(t => t.status === 'closed');
+  const wins = closed.filter(t => Number(t.pnl) > 0).length;
+  const net = closed.reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
+  const fees = closed.reduce((sum, t) => sum + (Number(t.charges) || 0), 0);
+  const risk = getPortfolioRiskStats(closed, capital);
+  const setupStats = summarizeReplaySetupPerformance(closed);
+  const quality = SimulationEngine.summarizeTradeQuality(closed, settings);
+  return {
+    snapshots:ordered.length,
+    trades:closed,
+    rejected:[...rejectedByKey.values()].sort((a, b) => b.absScore - a.absScore).slice(0, 40),
+    selected:selectedLog,
+    setupStats,
+    quality,
+    summary:{
+      trades:closed.length,
+      wins,
+      losses:closed.length - wins,
+      winRate:+((wins / Math.max(1, closed.length)) * 100).toFixed(1),
+      net:+net.toFixed(2),
+      fees:+fees.toFixed(2),
+      returnPct:+((net / Math.max(1, capital)) * 100).toFixed(3),
+      ...risk,
+    },
+  };
+}
+
+function replayTableRows(trades) {
+  return trades.slice(0, 80).map(trade => `<tr>
+    <td>${escapeHTML(trade.symbol)}</td>
+    <td>${escapeHTML(String(trade.side || '').toUpperCase())}</td>
+    <td>${escapeHTML(replayTradeSetup(trade) || '--')}</td>
+    <td>${Number(trade.qty || 0).toLocaleString('en-IN')}</td>
+    <td>${moneyINR(replayTradeEntry(trade))}</td>
+    <td>${moneyINR(replayTradeExit(trade))}</td>
+    <td class="portfolio-pnl ${portfolioValueClass(replayTradeNet(trade))}">${moneyINR(replayTradeNet(trade))}</td>
+    <td>${escapeHTML(formatTradeDateTime(replayTradeOpened(trade)))}</td>
+    <td>${escapeHTML(formatTradeDateTime(replayTradeClosed(trade)))}</td>
+    <td>${escapeHTML(replayTradeReason(trade))}${trade.mark ? ' [mark]' : ''}</td>
+  </tr>`).join('') || `<tr><td colspan="10" style="color:var(--muted);text-align:center;padding:16px">No replay trades</td></tr>`;
+}
+
+function rejectedReplayRows(rejected) {
+  return (rejected || []).slice(0, 30).map(row => `<tr>
+    <td>${escapeHTML(row.symbol)}</td>
+    <td>${escapeHTML(String(row.side || '').toUpperCase())}</td>
+    <td>${escapeHTML(row.setupType || '--')}</td>
+    <td>${row.rank || '--'}</td>
+    <td>${row.score}</td>
+    <td>${moneyINR(row.price)}</td>
+    <td class="replay-reason-cell">${escapeHTML(row.reason || '--')}</td>
+  </tr>`).join('') || `<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:16px">No rejected candidates captured</td></tr>`;
+}
+
+function setupReplayRows(setupStats) {
+  return (setupStats || []).map(row => `<tr>
+    <td>${escapeHTML(row.setup)}</td>
+    <td>${row.trades}</td>
+    <td>${row.winRate}%</td>
+    <td class="portfolio-pnl ${portfolioValueClass(row.net)}">${moneyINR(row.net)}</td>
+    <td>${moneyINR(row.fees)}</td>
+  </tr>`).join('') || `<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:16px">No setup performance yet</td></tr>`;
+}
+
+function tradeQualityRows(rows) {
+  return (rows || []).map(row => `<tr>
+    <td>${escapeHTML(row.setup || row.key || '--')}</td>
+    <td>${row.trades}</td>
+    <td>${row.winRate}%</td>
+    <td class="portfolio-pnl ${portfolioValueClass(row.net)}">${moneyINR(row.net)}</td>
+    <td>${row.avgNetPct}%</td>
+    <td>${row.avgHoldMin}m</td>
+    <td>${row.targetHitPct}%</td>
+    <td>${row.stopHitPct}%</td>
+    <td>${row.fadeExitPct}%</td>
+    <td>${row.lateEntryPct}%</td>
+  </tr>`).join('') || `<tr><td colspan="10" style="color:var(--muted);text-align:center;padding:16px">No trade quality data yet</td></tr>`;
+}
+
+function sweepReplayRows(rows) {
+  return (rows || []).map((row, index) => `<tr>
+    <td>${index + 1}</td>
+    <td>${row.minScore}</td>
+    <td>${row.topN}</td>
+    <td>${row.perCycle}</td>
+    <td>${row.firstHour ?? '--'}</td>
+    <td>${row.trail}%</td>
+    <td>${row.trades}</td>
+    <td>${row.winRate}%</td>
+    <td class="portfolio-pnl ${portfolioValueClass(row.net)}">${moneyINR(row.net)}</td>
+    <td>${moneyINR(row.drawdown)}</td>
+    <td><button class="paper-btn" onclick="applyReplaySettingsFromRow(${index}, 'sweep')">Apply</button></td>
+  </tr>`).join('') || `<tr><td colspan="11" style="color:var(--muted);text-align:center;padding:16px">Sweep not run yet</td></tr>`;
+}
+
+function replayComparisonHTML(currentSummary, rows) {
+  const best = (rows || [])[0];
+  if (!best) return '<div class="replay-note">Run Best Settings or Auto Tune to compare current rules with a tuned variant.</div>';
+  const currentNet = Number(currentSummary?.net) || 0;
+  const diff = (Number(best.net) || 0) - currentNet;
+  const guard = analyzeAutoTuneGuardrails(best, currentSummary);
+  const settings = getSimulationEngineSettings();
+  const changed = key => {
+    const map = {
+      minScore:'SIMULATION_MIN_SCORE',
+      topN:'SIMULATION_TOP_N',
+      perCycle:'SIMULATION_MAX_NEW_PER_CYCLE',
+      firstHour:'SIMULATION_FIRST_HOUR_MAX_ENTRIES',
+      trail:'SIMULATION_LONG_TRAIL_PCT',
+    };
+    const current = Number(settings[map[key]]);
+    const next = Number(best[key]);
+    return Number.isFinite(current) && Number.isFinite(next) && Math.abs(current - next) > 0.0001 ? 'changed' : '';
+  };
+  return `<div class="replay-compare-grid">
+    <div><span>Current net</span><strong class="${portfolioValueClass(currentNet)}">${moneyINR(currentNet)}</strong></div>
+    <div><span>Best net</span><strong class="${portfolioValueClass(best.net)}">${moneyINR(best.net)}</strong></div>
+    <div><span>Difference</span><strong class="${portfolioValueClass(diff)}">${moneyINR(diff)}</strong></div>
+    <div><span>Best settings</span><strong>
+      <mark class="${changed('minScore')}">Score ${best.minScore}</mark>
+      <mark class="${changed('topN')}">Top ${best.topN}</mark>
+      <mark class="${changed('perCycle')}">Cycle ${best.perCycle}</mark>
+      <mark class="${changed('firstHour')}">First hour ${best.firstHour ?? '--'}</mark>
+      <mark class="${changed('trail')}">Trail ${best.trail}%</mark>
+    </strong></div>
+  </div><div class="replay-note ${guard.level === 'warn' ? 'warn' : ''}">${escapeHTML(guard.message)}</div>`;
+}
+
+function describeReplaySettingsRow(row) {
+  if (!row) return '--';
+  return `Score ${row.minScore}, Top ${row.topN}, Cycle ${row.perCycle}, First hour ${row.firstHour ?? '--'}, Trail ${row.trail}%`;
+}
+
+function analyzeAutoTuneGuardrails(row, currentSummary = {}) {
+  if (!row) return { level:'info', message:'No auto-tune row selected.' };
+  const trades = Number(row.trades) || 0;
+  const currentNet = Number(currentSummary?.net) || 0;
+  const diff = (Number(row.net) || 0) - currentNet;
+  const warnings = [];
+  if (trades < 5) warnings.push('few trades');
+  if ((Number(row.maxDrawdownPct) || 0) > 0.25) warnings.push(`drawdown ${row.maxDrawdownPct}%`);
+  if (Number(row.lossStreak) >= 4) warnings.push(`loss streak ${row.lossStreak}`);
+  if (diff <= 0) warnings.push('not better than current replay');
+  if (warnings.length) return { level:'warn', message:`Guardrail: review before applying (${warnings.join(', ')}).` };
+  return { level:'ok', message:'Guardrail: candidate setting improves replay without obvious small-sample or drawdown warning.' };
+}
+
+function applyReplaySettingsFromRow(index, source = 'sweep') {
+  const rows = source === 'auto' ? lastReplayDebugResult?.autoTuneRows : lastReplayDebugResult?.sweepRows;
+  const row = rows?.[index];
+  if (!row) return;
+  const guard = analyzeAutoTuneGuardrails(row, lastReplayDebugResult?.result?.summary || {});
+  const ok = confirm(`Apply ${source === 'auto' ? 'auto-tune' : 'sweep'} settings?\n\n${describeReplaySettingsRow(row)}\nNet: ${moneyINR(row.net)} | Trades: ${row.trades} | Drawdown: ${row.maxDrawdownPct ?? '--'}%\n\n${guard.message}`);
+  if (!ok) return;
+  applyReplaySettings(row);
+}
+
+function replayJobRows(jobs) {
+  return (jobs || []).slice(0, 8).map(job => {
+    const best = job.result?.sweepRows?.[0] || job.result?.autoTuneRows?.[0] || null;
+    const started = job.createdAt ? formatTradeDateTime(job.createdAt) : '--';
+    const flags = [job.cached ? 'cached' : '', job.reused ? 'reused' : '', job.workerPid ? `pid ${job.workerPid}` : ''].filter(Boolean).join(' | ') || '--';
+    return `<tr>
+      <td>${escapeHTML(job.mode || '--')}</td>
+      <td>${escapeHTML(job.day || '--')}</td>
+      <td><span class="job-status ${escapeHTML(job.status || '')}">${escapeHTML(job.status || '--')}</span></td>
+      <td>${escapeHTML(started)}</td>
+      <td>${escapeHTML(flags)}</td>
+      <td>${best ? `Score ${escapeHTML(best.minScore)} / FH ${escapeHTML(best.firstHour ?? '--')} / ${moneyINR(best.net)}` : escapeHTML(job.error || '--')}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:12px">No replay jobs yet</td></tr>`;
+}
+
+function updateReplayJobHistory(jobs) {
+  if (Array.isArray(jobs)) replayJobHistory = jobs;
+  const target = document.getElementById('replay-job-history-body');
+  if (target) target.innerHTML = replayJobRows(replayJobHistory);
+}
+
+function setReplayJobBusy(mode, busy, label = '') {
+  replayJobBusyMode = busy ? mode : null;
+  document.querySelectorAll('[data-replay-job-btn]').forEach(btn => {
+    const btnMode = btn.getAttribute('data-replay-job-btn');
+    btn.disabled = !!busy;
+    if (!btn.dataset.originalText) btn.dataset.originalText = btn.textContent;
+    btn.textContent = busy && btnMode === mode ? label || 'Running...' : btn.dataset.originalText;
+  });
+}
+
+async function loadReplayJobHistory() {
+  try {
+    const res = await fetch(SIM_REPLAY_JOB_ENDPOINT, { signal:AbortSignal.timeout(5000) });
+    const payload = await res.json().catch(() => ({}));
+    if (res.ok && payload.ok !== false) updateReplayJobHistory(payload.jobs || []);
+  } catch (_) {}
+}
+
+function renderReplayReport(day, snapshots, result, opts = {}) {
+  const modal = document.getElementById('replay-modal');
+  const body = document.getElementById('replay-modal-body');
+  if (modal) modal.style.display = 'flex';
+  const compare = compareReplayWithActual(day, result.trades || []);
+  const sweepRows = opts.sweepRows || [];
+  const autoTuneRows = opts.autoTuneRows || [];
+  const bestRows = autoTuneRows.length ? autoTuneRows : sweepRows;
+  const quality = result.quality || SimulationEngine.summarizeTradeQuality(result.trades || [], getSimulationEngineSettings());
+  lastReplayDebugResult = { day, snapshots, result, compare, sweepRows, autoTuneRows, quality };
+  if (body) body.innerHTML = `
+    <div class="replay-toolbar">
+      <label>Replay date <input id="replay-date-input" class="text-input replay-date-input" type="date" value="${escapeHTML(day)}" /></label>
+      <button class="paper-btn buy" data-replay-job-btn="report" onclick="runReplayForSelectedDate()">Run</button>
+      <button class="paper-btn" data-replay-job-btn="sweep" onclick="runReplaySweepForCurrent()">Best Settings</button>
+      <button class="paper-btn" data-replay-job-btn="autotune" onclick="runReplayAutoTune5D()">Auto Tune 5D</button>
+      <button class="paper-btn" onclick="exportReplayReport('json')">Export JSON</button>
+      <button class="paper-btn" onclick="exportReplayReport('csv')">Export CSV</button>
+    </div>
+    <div id="replay-job-status"></div>
+    <div class="replay-summary">
+      <div class="replay-card"><div class="label">Snapshots</div><div class="value">${result.snapshots}</div></div>
+      <div class="replay-card"><div class="label">Replay Trades</div><div class="value">${result.summary.trades}</div></div>
+      <div class="replay-card"><div class="label">Win rate</div><div class="value">${result.summary.winRate}%</div></div>
+      <div class="replay-card"><div class="label">Replay Net</div><div class="value ${portfolioValueClass(result.summary.net)}">${moneyINR(result.summary.net)} (${result.summary.returnPct}%)</div></div>
+      <div class="replay-card"><div class="label">Actual Net</div><div class="value ${portfolioValueClass(compare.actualNet)}">${moneyINR(compare.actualNet)}</div></div>
+      <div class="replay-card"><div class="label">Replay vs Actual</div><div class="value ${portfolioValueClass(compare.diff)}">${moneyINR(compare.diff)}</div></div>
+      <div class="replay-card"><div class="label">Parity match</div><div class="value ${compare.matchPct >= 80 ? '' : 'down'}">${compare.matchPct ?? 0}%</div></div>
+      <div class="replay-card"><div class="label">Drawdown</div><div class="value ${result.summary.maxDrawdown > 0 ? 'down' : ''}">${moneyINR(result.summary.maxDrawdown)} (${result.summary.maxDrawdownPct}%)</div></div>
+      <div class="replay-card"><div class="label">Loss streak</div><div class="value ${result.summary.currentLossStreak > 0 ? 'down' : ''}">${result.summary.currentLossStreak} now / ${result.summary.maxLossStreak} max</div></div>
+    </div>
+
+    <div class="replay-debug-grid">
+      <div class="replay-debug-card"><div class="portfolio-section-title">Live vs Replay Parity</div>
+        <div class="replay-note">Matched ${compare.matched || 0} symbols (${compare.matchPct ?? 0}%). Actual ${compare.actualCount} trades, replay ${compare.replayCount}. Replay only: ${escapeHTML(compare.onlyReplay.join(', ') || '--')}. Actual only: ${escapeHTML(compare.onlyActual.join(', ') || '--')}.</div>
+      </div>
+      <div class="replay-debug-card"><div class="portfolio-section-title">Auto Tune Suggestion</div>
+        <div class="replay-note">${autoTuneRows.length ? `Best 5D setting: ${describeReplaySettingsRow(autoTuneRows[0])}, net ${moneyINR(autoTuneRows[0].net)}. ${analyzeAutoTuneGuardrails(autoTuneRows[0], result.summary).message}` : 'Run Auto Tune 5D to compare recent retained snapshot days.'}</div>
+        ${autoTuneRows.length ? '<button class="paper-btn buy" onclick="applyReplaySettingsFromRow(0, &quot;auto&quot;)">Apply Auto Tune</button>' : ''}
+      </div>
+    </div>
+
+    <div class="portfolio-section-title">Current vs Best Settings</div>
+    ${replayComparisonHTML(result.summary, bestRows)}
+
+    <div class="portfolio-section-title">Replay Transactions</div>
+    <div class="portfolio-table-wrap"><table class="replay-table">
+      <thead><tr><th>Symbol</th><th>Side</th><th>Setup</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Net P&L</th><th>Entry Time</th><th>Exit Time</th><th>Reason</th></tr></thead>
+      <tbody>${replayTableRows(result.trades || [])}</tbody>
+    </table></div>
+
+    <div class="portfolio-section-title">Why Not Traded</div>
+    <div class="portfolio-table-wrap"><table class="replay-table">
+      <thead><tr><th>Symbol</th><th>Side</th><th>Setup</th><th>Rank</th><th>Score</th><th>Price</th><th>Reason</th></tr></thead>
+      <tbody>${rejectedReplayRows(result.rejected || [])}</tbody>
+    </table></div>
+
+    <div class="portfolio-section-title">Setup Performance</div>
+    <div class="portfolio-table-wrap"><table class="replay-table">
+      <thead><tr><th>Setup</th><th>Trades</th><th>Win %</th><th>Net P&L</th><th>Costs</th></tr></thead>
+      <tbody>${setupReplayRows(result.setupStats || [])}</tbody>
+    </table></div>
+
+    <div class="portfolio-section-title">Trade Quality</div>
+    <div class="portfolio-table-wrap"><table class="replay-table">
+      <thead><tr><th>Setup</th><th>Trades</th><th>Win %</th><th>Net P&L</th><th>Avg Net %</th><th>Avg Hold</th><th>Target %</th><th>Stop %</th><th>Fade Exit %</th><th>Late Entry %</th></tr></thead>
+      <tbody>${tradeQualityRows(quality.bySetup || [])}</tbody>
+    </table></div>
+
+    <div class="portfolio-section-title">Exit Quality</div>
+    <div class="portfolio-table-wrap"><table class="replay-table">
+      <thead><tr><th>Exit Type</th><th>Trades</th><th>Win %</th><th>Net P&L</th><th>Avg Net %</th><th>Avg Hold</th><th>Target %</th><th>Stop %</th><th>Fade Exit %</th><th>Late Entry %</th></tr></thead>
+      <tbody>${tradeQualityRows(quality.byExit || [])}</tbody>
+    </table></div>
+
+    <div class="portfolio-section-title">Best Settings Sweep</div>
+    <div class="portfolio-table-wrap"><table class="replay-table">
+      <thead><tr><th>#</th><th>Min Score</th><th>Top N</th><th>Per Cycle</th><th>First Hr</th><th>Trail</th><th>Trades</th><th>Win %</th><th>Net P&L</th><th>Drawdown</th><th>Use</th></tr></thead>
+      <tbody>${sweepReplayRows(sweepRows)}</tbody>
+    </table></div>
+
+    <div class="portfolio-section-title">Replay Job History</div>
+    <div class="portfolio-table-wrap"><table class="replay-table">
+      <thead><tr><th>Mode</th><th>Day</th><th>Status</th><th>Started</th><th>Flags</th><th>Best / Error</th></tr></thead>
+      <tbody id="replay-job-history-body">${replayJobRows(replayJobHistory)}</tbody>
+    </table></div>`;
+  loadReplayJobHistory();
+}
+
+async function runReplayToday(dayOverride = null) {
+  const modal = document.getElementById('replay-modal');
+  const body = document.getElementById('replay-modal-body');
+  if (modal) modal.style.display = 'flex';
+  const day = dayOverride || getTradeDateKey();
+  if (body) body.innerHTML = `<div style="color:var(--muted);padding:16px">Running replay for ${escapeHTML(day)} on proxy...</div>`;
+  try {
+    const res = await fetch(`${SIM_REPLAY_ENDPOINT}?day=${encodeURIComponent(day)}`, { signal:AbortSignal.timeout(REPLAY_FETCH_TIMEOUT_MS) });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.ok === false) throw new Error(payload.error || `replay HTTP ${res.status}`);
+    renderReplayReport(day, [], payload.result || { snapshots:0, summary:{}, trades:[], rejected:[], setupStats:[] });
+  } catch (e) {
+    if (body) body.innerHTML = `<div style="color:var(--red);padding:16px">${escapeHTML(e.message || String(e))}</div>`;
+  }
+}
+
+async function startReplayJob(day, mode) {
+  const res = await fetch(SIM_REPLAY_JOB_ENDPOINT, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body:JSON.stringify({ day, mode }),
+    signal:AbortSignal.timeout(15000),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok || payload.ok === false) throw new Error(payload.error || `job HTTP ${res.status}`);
+  updateReplayJobHistory(payload.jobs || []);
+  return payload.job;
+}
+
+async function pollReplayJob(jobId, onUpdate = null) {
+  for (let attempt = 0; attempt < 90; attempt++) {
+    await new Promise(resolve => setTimeout(resolve, attempt < 2 ? 750 : 2000));
+    const res = await fetch(`${SIM_REPLAY_JOB_ENDPOINT}?id=${encodeURIComponent(jobId)}`, { signal:AbortSignal.timeout(15000) });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.ok === false) throw new Error(payload.error || `job poll HTTP ${res.status}`);
+    updateReplayJobHistory(payload.jobs || []);
+    const job = payload.job;
+    if (typeof onUpdate === 'function') onUpdate(job);
+    if (job?.status === 'done') return job.result;
+    if (job?.status === 'error') throw new Error(job.error || 'Replay job failed');
+  }
+  throw new Error('Replay job timed out');
+}
+
+function runReplayForSelectedDate() {
+  const day = document.getElementById('replay-date-input')?.value || getTradeDateKey();
+  return runReplayToday(day);
+}
+
+async function runReplaySweepForCurrent() {
+  if (!lastReplayDebugResult) return;
+  if (replayJobBusyMode) return;
+  const body = document.getElementById('replay-modal-body');
+  const statusBox = document.getElementById('replay-job-status');
+  const progressId = 'replay-sweep-progress';
+  if (statusBox) statusBox.innerHTML = `<div id="${progressId}" class="replay-note">Starting settings sweep job...</div>`;
+  setReplayJobBusy('sweep', true, 'Sweeping...');
+  try {
+    const job = await startReplayJob(lastReplayDebugResult.day, 'sweep');
+    const payload = await pollReplayJob(job.id, update => {
+      const el = document.getElementById(progressId);
+      if (el) el.textContent = `Settings sweep ${update.status}${update.cached ? ' (cached)' : update.reused ? ' (reused)' : update.workerPid ? ` (worker ${update.workerPid})` : ''}... ${update.id}`;
+    });
+    const sweepRows = payload.sweepRows || [];
+    renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows, autoTuneRows:lastReplayDebugResult.autoTuneRows });
+  } catch (e) {
+    const el = document.getElementById(progressId);
+    if (el) el.textContent = `Sweep failed: ${e.message || String(e)}`;
+  } finally {
+    setReplayJobBusy('sweep', false);
+  }
+}
+
+async function runReplayAutoTune5D() {
+  const body = document.getElementById('replay-modal-body');
+  if (!lastReplayDebugResult) return;
+  if (replayJobBusyMode) return;
+  const statusBox = document.getElementById('replay-job-status');
+  setReplayJobBusy('autotune', true, 'Auto tuning...');
+  try {
+    if (statusBox) statusBox.innerHTML = '<div id="replay-autotune-progress" class="replay-note">Starting 5D auto tune job...</div>';
+    const job = await startReplayJob(lastReplayDebugResult.day, 'autotune');
+    const payload = await pollReplayJob(job.id, update => {
+      const el = document.getElementById('replay-autotune-progress');
+      if (el) el.textContent = `5D auto tune ${update.status}${update.cached ? ' (cached)' : update.reused ? ' (reused)' : update.workerPid ? ` (worker ${update.workerPid})` : ''}... ${update.id}`;
+    });
+    const autoTuneRows = payload.autoTuneRows || [];
+    renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows:lastReplayDebugResult.sweepRows, autoTuneRows });
+  } catch (e) {
+    if (statusBox) statusBox.innerHTML = `<div class="replay-note" style="color:var(--red)">Auto tune failed: ${escapeHTML(e.message || String(e))}</div>`;
+  } finally {
+    setReplayJobBusy('autotune', false);
+  }
+}
+
+function downloadTextFile(filename, text, mime = 'text/plain') {
+  const blob = new Blob([text], { type:mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportReplayReport(format = 'json') {
+  if (!lastReplayDebugResult) return;
+  const day = lastReplayDebugResult.day || getTradeDateKey();
+  if (format === 'csv') {
+    const esc = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const rows = [['symbol','side','setup','qty','entry','exit','net','entryTime','exitTime','reason']]
+      .concat((lastReplayDebugResult.result?.trades || []).map(t => [t.symbol, t.side, replayTradeSetup(t), t.qty, replayTradeEntry(t), replayTradeExit(t), replayTradeNet(t), replayTradeOpened(t), replayTradeClosed(t), replayTradeReason(t)]));
+    downloadTextFile(`replay_${day}.csv`, rows.map(row => row.map(esc).join(',')).join('\n'), 'text/csv');
+    return;
+  }
+  downloadTextFile(`replay_${day}.json`, JSON.stringify(lastReplayDebugResult, null, 2), 'application/json');
 }
 
 async function closePaperTradeAtPrice(trade, exitPrice, reason, silent = false) {
@@ -1800,11 +3923,29 @@ async function closePaperTradeAtPrice(trade, exitPrice, reason, silent = false) 
     renderTable();
     if (currentView === 'etfs') renderETFSection();
     if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
+    if (document.getElementById('open-trades-modal')?.style.display === 'flex') renderOpenTradesModal();
     if (document.getElementById('fund-modal')?.style.display === 'flex') openFundModal(trade.symbol);
     return true;
   } catch (e) {
     if (!silent) alert(e.message || 'Could not close paper trade');
     else console.warn('auto close failed', trade.symbol, e.message);
+    return false;
+  }
+}
+
+async function partialClosePaperTradeAtPrice(trade, exitPrice, qty, reason, runner = false, silent = false) {
+  if (!trade?.id || !Number.isFinite(Number(exitPrice)) || !Number.isFinite(Number(qty)) || Number(qty) <= 0) return false;
+  try {
+    await postPaperTrade('partial-close', { id: trade.id, exitPrice, qty:Math.floor(Number(qty)), reason, runner:!!runner });
+    await loadPaperTrades();
+    renderTable();
+    if (currentView === 'etfs') renderETFSection();
+    if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
+    if (document.getElementById('fund-modal')?.style.display === 'flex') openFundModal(trade.symbol);
+    return true;
+  } catch (e) {
+    if (!silent) alert(e.message || 'Could not partially close paper trade');
+    else console.warn('auto partial close failed', trade.symbol, e.message);
     return false;
   }
 }
@@ -1817,8 +3958,15 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
   try {
     for (const trade of [...simOpen]) {
       const price = getCurrentTradePrice(trade.symbol);
-      const reason = getSimulationExitReason(trade, price);
-      if (reason) await closePaperTradeAtPrice(trade, price, reason, true);
+      const exit = getSimulationExit(trade, price);
+      if (exit?.action === 'partial') {
+        const qty = Math.max(1, Math.floor(Number(trade.qty || 0) * Number(exit.qtyPct || 50) / 100));
+        if (qty > 0 && qty < Number(trade.qty || 0)) {
+          await partialClosePaperTradeAtPrice(trade, exit.exitPrice, qty, exit.reason, exit.runner, true);
+        }
+      } else if (exit) {
+        await closePaperTradeAtPrice(trade, exit.exitPrice, exit.reason, true);
+      }
     }
 
     const openAfterExits = getSimulationOpenTrades();
@@ -1830,32 +3978,42 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
 
     let summary = getPortfolioSummary();
     const totalOpen = paperTrades.filter(t => t.status === 'open').length;
-    let slots = Math.max(0, SIMULATION_MAX_OPEN - totalOpen);
+    const simOpenCount = getSimulationOpenTrades().length;
+    let slots = Math.max(0, Math.min(SIMULATION_MAX_OPEN - totalOpen, SIMULATION_MAX_ACTIVE_OPEN - simOpenCount));
     if (slots <= 0 || summary.cashAvailable <= 0) return;
 
     const candidates = getSimulationCandidates();
+    let openedThisCycle = 0;
     for (let i = 0; i < candidates.length; i++) {
-      const { row, t, score } = candidates[i];
+      const { row, t, score, side } = candidates[i];
       if (slots <= 0) break;
+      if (openedThisCycle >= SIMULATION_MAX_NEW_PER_CYCLE) break;
       summary = getPortfolioSummary();
       if (summary.cashAvailable <= 0) break;
+      const setupType = candidates[i].derivedSetupType || candidates[i].setupType || getSetupType(row, t, getRiskGuard(row, t, score));
+      const blockReason = getSimulationEntryBlockReason(row.sym, setupType);
+      if (blockReason) {
+        if (/daily/i.test(blockReason)) break;
+        continue;
+      }
       const price = getCurrentTradePrice(row.sym);
       const remainingCandidates = Math.max(1, candidates.length - i);
       const remainingSlots = Math.max(1, Math.min(slots, remainingCandidates));
       const allocation = Math.min(MAX_POSITION_EXPOSURE, summary.cashAvailable / remainingSlots);
-      const suggestion = getSuggestedPaperQty(t, 'buy', price, summary.cashAvailable, allocation);
+      const tradeSide = side || (score < 0 ? 'sell' : 'buy');
+      const suggestion = getSuggestedPaperQty(t, tradeSide, price, summary.cashAvailable, allocation);
       const qty = Number(suggestion.qty || 0);
       if (qty <= 0) continue;
-      const plan = suggestion.plan || getPaperPlanForSide(t, 'buy', price);
-      await postPaperTrade('open', {
+      const plan = suggestion.plan || getPaperPlanForSide(t, tradeSide, price);
+      const openResult = await postPaperTrade('open', {
         symbol: row.sym,
         name: row.name || row.sym,
-        side: 'buy',
+        side: tradeSide,
         qty,
         entryPrice: price,
         target: plan.target,
         stop: plan.stop,
-        signal: 'buy',
+        signal: tradeSide,
         score: Math.abs(score),
         rr: t.rr,
         source: 'simulation',
@@ -1863,10 +4021,38 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
         assetType: isETFAsset(row) ? 'etf' : 'stock',
         reservedCapital:+(qty * price).toFixed(2),
         portfolioInitial:getPortfolioCapital(),
-        setup: ['Simulation', t.entryStatus, t.entryTrigger, ...(t.reasons || []).slice(0, 3)].filter(Boolean).join(' | '),
+        setupType,
+        setup: ['Simulation', setupType, t.entryStatus, t.entryTrigger, ...(t.reasons || []).slice(0, 3)].filter(Boolean).join(' | '),
+        entryContext:{
+          selectedRank:i + 1,
+          score,
+          setupType,
+          side:tradeSide,
+          reason:`selected rank ${i + 1}`,
+          indicators:{
+            entryStatus:t.entryStatus || '',
+            entryTrigger:t.entryTrigger || '',
+            vwap:t.vwap ?? null,
+            vwapBandPosition:t.vwapBandPosition ?? null,
+            ema9:t.ema9 ?? t.emaShort ?? null,
+            ema20:t.ema20 ?? t.emaLong ?? null,
+            rsi:t.rsi ?? null,
+            superTrendDirection:t.superTrendDirection ?? null,
+            relVolume:t.relVolumeTimeAdjusted ?? t.relVolume ?? null,
+            rr:t.rr ?? null,
+            reasons:Array.isArray(t.reasons) ? t.reasons.slice(0, 5) : [],
+          },
+          market:{
+            niftyChange:indexData?.nifty50?.change ?? indexData?.nifty?.change ?? null,
+            sectorAvg:sectorTrendCache[row.sector] ?? null,
+          },
+        },
       });
       await loadPaperTrades();
+      const openedTrade = openResult?.trade || getOpenPaperTrade(row.sym);
+      registerNewSimulationTrade(openedTrade);
       slots -= 1;
+      openedThisCycle += 1;
     }
     renderTable();
     if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
@@ -1877,14 +4063,23 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
 }
 
 async function loadPaperTrades() {
+  if (paperTradesLoading) return paperTradesLoading;
+  paperTradesLoading = (async () => {
   try {
-    const res = await fetch(PAPER_TRADES_ENDPOINT, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) throw new Error('paper-trades HTTP ' + res.status);
-    const payload = await res.json().catch(() => null);
+    let payload = null;
+    if (!paperTradesLoaded && dashboardBootstrap && Array.isArray(dashboardBootstrap.trades)) {
+      payload = { trades:dashboardBootstrap.trades, portfolio:dashboardBootstrap.portfolio };
+    } else {
+      const res = await fetch(PAPER_TRADES_ENDPOINT, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) throw new Error('paper-trades HTTP ' + res.status);
+      payload = await res.json().catch(() => null);
+    }
     paperTrades = Array.isArray(payload?.trades) ? payload.trades : [];
+    paperTradesLoaded = true;
+    pruneNewSimulationTradeKeys();
     if (payload?.portfolio && typeof payload.portfolio === 'object') {
       portfolioState = {
-        initialCapital: Number(payload.portfolio.initialCapital) || PORTFOLIO_INITIAL_CAPITAL,
+        initialCapital: Number(payload.portfolio.initialCapital) || PORTFOLIO_FALLBACK_INITIAL_CAPITAL,
         capitalAdds: Array.isArray(payload.portfolio.capitalAdds) ? payload.portfolio.capitalAdds : [],
       };
     }
@@ -1894,11 +4089,17 @@ async function loadPaperTrades() {
     }
     updateSimulationButton();
     updateBrokerModeButton();
+    renderTopActionBar();
     if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
+    if (document.getElementById('open-trades-modal')?.style.display === 'flex') renderOpenTradesModal();
   } catch (e) {
     console.warn('loadPaperTrades failed', e.message);
     paperTrades = [];
+  } finally {
+    paperTradesLoading = null;
   }
+  })();
+  return paperTradesLoading;
 }
 
 async function postPaperTrade(action, payload) {
@@ -1921,6 +4122,8 @@ async function openPaperTrade(sym, side) {
   const t = intradayData[sym];
   const price = getCurrentTradePrice(sym);
   if (!t || !price) { alert('Trade setup is not loaded yet. Refresh once and try again.'); return; }
+  const freshness = getIntradayFreshness(t);
+  if (freshness.stale) { alert(`Intraday signal is stale: ${freshness.reason}. Refresh before trading.`); return; }
   if (getOpenPaperTrade(sym)) { alert('There is already an open paper trade for this stock. Exit it before opening another.'); return; }
   const asset = MIDCAP_STOCKS.find(s => s.sym === sym) || STOCK_ASSETS.find(s => s.sym === sym) || ETF_ASSETS.find(s => s.sym === sym) || { sym, name: sym };
   const portfolio = getPortfolioSummary();
@@ -1999,6 +4202,8 @@ function renderPaperTradeControls(row, t) {
 
 function getRiskGuard(row, t, score = null) {
   if (!t) return { label:'Wait', level:'small', reason:'Trade setup is not loaded yet' };
+  const freshness = getIntradayFreshness(t);
+  if (freshness.stale) return { label:'Stale', level:'avoid', reason:freshness.reason };
   const signal = adjustedTradeSignal(score ?? adjustedTradeScore(row));
   const price = Number(t.price);
   const stop = Number(t.stop);
@@ -2030,6 +4235,10 @@ function getRiskGuard(row, t, score = null) {
     if (cost && !cost.ok) why.push(`net ${cost.netPct}% < ${cost.minNetPct}% after costs`);
     if (superTrendConflict) why.push(`SuperTrend ${stDir}`);
     return { label:'Avoid', level:'avoid', reason:why.join(', ') };
+  }
+
+  if (t.volumeShock?.isShock && extensionPct != null && extensionPct <= 3.2) {
+    return { label:'Shock', level:'small', reason:`Volume shock ${t.volumeShock.change3m ?? '--'}%/3m, ${t.volumeShock.volumeRatio3m ?? '--'}x volume` };
   }
 
   const bandChase = (signal === 'buy' && bandPos === 'above-upper') || (signal === 'sell' && bandPos === 'below-lower');
@@ -2102,8 +4311,34 @@ function renderResultVerdictBadge(sym) {
   return `<span class="result-badge ${verdict}" title="${escapeHTML(reason)}">${label}</span>`;
 }
 
+function getHighImpactNewsForSymbol(sym) {
+  const symbol = String(sym || '').toUpperCase();
+  const direct = freshNewsSummary.impactBySymbol?.[symbol];
+  const fallback = (freshNewsSummary.items || [])
+    .filter(item => String(item.symbol || '').toUpperCase() === symbol)
+    .sort((a, b) => Math.abs(Number(b.tradeImpactScore || 0)) - Math.abs(Number(a.tradeImpactScore || 0)))[0];
+  const item = direct || fallback || null;
+  if (!item) return null;
+  const score = Number(item.tradeImpactScore || 0);
+  const impactAbs = Number(item.tradeImpactAbs || Math.abs(score));
+  if (impactAbs < 55) return null;
+  return { ...item, tradeImpactScore:score, tradeImpactAbs:impactAbs };
+}
+
+function renderNewsImpactHealthBadge(sym) {
+  const item = getHighImpactNewsForSymbol(sym);
+  if (!item) return '';
+  const sentiment = String(item.newsSentiment || 'Neutral').toLowerCase();
+  const score = Number(item.tradeImpactScore || 0);
+  const prefix = sentiment === 'positive' ? 'News +' : sentiment === 'negative' ? 'News -' : 'News';
+  const title = `${item.type || 'News'}: ${item.title || ''}${item.tradeImpactReason ? ' | ' + item.tradeImpactReason : ''}`;
+  return `<span class="news-impact-badge health-news-badge ${escapeHTML(sentiment)}" title="${escapeHTML(title)}">${escapeHTML(prefix)}${Math.abs(score)}</span>`;
+}
+
 function renderTradeContext(row, t) {
   const bits = [];
+  const freshness = getIntradayFreshness(t);
+  bits.push(`<span class="signal-freshness ${freshness.stale ? 'stale' : 'fresh'}" title="${escapeHTML(freshness.reason)}">${escapeHTML(freshness.label)}</span>`);
   if (t.entryStatus) bits.push(t.entryStatus);
   const rs = getRelativeStrength(t);
   if (rs != null) bits.push(`RS ${rs >= 0 ? '+' : ''}${rs}%`);
@@ -2133,6 +4368,27 @@ function renderTradeContext(row, t) {
   return bits.length ? `<span class="trade-context">${bits.join(' · ')}</span>` : '';
 }
 
+function getTradeConfidence(row, t, score, guard) {
+  if (!t) return { label:'Low', level:'low', reason:'No intraday signal' };
+  let points = 0;
+  const reasons = [];
+  const absScore = Math.abs(Number(score) || 0);
+  const relVol = Number(t.relVolumeTimeAdjusted ?? t.relVolume);
+  const freshness = getIntradayFreshness(t);
+  if (absScore >= 85) { points += 3; reasons.push('strong score'); }
+  else if (absScore >= 65) { points += 2; reasons.push('good score'); }
+  else if (absScore >= 50) { points += 1; reasons.push('moderate score'); }
+  if (Number.isFinite(relVol) && relVol >= 1.5) { points += 2; reasons.push(`volume ${relVol.toFixed(2)}x`); }
+  else if (Number.isFinite(relVol) && relVol >= 1) { points += 1; reasons.push(`volume ${relVol.toFixed(2)}x`); }
+  if (String(t.entryStatus || '').toLowerCase() === 'triggered') { points += 2; reasons.push('triggered'); }
+  if (guard?.level === 'ok') points += 1;
+  if (freshness.stale) { points -= 2; reasons.push('stale'); }
+  if (guard?.level === 'avoid' || guard?.level === 'invalid' || guard?.level === 'chasing') points -= 2;
+  if (points >= 6) return { label:'High', level:'high', reason:reasons.join(', ') || 'High-confidence setup' };
+  if (points >= 3) return { label:'Med', level:'medium', reason:reasons.join(', ') || 'Medium-confidence setup' };
+  return { label:'Low', level:'low', reason:reasons.join(', ') || 'Low-confidence setup' };
+}
+
 function renderTradeCell(row) {
   const t = intradayData[row.sym];
   if (!t) return '<span style="color:var(--muted);font-size:12px">--</span>';
@@ -2141,8 +4397,9 @@ function renderTradeCell(row) {
   const score = adjustedTradeScore(row);
   const signal = adjustedTradeSignal(score);
   const guard = getRiskGuard(row, t, score);
+  const confidence = getTradeConfidence(row, t, score, guard);
   return `<div class="trade-cell" title="${escapeHTML(reason)}">
-    <span class="trade-badge-row"><span class="risk-guard ${guard.level}" title="${escapeHTML(guard.reason)}">${guard.label}</span><span class="signal-badge ${signal}">${labels[signal] || signal}</span></span>
+    <span class="trade-badge-row"><span class="risk-guard ${guard.level}" title="${escapeHTML(guard.reason)}">${guard.label}</span><span class="signal-badge ${signal}">${labels[signal] || signal}</span><span class="confidence-badge ${confidence.level}" title="${escapeHTML(confidence.reason)}">${confidence.label}</span></span>
     <span class="trade-score">Score ${score}</span>
     ${renderTradeContext(row, t)}
     ${renderPaperTradeControls(row, t)}
@@ -2285,7 +4542,8 @@ function etfSortBy(col){
   renderETFSection();
 }
 
-let currentView = 'stocks';
+const DASHBOARD_ROUTE = window.__DASHBOARD_ROUTE__ || {};
+let currentView = DASHBOARD_ROUTE.view === 'etfs' ? 'etfs' : 'stocks';
 async function setView(view, el){
   currentView = view;
   document.querySelectorAll('#main-tabs .tab-btn').forEach(b=>b.classList.remove('active'));
@@ -2295,12 +4553,16 @@ async function setView(view, el){
   if(view==='etfs'){
     await loadPresetETFs(); // no-op if already loaded
     populateETFSectorDropdown();
-    await fetchAdditionalSymbols(ETF_ASSETS.map(e=>e.sym), { force: true });
     renderETFSection();
-    fetchIntradaySignals(ETF_ASSETS.map(e=>e.sym)).catch(e=>console.warn('ETF intraday signals failed', e.message));
-    // Pass 1: always fetch summary (returns, TER, family) — proxy serves from cache instantly
-    fetchETFSummary(ETF_ASSETS.map(e=>e.sym)).catch(e=>console.warn('ETF summary failed',e));
-    fetchSparklines(ETF_ASSETS.map(e=>e.sym)).catch(e=>console.warn('fetchSparklines failed', e.message));
+    syncETFScrollSizing();
+    scheduleWork(async () => {
+      const syms = ETF_ASSETS.map(e=>e.sym);
+      await fetchAdditionalSymbols(syms, { force: true }).catch(e => console.warn('ETF price refresh failed', e.message));
+      renderETFSection();
+      fetchIntradaySignals(syms).catch(e=>console.warn('ETF intraday signals failed', e.message));
+      fetchETFSummary(syms).catch(e=>console.warn('ETF summary failed',e));
+      fetchSparklines(syms).catch(e=>console.warn('fetchSparklines failed', e.message));
+    }, 100);
   } else renderTable();
 }
 
@@ -2318,13 +4580,211 @@ function sortBy(col){
   renderTable();
 }
 
-function renderTable(){
-  const search=document.getElementById('search-box').value.toLowerCase();
-  let rows=[
+function getAllStockRows() {
+  return [
     ...MIDCAP_STOCKS.map((s,i)=>({...s,rank:i+1,data:stockData[s.sym]||null})),
     ...STOCK_ASSETS.map((s,i)=>({...s,rank:MIDCAP_STOCKS.length+i+1,data:stockData[s.sym]||null}))
   ];
+}
+
+function hasEventRiskForSymbol(sym) {
+  const symbol = String(sym || '').toUpperCase();
+  if (Array.isArray(freshNewsSummary.symbols)) return freshNewsSummary.symbols.includes(symbol);
+  return (freshNewsSummary.items || []).some(item => item.symbol === symbol);
+}
+
+function freshNewsUniverse() {
+  return getAllStockRows().map(row => ({
+    symbol:row.sym,
+    name:row.name || row.sym,
+    assetType:'stock',
+  }));
+}
+
+async function loadFreshNewsSummary(force = false, opts = {}) {
+  if (freshNewsBusy) return freshNewsSummary;
+  const now = Date.now();
+  const requestedOffset = Math.max(0, Number(opts.offset ?? freshNewsOffset) || 0);
+  const pageChanged = requestedOffset !== freshNewsOffset;
+  if (!force && !pageChanged && freshNewsSummary.loaded && (now - freshNewsLastFetchAt) < 15 * 60 * 1000) return freshNewsSummary;
+  freshNewsOffset = requestedOffset;
+  freshNewsBusy = true;
+  freshNewsSummary = { ...freshNewsSummary, loading:true, error:'' };
+  renderSetupCards(getAllStockRows());
+  renderFreshNewsModal();
+  try {
+    const res = await fetch(FRESH_STOCK_NEWS_ENDPOINT, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify({ symbols:freshNewsUniverse(), maxSymbols:260, limit:FRESH_NEWS_PAGE_SIZE, offset:freshNewsOffset }),
+      signal:AbortSignal.timeout(90000),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.ok === false) throw new Error(payload.error || `fresh-news HTTP ${res.status}`);
+    freshNewsSummary = {
+      loading:false,
+      loaded:true,
+      date:payload.date || null,
+      count:Number(payload.count) || 0,
+      symbolCount:Number(payload.symbolCount) || 0,
+      scanned:Number(payload.scanned) || 0,
+      limit:Number(payload.limit) || FRESH_NEWS_PAGE_SIZE,
+      offset:Number(payload.offset) || 0,
+      returned:Number(payload.returned) || 0,
+      hasPrev:!!payload.hasPrev,
+      hasNext:!!payload.hasNext,
+      symbols:Array.isArray(payload.symbols) ? payload.symbols.map(s => String(s).toUpperCase()) : [],
+      impactBySymbol:payload.impactBySymbol && typeof payload.impactBySymbol === 'object' ? payload.impactBySymbol : {},
+      items:Array.isArray(payload.items) ? payload.items : [],
+      errors:Array.isArray(payload.errors) ? payload.errors : [],
+      error:'',
+    };
+    freshNewsLastFetchAt = Date.now();
+  } catch (e) {
+    freshNewsSummary = { ...freshNewsSummary, loading:false, loaded:true, error:e.message || String(e) };
+  } finally {
+    freshNewsBusy = false;
+    renderSetupCards(getAllStockRows());
+    renderTable();
+    if (document.getElementById('fresh-news-modal')?.style.display === 'flex') renderFreshNewsModal();
+  }
+  return freshNewsSummary;
+}
+
+function renderFreshNewsModal() {
+  const body = document.getElementById('fresh-news-modal-body');
+  if (!body) return;
+  const rows = (freshNewsSummary.items || []).map(item => {
+    const verdict = item.resultVerdict ? `<span class="result-badge ${escapeHTML(String(item.resultVerdict).toLowerCase())}" title="${escapeHTML(item.resultVerdictReason || '')}">${escapeHTML(item.resultVerdict)}</span>` : '';
+    const sentiment = String(item.newsSentiment || 'Neutral').toLowerCase();
+    const impactLabel = item.newsSentiment || 'Neutral';
+    const impactScore = Number(item.tradeImpactScore || 0);
+    const impactTitle = item.tradeImpactReason || 'Trade impact label';
+    const impact = `<span class="news-impact-badge ${escapeHTML(sentiment)}" title="${escapeHTML(impactTitle)}">${escapeHTML(impactLabel)} ${impactScore > 0 ? '+' : ''}${impactScore}</span>`;
+    const title = item.url
+      ? `<a href="${escapeHTML(item.url)}" target="_blank" rel="noopener">${escapeHTML(item.title || 'News')}</a>`
+      : escapeHTML(item.title || 'News');
+    return `<tr>
+      <td>${escapeHTML(item.symbol || '--')}</td>
+      <td>${escapeHTML(item.type || '--')}</td>
+      <td>${impact}</td>
+      <td class="fresh-news-title">${title}${verdict}</td>
+      <td>${escapeHTML(item.source || '--')}</td>
+      <td>${escapeHTML(formatNewsDate(item.publishedAt) || item.dateKey || '--')}</td>
+    </tr>`;
+  }).join('');
+  const status = freshNewsSummary.loading
+    ? 'Scanning proxy news sources...'
+    : freshNewsSummary.error
+      ? `Error: ${freshNewsSummary.error}`
+      : `${freshNewsSummary.symbolCount || 0} stocks with fresh news, ${freshNewsSummary.count || 0} items, ${freshNewsSummary.scanned || 0} scanned`;
+  const limit = Number(freshNewsSummary.limit || FRESH_NEWS_PAGE_SIZE);
+  const offset = Number(freshNewsSummary.offset || freshNewsOffset || 0);
+  const start = freshNewsSummary.count ? offset + 1 : 0;
+  const end = Math.min(offset + (freshNewsSummary.items || []).length, freshNewsSummary.count || 0);
+  const pageText = freshNewsSummary.loading ? 'Loading...' : `${start}-${end} of ${freshNewsSummary.count || 0}`;
+  const prevOffset = Math.max(0, offset - limit);
+  const nextOffset = offset + limit;
+  const pager = `
+    <div class="fresh-news-pager">
+      <span>${escapeHTML(pageText)}</span>
+      <button class="icon-btn" title="Previous news page" ${freshNewsSummary.hasPrev ? '' : 'disabled'} onclick="changeFreshNewsPage(${prevOffset})">‹</button>
+      <button class="icon-btn" title="Next news page" ${freshNewsSummary.hasNext ? '' : 'disabled'} onclick="changeFreshNewsPage(${nextOffset})">›</button>
+    </div>`;
+  body.innerHTML = `
+    <div class="portfolio-grid">
+      <div class="portfolio-card"><div class="label">Date</div><div class="value">${escapeHTML(freshNewsSummary.date || '--')}</div></div>
+      <div class="portfolio-card"><div class="label">Stocks</div><div class="value">${freshNewsSummary.symbolCount || 0}</div></div>
+      <div class="portfolio-card"><div class="label">Items</div><div class="value">${freshNewsSummary.count || 0}</div></div>
+      <div class="portfolio-card"><div class="label">Status</div><div class="value ${freshNewsSummary.error ? 'down' : ''}">${escapeHTML(status)}</div></div>
+    </div>
+    <div class="portfolio-section-title fresh-news-titlebar"><span>Today / Last Business Day News</span>${pager}</div>
+    <div class="portfolio-table-wrap">
+      <table class="portfolio-table fresh-news-table">
+        <thead><tr><th>Symbol</th><th>Type</th><th>Impact</th><th>News</th><th>Source</th><th>Date</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:16px">${freshNewsSummary.loading ? 'Loading fresh news...' : 'No fresh news found for selected date'}</td></tr>`}</tbody>
+      </table>
+    </div>
+    ${freshNewsSummary.errors?.length ? `<div class="replay-note" style="margin-top:10px;color:var(--muted)">Some symbols failed: ${escapeHTML(freshNewsSummary.errors.slice(0, 3).join(' | '))}</div>` : ''}
+  `;
+}
+
+function changeFreshNewsPage(offset) {
+  loadFreshNewsSummary(true, { offset:Math.max(0, Number(offset) || 0) }).catch(e => console.warn('fresh news page failed', e.message));
+}
+
+function openFreshNewsModal() {
+  renderFreshNewsModal();
+  const modal = document.getElementById('fresh-news-modal');
+  if (modal) modal.style.display = 'flex';
+  loadFreshNewsSummary(false).catch(e => console.warn('fresh news refresh failed', e.message));
+}
+
+function closeFreshNewsModal(e) {
+  if (e) e.stopPropagation();
+  const modal = document.getElementById('fresh-news-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function renderSetupCards(rows = getAllStockRows()) {
+  const target = document.getElementById('setup-card-row');
+  if (!target) return;
+  const enriched = rows.map(row => {
+    const t = intradayData[row.sym];
+    const score = t ? adjustedTradeScore(row) : 0;
+    const guard = t ? getRiskGuard(row, t, score) : null;
+    const setup = t ? getSetupType(row, t, guard) : '';
+    return { row, t, score, guard, setup, signal:t ? adjustedTradeSignal(score) : getSignal(row, row.data) };
+  });
+  const counts = {
+    pullbacks:enriched.filter(x => /VWAP_PULLBACK_OR_HOLD|VWAP_TREND_CONTINUATION/i.test(x.setup) && ['ok','small'].includes(x.guard?.level)).length,
+    runners:enriched.filter(x => /MOMENTUM_RUNNER|VOLUME_SHOCK/i.test(x.setup)).length,
+    shorts:enriched.filter(x => x.signal === 'sell' || Number(x.score) < -SIMULATION_SHORT_MIN_SCORE).length,
+    risk:enriched.filter(x => ['avoid','invalid','chasing'].includes(x.guard?.level)).length,
+    news:freshNewsSummary.loading ? '...' : (freshNewsSummary.symbolCount || 0),
+  };
+  const cards = [
+    ['pullbacks', 'Best Pullbacks', counts.pullbacks, 'Tradeable VWAP setups', "setFilter('tradeable', null);setFilter('triggered', null)"],
+    ['runners', 'Momentum Runners', counts.runners, 'Strong continuation names', "setFilter('triggered', null)"],
+    ['shorts', 'Short Setups', counts.shorts, 'Sell-side candidates', "setFilter('sell', null)"],
+    ['risk', 'High Risk', counts.risk, 'Avoid / invalid / chasing', "setFilter('risk', null)"],
+    ['news', 'Fresh News', counts.news, freshNewsSummary.date ? `Server scan ${freshNewsSummary.date}` : 'Today / last business day', "openFreshNewsModal()"],
+  ];
+  target.innerHTML = cards.map(([kind, label, value, hint, action]) => `
+    <button class="setup-card ${escapeHTML(kind)}" type="button" onclick="${action}">
+      <div class="label">${escapeHTML(label)}</div>
+      <div class="value">${escapeHTML(value)}</div>
+      <div class="hint">${escapeHTML(hint)}</div>
+    </button>
+  `).join('');
+  if (dataSource && !freshNewsBusy && (!freshNewsSummary.loaded || (Date.now() - freshNewsLastFetchAt) > 15 * 60 * 1000)) {
+    setTimeout(() => loadFreshNewsSummary(false).catch(e => console.warn('fresh news refresh failed', e.message)), 200);
+  }
+}
+
+function renderTable(options = {}) {
+  if (options?.immediate) {
+    tableRenderScheduled = false;
+    tableRenderPending = false;
+    return renderTableNow();
+  }
+  if (tableRenderScheduled) {
+    tableRenderPending = true;
+    return;
+  }
+  tableRenderScheduled = true;
+  requestAnimationFrame(() => {
+    tableRenderScheduled = false;
+    tableRenderPending = false;
+    renderTableNow();
+  });
+}
+
+function renderTableNow(){
+  const search=document.getElementById('search-box').value.toLowerCase();
+  let rows=getAllStockRows();
   const totalRows = rows.length;
+  renderSetupCards(rows);
 
   // ── Sector filter (from heatmap click) ──────────────────
   if(activeSectors.size) rows = rows.filter(r => activeSectors.has(r.sector));
@@ -2343,19 +4803,24 @@ function renderTable(){
       mid:      r => r.cap === 'mid',
       gainers:  r => (r.data?.change || 0) > 0,
       losers:   r => (r.data?.change || 0) < 0,
+      opentrade:r => !!getOpenPaperTrade(r.sym),
       tradeable:r => { const t = intradayData[r.sym]; if(!t) return false; const g = getRiskGuard(r, t, adjustedTradeScore(r)); return ['ok','small'].includes(g.level); },
+      risk:r => { const t = intradayData[r.sym]; if(!t) return false; const g = getRiskGuard(r, t, adjustedTradeScore(r)); return ['avoid','invalid','chasing'].includes(g.level); },
       hideavoid:r => { const t = intradayData[r.sym]; if(!t) return true; const g = getRiskGuard(r, t, adjustedTradeScore(r)); return !['avoid','invalid','chasing'].includes(g.level); },
-      triggered:r => intradayData[r.sym]?.entryStatus === 'Triggered',
-      neartrigger:r => intradayData[r.sym]?.entryStatus === 'Near trigger',
+      triggered:r => intradayData[r.sym]?.entryStatus === 'Triggered' && !getIntradayFreshness(intradayData[r.sym]).stale,
+      neartrigger:r => intradayData[r.sym]?.entryStatus === 'Near trigger' && !getIntradayFreshness(intradayData[r.sym]).stale,
+      newsrisk:r => hasEventRiskForSymbol(r.sym),
     };
     const stockGroups = [
       ['large', 'mid'],            // cap    — OR within group
       ['buy', 'sell', 'watch'],    // signal — OR within group
       ['strong', 'fair', 'weak'],  // health — OR within group
       ['gainers', 'losers'],       // movement — OR within group
-      ['tradeable', 'hideavoid'],
+      ['tradeable', 'hideavoid', 'risk'],
       ['triggered', 'neartrigger'],
       ['favorite'],                // standalone
+      ['opentrade'],               // standalone
+      ['newsrisk'],                 // standalone
     ];
     rows = rows.filter(r =>
       stockGroups.every(group => {
@@ -2401,7 +4866,7 @@ function renderTable(){
     let av,bv;
     if(col==='symbol'){av=a.sym;bv=b.sym;}else if(col==='sector'){av=a.sector;bv=b.sector;}
     else if(col==='price'){av=a.data?.price||0;bv=b.data?.price||0;}
-    else if(col==='target'){ av=a.fund?.priceTarget ?? (a.fund && a.fund.computed?.pe ? a.fund.computed.pe : 0); bv=b.fund?.priceTarget ?? (b.fund && b.fund.computed?.pe ? b.fund.computed.pe : 0); }
+    else if(col==='target'){ av=getTargetDeltaPct(a) ?? -999; bv=getTargetDeltaPct(b) ?? -999; }
     else if(col==='trade'){av=adjustedTradeScore(a);bv=adjustedTradeScore(b);}
     else if(col==='sttarget'){av=getTradeCostContext(a, intradayData[a.sym])?.netPct ?? -999;bv=getTradeCostContext(b, intradayData[b.sym])?.netPct ?? -999;}
     else if(col==='change'){av=a.data?.change||0;bv=b.data?.change||0;}
@@ -2420,28 +4885,30 @@ function renderTable(){
   if (filteredEl) filteredEl.textContent = filterActive ? `${rows.length}/${totalRows} shown` : `${totalRows} stocks`;
 
   const tbody=document.getElementById('stock-tbody');
-  tbody.innerHTML='';
   if(!rows.length){tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--muted)">No stocks match</td></tr>';return;}
   const sigLabels={buy:'🟢 BUY',watch:'🟡 WATCH',hold:'⬜ HOLD',sell:'🔴 SELL'};
-  for(const row of rows){
+  const rowsHTML = rows.map(row => {
     const d=row.data,chg=d?.change||0,price=d?.price||0,sig=getSignal(row,d);
-    const tr=document.createElement('tr');
-    tr.innerHTML=`
-      <td><button class="fav-btn ${isStockFavorite(row.sym)?'active':''}" onclick="toggleStockFavorite('${row.sym}')">${isStockFavorite(row.sym)?'★':'☆'}</button></td>
-      <td><div class="stock-name-cell" onclick="openFundModal('${row.sym}')" title="Open stock details" style="cursor:pointer"><span class="stock-symbol">${row.sym}</span><span class="stock-fullname">${row.name}</span>${STOCK_EXTRA_SYMBOLS.includes(row.sym)?'<button class="stock-edit-btn" onclick="event.stopPropagation();openStockMetadataModal(\''+row.sym+'\')">edit</button>':''}</div></td>
-      <td><div class="sector-cell"><span class="sector-badge">${row.sector}</span><span class="sector-badge cap-badge" style="background:${row.cap==='large'?'rgba(14,165,233,.15)':row.cap==='mid'?'rgba(167,139,250,.15)':row.cap==='etf'?'rgba(167,139,250,.06)':'rgba(167,139,250,.06)'};color:${row.cap==='large'?'var(--accent2)':row.cap==='mid'?'var(--accent3)':row.cap==='etf'?'var(--muted)':'var(--muted)'}">${row.cap==='large'?'L-Cap':row.cap==='mid'?'M-Cap':row.cap==='etf'?'ETF':'Custom'}</span></div></td>
-      <td class="price-cell"><div class="price-stack"><span>${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</span><span class="chg-cell ${chg>=0?'up':'down'}">${d?(chg>=0?'▲ +':'▼ ')+chg.toFixed(2)+'%':'--'}</span><span class="range-mini">${d&&d.low52&&d.high52?'52W ₹'+d.low52.toLocaleString('en-IN',{maximumFractionDigits:0})+'–₹'+d.high52.toLocaleString('en-IN',{maximumFractionDigits:0}):'52W --'}</span></div></td>
-      <td class="hide-mobile hide-1200" style="font-size:12px;color:var(--muted)">${d?.volume?(d.volume/100000).toFixed(1)+'L':'--'}</td>
-      <td>${renderTradeCell(row)}</td>
-      <td>${renderShortTargetCell(row)}</td>
-      <td><div class="health-stack">${renderHealthCell(row)}${renderResultVerdictBadge(row.sym)}</div></td>
-      <td><div class="spark">${d?sparkBars(row.sym,chg):'<span style="color:var(--muted);font-size:11px">--</span>'}</div></td>
-      <td><span class="signal-badge ${sig}">${sigLabels[sig]}</span></td>
-	   <td class="target-cell">${renderTargetCell(row)}</td>`;
-    tbody.appendChild(tr);
-  }
+    return `
+    <tr>
+      <td data-label=""><button class="fav-btn ${isStockFavorite(row.sym)?'active':''}" onclick="toggleStockFavorite('${row.sym}', event)">${isStockFavorite(row.sym)?'★':'☆'}</button></td>
+      <td data-label="Stock" data-open-symbol="${escapeHTML(row.sym)}" onclick="openFundModal('${escapeHTML(row.sym)}')" style="cursor:pointer"><div class="stock-name-cell" title="Open stock details"><button class="stock-name-link" type="button" data-open-symbol="${escapeHTML(row.sym)}"><span class="stock-symbol">${escapeHTML(row.sym)}</span><span class="stock-fullname">${escapeHTML(row.name)}</span></button>${STOCK_EXTRA_SYMBOLS.includes(row.sym)?'<button class="stock-edit-btn" onclick="event.stopPropagation();openStockMetadataModal(\''+escapeHTML(row.sym)+'\')">edit</button>':''}</div></td>
+      <td data-label="Sector"><div class="sector-cell"><span class="sector-badge">${escapeHTML(row.sector)}</span><span class="sector-badge cap-badge" style="background:${row.cap==='large'?'rgba(14,165,233,.15)':row.cap==='mid'?'rgba(167,139,250,.15)':row.cap==='etf'?'rgba(167,139,250,.06)':'rgba(167,139,250,.06)'};color:${row.cap==='large'?'var(--accent2)':row.cap==='mid'?'var(--accent3)':row.cap==='etf'?'var(--muted)':'var(--muted)'}">${row.cap==='large'?'L-Cap':row.cap==='mid'?'M-Cap':row.cap==='etf'?'ETF':'Custom'}</span></div></td>
+      <td data-label="Price" class="price-cell"><div class="price-stack"><span>${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</span><span class="chg-cell ${chg>=0?'up':'down'}">${d?(chg>=0?'▲ +':'▼ ')+chg.toFixed(2)+'%':'--'}</span><span class="range-mini">${d&&d.low52&&d.high52?'52W ₹'+d.low52.toLocaleString('en-IN',{maximumFractionDigits:0})+'–₹'+d.high52.toLocaleString('en-IN',{maximumFractionDigits:0}):'52W --'}</span></div></td>
+      <td data-label="Volume" class="hide-mobile hide-1200" style="font-size:12px;color:var(--muted)">${d?.volume?(d.volume/100000).toFixed(1)+'L':'--'}</td>
+      <td data-label="Trade">${renderTradeCell(row)}</td>
+      <td data-label="ST Target">${renderShortTargetCell(row)}</td>
+      <td data-label="Health"><div class="health-stack">${renderHealthCell(row)}${renderNewsImpactHealthBadge(row.sym)}${renderResultVerdictBadge(row.sym)}</div></td>
+      <td data-label="Trend"><div class="spark">${d?sparkBars(row.sym,chg):'<span style="color:var(--muted);font-size:11px">--</span>'}</div></td>
+      <td data-label="Signal"><span class="signal-badge ${sig}">${sigLabels[sig]}</span></td>
+	   <td data-label="Target" class="target-cell">${renderTargetCell(row)}</td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML = rowsHTML;
   scheduleVisibleEventFlags(rows);
+  renderTopActionBar();
   syncStockScrollSizing();
+  applyColumnPreset();
 }
 
 // Compute an overall health score (0-100) from fundamentals
@@ -2500,8 +4967,8 @@ function renderTargetCell(row){
   const arrow = pctRaw == null ? '' : (pctRaw > 0 ? '▲' : (pctRaw < 0 ? '▼' : '–'));
   const col = pctRaw != null ? (pctRaw >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--muted)';
   const txt = '₹' + Number(target).toLocaleString('en-IN',{minimumFractionDigits:0,maximumFractionDigits:0});
-  const pctHtml = pct != null ? `<span style="font-size:10px;color:${col};margin-left:4px;font-weight:700">${arrow}${pct}%</span>` : '';
-  return `<div style="display:flex;align-items:center;gap:4px"><span style="font-weight:600;font-size:12px">${txt}</span>${pctHtml}</div>`;
+  const pctHtml = pct != null ? `<span class="target-pct" style="color:${col}">${arrow}${pct}%</span>` : '<span class="target-pct muted">--</span>';
+  return `<div class="target-stack"><span class="target-price">${txt}</span>${pctHtml}</div>`;
 }
 
 async function fetchAdditionalSymbols(symbols, opts = {}){
@@ -2774,37 +5241,6 @@ function saveStockMetadata(){
   renderDashboard();
 }
 
-function openFundModal(sym){
-  if(!sym) return;
-  let asset = MIDCAP_STOCKS.find(s=>s.sym===sym) || STOCK_ASSETS.find(s=>s.sym===sym) || ETF_ASSETS.find(s=>s.sym===sym) || null;
-  const body = document.getElementById('fund-modal-body');
-  if(!asset || !body){ closeFundModal(); return; }
-  const f = asset.fund || {};
-  const c = f.computed || {};
-  function fmt(v){ if(v==null) return '--'; if(typeof v === 'number') return (Math.round((v + Number.EPSILON) * 100)/100).toString(); return String(v); }
-  const roe = (c.roe!=null) ? (normPercent(c.roe).toFixed ? normPercent(c.roe).toFixed(2) : normPercent(c.roe)) : '--';
-  const curPrice = stockData[sym]?.price ?? null;
-  const pctDelta = (f.priceTarget && curPrice) ? (Math.round(((f.priceTarget - curPrice)/curPrice)*100) + '%') : '--';
-  const html = `
-    <div style="font-weight:700;margin-bottom:8px">${asset.sym} — ${asset.name || ''}</div>
-    <table style="width:100%;border-collapse:collapse">
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Trailing EPS</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(c.eps)}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Trailing P/E</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(c.pe)}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Forward P/E</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(f.forwardPE)}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Price/Book</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(f.priceToBook)}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">ROE (%)</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${roe}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">D/E</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(c.de)}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">PEG</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(c.peg)}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Market Cap</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${fmt(f.marketCap)}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Dividend Yield</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${f.dividendYield != null ? (f.dividendYield*100).toFixed(2)+'%' : '--'}</td></tr>
-      <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">50D Avg</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${f.fiftyDayAvg != null ? '₹'+f.fiftyDayAvg.toLocaleString('en-IN',{maximumFractionDigits:2}) : '--'}</td></tr>
-      <tr><td style="padding:6px 8px;vertical-align:top">200D Avg</td><td style="padding:6px 8px">${f.twoHundredDayAvg != null ? '₹'+f.twoHundredDayAvg.toLocaleString('en-IN',{maximumFractionDigits:2}) : '--'}</td></tr>
-    </table>
-  `;
-  body.innerHTML = html;
-  document.getElementById('fund-modal').style.display = 'flex';
-}
-
 function closeFundModal(event){ if(event) event.stopPropagation(); const m=document.getElementById('fund-modal'); if(m) m.style.display='none'; }
 
 const stockNewsCache = {};
@@ -2886,6 +5322,45 @@ function renderStockNews(sym, items, events, fromCache) {
   }).join('');
 }
 
+async function loadReplayWhyMissed(sym) {
+  const target = document.getElementById('replay-why-box');
+  if (!target) return;
+  const day = document.getElementById('replay-date-input')?.value || getTradeDateKey();
+  target.innerHTML = `<div class="replay-note">Checking replay for ${escapeHTML(sym)} on ${escapeHTML(day)}...</div>`;
+  try {
+    const res = await fetch(`${SIM_REPLAY_WHY_ENDPOINT}?day=${encodeURIComponent(day)}&symbol=${encodeURIComponent(sym)}`, { signal:AbortSignal.timeout(REPLAY_FETCH_TIMEOUT_MS) });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.ok === false) throw new Error(payload.error || `why HTTP ${res.status}`);
+    const traded = payload.traded || [];
+    const rejected = payload.rejected || [];
+    const tradedRows = traded.slice(0, 4).map(t => `<div class="replay-note">Traded ${escapeHTML(String(t.side || '').toUpperCase())} ${escapeHTML(t.setup || t.setupType || '--')} | ${moneyINR(replayTradeNet(t))} | ${escapeHTML(t.reason || '--')}</div>`).join('');
+    const rejectedRows = rejected.slice(0, 4).map(r => `<div class="replay-note">Rejected ${escapeHTML(String(r.side || '').toUpperCase())} ${escapeHTML(r.setupType || '--')} | Score ${escapeHTML(r.score)} | ${escapeHTML(r.reason || '--')}</div>`).join('');
+    const blockers = (payload.topReasons || []).slice(0, 5).map(r => `<span class="why-chip">${escapeHTML(r.reason)} (${r.count})</span>`).join('');
+    const best = payload.best ? `<div class="replay-note">Best snapshot: ${escapeHTML(formatTradeDateTime(payload.best.at))} | ${escapeHTML(payload.best.setupType || '--')} | Score ${escapeHTML(payload.best.score)} | ${moneyINR(payload.best.price)}</div>` : '';
+    const eligible = payload.firstEligible ? `<div class="replay-note">First eligible: ${escapeHTML(formatTradeDateTime(payload.firstEligible.at))} | ${escapeHTML(payload.firstEligible.setupType || '--')} | ${moneyINR(payload.firstEligible.price)}</div>` : '';
+    const timeline = (payload.timeline || []).slice(-8).reverse().map(row => `<tr>
+      <td>${escapeHTML(formatTradeDateTime(row.at))}</td>
+      <td>${moneyINR(row.price)}</td>
+      <td>${escapeHTML(String(row.side || '--').toUpperCase())}</td>
+      <td>${escapeHTML(row.setupType || '--')}</td>
+      <td>${escapeHTML(row.score)}</td>
+      <td>${row.eligible ? '<span class="job-status done">yes</span>' : '<span class="job-status error">no</span>'}</td>
+      <td class="replay-reason-cell">${escapeHTML((row.reasons || []).slice(0, 3).join(' | ') || '--')}</td>
+    </tr>`).join('');
+    target.innerHTML = `<div class="replay-note"><strong>${escapeHTML(payload.message || 'Replay checked.')}</strong></div>
+      <div class="replay-note">Snapshots considered: ${escapeHTML(payload.considered || 0)}</div>
+      ${best}${eligible}
+      ${blockers ? `<div class="why-chip-row">${blockers}</div>` : ''}
+      ${tradedRows}${rejectedRows || ''}
+      <div class="portfolio-table-wrap"><table class="replay-table">
+        <thead><tr><th>Time</th><th>Price</th><th>Side</th><th>Setup</th><th>Score</th><th>Eligible</th><th>Reasons</th></tr></thead>
+        <tbody>${timeline || '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:10px">No timeline rows</td></tr>'}</tbody>
+      </table></div>`;
+  } catch (e) {
+    target.innerHTML = `<div class="replay-note" style="color:var(--red)">Replay why failed: ${escapeHTML(e.message || String(e))}</div>`;
+  }
+}
+
 async function loadStockNews(sym, name, assetType = 'stock') {
   const key = `${sym}|${assetType}|${name || ''}`;
   const cached = stockNewsCache[key];
@@ -2905,6 +5380,77 @@ async function loadStockNews(sym, name, assetType = 'stock') {
   } catch(e) {
     renderStockEvents([]);
     if (box) box.innerHTML = `<div style="color:var(--red);font-size:12px;padding:4px">Could not load stock news: ${escapeHTML(e.message)}</div>`;
+  }
+}
+
+function lazyLoadDetailMetadata(asset, isETF) {
+  if (!asset?.sym || detailMetadataLoading.has(asset.sym)) return;
+  const attemptKey = `${asset.sym}|${isETF ? 'etf' : 'stock'}`;
+  if (detailMetadataAttempted.has(attemptKey)) return;
+  const needsETFMeta = isETF && (!asset.etfData || asset.etfData.expenseRatio == null || asset.etfData.fundFamily == null);
+  const needsStockMeta = !isETF && !asset.fund?.computed;
+  if (!needsETFMeta && !needsStockMeta) return;
+  detailMetadataLoading.add(asset.sym);
+  detailMetadataAttempted.add(attemptKey);
+  const task = isETF ? fetchETFSummary([asset.sym]) : fetchSymbolMetadata([asset.sym]);
+  task.catch(e => console.warn('detail metadata failed', asset.sym, e.message || e))
+    .finally(() => {
+      detailMetadataLoading.delete(asset.sym);
+      if (document.getElementById('fund-modal')?.style.display === 'flex') openFundModal(asset.sym);
+    });
+}
+
+function renderTradeDecisionTimeline(asset, t, adjustedScore, guard, whyTrade) {
+  try {
+    const sym = asset?.sym;
+    const data = stockData[sym] || {};
+    const openTrade = getOpenPaperTrade(sym);
+    const eventFlag = getEventFlag(sym);
+    const steps = [
+      ['Data', data.price ? `Price ${moneyINR(data.price)} | Chg ${data.change == null ? '--' : data.change.toFixed(2) + '%'}` : 'Price not loaded'],
+      ['Signal', t ? `${String(adjustedTradeSignal(adjustedScore)).toUpperCase()} score ${adjustedScore} | ${t.entryStatus || '--'}` : 'Intraday signal not loaded'],
+      ['Setup', t ? `${safeSetupType(asset, t, guard)} | ${guard?.label || '--'}` : '--'],
+      ['Decision', whyTrade || '--'],
+      ['Trade', openTrade ? `${String(openTrade.side || '').toUpperCase()} ${openTrade.qty} @ ${moneyINR(openTrade.entryPrice)}` : 'No open trade'],
+      ['Event', eventFlag ? `${eventFlag.label}${eventFlag.danger ? ' risk' : ''} | ${eventFlag.title}` : 'No active flag loaded'],
+    ];
+    return `<div class="detail-timeline">${steps.map(([label, text]) => `
+      <div class="timeline-step"><span>${escapeHTML(label)}</span><strong>${escapeHTML(text)}</strong></div>
+    `).join('')}</div>`;
+  } catch (e) {
+    console.warn('decision timeline failed', asset?.sym, e);
+    return `<div class="detail-timeline"><div class="timeline-step"><span>Decision</span><strong>Timeline unavailable</strong></div></div>`;
+  }
+}
+
+function safeSetupType(asset, t, guard) {
+  try {
+    return getSetupType(asset, t, guard);
+  } catch (e) {
+    console.warn('setup type failed', asset?.sym, e);
+    return t?.setupType || t?.entryStatus || 'SIGNAL';
+  }
+}
+
+function getModalTradeExplanation(asset, t, adjustedScore, adjustedSignal, guard) {
+  if (!t) return '--';
+  try {
+    if (!window.SimulationEngine?.explainCandidateEligibility) return 'Simulation rules are still loading';
+    const side = adjustedSignal === 'sell' ? 'sell' : adjustedSignal === 'buy' ? 'buy' : adjustedSignal;
+    const candidate = buildSimulationEngineCandidate(asset, t, adjustedScore, side, guard, getTradeCostContext(asset, t, side));
+    candidate.derivedSetupType = getSetupType(asset, t, guard);
+    const explanation = window.SimulationEngine.explainCandidateEligibility(
+      candidate,
+      Date.now(),
+      getSimulationEngineSettings(),
+      { previousCandidate: simulationPreviousSignalCandidates.get(asset.sym) || null, market:{ indices:indexData } }
+    );
+    return explanation.eligible
+      ? `Eligible now | ${explanation.setupType || '--'} | ${String(explanation.side || '').toUpperCase()}`
+      : (explanation.reasons || []).slice(0, 6).join(' | ') || 'Not eligible now';
+  } catch (e) {
+    console.warn('modal trade explanation failed', asset?.sym, e);
+    return 'Trade explanation unavailable';
   }
 }
 
@@ -2942,8 +5488,10 @@ function openFundModal(sym){
   if(!sym) return;
   const asset = MIDCAP_STOCKS.find(s=>s.sym===sym) || STOCK_ASSETS.find(s=>s.sym===sym) || ETF_ASSETS.find(s=>s.sym===sym) || null;
   const body = document.getElementById('fund-modal-body');
-  if(!asset || !body){ closeFundModal(); return; }
+  const modal = document.getElementById('fund-modal');
+  if(!asset || !body || !modal){ closeFundModal(); return; }
   const title = document.getElementById('fund-modal-title');
+  try {
   const isETF = isETFAsset(asset);
   activeNewsKind = isETF ? 'etf' : 'stock';
   if (title) title.textContent = `${asset.sym} ${isETF ? 'ETF Details' : 'Details'}`;
@@ -2973,6 +5521,7 @@ function openFundModal(sym){
   const size = t ? getPositionSize(t) : null;
   const guard = t ? getRiskGuard(asset, t, adjustedScore) : null;
   const tradePlan = t ? `${guard?.label || '--'} (${guard?.reason || '--'}) | ${t.entryStatus || '--'} | ${t.entryTrigger || '--'} | ${t.invalidation || '--'} | ${liq?.label || 'Liq --'} ${liq?.tradedCr ?? '--'}cr | ${timeWarn.label} | Qty ${size ? size.qty : '--'} (risk Rs ${size ? size.maxLoss : '--'})` : '--';
+  const whyTrade = getModalTradeExplanation(asset, t, adjustedScore, adjustedSignal, guard);
   const openTrade = getOpenPaperTrade(sym);
   const paperPnl = openTrade ? getPaperTradePnl(openTrade, getCurrentTradePrice(sym)) : null;
   const paperTradeText = openTrade
@@ -3003,6 +5552,7 @@ function openFundModal(sym){
     detailRow('VWAP Bands', `${fmtMoney(t?.vwapLower)} / ${fmtMoney(t?.vwap)} / ${fmtMoney(t?.vwapUpper)} (${t?.vwapBandPosition || '--'})`),
     detailRow('SuperTrend', `${t?.superTrendDirection || '--'} ${fmtMoney(t?.superTrend)}`),
     detailRow('ETF Guard', etfSafety ? `${etfSafety.ok ? 'Allowed' : 'Avoid'}${etfSafety.warn ? ' - Warning' : ''} | ${etfSafety.reason || guard?.reason || '--'}` : '--'),
+    detailRow('Why Not Traded?', whyTrade),
     detailRow('Trade Context', tradeContext),
     detailRow('Entry Plan', tradePlan),
     detailRow('Paper Trade', paperTradeText),
@@ -3015,6 +5565,7 @@ function openFundModal(sym){
     detailRow('ST Target / SL', `${fmtMoney(t?.target)} / ${fmtMoney(t?.stop)}`),
     detailRow('Paper Trade', paperTradeText),
     detailRow('Broker Dry Run', brokerTradeText),
+    detailRow('Why Not Traded?', whyTrade),
     detailRow('Trade Context', tradeContext),
     detailRow('Entry Plan', tradePlan),
     detailRow('VWAP', fmtMoney(t?.vwap)),
@@ -3043,57 +5594,101 @@ function openFundModal(sym){
         <table style="width:100%;border-collapse:collapse">
           ${isETF ? etfDetailRows : stockDetailRows}
         </table>
-      </div>
-      <div class="stock-detail-panel">
-        <h4>${isETF ? 'ETF News & Events' : 'News & Events'}</h4>
-        <div id="stock-event-list" class="stock-event-list">
-          <div style="color:var(--muted);font-size:12px;padding:2px 0 8px">Loading ${isETF ? 'ETF announcements' : 'result and dividend events'}...</div>
+        <div style="margin-top:10px">
+          <button class="paper-btn" onclick="loadReplayWhyMissed('${escapeHTML(asset.sym)}')">Why Missed In Replay</button>
+          <div id="replay-why-box" style="margin-top:8px"></div>
         </div>
-        <div id="stock-news-list" class="stock-news-list">
-          <div style="color:var(--muted);font-size:12px;padding:4px">Loading related news...</div>
+      </div>
+      <div class="stock-detail-side">
+        <div class="stock-detail-panel">
+          <h4>Decision Timeline</h4>
+          ${renderTradeDecisionTimeline(asset, t, adjustedScore, guard, whyTrade)}
+        </div>
+        <div class="stock-detail-panel">
+          <h4>${isETF ? 'ETF News & Events' : 'News & Events'}</h4>
+          <div id="stock-event-list" class="stock-event-list">
+            <div style="color:var(--muted);font-size:12px;padding:2px 0 8px">Loading ${isETF ? 'ETF announcements' : 'result and dividend events'}...</div>
+          </div>
+          <div id="stock-news-list" class="stock-news-list">
+            <div style="color:var(--muted);font-size:12px;padding:4px">Loading related news...</div>
+          </div>
         </div>
       </div>
     </div>
   `;
-  document.getElementById('fund-modal').style.display = 'flex';
+  modal.style.display = 'flex';
+  lazyLoadDetailMetadata(asset, isETF);
   loadStockNews(asset.sym, asset.name || asset.sym, isETF ? 'etf' : 'stock');
+  } catch (e) {
+    console.warn('stock detail modal failed', sym, e);
+    if (title) title.textContent = `${asset.sym} Details`;
+    body.innerHTML = `
+      <div class="stock-detail-title">${escapeHTML(asset.sym)} - ${escapeHTML(asset.name || '')}</div>
+      <div class="stock-detail-panel">
+        <h4>Details</h4>
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Price</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${escapeHTML(moneyINR(stockData[sym]?.price))}</td></tr>
+          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Change</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${escapeHTML(stockData[sym]?.change == null ? '--' : stockData[sym].change.toFixed(2) + '%')}</td></tr>
+          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Sector</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${escapeHTML(asset.sector || '--')}</td></tr>
+          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Status</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Advanced details unavailable. Basic panel opened.</td></tr>
+        </table>
+      </div>
+    `;
+    modal.style.display = 'flex';
+  }
+}
+
+window.openFundModal = openFundModal;
+window.closeFundModal = closeFundModal;
+
+function applyETFListPayload(allEtfs, sourceLabel = 'server') {
+  const list = Array.isArray(allEtfs) ? allEtfs : [];
+  const newSymbols = [];
+  for (const etf of list) {
+    if (!etf.sym) continue;
+    if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym) || ETF_ASSETS.some(s=>s.sym===etf.sym)) continue;
+    ETF_ASSETS.push({
+      sym: etf.sym,
+      name: etf.name || etf.sym,
+      sector: etf.sector || 'ETF',
+      cap: 'etf',
+      fundFamily: etf.fundFamily || null,
+      etfData: etf.expRatio != null ? { expenseRatio: etf.expRatio } : undefined
+    });
+    if (etf.price || etf.nav) {
+      stockData[etf.sym] = Object.assign(stockData[etf.sym] || {}, {
+        price      : etf.price,
+        change     : etf.chgPct,
+        nav        : etf.nav,
+        navPremium : etf.navPremium,
+        high52     : etf.high52,
+        low52      : etf.low52,
+        volume     : etf.volume,
+        aum        : etf.aum,
+        expRatio   : etf.expRatio,
+      });
+    }
+    newSymbols.push(etf.sym);
+  }
+  if (newSymbols.length) console.log(`[ETF] Loaded ${newSymbols.length} ETFs from ${sourceLabel}`);
+  return newSymbols;
 }
 
 async function loadPresetETFs(){
   if (etfListLoaded) return; // already fetched — don't re-hit /etf-list on every tab switch
+  const bootEtfs = dashboardBootstrap?.etfListCache?.etfs;
+  if (Array.isArray(bootEtfs) && bootEtfs.length) {
+    applyETFListPayload(bootEtfs, 'bootstrap cache');
+    etfListLoaded = true;
+    populateETFSectorDropdown();
+    renderETFSection();
+    return;
+  }
   try {
     const res = await fetch(`${PROXY}/etf-list`);
     if (res.ok) {
       const json = await res.json();
-      const allEtfs = json.etfs || [];
-      const newSymbols = [];
-      for (const etf of allEtfs) {
-        if (!etf.sym) continue;
-        if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym) || ETF_ASSETS.some(s=>s.sym===etf.sym)) continue;
-        ETF_ASSETS.push({
-          sym: etf.sym,
-          name: etf.name || etf.sym,
-          sector: etf.sector || 'ETF',
-          cap: 'etf',
-          fundFamily: etf.fundFamily || null,
-          etfData: etf.expRatio != null ? { expenseRatio: etf.expRatio } : undefined
-        });
-        // Seed stockData directly from NSE batch (price, nav, navPremium, 52W)
-        if (etf.price || etf.nav) {
-          stockData[etf.sym] = Object.assign(stockData[etf.sym] || {}, {
-            price      : etf.price,
-            change     : etf.chgPct,
-            nav        : etf.nav,
-            navPremium : etf.navPremium,
-            high52     : etf.high52,
-            low52      : etf.low52,
-            volume     : etf.volume,
-            aum        : etf.aum,
-            expRatio   : etf.expRatio,
-          });
-        }
-        newSymbols.push(etf.sym);
-      }
+      applyETFListPayload(json.etfs || [], '/etf-list');
       console.log(`[ETF] Loaded ${ETF_ASSETS.length} ETFs from /etf-list`);
       etfListLoaded = true;
       populateETFSectorDropdown();
@@ -3144,8 +5739,8 @@ function renderETFSection(){
         const g = getRiskGuard(r, t, adjustedTradeScore(r));
         return !['avoid','invalid','chasing'].includes(g.level) && getETFTradeSafety(r, t).ok;
       },
-      triggered:r => intradayData[r.sym]?.entryStatus === 'Triggered' && getETFTradeSafety(r, intradayData[r.sym]).ok,
-      neartrigger:r => intradayData[r.sym]?.entryStatus === 'Near trigger' && getETFTradeSafety(r, intradayData[r.sym]).ok,
+      triggered:r => intradayData[r.sym]?.entryStatus === 'Triggered' && !getIntradayFreshness(intradayData[r.sym]).stale && getETFTradeSafety(r, intradayData[r.sym]).ok,
+      neartrigger:r => intradayData[r.sym]?.entryStatus === 'Near trigger' && !getIntradayFreshness(intradayData[r.sym]).stale && getETFTradeSafety(r, intradayData[r.sym]).ok,
       custom:   r => EXTRA_SYMBOLS.includes(r.sym),
       preset:   r => !EXTRA_SYMBOLS.includes(r.sym),
     };
@@ -3195,7 +5790,7 @@ function renderETFSection(){
     let av,bv;
     if(col==='symbol'){av=a.sym; bv=b.sym;}
     else if(col==='price'){av=a.data?.price||0; bv=b.data?.price||0;}
-    else if(col==='target'){ av=a.fund?.priceTarget ?? 0; bv=b.fund?.priceTarget ?? 0; }
+    else if(col==='target'){ av=getTargetDeltaPct(a) ?? -999; bv=getTargetDeltaPct(b) ?? -999; }
     else if(col==='change'){av=a.data?.change||0; bv=b.data?.change||0;}
     else if(col==='volume'){av=a.data?.volume||0; bv=b.data?.volume||0;}
     else if(col==='nav'){av=a.etfData?.nav??-1; bv=b.etfData?.nav??-1;}
@@ -3225,8 +5820,8 @@ function renderETFSection(){
   tbody.innerHTML = rows.map(row => {
     const d=row.data,chg=d?.change||0,price=d?.price||0,sig=getSignal(row,d),fav=isETFFavorite(row.sym);
     return `<tr>
-      <td><button class="fav-btn ${fav?'active':''}" onclick="toggleETFFavorite('${row.sym}')">${fav?'★':'☆'}</button></td>
-      <td><div class="stock-name-cell etf-name-cell"><button class="stock-name-link" type="button" onclick="event.stopPropagation();openFundModal('${escapeHTML(row.sym)}')" title="Open ETF details"><span class="stock-symbol">${escapeHTML(row.sym)}</span><span class="stock-fullname">${escapeHTML(row.name)}</span>${(row.fundFamily||row.etfData?.fundFamily)?`<span class="etf-family">${escapeHTML(row.fundFamily||row.etfData.fundFamily)}</span>`:''}</button></div></td>
+      <td><button class="fav-btn ${fav?'active':''}" onclick="toggleETFFavorite('${row.sym}', event)">${fav?'★':'☆'}</button></td>
+      <td data-open-symbol="${escapeHTML(row.sym)}" onclick="openFundModal('${escapeHTML(row.sym)}')" style="cursor:pointer"><div class="stock-name-cell etf-name-cell"><button class="stock-name-link" type="button" data-open-symbol="${escapeHTML(row.sym)}" title="Open ETF details"><span class="stock-symbol">${escapeHTML(row.sym)}</span><span class="stock-fullname">${escapeHTML(row.name)}</span>${(row.fundFamily||row.etfData?.fundFamily)?`<span class="etf-family">${escapeHTML(row.fundFamily||row.etfData.fundFamily)}</span>`:''}</button></div></td>
       <td class="price-cell"><div class="price-stack"><span>${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</span><span class="chg-cell ${chg>=0?'up':'down'}">${d?(chg>=0?'▲ +':'▼ ')+chg.toFixed(2)+'%':'--'}</span><span class="range-mini">${d&&d.low52&&d.high52?'52W ₹'+d.low52.toLocaleString('en-IN',{maximumFractionDigits:0})+'–₹'+d.high52.toLocaleString('en-IN',{maximumFractionDigits:0}):'52W --'}</span></div></td>
       <td class="hide-mobile" style="font-size:11px;color:var(--muted)">${d?.volume?(d.volume/100000).toFixed(1)+'L':'--'}</td>
       <td class="hide-mobile" style="font-size:11px">${renderETFReturnCell(row.etfData?.oneMonthReturn, '1M')}</td>
@@ -3410,11 +6005,62 @@ function initETFTableScroll() {
   syncETFScrollSizing();
 }
 
-function renderDashboard(){ renderIndices(); renderSectors(); renderTable(); syncStockScrollSizing(); if (currentView === 'etfs') { renderETFSection(); syncETFScrollSizing(); } }
+function renderDashboard(options = {}) {
+  if (options?.immediate) return renderDashboardNow(true);
+  if (dashboardRenderScheduled) return;
+  dashboardRenderScheduled = true;
+  requestAnimationFrame(() => {
+    dashboardRenderScheduled = false;
+    renderDashboardNow(false);
+  });
+}
+
+function renderDashboardNow(immediateTable = false){
+  renderIndices();
+  renderSectors();
+  renderTable(immediateTable ? { immediate:true } : undefined);
+  renderTopActionBar();
+  applyColumnPreset();
+  syncStockScrollSizing();
+  if (currentView === 'etfs') { renderETFSection(); syncETFScrollSizing(); }
+}
+
+function initDetailOpenHandlers() {
+  ['stock-tbody', 'etf-tbody'].forEach(id => {
+    const body = document.getElementById(id);
+    if (!body || body.dataset.detailOpenReady === '1') return;
+    body.dataset.detailOpenReady = '1';
+    body.addEventListener('click', event => {
+      const trigger = event.target.closest('[data-open-symbol]');
+      if (!trigger || !body.contains(trigger)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openFundModal(trigger.dataset.openSymbol);
+    });
+  });
+}
+
+function applyDashboardRouteHint() {
+  const route = window.__DASHBOARD_ROUTE__ || {};
+  if (route.view === 'etfs') {
+    const tab = document.getElementById('tab-etfs');
+    if (tab) {
+      document.querySelectorAll('#main-tabs .tab-btn').forEach(b=>b.classList.remove('active'));
+      tab.classList.add('active');
+    }
+  }
+  if (route.action === 'portfolio') {
+    setTimeout(() => openPortfolioModal().catch(e => console.warn('portfolio route open failed', e.message)), 250);
+  } else if (route.action === 'replay') {
+    setTimeout(() => runReplayToday().catch(e => console.warn('replay route open failed', e.message)), 250);
+  }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   initStockTableScroll();
   initETFTableScroll();
+  initDetailOpenHandlers();
+  applyColumnPreset();
   updateSimulationButton();
   updateBrokerModeButton();
   document.querySelectorAll('.source-card').forEach(card => {
@@ -3427,11 +6073,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  await loadFavoriteETFs();
-  await loadFavoriteStocks();
-  await loadPaperTrades();
-  await loadSavedETFs();
-  await loadSavedStocks();
+  await loadDashboardBootstrap();
+  await Promise.all([
+    loadTradeSettingOverridesFromServer(),
+    loadFavoriteETFs(),
+    loadFavoriteStocks(),
+  ]);
+  renderTopActionBar();
+  await Promise.all([
+    loadSavedETFs(),
+    loadSavedStocks(),
+    loadPaperTrades(),
+  ]);
+  applyDashboardRouteHint();
 });
 
 // ═══════════════════════════════════
@@ -3453,7 +6107,7 @@ function toggleFundChat(){
 
 function saveChatKey(){
   document.getElementById('chat-key-row').style.display = 'none';
-  addChatMsg('bot', 'OpenAI is configured through the local proxy. You can ask now.');
+  addChatMsg('bot', 'Chat uses Ollama through the local proxy, with dashboard data as context. You can ask now.');
 }
 
 function sendSuggestion(el){
@@ -3499,9 +6153,275 @@ function buildFundamentalsContext(){
       marketCap: f?.marketCap ?? null,
       priceTarget: f?.priceTarget ?? null,
       epsGrowth: f?.epsGrowth != null ? norm(f.epsGrowth) : null,
+      dividendYield: f?.dividendYield != null ? norm(f.dividendYield) : null,
     });
   }
   return rows;
+}
+
+function renderChatTable(rows, columns) {
+  if (!rows.length) return '<p>No matching fundamentals data loaded yet.</p>';
+  const header = columns.map(c => `<th style="padding:6px 8px;border-bottom:1px solid #334155;text-align:left">${escapeHTML(c.label)}</th>`).join('');
+  const body = rows.map(row => `<tr>${columns.map(c => `<td style="padding:6px 8px;border-bottom:1px solid #1e293b">${escapeHTML(c.format ? c.format(row[c.key], row) : (row[c.key] ?? '--'))}</td>`).join('')}</tr>`).join('');
+  return `<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function localFundamentalsAnswer(question, fundamentals) {
+  const q = String(question || '').toLowerCase();
+  const loaded = fundamentals.filter(r => r.pe != null || r.roe != null || r.eps != null);
+  const baseCols = [
+    { key:'sym', label:'Stock' },
+    { key:'name', label:'Name' },
+    { key:'sector', label:'Sector' },
+    { key:'price', label:'Price', format:v => v == null ? '--' : moneyINR(v) },
+  ];
+  const pct = v => v == null ? '--' : Number(v).toFixed(1) + '%';
+  const num = v => v == null ? '--' : Number(v).toFixed(2);
+  const compactCap = v => {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) return '--';
+    if (n >= 10000000) return 'Rs ' + (n / 10000000).toFixed(1) + 'Cr';
+    if (n >= 100000) return 'Rs ' + (n / 100000).toFixed(1) + 'L';
+    return moneyINR(n);
+  };
+  const withHealth = loaded.map(r => {
+    let health = 0;
+    if (r.roe != null && r.roe >= 20) health += 30;
+    if (r.pe != null && r.pe > 0 && r.pe <= 25) health += 25;
+    if (r.de != null && r.de <= 1) health += 20;
+    if (r.peg != null && r.peg > 0 && r.peg <= 2) health += 15;
+    if (r.epsGrowth != null && r.epsGrowth > 0) health += 10;
+    return { ...r, health };
+  });
+
+  const escapeRegExp = s => String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const namedStocks = fundamentals.filter(r => {
+    const sym = String(r.sym || '').toLowerCase();
+    const name = String(r.name || '').toLowerCase();
+    return (sym && new RegExp(`\\b${escapeRegExp(sym)}\\b`, 'i').test(q)) || (name && q.includes(name));
+  });
+  const wantsCompare = /compare|versus| vs |better|which one/.test(q);
+  if (wantsCompare && namedStocks.length >= 2) {
+    const rows = namedStocks.slice(0, 6).map(r => withHealth.find(x => x.sym === r.sym) || r);
+    const best = rows
+      .map(r => ({ ...r, composite:(r.health || 0) + Math.min(35, Number(r.roe || 0) / 2) + (r.pe != null && r.pe > 0 ? Math.max(0, 25 - r.pe) : 0) + (r.de != null ? Math.max(0, 15 - r.de * 8) : 0) }))
+      .sort((a,b) => b.composite - a.composite)[0];
+    return `<p><strong>Comparison from loaded fundamentals</strong></p><p style="color:#94a3b8;font-size:12px">${escapeHTML(best ? `${best.sym} ranks best locally on health, ROE, valuation and debt among the compared stocks.` : 'Compared using available dashboard fundamentals.')}</p>${renderChatTable(rows, [...baseCols, { key:'health', label:'Health' }, { key:'roe', label:'ROE', format:pct }, { key:'pe', label:'P/E', format:num }, { key:'de', label:'D/E', format:num }, { key:'epsGrowth', label:'EPS Gr', format:pct }, { key:'dividendYield', label:'Div', format:pct }])}`;
+  }
+
+  const stock = namedStocks[0];
+  if (stock && (/health|good|analysis|fundamental|roe|pe|debt|eps|how\s+is|how'?s|tell me|view|status|dividend|growth|target/.test(q) || q.split(/\s+/).length <= 5)) {
+    const scored = withHealth.find(r => r.sym === stock.sym) || stock;
+    const positives = [];
+    const cautions = [];
+    if (scored.roe != null) (scored.roe >= 20 ? positives : cautions).push(`ROE ${scored.roe.toFixed(1)}%`);
+    if (scored.pe != null) (scored.pe > 0 && scored.pe <= 25 ? positives : cautions).push(`P/E ${scored.pe.toFixed(2)}`);
+    if (scored.de != null) (scored.de <= 1 ? positives : cautions).push(`D/E ${scored.de.toFixed(2)}`);
+    if (scored.epsGrowth != null) (scored.epsGrowth > 0 ? positives : cautions).push(`EPS growth ${scored.epsGrowth.toFixed(1)}%`);
+    if (scored.dividendYield != null && scored.dividendYield > 0) positives.push(`Dividend yield ${scored.dividendYield.toFixed(1)}%`);
+    const verdict = positives.length >= cautions.length
+      ? `Looks constructive on loaded fundamentals. Strengths: ${positives.join(', ') || 'price/fundamental data available'}.`
+      : `Needs caution on loaded fundamentals. Watch: ${cautions.join(', ') || 'some metrics are missing'}.`;
+    return `<p><strong>${escapeHTML(scored.sym)} quick view</strong></p><p>${escapeHTML(verdict)}</p>${renderChatTable([scored], [
+      { key:'sym', label:'Stock' },
+      { key:'name', label:'Name' },
+      { key:'sector', label:'Sector' },
+      { key:'price', label:'Price', format:v => v == null ? '--' : moneyINR(v) },
+      { key:'roe', label:'ROE', format:pct },
+      { key:'pe', label:'P/E', format:num },
+      { key:'de', label:'D/E', format:num },
+      { key:'peg', label:'PEG', format:num },
+      { key:'epsGrowth', label:'EPS Gr', format:pct },
+      { key:'dividendYield', label:'Div', format:pct },
+    ])}`;
+  }
+
+  const wantsHealthy = /health|healthy|quality|strong/.test(q);
+  const wantsLowDebt = /low\s+debt|debt|d\/e/.test(q);
+  const wantsRoe = /best\s+roe|roe|return on equity/.test(q);
+  const wantsCheap = /undervalued|cheap|low\s+p\/?e|p\/e|value|valuation/.test(q);
+  const wantsGrowth = /growth|eps/.test(q);
+  const wantsDividend = /dividend|yield|income/.test(q);
+  const wantsMarketCap = /market\s*cap|large\s*cap|mid\s*cap|small\s*cap/.test(q);
+  const sectors = [...new Set(loaded.map(r => r.sector).filter(Boolean))];
+  const sector = sectors.find(s => q.includes(String(s).toLowerCase()));
+  const hasRankingIntent = wantsHealthy || wantsLowDebt || wantsRoe || wantsCheap || wantsGrowth || wantsDividend || wantsMarketCap || /best|top|show|find|list|which/.test(q) || !!sector;
+
+  if (hasRankingIntent) {
+    let rows = withHealth.slice();
+    const titleParts = [];
+    const rationale = [];
+    if (sector) {
+      rows = rows.filter(r => String(r.sector || '').toLowerCase() === String(sector).toLowerCase());
+      titleParts.push(sector);
+      rationale.push(`sector = ${sector}`);
+    }
+    if (wantsLowDebt) {
+      rows = rows.filter(r => r.de != null && r.de <= 1);
+      titleParts.push('low debt');
+      rationale.push('D/E <= 1');
+    }
+    if (wantsRoe) {
+      rows = rows.filter(r => r.roe != null);
+      titleParts.push('strong ROE');
+      rationale.push('ROE available, ranked higher when stronger');
+    }
+    if (wantsHealthy) {
+      rows = rows.filter(r => r.health >= 50 || (r.roe != null && r.roe >= 20));
+      titleParts.push('healthy');
+      rationale.push('health score from ROE, P/E, D/E, PEG and EPS growth');
+    }
+    if (wantsCheap) {
+      rows = rows.filter(r => r.pe != null && r.pe > 0);
+      titleParts.push('value');
+      rationale.push('positive P/E, lower is better');
+    }
+    if (wantsGrowth) {
+      rows = rows.filter(r => r.epsGrowth != null);
+      titleParts.push('growth');
+      rationale.push('EPS growth available, higher is better');
+    }
+    if (wantsDividend) {
+      rows = rows.filter(r => r.dividendYield != null && r.dividendYield > 0);
+      titleParts.push('dividend');
+      rationale.push('dividend yield available, higher is better');
+    }
+    if (wantsMarketCap) {
+      rows = rows.filter(r => r.marketCap != null);
+      titleParts.push('market cap');
+      rationale.push('market cap available');
+    }
+
+    rows = rows.map(r => {
+      let score = r.health || 0;
+      if (wantsRoe || wantsHealthy) score += Math.min(40, Number(r.roe || 0) / 2);
+      if (wantsLowDebt) score += r.de != null ? Math.max(0, 25 - r.de * 15) : 0;
+      if (wantsCheap) score += r.pe != null && r.pe > 0 ? Math.max(0, 35 - r.pe) : 0;
+      if (wantsGrowth) score += Math.min(25, Math.max(0, Number(r.epsGrowth || 0)) / 2);
+      if (wantsDividend) score += Math.min(20, Number(r.dividendYield || 0) * 4);
+      if (wantsMarketCap) score += Math.min(20, Math.log10(Number(r.marketCap || 1)));
+      return { ...r, localRank:+score.toFixed(1) };
+    }).sort((a,b) => b.localRank - a.localRank).slice(0, 10);
+
+    const cols = [...baseCols, { key:'localRank', label:'Rank' }];
+    if (wantsHealthy || !titleParts.length) cols.push({ key:'health', label:'Health' });
+    if (wantsRoe || wantsHealthy || !titleParts.length) cols.push({ key:'roe', label:'ROE', format:pct });
+    if (wantsCheap || wantsHealthy || !titleParts.length) cols.push({ key:'pe', label:'P/E', format:num });
+    if (wantsLowDebt || wantsHealthy || !titleParts.length) cols.push({ key:'de', label:'D/E', format:num });
+    if (wantsGrowth) cols.push({ key:'epsGrowth', label:'EPS Gr', format:pct });
+    if (wantsDividend) cols.push({ key:'dividendYield', label:'Div', format:pct });
+    if (wantsMarketCap) cols.push({ key:'marketCap', label:'MCap', format:compactCap });
+
+    const title = titleParts.length ? `${titleParts.join(' + ')} stocks loaded right now` : 'Best fundamental candidates loaded right now';
+    const why = rationale.length ? rationale.join('; ') : 'ranked by local health score using available fundamentals';
+    return `<p><strong>${escapeHTML(title)}</strong></p><p style="color:#94a3b8;font-size:12px">${escapeHTML(why)}.</p>${renderChatTable(rows, cols)}`;
+  }
+
+  const rows = withHealth.sort((a,b) => b.health - a.health).slice(0, 5);
+  return `<p><strong>I can answer locally from loaded dashboard data.</strong></p><p style="color:#94a3b8;font-size:12px">Try questions like "healthy low debt best ROE", "cheap IT stocks", "dividend yield stocks", "compare TCS INFY", or "how is Lupin".</p>${renderChatTable(rows, [...baseCols, { key:'health', label:'Health' }, { key:'roe', label:'ROE', format:pct }, { key:'pe', label:'P/E', format:num }, { key:'de', label:'D/E', format:num }])}`;
+}
+
+function chatHtmlToText(html) {
+  const template = document.createElement('template');
+  template.innerHTML = String(html || '');
+  return (template.content.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+function renderChatNote(text) {
+  return `<p style="color:#94a3b8;font-size:11px;margin-top:8px">${escapeHTML(text)}</p>`;
+}
+
+function normalizeChatAIHtml(raw) {
+  let html = String(raw || '').trim()
+    .replace(/^```(?:html)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+  if (!html) return '';
+  if (!/<[a-z][\s\S]*>/i.test(html)) {
+    const paragraphs = escapeHTML(html).split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+    return paragraphs || `<p>${escapeHTML(html)}</p>`;
+  }
+  return html
+    .replace(/<!doctype[^>]*>/gi, '')
+    .replace(/<html[^>]*>|<\/html>/gi, '')
+    .replace(/<head[\s\S]*?<\/head>/gi, '')
+    .replace(/<body[^>]*>|<\/body>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+    .replace(/\sjavascript:/gi, '');
+}
+
+function compactFundamentalsForChatAI(question, fundamentals) {
+  const q = String(question || '').toLowerCase();
+  const terms = q.split(/[^a-z0-9]+/).filter(w => w.length >= 3);
+  const rows = fundamentals.map(row => {
+    const hay = `${row.sym} ${row.name} ${row.sector}`.toLowerCase();
+    let health = 0;
+    if (row.roe != null && row.roe >= 20) health += 30;
+    if (row.pe != null && row.pe > 0 && row.pe <= 25) health += 25;
+    if (row.de != null && row.de <= 1) health += 20;
+    if (row.peg != null && row.peg > 0 && row.peg <= 2) health += 15;
+    if (row.epsGrowth != null && row.epsGrowth > 0) health += 10;
+    let score = health + terms.reduce((sum, term) => sum + (hay.includes(term) ? 12 : 0), 0);
+    if (/roe|health|quality|strong|best/.test(q) && row.roe != null) score += Math.min(30, row.roe / 2);
+    if (/debt|d\/e/.test(q) && row.de != null) score += Math.max(0, 25 - row.de * 15);
+    if (/cheap|undervalued|value|p\/?e/.test(q) && row.pe != null && row.pe > 0) score += Math.max(0, 35 - row.pe);
+    if (/growth|eps/.test(q) && row.epsGrowth != null) score += Math.min(25, Math.max(0, row.epsGrowth) / 2);
+    if (/dividend|yield|income/.test(q) && row.dividendYield != null) score += Math.min(20, row.dividendYield * 4);
+    return { row: { ...row, health }, score };
+  }).sort((a,b) => b.score - a.score).slice(0, 25).map(x => x.row);
+
+  return rows.map(row => Object.fromEntries(Object.entries(row).filter(([, v]) => v != null && v !== '')));
+}
+
+function ollamaAnswerLooksUnsafe(html, rows) {
+  const text = chatHtmlToText(html).toLowerCase();
+  if (!text) return true;
+  const hasField = field => rows.some(row => row[field] != null);
+  const forbidden = [
+    /industry\s+(avg|average|peer|benchmark)/i,
+    /\busd\b|\$\s*\d/i,
+    /market\s+cap|market\s+capitali[sz]ation/i,
+    /price\s+target|target\s+price/i,
+    /analyst\s+rating|broker\s+rating/i,
+  ];
+  if (forbidden.some(re => re.test(text))) {
+    if (!hasField('marketCap') && /market\s+cap|market\s+capitali[sz]ation/i.test(text)) return true;
+    if (!hasField('priceTarget') && /price\s+target|target\s+price/i.test(text)) return true;
+    if (/industry\s+(avg|average|peer|benchmark)|\busd\b|\$\s*\d|analyst\s+rating|broker\s+rating/i.test(text)) return true;
+  }
+  if (rows.length <= 1 && /\brank(ed)?\s+\d+\s+(out of|of)\s+\d+/i.test(text)) return true;
+
+  const allowedLarge = [];
+  for (const row of rows) {
+    for (const value of Object.values(row)) {
+      const n = Number(value);
+      if (Number.isFinite(n) && Math.abs(n) >= 100) allowedLarge.push(n);
+    }
+  }
+  const nums = [...text.matchAll(/(?:rs\s*)?([0-9][0-9,]*(?:\.[0-9]+)?)/gi)]
+    .map(m => Number(String(m[1]).replace(/,/g, '')))
+    .filter(n => Number.isFinite(n) && Math.abs(n) >= 100);
+  const closeToAllowed = n => allowedLarge.some(a => Math.abs(a - n) <= Math.max(1, Math.abs(a) * 0.002));
+  return nums.some(n => !closeToAllowed(n));
+}
+
+async function callOllamaChat(prompt, opts = {}) {
+  const r = await fetch(OLLAMA_CHAT_ENDPOINT, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    signal: AbortSignal.timeout(opts.timeout || 190000),
+    body:JSON.stringify({
+      prompt,
+      model: opts.model || undefined,
+      maxOutputTokens: opts.maxOutputTokens || 800,
+      timeoutMs: opts.timeoutMs || 180000,
+    })
+  });
+  const data = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(data.error || `Ollama HTTP ${r.status}`);
+  return data;
 }
 
 async function sendChatMessage(){
@@ -3513,39 +6433,41 @@ async function sendChatMessage(){
   chatBusy = true;
   document.getElementById('chat-send-btn').disabled = true;
   addChatMsg('user', question);
-  const thinking = addChatMsg('bot thinking', '⏳ Analysing fundamentals…');
+  const thinking = addChatMsg('bot thinking', '⏳ Asking Ollama with dashboard context…');
 
   try {
     const fundamentals = buildFundamentalsContext();
-    const loadedCount = fundamentals.filter(r=>r.pe||r.roe||r.eps).length;
-
-    const systemPrompt = `You are a sharp Indian equity analyst assistant embedded in an NSE stock dashboard.
-You have access to live fundamentals data for ${fundamentals.length} stocks (${loadedCount} with full data).
-Answer questions concisely using the provided data. 
-- For rankings/comparisons, show a compact HTML table with relevant columns.
-- For single stock analysis, give a brief paragraph + key metrics table.
-- Use ₹ for prices. ROE and EPS growth are in %. D/E is ratio.
-- Health scoring: ROE>20 = strong, P/E<20 = value, D/E<1 = low debt, PEG<2 = growth at value.
-- If fundamentals data is missing (null) for a stock, say so.
-- Keep responses concise — max 300 words or 10 table rows.
-- Return plain HTML only (no markdown, no backticks). Tables should use basic inline styles.`;
-
-    const userPrompt = `Fundamentals data (JSON array):
-${JSON.stringify(fundamentals, null, 0)}
-
-User question: ${question}`;
-
-    const data = await callOpenAI(`${systemPrompt}\n\n${userPrompt}`, {
-      mode: 'html',
-      maxOutputTokens: 1200,
-      webSearch: false,
-    });
-    const text = data.output_text || data.text || data.content?.filter(b=>b.type==='text').map(b=>b.text).join('') || 'No response.';
+    const localAnswer = localFundamentalsAnswer(question, fundamentals);
+    const compactRows = compactFundamentalsForChatAI(question, fundamentals);
+    const loadedCount = fundamentals.filter(r => r.pe != null || r.roe != null || r.eps != null).length;
+    const prompt = [
+      `Original user question: ${question}`,
+      '',
+      `Dashboard snapshot: ${fundamentals.length} stocks loaded, ${loadedCount} with fundamentals.`,
+      'Relevant dashboard data as JSON. Use these values only:',
+      JSON.stringify(compactRows, null, 0),
+      '',
+      'Local pre-filtered/suggested answer from dashboard logic:',
+      chatHtmlToText(localAnswer).slice(0, 2500),
+      '',
+      'Answer as concise HTML. Prefer a short explanation plus a compact table when useful. Use Rs for prices, % for ROE/EPS growth/dividend yield, and D/E as ratio. Do not invent metrics, industry averages, market cap, targets, or missing values. If data is missing, say so.',
+    ].join('\n');
+    const data = await callOllamaChat(prompt, { maxOutputTokens: 800, timeoutMs: 180000 });
+    const text = normalizeChatAIHtml(data.output_text || data.text || data.content?.filter(b=>b.type==='text').map(b=>b.text).join(''));
     thinking.remove();
-    addChatMsg('bot', text);
+    if (!text || ollamaAnswerLooksUnsafe(text, compactRows)) {
+      addChatMsg('bot', `${localAnswer}${renderChatNote('Ollama responded, but the answer appeared to include values outside the dashboard data, so this deterministic local answer is shown instead.')}`);
+    } else {
+      addChatMsg('bot', text);
+    }
   } catch(e) {
     thinking.remove();
-    addChatMsg('bot', '⚠️ Error: ' + e.message);
+    try {
+      const localAnswer = localFundamentalsAnswer(question, buildFundamentalsContext());
+      addChatMsg('bot', `${localAnswer}${renderChatNote(`Ollama unavailable via proxy: ${String(e.message || e)}`)}`);
+    } catch(_) {
+      addChatMsg('bot', '⚠️ Error: ' + String(e.message || e));
+    }
   } finally {
     chatBusy = false;
     document.getElementById('chat-send-btn').disabled = false;

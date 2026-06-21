@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NSE Midcap Dashboard</title>
-<link rel="stylesheet" href="dashboard.css?v=20260614-3">
+<link rel="stylesheet" href="dashboard.css?v=20260620-30">
 </head>
 <body>
 
@@ -39,12 +39,31 @@
         <div id="countdown-bar"><div id="countdown-fill" style="width:100%"></div></div>
       </div>
       <button class="btn" id="broker-mode-btn" onclick="toggleBrokerMode()" style="display:none">Paper</button>
-      <button class="btn" id="simulation-btn" onclick="toggleSimulation()" style="display:none">Simulation Off</button>
       <button class="btn" id="pause-btn"      onclick="togglePause()"  style="display:none">⏸ Pause</button>
-      <button class="btn primary" id="refresh-btn" onclick="fetchAll()" style="display:none">↻ Refresh</button>
       <button class="btn" id="change-src-btn" onclick="changeSource()" style="display:none">⚙ Source</button>
     </div>
   </header>
+
+  <div id="top-action-bar" style="display:none">
+    <div class="action-metric"><span>Market</span><strong id="action-market">--</strong></div>
+    <div class="action-metric"><span>Freshness</span><strong id="action-freshness">--</strong></div>
+    <button id="simulation-card" class="action-metric action-button" type="button" onclick="toggleSimulation()" title="Start or stop simulation">
+      <span>Simulation</span><strong id="action-simulation">--</strong>
+    </button>
+    <button id="open-trades-card" class="action-metric action-button" type="button" onclick="openOpenTradesModal()" title="Show all open manual and simulation trades">
+      <span>Open Trades</span><strong id="action-open-trades">--</strong>
+    </button>
+    <button id="new-trades-card" class="action-metric action-button" type="button" onclick="openOpenTradesModal()" title="Show open trades">
+      <span>New Trades</span><strong id="action-new-trades">0</strong>
+    </button>
+    <div class="action-metric"><span>Today P/L</span><strong id="action-day-pnl">--</strong></div>
+    <button id="last-refresh-card" class="action-metric action-button" type="button" onclick="fetchAll()" title="Refresh dashboard data now">
+      <span>Last Refresh</span><strong id="action-last-refresh">--</strong>
+    </button>
+    <button id="notification-btn" class="icon-btn" type="button" onclick="toggleNotifications()" title="Notifications">!</button>
+  </div>
+  <div id="dashboard-health-banner" style="display:none"></div>
+  <div id="notification-panel" style="display:none"></div>
 
   <!-- SOURCE PANEL -->
   <div id="source-panel">
@@ -153,8 +172,11 @@
       <button class="tab-btn active" id="tab-stocks" onclick="setView('stocks', this)">Stocks</button>
       <button class="tab-btn" id="tab-etfs" onclick="setView('etfs', this)">ETFs</button>
       <button class="tab-btn portfolio-tab" type="button" onclick="openPortfolioModal()">Portfolio</button>
+      <button class="tab-btn replay-tab" type="button" onclick="runReplayToday()">Replay</button>
+      <button class="tab-btn settings-tab" type="button" onclick="openSettingsModal()">Settings</button>
     </div>
     <div id="stock-content">
+      <div id="setup-card-row"></div>
       <div id="controls-bar">
         <button id="filter-all" class="filter-btn active" onclick="setFilter('all',this)">All</button>
         <button class="filter-btn" onclick="setFilter('large',this)">🔵 Large Cap</button>
@@ -169,12 +191,21 @@
         <button class="filter-btn" onclick="setFilter('gainers',this)">Top Gainers</button>
         <button class="filter-btn" onclick="setFilter('losers',this)">Top Losers</button>
         <button class="filter-btn" onclick="setFilter('tradeable',this)">Tradeable</button>
+        <button class="filter-btn" onclick="setFilter('opentrade',this)">Open Trades</button>
         <button class="filter-btn" onclick="setFilter('hideavoid',this)">Hide avoid</button>
         <button class="filter-btn" onclick="setFilter('triggered',this)">Triggered</button>
         <button class="filter-btn" onclick="setFilter('neartrigger',this)">Near trigger</button>
+        <input id="search-box" type="text" placeholder="🔍 Search stock…" oninput="renderTable()" />
         <input id="stock-symbol-input" class="text-input" style="width:180px" placeholder="Add stock symbol" />
         <button class="btn" onclick="addCustomStockSymbol()">＋ Add Stock</button>
-        <input id="search-box" type="text" placeholder="🔍 Search stock…" oninput="renderTable()" />
+        <select id="column-preset-select" class="column-preset-select" onchange="setColumnPreset(this.value)" title="Column preset">
+          <option value="trading">Trading</option>
+          <option value="fundamentals">Fundamentals</option>
+          <option value="risk">Risk</option>
+          <option value="compact">Compact</option>
+          <option value="etf">ETF</option>
+          <option value="all">All Columns</option>
+        </select>
         <div style="display:inline-block;margin-left:12px">
           <button class="filter-btn target-filter-btn" onclick="setTargetFilter('all', this)">All targets</button>
           <button class="filter-btn target-filter-btn" onclick="setTargetFilter('up5', this)">Target ▲ ≥5%</button>
@@ -218,7 +249,7 @@
             <th onclick="sortBy('health')" style="cursor:pointer">Health ↕</th>
             <th>Trend</th>
             <th>Signal</th>
-			<th onclick="sortBy('target')">Target ₹ ↕</th>
+			<th onclick="sortBy('target')">Target % ↕</th>
           </tr></thead>
           <tbody id="stock-tbody"></tbody>
         </table>
@@ -336,6 +367,68 @@
     </div>
   </div>
 
+  <div id="open-trades-modal" class="modal-overlay" style="display:none;" onclick="closeOpenTradesModal(event)" onpointerdown="if(event.target===this) closeOpenTradesModal(event)" ontouchstart="if(event.target===this) closeOpenTradesModal(event)">
+    <div class="modal-card open-trades" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Open Trades</h3>
+        <button class="btn" style="padding:6px 10px;font-size:12px;" onclick="closeOpenTradesModal(event)">x</button>
+      </div>
+      <div id="open-trades-modal-body">
+        <!-- populated dynamically -->
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="markNewSimulationTradesSeen()">Mark seen</button>
+        <button class="btn" onclick="closeOpenTradesModal(event)">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="fresh-news-modal" class="modal-overlay" style="display:none;" onclick="closeFreshNewsModal(event)">
+    <div class="modal-card fresh-news" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Fresh News</h3>
+        <button class="btn" style="padding:6px 10px;font-size:12px;" onclick="closeFreshNewsModal(event)">x</button>
+      </div>
+      <div id="fresh-news-modal-body">
+        <!-- populated dynamically -->
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="loadFreshNewsSummary(true)">Refresh</button>
+        <button class="btn" onclick="closeFreshNewsModal(event)">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-modal" class="modal-overlay" style="display:none;" onclick="closeSettingsModal(event)">
+    <div class="modal-card settings" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Trade Settings</h3>
+        <button class="btn" style="padding:6px 10px;font-size:12px;" onclick="closeSettingsModal(event)">x</button>
+      </div>
+      <div id="settings-modal-body">
+        <!-- populated dynamically -->
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeSettingsModal(event)">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="replay-modal" class="modal-overlay" style="display:none;" onclick="closeReplayModal(event)">
+    <div class="modal-card replay" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Replay</h3>
+        <button class="btn" style="padding:6px 10px;font-size:12px;" onclick="closeReplayModal(event)">x</button>
+      </div>
+      <div id="replay-modal-body">
+        <!-- populated dynamically -->
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeReplayModal(event)">Close</button>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /container -->
 
 <!-- FUNDAMENTALS CHAT BOT FAB -->
@@ -355,11 +448,11 @@
     <button class="chat-close" onclick="toggleFundChat()">✕</button>
   </div>
   <div class="chat-key-row" id="chat-key-row">
-    <input id="chat-api-key" class="chat-key-input" type="text" value="OpenAI is configured through the local proxy" readonly />
+    <input id="chat-api-key" class="chat-key-input" type="text" value="Chat uses local Ollama via proxy" readonly />
     <button class="chat-key-btn" onclick="saveChatKey()">OK</button>
   </div>
   <div class="chat-messages" id="chat-messages">
-    <div class="chat-msg bot">👋 Hi! Ask me anything about stock fundamentals — health scores, EPS, ROE, debt ratios, or compare stocks. I use the live data already loaded on this dashboard.</div>
+    <div class="chat-msg bot">👋 Hi! Ask me anything about stock fundamentals — health scores, EPS, ROE, debt ratios, or compare stocks. I use Ollama with the live data already loaded on this dashboard.</div>
   </div>
   <div class="chat-suggestions" id="chat-suggestions">
     <span class="chat-sug" onclick="sendSuggestion(this)">Healthiest stocks</span>
@@ -374,8 +467,11 @@
   </div>
 </div>
 
+<button id="scroll-top-fab" type="button" title="Scroll to top" aria-label="Scroll to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
-<script defer src="dashboard-app.js?v=20260614-8"></script>
+<script defer src="trade_rules.js?v=20260620-25"></script>
+<script defer src="simulation_engine.js?v=20260620-25"></script>
+  <script defer src="dashboard-app.js?v=20260620-35"></script>
 </body>
 </html>
 

@@ -19,7 +19,7 @@
 // --max-http-header-size CLI flag (agent-level options don't work).
 // If we weren't started with it, re-exec ourselves with it right now.
 const HEADER_FLAG = '--max-http-header-size=65536';
-if (!process.execArgv.includes(HEADER_FLAG)) {
+if (require.main === module && !process.execArgv.includes(HEADER_FLAG)) {
   const { spawnSync } = require('child_process');
   console.log('[proxy] Re-starting with', HEADER_FLAG, '…');
   const result = spawnSync(
@@ -37,6 +37,10 @@ const zlib  = require('zlib');
 const fs    = require('fs');
 const path  = require('path');
 const os    = require('os');
+const crypto = require('crypto');
+const { fork } = require('child_process');
+const Backtest = require('./backtest_simulation');
+const SimulationEngine = require('./simulation_engine');
 const PORT  = 3001;
 const USER_OPENAI_PROPERTIES = path.join(os.homedir(), 'openai.properties');
 const SAVED_ETF_FILE = path.join(__dirname, 'saved_etfs.json');
@@ -46,7 +50,7 @@ const ETF_LIST_CACHE_FILE  = path.join(__dirname, 'etf_list_cache.json');
 const ETF_LIST_CACHE_TTL   = 24 * 60 * 60 * 1000;        // 24 hours (NSE price/nav batch)
 const ETF_META_TTL         = 30 * 24 * 60 * 60 * 1000;   // 30 days (static: TER, family, 1Y/3Y/5Y — stored in etf_list_cache.json under "meta" key)
 const FUND_CACHE_FILE      = path.join(__dirname, 'fundamentals_cache.json');
-const FUND_CACHE_TTL       = 7  * 24 * 60 * 60 * 1000;   // 7 days
+const FUND_CACHE_TTL       = 30 * 24 * 60 * 60 * 1000;   // 30 days (mostly static fundamentals)
 const ETF_SUM_CACHE_FILE   = path.join(__dirname, 'etf_summary_cache.json');
 const ETF_1M_RETURN_TTL    = 24 * 60 * 60 * 1000;        // 24 hours (1M return — base shifts daily)
 const ETF_SUM_CACHE_VERSION = 3;                          // v3: 1M-return-only cache (static fields moved to etf_list_cache meta)
@@ -54,8 +58,32 @@ const NSE_IDX_CACHE_FILE   = path.join(__dirname, 'nse_index_cache.json');
 const NSE_IDX_CACHE_TTL    = 24 * 60 * 60 * 1000;        // 24 hours
 const SAVED_STOCK_FAV_FILE = path.join(__dirname, 'saved_stock_favs.json');
 const PAPER_TRADES_FILE    = path.join(__dirname, 'paper_trades.json');
+const REPLAY_WORKER_FILE   = path.join(__dirname, 'replay_worker.js');
+const APP_CACHE_DIR        = path.join(__dirname, 'cache');
+const REPLAY_CACHE_FILE    = path.join(APP_CACHE_DIR, 'replay_results.json');
+const FRESH_NEWS_CACHE_FILE = path.join(APP_CACHE_DIR, 'fresh_stock_news.json'); // legacy combined cache
+const FRESH_NEWS_CACHE_DIR  = path.join(APP_CACHE_DIR, 'fresh_news');
+const FRESH_NEWS_CACHE_INDEX_FILE = path.join(FRESH_NEWS_CACHE_DIR, 'index.json');
+const TRADE_SETTINGS_FILE  = path.join(__dirname, 'trade_settings.json');
+const SIM_SNAPSHOT_DIR     = path.join(__dirname, 'snapshots');
+const SIM_SNAPSHOT_FILE    = path.join(SIM_SNAPSHOT_DIR, 'simulation_snapshots.json');
+const SIM_SNAPSHOT_LEGACY_FILE = path.join(__dirname, 'simulation_snapshots.json');
+const SIM_SNAPSHOT_PREFIX  = 'simulation_snapshots';
+const SIM_SNAPSHOT_RETENTION_DAYS = 30;
+const SIM_SNAPSHOT_TTL     = SIM_SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000; // keep strategy replay data
 const STOCK_NEWS_TTL       = 30 * 60 * 1000;             // 30 minutes
 const INTRADAY_SIGNAL_TTL  = 2 * 60 * 1000;              // 2 minutes
+const REPLAY_CACHE_MAX     = 30;
+const FRESH_NEWS_CACHE_VERSION = 4;
+const FRESH_NEWS_CACHE_MAX_DAYS = 30;
+const FRESH_NEWS_CRON_TIMES_IST = ['10:30', '15:45'];   // twice daily server-side refresh
+const FRESH_NEWS_STARTUP_STALE_MS = 6 * 60 * 60 * 1000;
+const replayResultCache    = new Map();
+const replayJobs           = new Map();
+const activeReplayJobs     = new Map();
+let freshNewsDayCache      = null;
+const freshNewsBuildJobs   = new Map();
+let freshNewsCronTimer     = null;
 
 function loadPropertiesFile(filePath) {
   try {
@@ -84,6 +112,9 @@ function loadPropertiesFile(filePath) {
 const openaiProps = loadPropertiesFile(USER_OPENAI_PROPERTIES);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || openaiProps.OPENAI_API_KEY || openaiProps.api_key || openaiProps.apiKey || '';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || openaiProps.OPENAI_MODEL || openaiProps.model || 'gpt-4.1-mini';
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || openaiProps.OLLAMA_BASE_URL || openaiProps.ollama_base_url || 'http://localhost:11434';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || openaiProps.OLLAMA_MODEL || openaiProps.ollama_model || '';
+const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || openaiProps.OLLAMA_TIMEOUT_MS || openaiProps.ollama_timeout_ms || 180000);
 
 function parseVolumeField(item) {
   const raw = item.totalTradedVolume ?? item.tradedVolume ?? item.volume ?? item.totalTradedQty ?? item.quantityTraded ?? item.qtyTraded ?? 0;
@@ -325,6 +356,586 @@ function savePaperTradesFile(trades) {
   }
 }
 
+function ensureDir(dir) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive:true });
+}
+
+function loadTradeSettingsFile() {
+  try {
+    if (!fs.existsSync(TRADE_SETTINGS_FILE)) {
+      fs.writeFileSync(TRADE_SETTINGS_FILE, JSON.stringify({ savedAt:Date.now(), overrides:{} }, null, 2), 'utf8');
+    }
+    const raw = JSON.parse(fs.readFileSync(TRADE_SETTINGS_FILE, 'utf8') || '{}');
+    return raw && typeof raw === 'object' && raw.overrides && typeof raw.overrides === 'object'
+      ? { savedAt:raw.savedAt || Date.now(), overrides:raw.overrides }
+      : { savedAt:Date.now(), overrides:{} };
+  } catch (e) {
+    console.warn('[trade-settings] Load error:', e.message);
+    return { savedAt:Date.now(), overrides:{} };
+  }
+}
+
+function saveTradeSettingsFile(overrides) {
+  const clean = {};
+  for (const [key, value] of Object.entries(overrides || {})) {
+    const n = Number(value);
+    if (Number.isFinite(n)) clean[key] = n;
+    else if (typeof value === 'boolean') clean[key] = value;
+  }
+  fs.writeFileSync(TRADE_SETTINGS_FILE, JSON.stringify({ savedAt:Date.now(), overrides:clean }, null, 2), 'utf8');
+  return clean;
+}
+
+function readEtfListCacheSummary() {
+  try {
+    if (!fs.existsSync(ETF_LIST_CACHE_FILE)) return { savedAt:null, count:0, etfs:[] };
+    const cached = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8') || '{}');
+    const etfs = Array.isArray(cached.etfs) ? cached.etfs : [];
+    return {
+      savedAt: cached.savedAt || null,
+      count: etfs.length,
+      etfs,
+    };
+  } catch (e) {
+    console.warn('[bootstrap] ETF cache read failed:', e.message);
+    return { savedAt:null, count:0, etfs:[] };
+  }
+}
+
+function buildDashboardBootstrap() {
+  const paper = loadPaperStateFile();
+  const tradeSettings = loadTradeSettingsFile();
+  const etfCache = readEtfListCacheSummary();
+
+  return {
+    ok:true,
+    savedAt:Date.now(),
+    prefs:{
+      etfs:loadSavedETFsFile(),
+      stocks:loadSavedStocksFile(),
+      etfFavorites:loadSavedETFFavsFile(),
+      stockFavorites:loadSavedStockFavsFile(),
+    },
+    portfolio:paper.portfolio,
+    trades:paper.trades,
+    tradeSettings,
+    etfListCache:{
+      savedAt:etfCache.savedAt,
+      count:etfCache.count,
+      etfs:etfCache.etfs,
+    },
+    proxy:{
+      openai:{ configured:!!OPENAI_API_KEY, model:OPENAI_MODEL },
+      ollama:{ baseUrl:OLLAMA_BASE_URL, model:OLLAMA_MODEL || 'auto', timeoutMs:OLLAMA_TIMEOUT_MS },
+    },
+  };
+}
+
+function getIstDateKey(value = Date.now()) {
+  const d = new Date(new Date(value).getTime() + 5.5 * 3600 * 1000);
+  if (Number.isNaN(d.getTime())) return getIstDateKey(Date.now());
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function getSimulationSnapshotFile(dateKey = getIstDateKey()) {
+  return path.join(SIM_SNAPSHOT_DIR, `${SIM_SNAPSHOT_PREFIX}_${dateKey}.json`);
+}
+
+function isSimulationSnapshotFileName(name) {
+  return /^simulation_snapshots_\d{4}-\d{2}-\d{2}\.json$/.test(String(name || ''));
+}
+
+function listSimulationSnapshotFiles() {
+  try {
+    const dated = fs.existsSync(SIM_SNAPSHOT_DIR) ? fs.readdirSync(SIM_SNAPSHOT_DIR)
+      .filter(isSimulationSnapshotFileName)
+      .map(name => path.join(SIM_SNAPSHOT_DIR, name)) : [];
+    if (fs.existsSync(SIM_SNAPSHOT_FILE)) dated.push(SIM_SNAPSHOT_FILE);
+    if (fs.existsSync(SIM_SNAPSHOT_LEGACY_FILE)) dated.push(SIM_SNAPSHOT_LEGACY_FILE);
+    return dated;
+  } catch (e) {
+    console.warn('[simulation-snapshots] List error:', e.message);
+    return [SIM_SNAPSHOT_FILE, SIM_SNAPSHOT_LEGACY_FILE].filter(file => fs.existsSync(file));
+  }
+}
+
+function loadSimulationSnapshotsFile(dateKey = null) {
+  const file = dateKey ? getSimulationSnapshotFile(dateKey) : SIM_SNAPSHOT_FILE;
+  try {
+    if (!fs.existsSync(file)) {
+      return { savedAt: Date.now(), retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: dateKey || null, snapshots: [] };
+    }
+    const raw = JSON.parse(fs.readFileSync(file, 'utf8') || '{}');
+    return {
+      savedAt: Number(raw.savedAt) || Date.now(),
+      retentionDays: SIM_SNAPSHOT_RETENTION_DAYS,
+      date: raw.date || dateKey || null,
+      snapshots: Array.isArray(raw.snapshots) ? raw.snapshots : [],
+    };
+  } catch (e) {
+    console.warn('[simulation-snapshots] Load error:', e.message);
+    return { savedAt: Date.now(), retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: dateKey || null, snapshots: [] };
+  }
+}
+
+function loadAllSimulationSnapshots() {
+  const all = [];
+  for (const file of listSimulationSnapshotFiles()) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(file, 'utf8') || '{}');
+      if (Array.isArray(raw.snapshots)) all.push(...raw.snapshots);
+    } catch (e) {
+      console.warn('[simulation-snapshots] Load file error:', path.basename(file), e.message);
+    }
+  }
+  return pruneSimulationSnapshots(all).sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
+}
+
+function pruneSimulationSnapshots(snapshots) {
+  const cutoff = Date.now() - SIM_SNAPSHOT_TTL;
+  return (Array.isArray(snapshots) ? snapshots : []).filter(s => {
+    const t = new Date(s?.at || s?.savedAt || 0).getTime();
+    return Number.isFinite(t) && t >= cutoff;
+  });
+}
+
+function pruneSimulationSnapshotFiles() {
+  const cutoff = Date.now() - SIM_SNAPSHOT_TTL;
+  for (const file of listSimulationSnapshotFiles()) {
+    const name = path.basename(file);
+    if (!isSimulationSnapshotFileName(name)) continue;
+    const match = name.match(/(\d{4}-\d{2}-\d{2})/);
+    const t = match ? new Date(`${match[1]}T23:59:59+05:30`).getTime() : NaN;
+    if (Number.isFinite(t) && t < cutoff) {
+      try { fs.unlinkSync(file); } catch (e) { console.warn('[simulation-snapshots] Prune file error:', name, e.message); }
+    }
+  }
+}
+
+function saveSimulationSnapshotsFile(state, dateKey = getIstDateKey()) {
+  try {
+    const snapshots = pruneSimulationSnapshots(state?.snapshots || []);
+    if (!fs.existsSync(SIM_SNAPSHOT_DIR)) fs.mkdirSync(SIM_SNAPSHOT_DIR, { recursive: true });
+    const file = getSimulationSnapshotFile(dateKey);
+    fs.writeFileSync(file, JSON.stringify({ savedAt: Date.now(), retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: dateKey, snapshots }, null, 2), 'utf8');
+    pruneSimulationSnapshotFiles();
+    return snapshots;
+  } catch (e) {
+    console.warn('[simulation-snapshots] Save error:', e.message);
+    return [];
+  }
+}
+
+function setupStatsFromBacktest(result) {
+  return Object.entries(result?.bySetup || {})
+    .map(([setup, row]) => ({
+      setup,
+      trades:Number(row.trades) || 0,
+      wins:Number(row.wins) || 0,
+      losses:Number(row.losses) || 0,
+      winRate:Number(row.winRate) || 0,
+      net:Number(row.net) || 0,
+      fees:Number(row.fees) || 0,
+    }))
+    .sort((a, b) => b.net - a.net);
+}
+
+function rejectedFromBacktest(result) {
+  const rows = [
+    ...(result?.missed?.longProfit || []),
+    ...(result?.missed?.shortProfit || []),
+    ...(result?.missed?.longRisk || []),
+    ...(result?.missed?.shortRisk || []),
+  ];
+  return rows
+    .map((row, index) => ({
+      symbol:row.symbol,
+      side:row.side,
+      setupType:row.setup || '--',
+      rank:index + 1,
+      score:row.score,
+      price:row.entry,
+      reason:row.reason || '--',
+      net:row.net,
+      movePct:row.movePct,
+    }))
+    .sort((a, b) => Math.abs(Number(b.net) || 0) - Math.abs(Number(a.net) || 0))
+    .slice(0, 40);
+}
+
+function compactReplayResult(result) {
+  return {
+    snapshots:result?.snapshots || 0,
+    first:result?.first || null,
+    last:result?.last || null,
+    settings:result?.settings || {},
+    summary:result?.summary || {},
+    trades:Array.isArray(result?.trades) ? result.trades : [],
+    rejected:rejectedFromBacktest(result),
+    setupStats:setupStatsFromBacktest(result),
+    quality:result?.quality || null,
+    dataQuality:result?.dataQuality || [],
+    top:result?.top || [],
+    bottom:result?.bottom || [],
+  };
+}
+
+function normalizeSweepRows(rows) {
+  return (Array.isArray(rows) ? rows : []).map(row => ({
+    minScore:row.minScore,
+    topN:row.topN,
+    perCycle:row.perCycle,
+    firstHour:row.firstHour ?? row.firstHourMaxEntries,
+    trail:row.trail ?? row.longTrail,
+    trades:row.trades,
+    winRate:row.winRate,
+    net:row.net,
+    drawdown:row.drawdown ?? row.maxDrawdown,
+    maxDrawdown:row.maxDrawdown ?? row.drawdown,
+    maxDrawdownPct:row.maxDrawdownPct,
+    lossStreak:row.lossStreak ?? row.maxLossStreak,
+  }));
+}
+
+function uniqueSweepSettings(settingsList) {
+  const seen = new Set();
+  return settingsList.filter(settings => {
+    const key = [
+      settings.SIMULATION_MIN_SCORE,
+      settings.SIMULATION_TOP_N,
+      settings.SIMULATION_MAX_NEW_PER_CYCLE,
+      settings.SIMULATION_FIRST_HOUR_MAX_ENTRIES,
+      settings.SIMULATION_LONG_TRAIL_PCT,
+    ].join('|');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function buildQuickSweepSettings(baseSettings) {
+  const base = { ...baseSettings };
+  return uniqueSweepSettings([
+    base,
+    { ...base, SIMULATION_MIN_SCORE:55 },
+    { ...base, SIMULATION_TOP_N:15 },
+    { ...base, SIMULATION_FIRST_HOUR_MAX_ENTRIES:1 },
+    { ...base, SIMULATION_FIRST_HOUR_MAX_ENTRIES:3 },
+    { ...base, SIMULATION_MAX_NEW_PER_CYCLE:3 },
+    { ...base, SIMULATION_LONG_TRAIL_PCT:0.8 },
+  ]);
+}
+
+function runQuickReplaySweep(snapshots, baseSettings, maxVariants = 5) {
+  return normalizeSweepRows(buildQuickSweepSettings(baseSettings).slice(0, maxVariants).map(settings => {
+    const result = Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings);
+    return {
+      minScore:settings.SIMULATION_MIN_SCORE,
+      topN:settings.SIMULATION_TOP_N,
+      perCycle:settings.SIMULATION_MAX_NEW_PER_CYCLE,
+      firstHour:settings.SIMULATION_FIRST_HOUR_MAX_ENTRIES,
+      trail:settings.SIMULATION_LONG_TRAIL_PCT,
+      trades:result.summary.trades,
+      winRate:result.summary.winRate,
+      net:result.summary.net,
+      returnPct:result.summary.returnPct,
+      maxDrawdown:result.summary.maxDrawdown,
+      maxDrawdownPct:result.summary.maxDrawdownPct,
+      maxLossStreak:result.summary.maxLossStreak,
+    };
+  }))
+    .sort((a, b) => b.net - a.net || a.maxDrawdown - b.maxDrawdown || b.winRate - a.winRate)
+    .slice(0, 10);
+}
+
+function stableHash(value) {
+  return crypto.createHash('sha1').update(JSON.stringify(value || {})).digest('hex').slice(0, 16);
+}
+
+function fileMtime(file) {
+  try {
+    return fs.existsSync(file) ? fs.statSync(file).mtimeMs : 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+function replaySnapshotVersion(day, mode) {
+  const files = mode === 'autotune' ? listSimulationSnapshotFiles() : [getSimulationSnapshotFile(day)];
+  const versionParts = files.map(file => `${path.basename(file)}:${fileMtime(file)}`);
+  versionParts.push(`paper:${fileMtime(PAPER_TRADES_FILE)}`);
+  return stableHash(versionParts);
+}
+
+function replayCacheKey(day, mode, settings) {
+  return [day || getIstDateKey(), mode || 'report', replaySnapshotVersion(day, mode), stableHash(settings)].join('|');
+}
+
+function getCachedReplay(key) {
+  const cached = replayResultCache.get(key);
+  if (!cached) return null;
+  cached.hitAt = Date.now();
+  return cached.payload;
+}
+
+function persistReplayCacheFile() {
+  try {
+    ensureDir(APP_CACHE_DIR);
+    const entries = [...replayResultCache.entries()].map(([key, value]) => ({ key, ...value }));
+    fs.writeFileSync(REPLAY_CACHE_FILE, JSON.stringify({ savedAt:Date.now(), entries }, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[replay-cache] Save error:', e.message);
+  }
+}
+
+function loadReplayCacheFile() {
+  try {
+    if (!fs.existsSync(REPLAY_CACHE_FILE)) return;
+    const raw = JSON.parse(fs.readFileSync(REPLAY_CACHE_FILE, 'utf8') || '{}');
+    const entries = Array.isArray(raw.entries) ? raw.entries : [];
+    for (const entry of entries) {
+      if (!entry?.key || !entry.payload) continue;
+      replayResultCache.set(entry.key, {
+        savedAt:Number(entry.savedAt) || Date.now(),
+        hitAt:Number(entry.hitAt) || Number(entry.savedAt) || Date.now(),
+        payload:entry.payload,
+      });
+    }
+  } catch (e) {
+    console.warn('[replay-cache] Load error:', e.message);
+  }
+}
+
+function setCachedReplay(key, payload) {
+  replayResultCache.set(key, { savedAt:Date.now(), hitAt:Date.now(), payload });
+  if (replayResultCache.size > REPLAY_CACHE_MAX) {
+    const oldest = [...replayResultCache.entries()].sort((a, b) => (a[1].hitAt || a[1].savedAt) - (b[1].hitAt || b[1].savedAt))[0]?.[0];
+    if (oldest) replayResultCache.delete(oldest);
+  }
+  persistReplayCacheFile();
+  return payload;
+}
+
+loadReplayCacheFile();
+
+function readReplaySnapshotsForDay(day) {
+  const state = loadSimulationSnapshotsFile(day);
+  return pruneSimulationSnapshots(state.snapshots || [])
+    .filter(s => !day || getIstDateKey(s.at) === day)
+    .sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
+}
+
+function buildReplayResponse(day, options = {}) {
+  const settings = Backtest.loadSettings({ day });
+  const mode = options.sweep ? 'sweep' : 'report';
+  const cacheKey = replayCacheKey(day, mode, settings);
+  const cached = getCachedReplay(cacheKey);
+  if (cached) return { ...cached, cached:true };
+  const snapshots = readReplaySnapshotsForDay(day);
+  const result = compactReplayResult(Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings));
+  const response = {
+    ok:true,
+    date:day,
+    count:snapshots.length,
+    result,
+  };
+  if (options.sweep) {
+    response.sweepRows = runQuickReplaySweep(snapshots, settings, 5);
+  }
+  return setCachedReplay(cacheKey, response);
+}
+
+function buildReplayAutoTuneResponse(day) {
+  const settings = Backtest.loadSettings({ day });
+  const cacheKey = replayCacheKey(day, 'autotune', settings);
+  const cached = getCachedReplay(cacheKey);
+  if (cached) return { ...cached, cached:true };
+  const all = loadAllSimulationSnapshots();
+  const days = [...new Set(all.map(s => getIstDateKey(s.at)).filter(Boolean))].sort().slice(-5);
+  const recent = all.filter(s => days.includes(getIstDateKey(s.at)));
+  return setCachedReplay(cacheKey, {
+    ok:true,
+    date:day,
+    days,
+    count:recent.length,
+    autoTuneRows:runQuickReplaySweep(recent, settings, 3),
+  });
+}
+
+function replayModeFromParams(params) {
+  const mode = String(params?.mode || 'report').toLowerCase();
+  return ['report', 'sweep', 'autotune'].includes(mode) ? mode : 'report';
+}
+
+function getReplayCacheForMode(day, mode) {
+  const settings = Backtest.loadSettings({ day });
+  const cacheKey = replayCacheKey(day, mode, settings);
+  return { settings, cacheKey, cached:getCachedReplay(cacheKey) };
+}
+
+function createReplayJob(day, mode) {
+  const { cacheKey, cached } = getReplayCacheForMode(day, mode);
+  const active = activeReplayJobs.get(cacheKey);
+  if (active && ['queued', 'running'].includes(active.status)) {
+    active.reused = true;
+    return active;
+  }
+  const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const job = { id, day, mode, cacheKey, status:'queued', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), result:null, error:null, reused:false };
+  replayJobs.set(id, job);
+  if (cached) {
+    job.status = 'done';
+    job.result = { ...cached, cached:true };
+    job.updatedAt = new Date().toISOString();
+    return job;
+  }
+  activeReplayJobs.set(cacheKey, job);
+  const child = fork(REPLAY_WORKER_FILE, [], { stdio:['ignore', 'ignore', 'pipe', 'ipc'] });
+  job.status = 'running';
+  job.workerPid = child.pid;
+  job.updatedAt = new Date().toISOString();
+  child.stderr?.on('data', chunk => {
+    const line = String(chunk || '').trim();
+    if (line) console.warn('[replay-worker]', line);
+  });
+  child.on('message', message => {
+    if (job.status === 'done' || job.status === 'error') return;
+    if (message?.ok) {
+      job.result = setCachedReplay(cacheKey, message.payload);
+      job.status = 'done';
+    } else {
+      job.status = 'error';
+      job.error = message?.error || 'Replay worker failed';
+    }
+    job.updatedAt = new Date().toISOString();
+    if (activeReplayJobs.get(cacheKey)?.id === job.id) activeReplayJobs.delete(cacheKey);
+    child.disconnect?.();
+  });
+  child.on('error', e => {
+    if (job.status === 'done') return;
+    job.status = 'error';
+    job.error = e.message || String(e);
+    job.updatedAt = new Date().toISOString();
+    if (activeReplayJobs.get(cacheKey)?.id === job.id) activeReplayJobs.delete(cacheKey);
+  });
+  child.on('exit', (code, signal) => {
+    if (job.status === 'done' || job.status === 'error') return;
+    job.status = 'error';
+    job.error = `Replay worker exited (${signal || code})`;
+    job.updatedAt = new Date().toISOString();
+    if (activeReplayJobs.get(cacheKey)?.id === job.id) activeReplayJobs.delete(cacheKey);
+  });
+  child.send({ day, mode });
+  return job;
+}
+
+function compactReplayJob(job) {
+  if (!job) return null;
+  return {
+    id:job.id,
+    day:job.day,
+    mode:job.mode,
+    status:job.status,
+    createdAt:job.createdAt,
+    updatedAt:job.updatedAt,
+    workerPid:job.workerPid || null,
+    reused:!!job.reused,
+    cached:!!job.result?.cached,
+    error:job.error,
+    result:job.status === 'done' ? job.result : null,
+  };
+}
+
+function compactReplayJobHistory() {
+  return [...replayJobs.values()]
+    .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
+    .slice(0, 10)
+    .map(compactReplayJob);
+}
+
+function buildWhyMissedResponse(day, symbol) {
+  const report = buildReplayResponse(day);
+  const sym = String(symbol || '').toUpperCase();
+  const settings = Backtest.loadSettings({ day });
+  const snapshots = readReplaySnapshotsForDay(day);
+  const timeline = [];
+  let previousCandidate = null;
+  for (const snapshot of snapshots) {
+    const candidate = (snapshot.candidates || []).find(c => String(c?.symbol || '').toUpperCase() === sym);
+    if (!candidate) continue;
+    candidate.previousCandidate = previousCandidate || candidate.previousCandidate || null;
+    candidate.derivedSetupType = SimulationEngine.deriveSetupType(candidate, settings);
+    const explanation = SimulationEngine.explainCandidateEligibility(candidate, snapshot.at, settings, {
+      previousCandidate,
+      market:snapshot.market,
+    });
+    previousCandidate = SimulationEngine.toConfirmationCandidate(candidate);
+    const price = Number(candidate.price ?? candidate.priceAtSnapshot ?? candidate.quote?.price);
+    timeline.push({
+      at:snapshot.at,
+      price:Number.isFinite(price) ? price : null,
+      side:explanation.side || candidate.side || candidate.signal || null,
+      setupType:explanation.setupType || candidate.derivedSetupType || candidate.setupType || null,
+      score:Number(candidate.score) || 0,
+      eligible:!!explanation.eligible,
+      reasons:(explanation.reasons || []).slice(0, 8),
+      entryStatus:candidate.indicators?.entryStatus || null,
+      entryTrigger:candidate.indicators?.entryTrigger || null,
+      relVolume:candidate.indicators?.relVolumeTimeAdjusted ?? candidate.indicators?.relVolume ?? null,
+      netPct:candidate.cost?.netPct ?? null,
+      guard:candidate.guard?.label || candidate.guard?.level || null,
+    });
+  }
+  const traded = (report.result?.trades || []).filter(t => String(t.symbol || '').toUpperCase() === sym);
+  const rejected = (report.result?.rejected || []).filter(t => String(t.symbol || '').toUpperCase() === sym);
+  const firstEligible = timeline.find(row => row.eligible) || null;
+  const best = timeline.slice().sort((a, b) => Math.abs(Number(b.score) || 0) - Math.abs(Number(a.score) || 0))[0] || null;
+  const reasonCounts = {};
+  timeline.forEach(row => (row.reasons || []).forEach(reason => { reasonCounts[reason] = (reasonCounts[reason] || 0) + 1; }));
+  const topReasons = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([reason, count]) => ({ reason, count }));
+  return {
+    ok:true,
+    date:day,
+    symbol:sym,
+    traded,
+    rejected,
+    timeline:timeline.slice(-120),
+    considered:timeline.length,
+    firstEligible,
+    best,
+    topReasons,
+    message:traded.length
+      ? `${sym} was traded in replay.`
+      : firstEligible
+        ? `${sym} became eligible at ${firstEligible.at}, but was not selected due to rank, slot, cash, cooldown, or top-N pressure.`
+        : best
+          ? `${sym} was not eligible. Best snapshot reason: ${(best.reasons || [])[0] || '--'}`
+          : `${sym} was not found in replay snapshots for ${day}.`,
+  };
+}
+
+function sanitizeSimulationSnapshot(payload) {
+  const candidates = Array.isArray(payload.candidates) ? payload.candidates.slice(0, 100) : [];
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    at: new Date().toISOString(),
+    source: String(payload.source || 'intraday-refresh'),
+    dataSource: String(payload.dataSource || ''),
+    currentView: String(payload.currentView || ''),
+    simulationState: String(payload.simulationState || ''),
+    caps: payload.caps && typeof payload.caps === 'object' ? payload.caps : {},
+    dayStats: payload.dayStats && typeof payload.dayStats === 'object' ? payload.dayStats : {},
+    market: payload.market && typeof payload.market === 'object' ? payload.market : {},
+    openSimulationTrades: Array.isArray(payload.openSimulationTrades) ? payload.openSimulationTrades.slice(0, 20) : [],
+    outcomeSummary: payload.outcomeSummary && typeof payload.outcomeSummary === 'object' ? payload.outcomeSummary : {},
+    candidates,
+    candidateCount: Number.isFinite(Number(payload.candidateCount)) ? Number(payload.candidateCount) : candidates.length,
+  };
+}
+
 function computePaperTradePnl(trade, exitPrice) {
   const entry = Number(trade?.entryPrice);
   const exit = Number(exitPrice);
@@ -464,6 +1075,102 @@ function httpsJsonRequest(opts, payload) {
   });
 }
 
+function jsonRequest(opts, payload) {
+  return new Promise((resolve, reject) => {
+    const body = payload == null ? null : JSON.stringify(payload || {});
+    const transport = opts.protocol === 'https:' ? https : http;
+    const headers = {
+      ...(opts.headers || {}),
+      ...(body != null ? {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      } : {}),
+    };
+    const req = transport.request({ ...opts, headers }, (res) => {
+      const chunks = [];
+      const enc = (res.headers['content-encoding'] || '').toLowerCase();
+      const stream =
+        enc === 'gzip'    ? res.pipe(zlib.createGunzip()) :
+        enc === 'br'      ? res.pipe(zlib.createBrotliDecompress()) :
+        enc === 'deflate' ? res.pipe(zlib.createInflate()) : res;
+      stream.on('data',  c => chunks.push(c));
+      stream.on('end',   () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8') }));
+      stream.on('error', reject);
+    });
+    req.on('timeout', () => { req.destroy(); reject(new Error('Request timed out')); });
+    req.on('error', reject);
+    if (body != null) req.write(body);
+    req.end();
+  });
+}
+
+function ollamaUrl(pathname) {
+  return new URL(pathname, OLLAMA_BASE_URL);
+}
+
+async function ollamaRequest(pathname, method = 'GET', payload = null, timeout = 60000) {
+  const url = ollamaUrl(pathname);
+  const r = await jsonRequest({
+    protocol: url.protocol,
+    hostname: url.hostname,
+    port: url.port || (url.protocol === 'https:' ? 443 : 80),
+    path: `${url.pathname}${url.search}`,
+    method,
+    timeout,
+  }, payload);
+  const data = JSON.parse(r.body || '{}');
+  if (r.status < 200 || r.status >= 300) {
+    const err = new Error(data.error || `Ollama HTTP ${r.status}`);
+    err.status = r.status;
+    throw err;
+  }
+  return data;
+}
+
+async function getOllamaModel(preferred) {
+  const requested = String(preferred || OLLAMA_MODEL || '').trim();
+  if (requested) return requested;
+  try {
+    const tags = await ollamaRequest('/api/tags', 'GET', null, 5000);
+    const first = Array.isArray(tags.models) ? tags.models[0] : null;
+    if (first?.name) return first.name;
+  } catch (_) {}
+  return 'llama3.1';
+}
+
+async function callOllamaChat({ prompt, model, maxOutputTokens = 800, timeoutMs }) {
+  const selectedModel = await getOllamaModel(model);
+  const data = await ollamaRequest('/api/chat', 'POST', {
+    model: selectedModel,
+    stream: false,
+    keep_alive: '10m',
+    messages: [
+      {
+        role: 'system',
+        content: [
+          'You are an Indian equity dashboard assistant.',
+          'Use only the dashboard data supplied by the user.',
+          'Never invent industry averages, market cap, price targets, ratios, or any metric that is not present in the supplied JSON.',
+          'If a field is missing, omit it or say it is missing.',
+          'Treat any local pre-filtered dashboard answer in the prompt as authoritative context.',
+          'Return concise HTML fragments only, without markdown fences, html, head, title, or body tags.',
+          'Use Rs for all prices and never use USD unless the user explicitly asks for USD.',
+          'For rankings or comparisons, include a compact table with the most relevant metrics and at most 8 rows.',
+          'Mention when a metric is missing instead of guessing.',
+          'Do not provide investment guarantees.',
+        ].join(' '),
+      },
+      { role: 'user', content: String(prompt || '') },
+    ],
+    options: {
+      temperature: 0.2,
+      num_predict: Math.max(160, Math.min(Number(maxOutputTokens) || 800, 1600)),
+    },
+  }, Math.max(30000, Number(timeoutMs) || OLLAMA_TIMEOUT_MS || 180000));
+  const text = data.message?.content || data.response || '';
+  return { ok: true, model: data.model || selectedModel, output_text: text, content: [{ type: 'text', text }] };
+}
+
 function extractOpenAIText(data) {
   if (!data || typeof data !== 'object') return '';
   if (typeof data.output_text === 'string') return data.output_text;
@@ -543,6 +1250,47 @@ function classifyNewsItem(text) {
   if (/board meeting|record date|dividend|bonus|split|buyback|agm|egm|conference call|investor meet/.test(s)) return 'Event';
   if (/announcement|press release|exchange filing|clarification|disclosure|intimation/.test(s)) return 'Announcement';
   return 'News';
+}
+
+function classifyNewsTradeImpact(item) {
+  const text = `${item?.type || ''} ${item?.title || ''} ${item?.subject || ''} ${item?.purpose || ''}`.toLowerCase();
+  const verdict = String(item?.resultVerdict || '').toLowerCase();
+  let score = 0;
+  let label = 'Neutral';
+  let reason = 'Routine disclosure; no clear directional trade impact';
+
+  if (verdict === 'positive') {
+    score = 90; label = 'Positive'; reason = item.resultVerdictReason || 'Positive quarterly result trend';
+  } else if (verdict === 'negative') {
+    score = -90; label = 'Negative'; reason = item.resultVerdictReason || 'Weak quarterly result trend';
+  } else if (verdict === 'mixed') {
+    score = 35; label = 'Neutral'; reason = item.resultVerdictReason || 'Mixed quarterly result trend';
+  } else if (/disclosure under sebi takeover|substantial acquisition of shares and takeovers|regulation 31\(4\)|regulation 29\(2\)|regulation 30\(1\)|shareholding pattern|encumbrance of shares/.test(text)) {
+    score = 20; label = 'Neutral'; reason = 'Shareholding or regulatory disclosure; monitor but not directional by itself';
+  } else if (/profit warning|loss|default|insolvency|bankruptcy|fraud|forensic|penalty|fine|show cause|tax demand|raid|seizure|litigation|adverse|downgrade|suspension|resignation of auditor|auditor resignation|pledge|fire|accident|shutdown|strike|delay in payment|non[- ]?compliance/.test(text)) {
+    score = -85; label = 'Negative'; reason = 'Potential adverse event or compliance risk';
+  } else if (/order win|wins order|bags order|contract|agreement|mou|letter of award|loa|large deal|bulk deal|block deal|acquisition|merger|capacity expansion|commissioning|approval|patent|product launch|licen[cs]e|partnership/.test(text)) {
+    score = 80; label = 'Positive'; reason = 'Business momentum, deal, approval, or expansion news';
+  } else if (/buyback|bonus|stock split|split|dividend|record date/.test(text)) {
+    score = /dividend/.test(text) ? 55 : 65;
+    label = 'Positive';
+    reason = 'Shareholder return or corporate action';
+  } else if (/fund raising|qip|preferential issue|rights issue|issue of securities|qualified institutions placement/.test(text)) {
+    score = 30; label = 'Neutral'; reason = 'Capital raise event; watch pricing and dilution';
+  } else if (/board meeting.*result|financial result|quarterly result|earnings|result filing/.test(text)) {
+    score = 60; label = 'Neutral'; reason = 'Result-related event; directional impact depends on numbers';
+  } else if (/board meeting|investor meet|conference call|analyst meet|newspaper publication|closure of trading window|scrutinizer|agm|egm/.test(text)) {
+    score = 15; label = 'Neutral'; reason = 'Scheduled or administrative event';
+  } else if (/clarification|disclosure|intimation|announcement|press release|updates/.test(text)) {
+    score = 20; label = 'Neutral'; reason = 'General company update';
+  }
+
+  return {
+    newsSentiment:label,
+    tradeImpactScore:score,
+    tradeImpactAbs:Math.abs(score),
+    tradeImpactReason:reason,
+  };
 }
 
 function parseNSEDate(value) {
@@ -861,6 +1609,101 @@ async function fetchNSEBoardMeetings(symbol) {
   }
 }
 
+function nseRowSymbol(item) {
+  return String(item?.symbol || item?.Symbol || item?.sm_symbol || item?.bm_symbol || item?.compSymbol || item?.companySymbol || item?.securitySymbol || '').trim().toUpperCase();
+}
+
+async function fetchNSEAllAnnouncements() {
+  try {
+    const payload = await nseJsonWithRetry('/api/corporate-announcements?index=equities', 'all announcements');
+    const rows = payload?.data || payload || [];
+    if (!Array.isArray(rows)) return [];
+    return rows.slice(0, 500).map(item => {
+      const symbol = nseRowSymbol(item);
+      const title = conciseAnnouncementTitle(item);
+      const dateRaw = item.an_dt || item.sort_date || item.dissemDT || item.dt || null;
+      const attachment = item.attchmntFile || item.attchmntFileName || item.fileURL || '';
+      const url = attachment
+        ? (String(attachment).startsWith('http') ? attachment : `https://www.nseindia.com${attachment}`)
+        : (symbol ? `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}` : 'https://www.nseindia.com/companies-listing/corporate-filings-announcements');
+      const kind = classifyNewsItem(`${title} ${item.subject || ''} ${item.attchmntText || ''}`);
+      return { symbol, title, url, source:'NSE', publishedAt:toISODateOrNull(dateRaw), type:kind === 'Results' ? 'Result Filing' : kind };
+    }).filter(x => x.symbol && x.title);
+  } catch(e) {
+    console.warn('[fresh-news] NSE all announcements failed:', e.message);
+    return [];
+  }
+}
+
+async function fetchNSEAllResults() {
+  try {
+    const rows = await nseJsonWithRetry('/api/corporates-financial-results?index=equities&period=Quarterly', 'all results');
+    if (!Array.isArray(rows)) return [];
+    return rows.slice(0, 300).map(item => {
+      const symbol = nseRowSymbol(item);
+      return {
+        symbol,
+        type:'Results',
+        source:'NSE',
+        title:`${item.relatingTo || item.period || 'Quarterly'} result (${item.consolidated || 'reported'})`,
+        period:item.relatingTo || item.period || null,
+        toDate:toISODateOrNull(item.toDate),
+        filingDate:toISODateOrNull(item.filingDate || item.broadCastDate),
+        publishedAt:toISODateOrNull(item.filingDate || item.broadCastDate || item.toDate),
+        url:item.xbrl || item.resultDetailedDataLink || (symbol ? `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}` : ''),
+      };
+    }).filter(x => x.symbol);
+  } catch(e) {
+    console.warn('[fresh-news] NSE all results failed:', e.message);
+    return [];
+  }
+}
+
+async function fetchNSEAllCorporateActions() {
+  try {
+    const rows = await nseJsonWithRetry('/api/corporates-corporateActions?index=equities', 'all corporate actions');
+    if (!Array.isArray(rows)) return [];
+    return rows.slice(0, 300).map(item => {
+      const symbol = nseRowSymbol(item);
+      return {
+        symbol,
+        type:/dividend/i.test(item.subject || '') ? 'Dividend' : 'Corporate Action',
+        title:stripHtml(item.subject || 'Corporate action'),
+        source:'NSE',
+        exDate:toISODateOrNull(item.exDate),
+        recordDate:toISODateOrNull(item.recDate),
+        publishedAt:toISODateOrNull(item.exDate || item.recDate),
+        url:symbol ? `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}` : '',
+      };
+    }).filter(x => x.symbol && x.title);
+  } catch(e) {
+    console.warn('[fresh-news] NSE all corporate actions failed:', e.message);
+    return [];
+  }
+}
+
+async function fetchNSEAllBoardMeetings() {
+  try {
+    const rows = await nseJsonWithRetry('/api/corporate-board-meetings?index=equities', 'all board meetings');
+    if (!Array.isArray(rows)) return [];
+    return rows.slice(0, 300).map(item => {
+      const symbol = nseRowSymbol(item);
+      return {
+        symbol,
+        type:/result/i.test(`${item.bm_purpose || ''} ${item.bm_desc || ''}`) ? 'Result Date' : 'Board Meeting',
+        title:stripHtml(item.bm_desc || item.bm_purpose || 'Board meeting'),
+        source:'NSE',
+        eventDate:toISODateOrNull(item.bm_date),
+        publishedAt:toISODateOrNull(item.bm_date || item.bm_timestamp),
+        url:symbol ? `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}` : '',
+      };
+    }).filter(x => x.symbol && x.title);
+  } catch(e) {
+    console.warn('[fresh-news] NSE all board meetings failed:', e.message);
+    return [];
+  }
+}
+
 function dedupeNews(items) {
   const seen = new Set();
   const out = [];
@@ -953,9 +1796,498 @@ async function fetchStockNews(symbol, name, assetType = 'stock') {
   return data;
 }
 
+function istDateKeyFromValue(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
+  return ist.toISOString().slice(0, 10);
+}
+
+function lastBusinessDateKey(base = new Date()) {
+  const ist = new Date(base.getTime() + 5.5 * 60 * 60 * 1000);
+  ist.setUTCHours(0, 0, 0, 0);
+  do {
+    ist.setUTCDate(ist.getUTCDate() - 1);
+  } while (ist.getUTCDay() === 0 || ist.getUTCDay() === 6);
+  return ist.toISOString().slice(0, 10);
+}
+
+function freshNewsDateKey() {
+  const now = new Date();
+  const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+  const day = ist.getUTCDay();
+  return (day === 0 || day === 6) ? lastBusinessDateKey(now) : ist.toISOString().slice(0, 10);
+}
+
+function itemNewsDateKey(item) {
+  return istDateKeyFromValue(item?.publishedAt || item?.filingDate || item?.exDate || item?.recordDate || item?.eventDate || item?.toDate);
+}
+
+function isFreshNewsImportant(item) {
+  const text = `${item?.type || ''} ${item?.title || ''} ${item?.subject || ''} ${item?.purpose || ''}`;
+  return /result|financial|earnings|dividend|board|bonus|split|buyback|large deal|bulk deal|block deal|acquisition|merger|mou|contract|order win|bags order|corporate action|announcement/i.test(text);
+}
+
+function normalizeFreshNewsUniverse(symbols, maxSymbols = 300) {
+  return (Array.isArray(symbols) ? symbols : [])
+    .map(item => typeof item === 'string' ? { symbol:item } : item)
+    .map(item => ({
+      symbol:String(item?.symbol || item?.sym || '').trim().toUpperCase(),
+      name:String(item?.name || '').trim(),
+      assetType:String(item?.assetType || item?.type || 'stock').trim().toLowerCase(),
+    }))
+    .filter(item => item.symbol)
+    .slice(0, maxSymbols);
+}
+
+function loadDashboardStockUniverse() {
+  const rows = [];
+  try {
+    const jsFile = path.join(__dirname, 'dashboard-app.js');
+    const source = fs.existsSync(jsFile) ? fs.readFileSync(jsFile, 'utf8') : '';
+    const block = source.match(/const\s+MIDCAP_STOCKS\s*=\s*\[([\s\S]*?)\];/);
+    const text = block ? block[1] : source;
+    const re = /\{\s*sym:'([^']+)'\s*,\s*name:'([^']*)'[\s\S]*?sector:'([^']*)'[\s\S]*?cap:'([^']*)'/g;
+    let m;
+    while ((m = re.exec(text))) {
+      rows.push({ symbol:m[1].trim().toUpperCase(), name:m[2].trim(), assetType:'stock', sector:m[3], cap:m[4] });
+    }
+  } catch(e) {
+    console.warn('[fresh-news-cache] dashboard universe load failed:', e.message);
+  }
+  try {
+    for (const item of loadSavedStocksFile()) {
+      const symbol = String(item?.sym || item?.symbol || item || '').trim().toUpperCase();
+      if (symbol) rows.push({ symbol, name:String(item?.name || symbol), assetType:'stock' });
+    }
+  } catch(e) {
+    console.warn('[fresh-news-cache] saved stock universe load failed:', e.message);
+  }
+  const seen = new Set();
+  return rows.filter(row => {
+    if (!row.symbol || seen.has(row.symbol)) return false;
+    seen.add(row.symbol);
+    return true;
+  });
+}
+
+function freshNewsBuildUniverse(requestedUniverse) {
+  const rows = [...loadDashboardStockUniverse(), ...(Array.isArray(requestedUniverse) ? requestedUniverse : [])];
+  const seen = new Set();
+  return rows.filter(row => {
+    const symbol = String(row?.symbol || row?.sym || '').trim().toUpperCase();
+    if (!symbol || seen.has(symbol)) return false;
+    seen.add(symbol);
+    row.symbol = symbol;
+    row.name = String(row.name || symbol);
+    row.assetType = String(row.assetType || row.type || 'stock').toLowerCase();
+    return true;
+  }).slice(0, 320);
+}
+
+function freshNewsDayFile(targetDate) {
+  const dateKey = String(targetDate || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) throw new Error(`Invalid fresh news date: ${targetDate}`);
+  return path.join(FRESH_NEWS_CACHE_DIR, `fresh_stock_news_${dateKey}.json`);
+}
+
+function freshNewsDayMeta(entry) {
+  return {
+    date:entry.date,
+    savedAt:entry.savedAt || Date.now(),
+    builtInMs:entry.builtInMs || 0,
+    source:entry.source || 'nse-market-wide',
+    scanned:entry.scanned || 0,
+    count:entry.count || 0,
+    symbolCount:entry.symbolCount || 0,
+  };
+}
+
+function emptyFreshNewsIndex() {
+  return { version:FRESH_NEWS_CACHE_VERSION, savedAt:0, partitioned:true, days:{} };
+}
+
+function loadFreshNewsIndex() {
+  if (freshNewsDayCache) return freshNewsDayCache;
+  freshNewsDayCache = emptyFreshNewsIndex();
+  try {
+    ensureDir(FRESH_NEWS_CACHE_DIR);
+    if (fs.existsSync(FRESH_NEWS_CACHE_INDEX_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(FRESH_NEWS_CACHE_INDEX_FILE, 'utf8') || '{}');
+      if (raw && typeof raw === 'object' && raw.days && typeof raw.days === 'object') {
+        freshNewsDayCache = {
+          version:raw.version || 1,
+          savedAt:raw.savedAt || 0,
+          partitioned:true,
+          days:raw.days,
+        };
+        if (freshNewsDayCache.version !== FRESH_NEWS_CACHE_VERSION) {
+          console.log(`[fresh-news-cache] index v${freshNewsDayCache.version} is old; rebuilding as v${FRESH_NEWS_CACHE_VERSION}`);
+          freshNewsDayCache = emptyFreshNewsIndex();
+        }
+      }
+    } else {
+      migrateFreshNewsCombinedCache();
+    }
+    const count = Object.keys(freshNewsDayCache.days || {}).length;
+    if (count) console.log(`[fresh-news-cache] Loaded ${count} partitioned day entries`);
+  } catch(e) {
+    console.warn('[fresh-news-cache] Index load error:', e.message);
+    freshNewsDayCache = emptyFreshNewsIndex();
+  }
+  return freshNewsDayCache;
+}
+
+function saveFreshNewsIndex() {
+  try {
+    const index = loadFreshNewsIndex();
+    index.version = FRESH_NEWS_CACHE_VERSION;
+    index.partitioned = true;
+    index.savedAt = Date.now();
+    ensureDir(FRESH_NEWS_CACHE_DIR);
+    fs.writeFileSync(FRESH_NEWS_CACHE_INDEX_FILE, JSON.stringify(index, null, 2), 'utf8');
+  } catch(e) {
+    console.warn('[fresh-news-cache] Index save error:', e.message);
+  }
+}
+
+function migrateFreshNewsCombinedCache() {
+  try {
+    if (!fs.existsSync(FRESH_NEWS_CACHE_FILE)) return;
+    const raw = JSON.parse(fs.readFileSync(FRESH_NEWS_CACHE_FILE, 'utf8') || '{}');
+    const days = raw && raw.days && typeof raw.days === 'object' ? raw.days : {};
+    let moved = 0;
+    for (const [day, entry] of Object.entries(days)) {
+      if (!entry || !Array.isArray(entry.items)) continue;
+      const dayEntry = { ...entry, version:FRESH_NEWS_CACHE_VERSION, date:entry.date || day };
+      fs.writeFileSync(freshNewsDayFile(day), JSON.stringify(dayEntry, null, 2), 'utf8');
+      freshNewsDayCache.days[day] = freshNewsDayMeta(dayEntry);
+      moved++;
+    }
+    if (moved) {
+      freshNewsDayCache.savedAt = Date.now();
+      console.log(`[fresh-news-cache] Partitioned ${moved} legacy day entries`);
+      saveFreshNewsIndex();
+    }
+  } catch(e) {
+    console.warn('[fresh-news-cache] Legacy partition error:', e.message);
+  }
+}
+
+function readFreshNewsDayEntry(targetDate) {
+  try {
+    const file = freshNewsDayFile(targetDate);
+    if (!fs.existsSync(file)) return null;
+    const entry = JSON.parse(fs.readFileSync(file, 'utf8') || '{}');
+    if (!entry || !Array.isArray(entry.items)) return null;
+    const needsUpgrade = (entry.version || 1) !== FRESH_NEWS_CACHE_VERSION ||
+      entry.items.some(item => !item.newsSentiment || item.tradeImpactScore == null);
+    if (needsUpgrade) {
+      entry.version = FRESH_NEWS_CACHE_VERSION;
+      entry.items = dedupeFreshNewsItems(entry.items.map(item => ({
+        ...item,
+        ...classifyNewsTradeImpact(item),
+      })));
+      entry.count = entry.items.length;
+      entry.symbolCount = new Set(entry.items.map(item => item.symbol)).size;
+      writeFreshNewsDayEntry(entry);
+    }
+    return entry;
+  } catch(e) {
+    console.warn(`[fresh-news-cache] Day read error ${targetDate}:`, e.message);
+    return null;
+  }
+}
+
+function writeFreshNewsDayEntry(entry) {
+  try {
+    ensureDir(FRESH_NEWS_CACHE_DIR);
+    const dayEntry = { ...entry, version:FRESH_NEWS_CACHE_VERSION };
+    fs.writeFileSync(freshNewsDayFile(dayEntry.date), JSON.stringify(dayEntry, null, 2), 'utf8');
+    const index = loadFreshNewsIndex();
+    index.days[dayEntry.date] = freshNewsDayMeta(dayEntry);
+    pruneFreshNewsDayCache(index);
+    saveFreshNewsIndex();
+  } catch(e) {
+    console.warn(`[fresh-news-cache] Day save error ${entry?.date || ''}:`, e.message);
+  }
+}
+
+function pruneFreshNewsDayCache(index) {
+  const days = Object.keys(index.days || {}).sort().reverse();
+  for (const day of days.slice(FRESH_NEWS_CACHE_MAX_DAYS)) {
+    delete index.days[day];
+    try {
+      const file = freshNewsDayFile(day);
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+    } catch(e) {
+      console.warn(`[fresh-news-cache] Prune error ${day}:`, e.message);
+    }
+  }
+}
+
+function normalizeFreshMarketNewsItem(item, targetDate) {
+  const sym = String(item?.symbol || '').trim().toUpperCase();
+  if (!sym) return null;
+  const dateKey = itemNewsDateKey(item);
+  if (dateKey !== targetDate) return null;
+  if (!isFreshNewsImportant(item)) return null;
+  const normalized = {
+    symbol:sym,
+    name:String(item?.name || sym),
+    assetType:String(item?.assetType || 'stock').toLowerCase(),
+    type:item.type || classifyNewsItem(item.title || ''),
+    title:item.title || item.type || 'News',
+    source:item.source || 'NSE',
+    url:item.url || '',
+    publishedAt:item.publishedAt || item.filingDate || item.exDate || item.eventDate || null,
+    dateKey,
+    resultVerdict:item.resultVerdict || null,
+    resultVerdictReason:item.resultVerdictReason || null,
+  };
+  return { ...normalized, ...classifyNewsTradeImpact(normalized) };
+}
+
+function dedupeFreshNewsItems(items) {
+  const seen = new Set();
+  const deduped = [];
+  for (const item of items.sort((a, b) =>
+    (Number(b.tradeImpactAbs || 0) - Number(a.tradeImpactAbs || 0)) ||
+    (Number(b.tradeImpactScore || 0) - Number(a.tradeImpactScore || 0)) ||
+    ((Date.parse(b.publishedAt || 0) || 0) - (Date.parse(a.publishedAt || 0) || 0))
+  )) {
+    const key = `${item.symbol}|${String(item.type || '').toLowerCase()}|${String(item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 120)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(item);
+  }
+  return deduped;
+}
+
+async function buildFreshNewsDayEntry(targetDate, requestedUniverse = []) {
+  if (freshNewsBuildJobs.has(targetDate)) return freshNewsBuildJobs.get(targetDate);
+  const job = (async () => {
+    const startedAt = Date.now();
+    const items = [];
+    const errors = [];
+    const universe = freshNewsBuildUniverse(requestedUniverse);
+    const marketSettled = await Promise.allSettled([
+      fetchNSEAllAnnouncements(),
+      fetchNSEAllResults(),
+      fetchNSEAllCorporateActions(),
+      fetchNSEAllBoardMeetings(),
+    ]);
+    for (const r of marketSettled) {
+      if (r.status === 'rejected') {
+        errors.push(r.reason?.message || String(r.reason || 'unknown'));
+        continue;
+      }
+      for (const raw of (Array.isArray(r.value) ? r.value : [])) {
+        const normalized = normalizeFreshMarketNewsItem(raw, targetDate);
+        if (normalized) items.push(normalized);
+      }
+    }
+    const symbolRows = new Map(universe.map(row => [row.symbol, row]));
+    const alreadySeenAnnouncement = new Set(items
+      .filter(item => item.source === 'NSE')
+      .map(item => `${item.symbol}|${String(item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 120)}`));
+    const concurrency = 8;
+    for (let i = 0; i < universe.length; i += concurrency) {
+      const chunk = universe.slice(i, i + concurrency);
+      const settled = await Promise.allSettled(chunk.map(row =>
+        fetchNSEStockAnnouncements(row.symbol).then(news => ({ row, news }))
+      ));
+      for (const r of settled) {
+        if (r.status !== 'fulfilled') {
+          errors.push(r.reason?.message || String(r.reason || 'unknown'));
+          continue;
+        }
+        const { row, news } = r.value;
+        for (const raw of (Array.isArray(news) ? news : [])) {
+          const item = normalizeFreshMarketNewsItem({ ...raw, symbol:row.symbol, name:row.name, assetType:row.assetType }, targetDate);
+          if (!item) continue;
+          const titleKey = `${item.symbol}|${String(item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 120)}`;
+          if (alreadySeenAnnouncement.has(titleKey)) continue;
+          alreadySeenAnnouncement.add(titleKey);
+          items.push(item);
+        }
+      }
+      if (i + concurrency < universe.length) await new Promise(r => setTimeout(r, 120));
+    }
+    for (const item of items) {
+      const row = symbolRows.get(item.symbol);
+      if (row) {
+        item.name = row.name || item.name || item.symbol;
+        item.assetType = row.assetType || item.assetType || 'stock';
+      }
+    }
+    const deduped = dedupeFreshNewsItems(items);
+    const symbolsWithNews = new Set(deduped.map(item => item.symbol));
+    return {
+      ok:true,
+      date:targetDate,
+      savedAt:Date.now(),
+      builtInMs:Date.now() - startedAt,
+      source:'nse-market-wide+symbol-announcements',
+      scanned:universe.length,
+      count:deduped.length,
+      symbolCount:symbolsWithNews.size,
+      items:deduped.slice(0, 500),
+      errors:errors.slice(0, 10),
+    };
+  })().finally(() => freshNewsBuildJobs.delete(targetDate));
+  freshNewsBuildJobs.set(targetDate, job);
+  return job;
+}
+
+async function getFreshNewsDayEntry(targetDate, requestedUniverse = [], opts = {}) {
+  loadFreshNewsIndex();
+  const cached = !opts.force ? readFreshNewsDayEntry(targetDate) : null;
+  if (cached) return { ...cached, fromCache:true };
+  const entry = await buildFreshNewsDayEntry(targetDate, requestedUniverse);
+  writeFreshNewsDayEntry(entry);
+  console.log(`[fresh-news-cache] Saved ${entry.count} items for ${targetDate}`);
+  return { ...entry, fromCache:false };
+}
+
+async function fetchFreshStockNews(symbols, opts = {}) {
+  const targetDate = opts.date || freshNewsDateKey();
+  const maxSymbols = Math.max(1, Math.min(Number(opts.maxSymbols) || 220, 300));
+  const limit = Math.max(1, Math.min(Number(opts.limit) || 25, 100));
+  const offset = Math.max(0, Number(opts.offset) || 0);
+  const universe = normalizeFreshNewsUniverse(symbols, maxSymbols);
+  const dayEntry = await getFreshNewsDayEntry(targetDate, universe, { force:!!opts.force });
+  const symbolMap = new Map(universe.map(row => [row.symbol, row]));
+  const requestedSymbols = new Set(universe.map(row => row.symbol));
+  const items = [];
+  for (const item of (Array.isArray(dayEntry.items) ? dayEntry.items : [])) {
+    const sym = String(item.symbol || '').toUpperCase();
+    if (requestedSymbols.size && !requestedSymbols.has(sym)) continue;
+    const row = symbolMap.get(sym) || {};
+    items.push({
+      symbol:sym,
+      name:row.name || item.name || sym,
+      assetType:row.assetType || item.assetType || 'stock',
+      type:item.type || classifyNewsItem(item.title || ''),
+      title:item.title || item.type || 'News',
+      source:item.source || 'NSE',
+      url:item.url || '',
+      publishedAt:item.publishedAt || item.filingDate || item.exDate || item.eventDate || null,
+      dateKey:item.dateKey || targetDate,
+      resultVerdict:item.resultVerdict || null,
+      resultVerdictReason:item.resultVerdictReason || null,
+      newsSentiment:item.newsSentiment || classifyNewsTradeImpact(item).newsSentiment,
+      tradeImpactScore:item.tradeImpactScore ?? classifyNewsTradeImpact(item).tradeImpactScore,
+      tradeImpactAbs:item.tradeImpactAbs ?? classifyNewsTradeImpact(item).tradeImpactAbs,
+      tradeImpactReason:item.tradeImpactReason || classifyNewsTradeImpact(item).tradeImpactReason,
+    });
+  }
+  const deduped = dedupeFreshNewsItems(items);
+  const symbolsWithNews = new Set(deduped.map(item => item.symbol));
+  const impactBySymbol = {};
+  for (const item of deduped) {
+    const sym = String(item.symbol || '').toUpperCase();
+    if (!sym) continue;
+    const current = impactBySymbol[sym];
+    const impactAbs = Number(item.tradeImpactAbs || Math.abs(Number(item.tradeImpactScore || 0)));
+    const currentAbs = Number(current?.tradeImpactAbs || Math.abs(Number(current?.tradeImpactScore || 0)));
+    if (!current || impactAbs > currentAbs) {
+      impactBySymbol[sym] = {
+        symbol:sym,
+        type:item.type || 'News',
+        title:item.title || 'News',
+        newsSentiment:item.newsSentiment || 'Neutral',
+        tradeImpactScore:Number(item.tradeImpactScore || 0),
+        tradeImpactAbs:impactAbs,
+        tradeImpactReason:item.tradeImpactReason || '',
+        publishedAt:item.publishedAt || item.dateKey || null,
+      };
+    }
+  }
+  return {
+    ok:true,
+    date:targetDate,
+    scanned:universe.length,
+    marketCount:dayEntry.count || 0,
+    marketSymbolCount:dayEntry.symbolCount || 0,
+    count:deduped.length,
+    symbolCount:symbolsWithNews.size,
+    symbols:Array.from(symbolsWithNews),
+    impactBySymbol,
+    limit,
+    offset,
+    returned:deduped.slice(offset, offset + limit).length,
+    hasPrev:offset > 0,
+    hasNext:offset + limit < deduped.length,
+    items:deduped.slice(offset, offset + limit),
+    errors:Array.isArray(dayEntry.errors) ? dayEntry.errors.slice(0, 10) : [],
+    fromCache:!!dayEntry.fromCache,
+    cachedAt:dayEntry.savedAt || null,
+    source:dayEntry.source || 'nse-market-wide',
+  };
+}
+
 // ══════════════════════════════════════════════════════════
 //  NSE SESSION
 // ══════════════════════════════════════════════════════════
+function freshNewsCronDelayMs(now = new Date()) {
+  const offsetMs = 5.5 * 60 * 60 * 1000;
+  const ist = new Date(now.getTime() + offsetMs);
+  const y = ist.getUTCFullYear();
+  const m = ist.getUTCMonth();
+  const d = ist.getUTCDate();
+  for (let add = 0; add < 8; add++) {
+    for (const slot of FRESH_NEWS_CRON_TIMES_IST) {
+      const [hh, mm] = slot.split(':').map(Number);
+      const candidateIstMs = Date.UTC(y, m, d + add, hh, mm, 0, 0);
+      const candidateIst = new Date(candidateIstMs);
+      const day = candidateIst.getUTCDay();
+      if (day === 0 || day === 6) continue;
+      const candidateUtcMs = candidateIstMs - offsetMs;
+      if (candidateUtcMs > now.getTime() + 5000) return candidateUtcMs - now.getTime();
+    }
+  }
+  return 6 * 60 * 60 * 1000;
+}
+
+async function refreshFreshNewsCache(reason = 'manual') {
+  const targetDate = freshNewsDateKey();
+  const universe = freshNewsBuildUniverse([]);
+  console.log(`[fresh-news-cron] Refreshing ${targetDate} (${reason}) for ${universe.length} symbols`);
+  const entry = await getFreshNewsDayEntry(targetDate, universe, { force:true });
+  console.log(`[fresh-news-cron] Done ${targetDate}: ${entry.count} items, ${entry.symbolCount} symbols, cache=${entry.fromCache}`);
+  return entry;
+}
+
+function scheduleNextFreshNewsRefresh() {
+  if (freshNewsCronTimer) clearTimeout(freshNewsCronTimer);
+  const delay = freshNewsCronDelayMs();
+  freshNewsCronTimer = setTimeout(async () => {
+    try {
+      await refreshFreshNewsCache('scheduled');
+    } catch(e) {
+      console.warn('[fresh-news-cron] Refresh failed:', e.message);
+    } finally {
+      scheduleNextFreshNewsRefresh();
+    }
+  }, delay);
+  if (freshNewsCronTimer.unref) freshNewsCronTimer.unref();
+  console.log(`[fresh-news-cron] Next refresh in ${Math.round(delay / 60000)}m`);
+}
+
+function startFreshNewsCron() {
+  scheduleNextFreshNewsRefresh();
+  const targetDate = freshNewsDateKey();
+  loadFreshNewsIndex();
+  if (!readFreshNewsDayEntry(targetDate)) {
+    const startupTimer = setTimeout(() => {
+      refreshFreshNewsCache('startup-missing-cache').catch(e => console.warn('[fresh-news-cron] Startup refresh failed:', e.message));
+    }, 5000);
+    if (startupTimer.unref) startupTimer.unref();
+  }
+}
+
 const nse = { cookies: '', lastRefresh: 0, refreshing: false, warmPromise: null, TTL: 5 * 60 * 1000 };
 
 const NSE_HEADERS = {
@@ -1425,9 +2757,118 @@ function buildDailyTradeContext(result) {
   };
 }
 
+const MIN_INTRADAY_REWARD_PCT = 1.2; // Allows room for 1% net target after brokerage/slippage.
+const MAX_INTRADAY_REWARD_PCT = 1.8;
+const MIN_INTRADAY_STOP_PCT = 0.4;
+const MAX_INTRADAY_STOP_PCT = 0.75;
+const MAX_INTRADAY_TRIGGER_DISTANCE_PCT = 1.2;
+
+function nearestIntradayTrigger(price, levels, side = 'buy') {
+  const px = Number(price);
+  if (!Number.isFinite(px) || px <= 0) return null;
+  const clean = (levels || [])
+    .map(Number)
+    .filter(level => Number.isFinite(level) && level > 0)
+    .map(level => ({
+      level,
+      distancePct: Math.abs(level - px) / px * 100,
+      triggered: side === 'sell' ? px <= level : px >= level,
+    }))
+    .filter(item => item.distancePct <= MAX_INTRADAY_TRIGGER_DISTANCE_PCT);
+  if (!clean.length) return null;
+  return clean.sort((a, b) => {
+    if (a.triggered !== b.triggered) return a.triggered ? -1 : 1;
+    return a.distancePct - b.distancePct;
+  })[0].level;
+}
+
+function expectedIntradayVolumeFraction(isoTime) {
+  const d = isoTime ? new Date(new Date(isoTime).getTime() + 5.5 * 3600 * 1000) : null;
+  if (!d || Number.isNaN(d.getTime())) return null;
+  const mins = d.getUTCHours() * 60 + d.getUTCMinutes();
+  const elapsed = Math.max(0, Math.min(375, mins - (9 * 60 + 15)));
+  const anchors = [
+    [0, 0.01], [15, 0.12], [30, 0.20], [60, 0.32],
+    [120, 0.48], [210, 0.62], [300, 0.78], [375, 1.00],
+  ];
+  for (let i = 1; i < anchors.length; i++) {
+    const [m0, f0] = anchors[i - 1], [m1, f1] = anchors[i];
+    if (elapsed <= m1) return f0 + ((f1 - f0) * (elapsed - m0)) / (m1 - m0);
+  }
+  return 1;
+}
+
+function computeVolumeShockMetrics(rawHighs, rawLows, rawCloses, rawVolumes, timestamps, lastBarIdx, vwap, prevClose) {
+  if (!Number.isFinite(lastBarIdx) || lastBarIdx < 5) return null;
+  const bars = [];
+  const from = Math.max(0, lastBarIdx - 60);
+  for (let i = from; i <= lastBarIdx; i++) {
+    const close = Number(rawCloses[i]);
+    const high = Number(rawHighs[i]);
+    const low = Number(rawLows[i]);
+    if (![close, high, low].every(Number.isFinite)) continue;
+    bars.push({
+      time: Number.isFinite(Number(timestamps?.[i])) ? new Date(Number(timestamps[i]) * 1000).toISOString() : null,
+      close,
+      high,
+      low,
+      volume: Number.isFinite(Number(rawVolumes[i])) ? Number(rawVolumes[i]) : 0,
+    });
+  }
+  if (bars.length < 8) return null;
+  const last = bars[bars.length - 1];
+  const at = n => bars[Math.max(0, bars.length - 1 - n)];
+  const pctFrom = n => {
+    const base = at(n)?.close;
+    return Number.isFinite(base) && base > 0 ? ((last.close - base) / base) * 100 : null;
+  };
+  const sumVol = arr => arr.reduce((sum, item) => sum + (Number(item.volume) || 0), 0);
+  const last3 = bars.slice(-3);
+  const prev9 = bars.slice(Math.max(0, bars.length - 12), Math.max(0, bars.length - 3));
+  const last5 = bars.slice(-5);
+  const prev20 = bars.slice(Math.max(0, bars.length - 25), Math.max(0, bars.length - 5));
+  const volume3 = sumVol(last3);
+  const volume5 = sumVol(last5);
+  const avgPrev3 = prev9.length ? sumVol(prev9) / Math.max(1, prev9.length / 3) : null;
+  const avgPrev5 = prev20.length ? sumVol(prev20) / Math.max(1, prev20.length / 5) : null;
+  const recentHigh = bars.slice(0, -1).slice(-20).reduce((max, b) => Math.max(max, b.high), -Infinity);
+  const breakout = Number.isFinite(recentHigh) && last.close > recentHigh;
+  const change3m = pctFrom(3);
+  const change5m = pctFrom(5);
+  const volumeRatio3m = Number.isFinite(avgPrev3) && avgPrev3 > 0 ? volume3 / avgPrev3 : null;
+  const volumeRatio5m = Number.isFinite(avgPrev5) && avgPrev5 > 0 ? volume5 / avgPrev5 : null;
+  const vwapExtensionPct = Number.isFinite(vwap) && vwap > 0 ? ((last.close - vwap) / vwap) * 100 : null;
+  const dayChangePct = Number.isFinite(prevClose) && prevClose > 0 ? ((last.close - prevClose) / prevClose) * 100 : null;
+  const isShock =
+    breakout &&
+    ((Number.isFinite(change3m) && change3m >= 1.4 && Number.isFinite(volumeRatio3m) && volumeRatio3m >= 5) ||
+     (Number.isFinite(change5m) && change5m >= 2.0 && Number.isFinite(volumeRatio5m) && volumeRatio5m >= 5)) &&
+    (!Number.isFinite(vwapExtensionPct) || vwapExtensionPct <= 3.2);
+  return {
+    isShock,
+    change3m: Number.isFinite(change3m) ? +change3m.toFixed(2) : null,
+    change5m: Number.isFinite(change5m) ? +change5m.toFixed(2) : null,
+    volume3m: Math.round(volume3),
+    volume5m: Math.round(volume5),
+    volumeRatio3m: Number.isFinite(volumeRatio3m) ? +volumeRatio3m.toFixed(2) : null,
+    volumeRatio5m: Number.isFinite(volumeRatio5m) ? +volumeRatio5m.toFixed(2) : null,
+    recentHigh: Number.isFinite(recentHigh) ? +recentHigh.toFixed(2) : null,
+    breakout,
+    vwapExtensionPct: Number.isFinite(vwapExtensionPct) ? +vwapExtensionPct.toFixed(2) : null,
+    dayChangePct: Number.isFinite(dayChangePct) ? +dayChangePct.toFixed(2) : null,
+    detectedAt: last.time,
+  };
+}
+
 function buildIntradaySignal(sym, result, dailyContext = {}) {
   const quote = result?.indicators?.quote?.[0] || {};
   const meta = result?.meta || {};
+  const rawOpens = quote.open || [];
+  const rawHighs = quote.high || [];
+  const rawLows = quote.low || [];
+  const rawCloses = quote.close || [];
+  const rawVolumes = quote.volume || [];
+  const timestamps = result?.timestamp || [];
   const closes = compactFinite(quote.close);
   const highs = compactFinite(quote.high);
   const lows = compactFinite(quote.low);
@@ -1448,12 +2889,45 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
   const st = superTrend(highs, lows, closes, 10, 3);
   const openingHigh = highs.slice(0, 3).length ? Math.max(...highs.slice(0, 3)) : null;
   const openingLow = lows.slice(0, 3).length ? Math.min(...lows.slice(0, 3)) : null;
+  const recentSwingHigh = highs.slice(-6, -1).length ? Math.max(...highs.slice(-6, -1)) : null;
+  const recentSwingLow = lows.slice(-6, -1).length ? Math.min(...lows.slice(-6, -1)) : null;
+  const recentLow10 = lows.slice(-11, -1).length ? Math.min(...lows.slice(-11, -1)) : null;
+  const prevBarLow = lows.length > 1 ? lows[lows.length - 2] : null;
   const recentVol = volumes.slice(-10, -1).filter(v => v > 0);
   const avgRecentVol = recentVol.length ? recentVol.reduce((a, b) => a + b, 0) / recentVol.length : 0;
   const lastVolume = volumes[volumes.length - 1] || 0;
   const volumeSpike = avgRecentVol > 0 && lastVolume > avgRecentVol * 1.5;
   const dayVolume = volumes.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
   const relVolume = dailyContext.avgVolume20 ? dayVolume / dailyContext.avgVolume20 : null;
+  let lastBarIdx = -1;
+  for (let i = rawCloses.length - 1; i >= 0; i--) {
+    if (Number.isFinite(Number(rawCloses[i]))) { lastBarIdx = i; break; }
+  }
+  const volumeShock = computeVolumeShockMetrics(rawHighs, rawLows, rawCloses, rawVolumes, timestamps, lastBarIdx, vwap, prevClose);
+  const round2 = v => Number.isFinite(Number(v)) ? +Number(v).toFixed(2) : null;
+  const latestBar = lastBarIdx >= 0 ? {
+    time: Number.isFinite(Number(timestamps[lastBarIdx])) ? new Date(Number(timestamps[lastBarIdx]) * 1000).toISOString() : null,
+    open: round2(rawOpens[lastBarIdx]),
+    high: round2(rawHighs[lastBarIdx]),
+    low: round2(rawLows[lastBarIdx]),
+    close: round2(rawCloses[lastBarIdx]),
+    volume: Number.isFinite(Number(rawVolumes[lastBarIdx])) ? Number(rawVolumes[lastBarIdx]) : null,
+  } : null;
+  const ohlc = {
+    latestBar,
+    session: {
+      open: round2(openPrice),
+      high: highs.length ? round2(Math.max(...highs)) : null,
+      low: lows.length ? round2(Math.min(...lows)) : null,
+      close: round2(price),
+      volume: dayVolume || null,
+    },
+    previousClose: round2(prevClose),
+  };
+  const expectedVolumeFraction = expectedIntradayVolumeFraction(latestBar?.time);
+  const relVolumeTimeAdjusted = dailyContext.avgVolume20 && expectedVolumeFraction
+    ? dayVolume / Math.max(1, dailyContext.avgVolume20 * expectedVolumeFraction)
+    : null;
   const gapPct = prevClose ? +(((openPrice - prevClose) / prevClose) * 100).toFixed(2) : null;
   let gapQuality = 'flat';
   if (gapPct != null && Math.abs(gapPct) >= 0.35) {
@@ -1476,7 +2950,8 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
   if (rsi14 != null) {
     if (rsi14 >= 55 && rsi14 <= 75) { score += 10; reasons.push('RSI bullish'); }
     else if (rsi14 >= 25 && rsi14 <= 45) { score -= 10; reasons.push('RSI weak'); }
-    else if (rsi14 > 80) { score -= 5; reasons.push('RSI stretched'); }
+    else if (rsi14 > 82) { score -= 15; reasons.push('RSI extremely stretched'); }
+    else if (rsi14 > 75) { score -= 8; reasons.push('RSI stretched'); }
     else if (rsi14 < 20) { score += 5; reasons.push('RSI oversold bounce zone'); }
   }
   if (openingHigh != null && price > openingHigh) { score += 8; reasons.push('Opening range breakout'); }
@@ -1491,20 +2966,38 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
   else if (gapQuality === 'gap-up fading') { score -= 5; reasons.push('Gap-up fading'); }
   else if (gapQuality === 'gap-down recovering') { score += 5; reasons.push('Gap-down recovering'); }
   else if (gapQuality === 'gap-down weak') { score -= 5; reasons.push('Gap-down weak'); }
-  if (relVolume != null && relVolume >= 1.5) {
-    if (lastClose >= prevBarClose) { score += 5; reasons.push('High relative volume'); }
-    else { score -= 5; reasons.push('High relative volume selloff'); }
+  const volumePace = relVolumeTimeAdjusted ?? relVolume;
+  if (volumePace != null && volumePace >= 1.5) {
+    if (lastClose >= prevBarClose) { score += 10; reasons.push('High relative volume'); }
+    else { score -= 10; reasons.push('High relative volume selloff'); }
+  } else if (volumePace != null && volumePace < 0.7) {
+    score += score >= 0 ? -8 : 8;
+    reasons.push('Weak relative volume');
   }
   if (volumeSpike) {
-    if (lastClose >= prevBarClose) { score += 6; reasons.push('Volume spike on uptick'); }
-    else { score -= 6; reasons.push('Volume spike on downtick'); }
+    if (lastClose >= prevBarClose) { score += 10; reasons.push('Volume spike on uptick'); }
+    else { score -= 10; reasons.push('Volume spike on downtick'); }
   }
-  if (vwapBands?.position === 'above-upper') { score -= 8; reasons.push('Above upper VWAP band'); }
-  else if (vwapBands?.position === 'below-lower') { score += 8; reasons.push('Below lower VWAP band'); }
+  if (volumeShock?.isShock) {
+    score += 26;
+    reasons.push('Volume shock breakout');
+  }
+  if (vwapBands?.position === 'above-upper') { score -= 15; reasons.push('Above upper VWAP band'); }
+  else if (vwapBands?.position === 'below-lower') { score += 15; reasons.push('Below lower VWAP band'); }
+  const extensionPct = price && vwap ? (Math.abs(price - vwap) / price) * 100 : null;
+  if (extensionPct != null && extensionPct > 1.2) {
+    score += score >= 0 ? -20 : 20;
+    reasons.push('Too far from VWAP');
+  } else if (extensionPct != null && extensionPct > 0.8) {
+    score += score >= 0 ? -10 : 10;
+    reasons.push('Extended from VWAP');
+  }
 
   const signal = score >= 35 ? 'buy' : score <= -35 ? 'sell' : Math.abs(score) >= 18 ? 'watch' : 'hold';
-  const tradeRisk = Math.max(atr14 * 1.25, price * 0.006);
-  const stopRisk = Math.max(atr14 * 0.8, price * 0.004);
+  const rawTradeRisk = Math.max(atr14 * 1.25, price * (MIN_INTRADAY_REWARD_PCT / 100));
+  const tradeRisk = Math.min(rawTradeRisk, price * (MAX_INTRADAY_REWARD_PCT / 100));
+  const rawStopRisk = Math.max(atr14 * 0.8, price * (MIN_INTRADAY_STOP_PCT / 100));
+  const stopRisk = Math.min(rawStopRisk, price * (MAX_INTRADAY_STOP_PCT / 100));
   const bullish = score >= 0;
   const target = price + (bullish ? tradeRisk : -tradeRisk);
   const stop = price - (bullish ? stopRisk : -stopRisk);
@@ -1521,13 +3014,25 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     invalidation = `Invalid below ${stop.toFixed(2)} or VWAP loss`;
     entryStatus = price >= entryPrice ? 'Triggered' : ((entryPrice - price) / price <= 0.005 ? 'Near trigger' : 'Wait');
   } else if (signal === 'sell') {
-    const trigger = Math.min(...[openingLow, dailyContext.prevDayLow, dailyContext.pivot].filter(Number.isFinite));
-    entryPrice = Number.isFinite(trigger) ? trigger : price;
-    entryTrigger = `Sell below ${entryPrice.toFixed(2)} with VWAP rejection`;
+    const trigger = nearestIntradayTrigger(price, [
+      prevBarLow,
+      recentSwingLow,
+      recentLow10,
+      openingLow,
+      vwapBands?.lower,
+      dailyContext.pivot,
+      dailyContext.prevDayLow,
+    ], 'sell');
+    entryPrice = Number.isFinite(trigger) ? trigger : null;
+    entryTrigger = entryPrice == null
+      ? 'Wait for nearby intraday breakdown'
+      : `Sell below ${entryPrice.toFixed(2)} with VWAP rejection`;
     invalidation = `Invalid above ${stop.toFixed(2)} or VWAP reclaim`;
-    entryStatus = price <= entryPrice ? 'Triggered' : ((price - entryPrice) / price <= 0.005 ? 'Near trigger' : 'Wait');
+    entryStatus = entryPrice == null ? 'Wait' : (price <= entryPrice ? 'Triggered' : ((price - entryPrice) / price <= 0.005 ? 'Near trigger' : 'Wait'));
   } else if (signal === 'watch') {
-    entryPrice = bullish ? Math.max(openingHigh || 0, dailyContext.prevDayHigh || 0, dailyContext.pivot || 0) : Math.min(...[openingLow, dailyContext.prevDayLow, dailyContext.pivot].filter(Number.isFinite));
+    entryPrice = bullish
+      ? Math.max(openingHigh || 0, recentSwingHigh || 0, dailyContext.prevDayHigh || 0, dailyContext.pivot || 0)
+      : nearestIntradayTrigger(price, [prevBarLow, recentSwingLow, recentLow10, openingLow, vwapBands?.lower, dailyContext.pivot, dailyContext.prevDayLow], 'sell');
     if (!Number.isFinite(entryPrice) || entryPrice <= 0) entryPrice = null;
     entryTrigger = bullish ? 'Watch for breakout with volume' : 'Watch for breakdown with volume';
     entryStatus = 'Watch';
@@ -1536,10 +3041,13 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     symbol: sym,
     price: +price.toFixed(2),
     open: +openPrice.toFixed(2),
+    ohlc,
     signal,
     score: Math.max(-100, Math.min(100, Math.round(score))),
     target: +target.toFixed(2),
     stop: +stop.toFixed(2),
+    targetPct: +((reward / price) * 100).toFixed(2),
+    stopPct: +((risk / price) * 100).toFixed(2),
     rr: risk > 0 ? +(reward / risk).toFixed(2) : null,
     vwap: vwap == null ? null : +vwap.toFixed(2),
     vwapUpper: vwapBands?.upper == null ? null : +vwapBands.upper.toFixed(2),
@@ -1557,6 +3065,9 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     volumeSpike,
     dayVolume,
     relVolume: relVolume == null ? null : +relVolume.toFixed(2),
+    relVolumeTimeAdjusted: relVolumeTimeAdjusted == null ? null : +relVolumeTimeAdjusted.toFixed(2),
+    expectedVolumeFraction: expectedVolumeFraction == null ? null : +expectedVolumeFraction.toFixed(3),
+    volumeShock,
     gapPct,
     gapQuality,
     prevDayHigh: dailyContext.prevDayHigh ?? null,
@@ -1574,7 +3085,7 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     entryTrigger,
     invalidation,
     dayChange: prevClose ? +(((price - prevClose) / prevClose) * 100).toFixed(2) : null,
-    reasons: reasons.slice(0, 4),
+    reasons: reasons.slice(0, 6),
     savedAt: new Date().toISOString(),
   };
 }
@@ -2115,7 +3626,7 @@ async function yahooIndices() {
 // ══════════════════════════════════════════════════════════
 //  HTTP SERVER
 // ══════════════════════════════════════════════════════════
-const server = http.createServer(async (req, res) => {
+async function proxyRequestHandler(req, res) {
   res.setHeader('Access-Control-Allow-Origin',  '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS, POST');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -2132,7 +3643,51 @@ const server = http.createServer(async (req, res) => {
       nse  : { cookies: nse.cookies.length, lastRefresh: nse.lastRefresh },
       yahoo: { mode: 'v8/chart (crumb-free)', ok: true },
       openai: { configured: !!OPENAI_API_KEY, model: OPENAI_MODEL, propertiesFile: USER_OPENAI_PROPERTIES },
+      ollama: { baseUrl: OLLAMA_BASE_URL, model: OLLAMA_MODEL || 'auto', timeoutMs: OLLAMA_TIMEOUT_MS },
     }));
+    return;
+  }
+
+  // /dashboard-bootstrap -- one-shot startup payload for the Remix dashboard
+  if (pathname === '/dashboard-bootstrap') {
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+      return;
+    }
+    try {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+      res.end(JSON.stringify(buildDashboardBootstrap()));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok:false, error:e.message || 'Bootstrap failed' }));
+    }
+    return;
+  }
+
+  // /dashboard-market?symbols=A,B -- compact initial market payload for Remix dashboard
+  if (pathname === '/dashboard-market') {
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+      return;
+    }
+    try {
+      const symbols = (searchParams.get('symbols') || '')
+        .split(',')
+        .map(s => s.trim().toUpperCase())
+        .filter(Boolean)
+        .slice(0, 300);
+      const [indices, quotes] = await Promise.all([
+        yahooIndices().catch(e => ({ ok:false, error:e.message })),
+        symbols.length ? yahooQuote(symbols).catch(e => ({ ok:false, error:e.message, quotes:{} })) : Promise.resolve({ ok:true, quotes:{} }),
+      ]);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+      res.end(JSON.stringify({ ok:true, savedAt:Date.now(), indices, quotes:quotes.quotes || {}, quoteError:quotes.error || null }));
+    } catch (e) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok:false, error:e.message || 'Market payload failed' }));
+    }
     return;
   }
 
@@ -2164,6 +3719,45 @@ const server = http.createServer(async (req, res) => {
     } catch(e) {
       res.writeHead(e.status || 502, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // /ollama/status -- checks local Ollama and reports installed models
+  if (pathname === '/ollama/status') {
+    try {
+      const tags = await ollamaRequest('/api/tags', 'GET', null, 5000);
+      const models = Array.isArray(tags.models) ? tags.models.map(m => m.name).filter(Boolean) : [];
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, configured: models.length > 0, baseUrl: OLLAMA_BASE_URL, model: OLLAMA_MODEL || models[0] || 'auto', timeoutMs: OLLAMA_TIMEOUT_MS, models }));
+    } catch(e) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, configured: false, baseUrl: OLLAMA_BASE_URL, model: OLLAMA_MODEL || 'auto', timeoutMs: OLLAMA_TIMEOUT_MS, error: e.message }));
+    }
+    return;
+  }
+
+  // /ollama/chat -- local Ollama proxy for fundamentals chat. Keeps browser CORS simple.
+  if (pathname === '/ollama/chat') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+      return;
+    }
+    try {
+      const payload = await readJsonBody(req);
+      const prompt = String(payload.prompt || '').trim();
+      if (!prompt) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'prompt is required' }));
+        return;
+      }
+      const data = await callOllamaChat(payload);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch(e) {
+      res.writeHead(e.status || 502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message, baseUrl: OLLAMA_BASE_URL, model: OLLAMA_MODEL || 'auto', timeoutMs: OLLAMA_TIMEOUT_MS }));
     }
     return;
   }
@@ -2401,6 +3995,36 @@ const server = http.createServer(async (req, res) => {
     } catch(e) {
       res.writeHead(502, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // /fresh-stock-news -- server-side scan for today's / last business day's fresh stock news
+  if (pathname === '/fresh-stock-news') {
+    try {
+      let payload = {};
+      if (req.method === 'POST') {
+        payload = await readJsonBody(req);
+      } else if (req.method !== 'GET') {
+        res.writeHead(405, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Method not allowed' }));
+        return;
+      }
+      const rawSymbols = req.method === 'GET'
+        ? String(searchParams.get('symbols') || '').split(',').map(s => s.trim()).filter(Boolean)
+        : (payload.symbols || payload.stocks || []);
+      const data = await fetchFreshStockNews(rawSymbols, {
+        date: payload.date || searchParams.get('date') || '',
+        maxSymbols: payload.maxSymbols || searchParams.get('maxSymbols'),
+        concurrency: payload.concurrency || searchParams.get('concurrency'),
+        limit: payload.limit || searchParams.get('limit'),
+        offset: payload.offset || searchParams.get('offset'),
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch(e) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok:false, error: e.message }));
     }
     return;
   }
@@ -2770,7 +4394,9 @@ const server = http.createServer(async (req, res) => {
             portfolioInitial: Number.isFinite(Number(payload.portfolioInitial)) ? +Number(payload.portfolioInitial).toFixed(2) : null,
             source: payload.source === 'simulation' ? 'simulation' : 'manual',
             assetType: payload.assetType === 'etf' ? 'etf' : 'stock',
+            setupType: payload.setupType || null,
             setup: payload.setup || null,
+            entryContext: payload.entryContext && typeof payload.entryContext === 'object' ? payload.entryContext : null,
             notes: payload.notes || '',
             openedAt: new Date().toISOString(),
           };
@@ -2830,6 +4456,67 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
+        if (action === 'partial-close') {
+          const id = String(payload.id || '');
+          const exitPrice = Number(payload.exitPrice);
+          const requestedQty = Math.floor(Number(payload.qty));
+          const trade = trades.find(t => t.id === id && t.status === 'open');
+          const openQty = Math.floor(Number(trade?.qty || 0));
+          if (!trade || !Number.isFinite(exitPrice) || exitPrice <= 0 || !Number.isFinite(requestedQty) || requestedQty <= 0 || requestedQty >= openQty) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Open trade id, partial qty below open qty, and exitPrice are required' }));
+            return;
+          }
+          const closedAt = new Date().toISOString();
+          const partialTrade = {
+            ...trade,
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            parentId: trade.id,
+            status: 'closed',
+            qty: requestedQty,
+            reservedCapital:+(Number(trade.entryPrice) * requestedQty).toFixed(2),
+            exitPrice:+exitPrice.toFixed(2),
+            closedAt,
+            closeReason: payload.reason || 'Partial exit',
+          };
+          const pnl = computePaperTradePnl(partialTrade, exitPrice);
+          Object.assign(partialTrade, {
+            pnl: pnl.pnl,
+            pnlPct: pnl.pnlPct,
+            grossPnl: pnl.grossPnl,
+            charges: pnl.charges,
+            chargeBreakup: pnl.chargeBreakup,
+          });
+          trade.qty = openQty - requestedQty;
+          trade.reservedCapital = +(Number(trade.entryPrice) * trade.qty).toFixed(2);
+          trade.partialExits = Array.isArray(trade.partialExits) ? trade.partialExits : [];
+          trade.partialExits.push({
+            id: partialTrade.id,
+            qty: requestedQty,
+            exitPrice:+exitPrice.toFixed(2),
+            closedAt,
+            reason: partialTrade.closeReason,
+            pnl: pnl.pnl,
+          });
+          trade._partialTargetBooked = true;
+          trade._runnerArmed = true;
+          trade._runnerWideTrail = !!payload.runner;
+          trade.target = null;
+          trade.setupType = trade.setupType || 'TARGET_RUNNER';
+          if (trade.broker?.name === 'zerodha' && trade.broker?.mode === 'dry-run') {
+            const exitOrder = buildZerodhaDryRunOrder({ ...partialTrade, exitPrice, qty: requestedQty }, partialTrade, 'exit');
+            partialTrade.broker = partialTrade.broker || {};
+            partialTrade.broker.exitOrder = exitOrder;
+            trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+            trade.broker.audit.push({ at: closedAt, event: 'partial_exit_dry_run_created', reason: partialTrade.closeReason, order: exitOrder });
+          }
+          trades.unshift(partialTrade);
+          savePaperTradesFile(trades);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, trade, partial: partialTrade }));
+          return;
+        }
+
         if (action === 'delete') {
           const id = String(payload.id || '');
           const next = trades.filter(t => t.id !== id);
@@ -2844,6 +4531,151 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+      return;
+    }
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Method not allowed' }));
+    return;
+  }
+
+  // /simulation-replay/why -- compact explanation for one symbol.
+  if (pathname === '/simulation-replay/why') {
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+      return;
+    }
+    try {
+      const day = String(searchParams.get('day') || getIstDateKey()).trim();
+      const symbol = String(searchParams.get('symbol') || '').trim();
+      if (!symbol) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok:false, error:'symbol is required' }));
+        return;
+      }
+      const payload = buildWhyMissedResponse(day, symbol);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(payload));
+    } catch(e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok:false, error:e.message || 'Why missed failed' }));
+    }
+    return;
+  }
+
+  // /simulation-replay/jobs -- async replay/backtest job wrapper for long sweep/autotune runs.
+  if (pathname === '/simulation-replay/jobs') {
+    if (req.method === 'POST') {
+      try {
+        let payload = {};
+        try { payload = await readJsonBody(req); } catch (_) { payload = {}; }
+        const day = String(payload.day || searchParams.get('day') || getIstDateKey()).trim();
+        const mode = replayModeFromParams({ mode:payload.mode || searchParams.get('mode') });
+        const job = createReplayJob(day, mode);
+        res.writeHead(202, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok:true, job:compactReplayJob(job), jobs:compactReplayJobHistory() }));
+      } catch(e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok:false, error:e.message || 'Could not create replay job' }));
+      }
+      return;
+    }
+    if (req.method === 'GET') {
+      const id = String(searchParams.get('id') || '').trim();
+      if (!id) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok:true, jobs:compactReplayJobHistory() }));
+        return;
+      }
+      const job = replayJobs.get(id);
+      if (!job) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok:false, error:'Replay job not found' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok:true, job:compactReplayJob(job), jobs:compactReplayJobHistory() }));
+      return;
+    }
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Method not allowed' }));
+    return;
+  }
+
+  // /trade-settings -- persist dashboard-applied trade rule overrides in workspace
+  if (pathname === '/trade-settings') {
+    if (req.method === 'GET') {
+      const state = loadTradeSettingsFile();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok:true, ...state }));
+      return;
+    }
+    if (req.method === 'POST') {
+      try {
+        const payload = await readJsonBody(req);
+        const overrides = saveTradeSettingsFile(payload?.overrides || payload || {});
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok:true, savedAt:Date.now(), overrides }));
+      } catch(e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok:false, error:e.message || 'Could not save trade settings' }));
+      }
+      return;
+    }
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Method not allowed' }));
+    return;
+  }
+
+  // /simulation-replay -- run replay/backtest on the proxy and return compact report rows.
+  if (pathname === '/simulation-replay') {
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+      return;
+    }
+    try {
+      const day = (searchParams.get('day') || searchParams.get('date') || getIstDateKey()).trim();
+      const mode = String(searchParams.get('mode') || 'report').toLowerCase();
+      let payload;
+      if (mode === 'autotune') {
+        payload = buildReplayAutoTuneResponse(day);
+      } else {
+        payload = buildReplayResponse(day, { sweep: mode === 'sweep' || searchParams.get('sweep') === '1' });
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(payload));
+    } catch(e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok:false, error:e.message || 'Replay failed' }));
+    }
+    return;
+  }
+
+  // /simulation-snapshots -- intraday strategy replay snapshots, retained for configured days
+  if (pathname === '/simulation-snapshots') {
+    if (req.method === 'GET') {
+      const day = (searchParams.get('day') || searchParams.get('date') || '').trim();
+      const state = day ? loadSimulationSnapshotsFile(day) : { snapshots: loadAllSimulationSnapshots() };
+      const snapshots = day ? saveSimulationSnapshotsFile(state, day) : state.snapshots;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: day || null, count: snapshots.length, snapshots }));
+      return;
+    }
+    if (req.method === 'POST') {
+      try {
+        const payload = await readJsonBody(req);
+        const snapshot = sanitizeSimulationSnapshot(payload || {});
+        const day = getIstDateKey(snapshot.at || Date.now());
+        const state = loadSimulationSnapshotsFile(day);
+        state.snapshots.push(snapshot);
+        const snapshots = saveSimulationSnapshotsFile(state, day);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: day, file: path.basename(getSimulationSnapshotFile(day)), count: snapshots.length, snapshot }));
+      } catch(e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message || 'Invalid snapshot payload' }));
       }
       return;
     }
@@ -3017,12 +4849,24 @@ const server = http.createServer(async (req, res) => {
 
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Not found' }));
-});
+}
 
-server.listen(PORT, async () => {
-  console.log(`
+let proxyInitialized = false;
+
+async function initializeProxy() {
+  if (proxyInitialized) return;
+  proxyInitialized = true;
+  await Promise.all([warmNSESession(), refreshYahooCrumb()]);
+  startFreshNewsCron();
+}
+
+function startProxyServer(port = PORT) {
+  const server = http.createServer(proxyRequestHandler);
+
+  server.listen(port, async () => {
+    console.log(`
 ╔══════════════════════════════════════════════════╗
-║  NSE + Yahoo Finance Proxy → http://localhost:${PORT}  ║
+║  NSE + Yahoo Finance Proxy → http://localhost:${port}  ║
 ║  Yahoo: v8/finance/chart (crumb-free) ✓          ║
 ╠══════════════════════════════════════════════════╣
 ║  GET /health                                     ║
@@ -3038,13 +4882,25 @@ server.listen(PORT, async () => {
 ║  Press Ctrl+C to stop.                           ║
 ╚══════════════════════════════════════════════════╝
 `);
-  // Warm NSE session and fetch Yahoo crumb in parallel
-  await Promise.all([warmNSESession(), refreshYahooCrumb()]);
-});
+    await initializeProxy();
+  });
 
-server.on('error', e => {
-  if (e.code === 'EADDRINUSE') {
-    console.error(`\n⚠  Port ${PORT} already in use. Stop the other process or change PORT.\n`);
-    process.exit(1);
-  }
-});
+  server.on('error', e => {
+    if (e.code === 'EADDRINUSE') {
+      console.error(`\n⚠  Port ${port} already in use. Stop the other process or change PORT.\n`);
+      process.exit(1);
+    }
+  });
+
+  return server;
+}
+
+if (require.main === module) {
+  startProxyServer(PORT);
+}
+
+module.exports = {
+  initializeProxy,
+  proxyRequestHandler,
+  startProxyServer,
+};
