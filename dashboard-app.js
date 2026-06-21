@@ -1448,20 +1448,23 @@ function sparkBars(sym, chg) {
 async function fetchSparklines(symbols) {
   if (!symbols || !symbols.length) return;
   const BATCH = 20;
-  for (let i = 0; i < symbols.length; i += BATCH) {
-    const batch = symbols.slice(i, i + BATCH);
-    try {
-      const res = await fetch(`${PROXY}/sparklines?symbols=${encodeURIComponent(batch.join(','))}`);
-      if (!res.ok) continue;
-      const payload = await res.json().catch(() => null);
-      if (!payload?.data) continue;
-      let updated = false;
-      for (const [sym, pts] of Object.entries(payload.data)) {
-        if (pts && pts.length >= 2) { sparklineData[sym] = pts; updated = true; }
-      }
-      if (updated) renderDashboard();
-    } catch(e) { console.warn('fetchSparklines batch failed', e.message); }
-    if (i + BATCH < symbols.length) await new Promise(r => setTimeout(r, 200));
+  const PARALLEL = 3; // run up to 3 batches concurrently
+  const batches = [];
+  for (let i = 0; i < symbols.length; i += BATCH) batches.push(symbols.slice(i, i + BATCH));
+  for (let i = 0; i < batches.length; i += PARALLEL) {
+    await Promise.allSettled(batches.slice(i, i + PARALLEL).map(async batch => {
+      try {
+        const res = await fetch(`${PROXY}/sparklines?symbols=${encodeURIComponent(batch.join(','))}`);
+        if (!res.ok) return;
+        const payload = await res.json().catch(() => null);
+        if (!payload?.data) return;
+        let updated = false;
+        for (const [sym, pts] of Object.entries(payload.data)) {
+          if (pts && pts.length >= 2) { sparklineData[sym] = pts; updated = true; }
+        }
+        if (updated) renderDashboard();
+      } catch(e) { console.warn('fetchSparklines batch failed', e.message); }
+    }));
   }
 }
 
@@ -1495,10 +1498,15 @@ function markIntradayBatchStale(batch, reason) {
 async function fetchIntradaySignals(symbols) {
   if (!symbols || !symbols.length) return;
   const BATCH = 25;
+  const PARALLEL = 3; // run up to 3 batches concurrently for faster loading
   let anyUpdated = false;
   let anyStale = false;
-  for (let i = 0; i < symbols.length; i += BATCH) {
-    const batch = symbols.slice(i, i + BATCH);
+
+  // Split into batches upfront
+  const batches = [];
+  for (let i = 0; i < symbols.length; i += BATCH) batches.push(symbols.slice(i, i + BATCH));
+
+  const processBatch = async (batch) => {
     try {
       const updated = await fetchIntradaySignalBatch(batch, 1);
       if (updated) anyUpdated = true;
@@ -1514,13 +1522,19 @@ async function fetchIntradaySignals(symbols) {
         anyStale = true;
       }
     }
+    // Render incrementally as each batch completes
     if (anyUpdated || anyStale) {
       renderTable();
       if (currentView === 'etfs') renderETFSection();
       if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
     }
-    if (i + BATCH < symbols.length) await new Promise(r => setTimeout(r, 200));
+  };
+
+  // Process all batches with limited parallelism (PARALLEL at a time)
+  for (let i = 0; i < batches.length; i += PARALLEL) {
+    await Promise.allSettled(batches.slice(i, i + PARALLEL).map(processBatch));
   }
+
   if (anyUpdated) {
     saveSimulationSnapshot('intraday-refresh').catch(e => console.warn('simulation snapshot failed', e.message));
     runSimulationCycle({ allowEntries:true }).catch(e => console.warn('simulation cycle failed', e.message));
