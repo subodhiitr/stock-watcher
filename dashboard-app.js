@@ -622,6 +622,7 @@ let paused     = false;
 let countdownSec  = 60; // initialised before getRefreshInterval() is first called in startCountdown()
 let countdownTimer = null;
 let stockFilters   = new Set(); // empty = show all; multi-select AND logic
+let activeSetupCard = null;     // tracks which setup card is currently selected
 let currentSort    = { col:'change', dir:-1 };
 let etfFilters     = new Set(); // empty = show all; multi-select AND logic
 let _etfRenderTimer = null;
@@ -631,6 +632,38 @@ function scheduleETFRender() {
   if (currentView !== 'etfs') return; // don't re-render ETF table when on stock tab
   if (_etfRenderTimer) return;
   _etfRenderTimer = setTimeout(() => { _etfRenderTimer = null; renderETFSection(); }, 400);
+}
+
+// scheduleTableRender — debounced renderTable for SSE streaming (coalesces per-symbol renders)
+let _tableRenderTimer = null;
+function scheduleTableRender() {
+  if (_tableRenderTimer) return;
+  _tableRenderTimer = setTimeout(() => {
+    _tableRenderTimer = null;
+    renderTable();
+    if (currentView === 'etfs') renderETFSection();
+    if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
+  }, 250);
+}
+
+// openSSEStream — opens an EventSource to a streaming endpoint, calling onData for each parsed event.
+// Returns a Promise that resolves when the stream is done or times out. Falls back gracefully on error.
+function openSSEStream(url, onData, { timeoutMs = 90000 } = {}) {
+  return new Promise((resolve) => {
+    let es;
+    try { es = new EventSource(url); } catch(e) { resolve({ ok: false, error: e.message }); return; }
+    const cleanup = () => { try { es.close(); } catch(_) {} };
+    const timer = setTimeout(() => { cleanup(); resolve({ ok: false, error: 'timeout' }); }, timeoutMs);
+    es.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.done) { clearTimeout(timer); cleanup(); resolve({ ok: true }); return; }
+        if (msg.error) { console.warn('SSE stream error event:', msg.error); return; }
+        onData(msg);
+      } catch(e) { console.warn('SSE parse error:', e.message); }
+    };
+    es.onerror = () => { clearTimeout(timer); cleanup(); resolve({ ok: false, error: 'connection error' }); };
+  });
 }
 const sparklineData = {};  // sym -> normalised % array from /sparklines
 const intradayData = {};   // sym -> short-term VWAP/EMA/RSI/ATR setup
@@ -1497,42 +1530,36 @@ function markIntradayBatchStale(batch, reason) {
 
 async function fetchIntradaySignals(symbols) {
   if (!symbols || !symbols.length) return;
-  const BATCH = 25;
-  const PARALLEL = 3; // run up to 3 batches concurrently for faster loading
+  const now = Date.now();
   let anyUpdated = false;
-  let anyStale = false;
 
-  // Split into batches upfront
-  const batches = [];
-  for (let i = 0; i < symbols.length; i += BATCH) batches.push(symbols.slice(i, i + BATCH));
-
-  const processBatch = async (batch) => {
-    try {
-      const updated = await fetchIntradaySignalBatch(batch, 1);
-      if (updated) anyUpdated = true;
-    } catch(e) {
-      console.warn('fetchIntradaySignals batch failed, retrying once', e.message);
-      await new Promise(r => setTimeout(r, 1500));
-      try {
-        const updated = await fetchIntradaySignalBatch(batch, 2);
-        if (updated) anyUpdated = true;
-      } catch(retryErr) {
-        console.warn('fetchIntradaySignals retry failed', retryErr.message);
-        markIntradayBatchStale(batch, retryErr.message);
-        anyStale = true;
-      }
+  const url = `${PROXY}/stream/intraday-signals?symbols=${encodeURIComponent(symbols.join(','))}`;
+  const result = await openSSEStream(url, (msg) => {
+    if (msg.sym && msg.data?.signal) {
+      rememberPreviousSimulationSignal(msg.sym);
+      intradayData[msg.sym] = { ...msg.data, fetchedAt: now, stale: false, fetchFailed: false };
+      anyUpdated = true;
+      scheduleTableRender(); // debounced: coalesces per-symbol renders
     }
-    // Render incrementally as each batch completes
-    if (anyUpdated || anyStale) {
-      renderTable();
-      if (currentView === 'etfs') renderETFSection();
-      if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
-    }
-  };
+  });
 
-  // Process all batches with limited parallelism (PARALLEL at a time)
-  for (let i = 0; i < batches.length; i += PARALLEL) {
-    await Promise.allSettled(batches.slice(i, i + PARALLEL).map(processBatch));
+  if (!result.ok) {
+    // SSE failed — fall back to parallel batches
+    console.warn('intraday SSE failed, falling back to batch:', result.error);
+    const BATCH = 25, PARALLEL = 3;
+    const batches = [];
+    for (let i = 0; i < symbols.length; i += BATCH) batches.push(symbols.slice(i, i + BATCH));
+    for (let i = 0; i < batches.length; i += PARALLEL) {
+      await Promise.allSettled(batches.slice(i, i + PARALLEL).map(async batch => {
+        try {
+          const updated = await fetchIntradaySignalBatch(batch, 1);
+          if (updated) { anyUpdated = true; scheduleTableRender(); }
+        } catch(e) {
+          console.warn('fallback batch failed:', e.message);
+          markIntradayBatchStale(batch, e.message);
+        }
+      }));
+    }
   }
 
   if (anyUpdated) {
@@ -2046,7 +2073,14 @@ function renderTopActionBar() {
   pruneNewSimulationTradeKeys();
   const newOpenTrades = getNewSimulationOpenTrades();
   const dayPnl = todaysClosedPnl();
-  const intradayValues = Object.values(intradayData || {});
+  const tabSyms = new Set(
+    currentView === 'etfs'
+      ? ETF_ASSETS.map(e => e.sym)
+      : [...MIDCAP_STOCKS, ...STOCK_ASSETS].map(s => s.sym)
+  );
+  const intradayValues = Object.entries(intradayData || {})
+    .filter(([sym]) => tabSyms.has(sym))
+    .map(([, v]) => v);
   const stale = intradayValues.filter(t => getIntradayFreshness(t).stale).length;
   const freshText = intradayValues.length ? `${Math.max(0, intradayValues.length - stale)}/${intradayValues.length} fresh` : '--';
   const set = (id, text, cls = '') => {
@@ -4468,10 +4502,30 @@ function getHealthScore(sym){
   return computeHealthScore(asset);
 }
 
+function selectSetupCard(kind, ...filterModes) {
+  if (activeSetupCard === kind) {
+    // Second click — deselect and reset
+    activeSetupCard = null;
+    stockFilters.clear();
+    document.querySelectorAll('#controls-bar .filter-btn').forEach(b => b.classList.remove('active'));
+    const allBtn = document.getElementById('filter-all');
+    if (allBtn) allBtn.classList.add('active');
+    renderTable();
+    return false; // signal: don't apply filters
+  }
+  // First click — select and apply filters
+  activeSetupCard = kind;
+  stockFilters.clear();
+  for (const mode of filterModes) stockFilters.add(mode);
+  renderTable();
+  return true;
+}
+
 function setFilter(mode, el) {
   if (mode === 'all') {
     // "All" clears every active filter
     stockFilters.clear();
+    activeSetupCard = null;
     document.querySelectorAll('#controls-bar .filter-btn').forEach(b => b.classList.remove('active'));
     const allBtn = document.getElementById('filter-all');
     if (allBtn) allBtn.classList.add('active');
@@ -4484,6 +4538,8 @@ function setFilter(mode, el) {
       stockFilters.add(mode);
       if (el) el.classList.add('active');
     }
+    // A manual filter-bar click clears any setup card selection
+    if (el) activeSetupCard = null;
     // "All" button is active only when nothing else is selected
     const allBtn = document.getElementById('filter-all');
     if (allBtn) allBtn.classList.toggle('active', stockFilters.size === 0);
@@ -4750,24 +4806,32 @@ function renderSetupCards(rows = getAllStockRows()) {
     const setup = t ? getSetupType(row, t, guard) : '';
     return { row, t, score, guard, setup, signal:t ? adjustedTradeSignal(score) : getSignal(row, row.data) };
   });
+
+  // Counts aligned exactly with the filter functions used when the card is clicked
+  const filterFns = {
+    tradeable: r => { const t = intradayData[r.sym]; if(!t) return false; const g = getRiskGuard(r, t, adjustedTradeScore(r)); return ['ok','small'].includes(g.level); },
+    triggered: r => intradayData[r.sym]?.entryStatus === 'Triggered' && !getIntradayFreshness(intradayData[r.sym]).stale,
+    sell:      r => getSignal(r, r.data) === 'sell',
+    risk:      r => { const t = intradayData[r.sym]; if(!t) return false; const g = getRiskGuard(r, t, adjustedTradeScore(r)); return ['avoid','invalid','chasing'].includes(g.level); },
+  };
   const counts = {
-    pullbacks:enriched.filter(x => /VWAP_PULLBACK_OR_HOLD|VWAP_TREND_CONTINUATION/i.test(x.setup) && ['ok','small'].includes(x.guard?.level)).length,
-    runners:enriched.filter(x => /MOMENTUM_RUNNER|VOLUME_SHOCK/i.test(x.setup)).length,
-    shorts:enriched.filter(x => x.signal === 'sell' || Number(x.score) < -SIMULATION_SHORT_MIN_SCORE).length,
-    risk:enriched.filter(x => ['avoid','invalid','chasing'].includes(x.guard?.level)).length,
-    news:freshNewsSummary.loading ? '...' : (freshNewsSummary.symbolCount || 0),
+    pullbacks: enriched.filter(x => filterFns.tradeable(x.row) && filterFns.triggered(x.row)).length,
+    runners:   enriched.filter(x => filterFns.triggered(x.row)).length,
+    shorts:    enriched.filter(x => filterFns.sell(x.row)).length,
+    risk:      enriched.filter(x => filterFns.risk(x.row)).length,
+    news:      freshNewsSummary.loading ? '...' : (freshNewsSummary.symbolCount || 0),
   };
   const cards = [
-    ['pullbacks', 'Best Pullbacks', counts.pullbacks, 'Tradeable VWAP setups', "setFilter('tradeable', null);setFilter('triggered', null)"],
-    ['runners', 'Momentum Runners', counts.runners, 'Strong continuation names', "setFilter('triggered', null)"],
-    ['shorts', 'Short Setups', counts.shorts, 'Sell-side candidates', "setFilter('sell', null)"],
-    ['risk', 'High Risk', counts.risk, 'Avoid / invalid / chasing', "setFilter('risk', null)"],
-    ['news', 'Fresh News', counts.news, freshNewsSummary.date ? `Server scan ${freshNewsSummary.date}` : 'Today / last business day', "openFreshNewsModal()"],
+    ['pullbacks', 'Best Pullbacks',    counts.pullbacks, 'Triggered tradeable setups',    "selectSetupCard('pullbacks','tradeable','triggered')"],
+    ['runners',   'Momentum Runners',  counts.runners,   'Triggered entry signals',       "selectSetupCard('runners','triggered')"],
+    ['shorts',    'Short Setups',      counts.shorts,    'Sell-side candidates',           "selectSetupCard('shorts','sell')"],
+    ['risk',      'High Risk',         counts.risk,      'Avoid / invalid / chasing',     "selectSetupCard('risk','risk')"],
+    ['news',      'Fresh News',        counts.news,      freshNewsSummary.date ? `Server scan ${freshNewsSummary.date}` : 'Today / last business day', "selectSetupCard(null);openFreshNewsModal()"],
   ];
   target.innerHTML = cards.map(([kind, label, value, hint, action]) => `
-    <button class="setup-card ${escapeHTML(kind)}" type="button" onclick="${action}">
+    <button class="setup-card ${escapeHTML(kind)}${activeSetupCard === kind ? ' active' : ''}" type="button" onclick="${action}">
       <div class="label">${escapeHTML(label)}</div>
-      <div class="value">${escapeHTML(value)}</div>
+      <div class="value">${escapeHTML(String(value))}</div>
       <div class="hint">${escapeHTML(hint)}</div>
     </button>
   `).join('');
@@ -4798,10 +4862,28 @@ function renderTableNow(){
   const search=document.getElementById('search-box').value.toLowerCase();
   let rows=getAllStockRows();
   const totalRows = rows.length;
-  renderSetupCards(rows);
 
   // ── Sector filter (from heatmap click) ──────────────────
   if(activeSectors.size) rows = rows.filter(r => activeSectors.has(r.sector));
+
+  // ── Search ───────────────────────────────────────────────
+  if(search) rows=rows.filter(r=>r.sym.toLowerCase().includes(search)||r.name.toLowerCase().includes(search)||r.sector.toLowerCase().includes(search));
+
+  // ── Target filters (price target delta filters)
+  if(targetFilter && targetFilter!=='all'){
+    rows = rows.filter(r => {
+      const pct = getTargetDeltaPct(r);
+      if(pct == null) return false;
+      if(targetFilter === 'has') return true;
+      if(targetFilter === 'up5') return pct >= 5;
+      if(targetFilter === 'up10') return pct >= 10;
+      if(targetFilter === 'down5') return pct <= -5;
+      return true;
+    });
+  }
+
+  // Setup card counts reflect current sector/search/target context
+  renderSetupCards(rows);
 
   // ── Cap / signal filters — multi-select AND logic ───────────
   if (stockFilters.size) {
@@ -4842,22 +4924,6 @@ function renderTableNow(){
         return !active.length || active.some(f => filterFns[f]?.(r) ?? true);
       })
     );
-  }
-
-  // ── Search ───────────────────────────────────────────────
-  if(search) rows=rows.filter(r=>r.sym.toLowerCase().includes(search)||r.name.toLowerCase().includes(search)||r.sector.toLowerCase().includes(search));
-
-  // ── Target filters (price target delta filters)
-  if(targetFilter && targetFilter!=='all'){
-    rows = rows.filter(r => {
-      const pct = getTargetDeltaPct(r);
-      if(pct == null) return false;
-      if(targetFilter === 'has') return true;
-      if(targetFilter === 'up5') return pct >= 5;
-      if(targetFilter === 'up10') return pct >= 10;
-      if(targetFilter === 'down5') return pct <= -5;
-      return true;
-    });
   }
 
   // ── Sector active pill ───────────────────────────────────
@@ -4992,29 +5058,35 @@ async function fetchAdditionalSymbols(symbols, opts = {}){
   const toFetch = symbols.filter(sym => sym && (force || !stockData[sym] || !(stockData[sym].price > 0)));
   if(!toFetch.length) return;
   if(dataSource==='yahoo'){
-    const batches=[];
-    for(let i=0;i<toFetch.length;i+=25) batches.push(toFetch.slice(i,i+25));
-    for(const batch of batches){
-      const r = await fetch(`${PROXY}/yahoo?symbols=${encodeURIComponent(batch.join(','))}`);
-      const raw = await r.json().catch(()=>({}));
-      const quotes = raw?.quotes || {};
-      for(const sym of batch){
-        const q = quotes[sym];
-        if(q) {
-          const prev = stockData[sym] || {};
-          stockData[sym] = {
-            price    : q.price    || prev.price    || 0,
-            change   : (q.change  != null) ? q.change  : (prev.change  ?? 0),
-            high52   : q.high52   || prev.high52   || 0,
-            low52    : q.low52    || prev.low52    || 0,
-            volume   : q.volume   || prev.volume   || 0,
-            open     : q.open     || prev.open     || 0,
-            prevClose: q.prevClose || prev.prevClose || 0,
-          };
-        }
-      }
+    const BATCH = 25, PARALLEL = 3;
+    const batches = [];
+    for(let i = 0; i < toFetch.length; i += BATCH) batches.push(toFetch.slice(i, i + BATCH));
+    for(let i = 0; i < batches.length; i += PARALLEL){
+      await Promise.allSettled(batches.slice(i, i + PARALLEL).map(async batch => {
+        try {
+          const r = await fetch(`${PROXY}/yahoo?symbols=${encodeURIComponent(batch.join(','))}`);
+          const raw = await r.json().catch(()=>({}));
+          const quotes = raw?.quotes || {};
+          for(const sym of batch){
+            const q = quotes[sym];
+            if(q) {
+              const prev = stockData[sym] || {};
+              stockData[sym] = {
+                price    : q.price    || prev.price    || 0,
+                change   : (q.change  != null) ? q.change  : (prev.change  ?? 0),
+                high52   : q.high52   || prev.high52   || 0,
+                low52    : q.low52    || prev.low52    || 0,
+                volume   : q.volume   || prev.volume   || 0,
+                open     : q.open     || prev.open     || 0,
+                prevClose: q.prevClose || prev.prevClose || 0,
+              };
+            }
+          }
+        } catch(e) { console.warn('fetchAdditionalSymbols yahoo batch failed', e.message); }
+      }));
     }
   } else if(dataSource==='nse'){
+    // NSE rate-limits aggressively — keep sequential with a small delay
     for(const sym of toFetch){
       try{
         const q = await nseGet(`/api/quote-equity?symbol=${encodeURIComponent(sym)}`);
@@ -5028,75 +5100,104 @@ async function fetchAdditionalSymbols(symbols, opts = {}){
   }
 }
 
-// Fetch NAV + expense ratio for ETFs
-// Pass 1: /etf-summary  — proxy 30-day memory cache; all symbols in parallel, renders immediately
-// Pass 2: /etf-nav      — NSE iNAV + Yahoo live price; batched/throttled, overlays nav/price/premium
+// Applies a single ETF data record into the matching ETF asset and stockData
+function applyETFData(sym, e) {
+  const asset = ETF_ASSETS.find(s => s.sym === sym);
+  if (!asset || !e) return;
+  asset.etfData = asset.etfData || {};
+  if (e.nav          != null && asset.etfData.nav     == null) asset.etfData.nav          = e.nav;
+  if (e.premium      != null && asset.etfData.premium == null) asset.etfData.premium      = e.premium;
+  if (e.expenseRatio != null) asset.etfData.expenseRatio = e.expenseRatio;
+  if (e.category     != null) asset.etfData.category     = e.category;
+  if (e.fundFamily   != null) asset.etfData.fundFamily   = e.fundFamily;
+  if (e.ytdReturn       != null) asset.etfData.ytdReturn       = e.ytdReturn;
+  if (e.oneMonthReturn  != null) asset.etfData.oneMonthReturn  = e.oneMonthReturn;
+  if (e.oneYearReturn   != null) asset.etfData.oneYearReturn   = e.oneYearReturn;
+  if (e.threeYearReturn != null) asset.etfData.threeYearReturn = e.threeYearReturn;
+  if (e.fiveYearReturn  != null) asset.etfData.fiveYearReturn  = e.fiveYearReturn;
+  if (e.high52 && stockData[sym] && !stockData[sym].high52) stockData[sym].high52 = e.high52;
+  if (e.low52  && stockData[sym] && !stockData[sym].low52)  stockData[sym].low52  = e.low52;
+}
+
+function applyETFNavData(sym, e) {
+  const asset = ETF_ASSETS.find(s => s.sym === sym);
+  if (!e) return;
+  if (asset) {
+    asset.etfData = asset.etfData || {};
+    if (e.nav      != null) asset.etfData.nav          = e.nav;
+    asset.etfData.premium = e.navPremium != null ? e.navPremium : null;
+    if (e.expRatio != null) asset.etfData.expenseRatio = e.expRatio;
+    if (e.aum      != null) asset.etfData.aum          = e.aum;
+  }
+  if (e.price  != null) { stockData[sym] = stockData[sym] || {}; stockData[sym].price  = e.price; }
+  if (e.volume != null) { stockData[sym] = stockData[sym] || {}; stockData[sym].volume = e.volume; }
+  if (e.high52)         { stockData[sym] = stockData[sym] || {}; stockData[sym].high52 = e.high52; }
+  if (e.low52)          { stockData[sym] = stockData[sym] || {}; stockData[sym].low52  = e.low52; }
+}
+
+// Fetch NAV + expense ratio for ETFs via SSE streaming
+// Pass 1: /stream/etf-summary — flushes cache hits immediately, streams live fetches as they resolve
+// Pass 2: /stream/etf-nav    — streams NAV/price/premium per symbol as each Yahoo fetch completes
 async function fetchETFSummary(symbols) {
   if (!symbols || !symbols.length) return;
   console.log('[fetchETFSummary] called with', symbols.length, 'symbols, proxy:', PROXY);
 
-  // ── Pass 1: cached summary (returns, expense ratio) — fire all batches in parallel ──
-  // Proxy serves these from in-memory cache instantly; no need to throttle.
-  const CACHE_BATCH = 50;
-  try {
-    const batches = [];
-    for (let i = 0; i < symbols.length; i += CACHE_BATCH) batches.push(symbols.slice(i, i + CACHE_BATCH));
-    await Promise.all(batches.map(async batch => {
-      try {
-        const res = await fetch(`${PROXY}/etf-summary?symbols=${encodeURIComponent(batch.join(','))}`);
-        if (!res.ok) { console.warn('etf-summary HTTP', res.status); return; }
-        const payload = await res.json().catch((err) => { console.warn('etf-summary JSON parse failed', err); return null; });
-        const etfs = payload?.etfs || {};
-        console.log('[etf-summary] response keys:', Object.keys(etfs).length, 'sample:', JSON.stringify(Object.values(etfs)[0]));
-        for (const sym of Object.keys(etfs)) {
-          const e = etfs[sym]; if (!e) continue;
-          const asset = ETF_ASSETS.find(s => s.sym === sym);
-          if (!asset) continue;
-          asset.etfData = asset.etfData || {};
-          if (e.nav          != null && asset.etfData.nav     == null) asset.etfData.nav          = e.nav;
-          if (e.premium      != null && asset.etfData.premium == null) asset.etfData.premium      = e.premium;
-          if (e.expenseRatio != null) asset.etfData.expenseRatio = e.expenseRatio;
-          if (e.category     != null) asset.etfData.category     = e.category;
-          if (e.fundFamily   != null) asset.etfData.fundFamily   = e.fundFamily;
-          if (e.ytdReturn       != null) asset.etfData.ytdReturn       = e.ytdReturn;
-          if (e.oneMonthReturn  != null) asset.etfData.oneMonthReturn  = e.oneMonthReturn;
-          if (e.oneYearReturn   != null) asset.etfData.oneYearReturn   = e.oneYearReturn;
-          if (e.threeYearReturn != null) asset.etfData.threeYearReturn = e.threeYearReturn;
-          if (e.fiveYearReturn  != null) asset.etfData.fiveYearReturn  = e.fiveYearReturn;
-          if (e.high52 && stockData[sym] && !stockData[sym].high52) stockData[sym].high52 = e.high52;
-          if (e.low52  && stockData[sym] && !stockData[sym].low52)  stockData[sym].low52  = e.low52;
-        }
-      } catch(e) { console.warn('fetchETFSummary /etf-summary batch failed', e.message); }
-    }));
-    renderETFSection();
-  } catch(e) { console.warn('fetchETFSummary cache pass failed', e.message); }
-
-  // ── Pass 2: NSE iNAV + Yahoo live price (overlays nav/price/premium, throttled) ──
-  const NAV_BATCH = 8;
-  for (let i = 0; i < symbols.length; i += NAV_BATCH) {
-    const batch = symbols.slice(i, i + NAV_BATCH);
-    try {
-      const res = await fetch(`${PROXY}/etf-nav?symbols=${encodeURIComponent(batch.join(','))}`);
-      if (!res.ok) throw new Error('etf-nav HTTP ' + res.status);
-      const payload = await res.json().catch(() => null);
-      const etfs = payload?.etfs || {};
-      for (const sym of Object.keys(etfs)) {
-        const e = etfs[sym]; if (!e) continue;
-        const asset = ETF_ASSETS.find(s => s.sym === sym);
-        if (!asset) continue;
-        asset.etfData = asset.etfData || {};
-        if (e.price    != null) { stockData[sym] = stockData[sym] || {}; stockData[sym].price = e.price; }
-        if (e.nav      != null) asset.etfData.nav          = e.nav;
-        asset.etfData.premium = e.navPremium != null ? e.navPremium : null;
-        if (e.expRatio != null) asset.etfData.expenseRatio = e.expRatio;
-        if (e.aum      != null) asset.etfData.aum          = e.aum;
-        if (e.volume   != null) { stockData[sym] = stockData[sym] || {}; stockData[sym].volume = e.volume; }
-        if (e.high52) { stockData[sym] = stockData[sym] || {}; stockData[sym].high52 = e.high52; }
-        if (e.low52)  { stockData[sym] = stockData[sym] || {}; stockData[sym].low52  = e.low52;  }
+  // ── Pass 1: summary (returns, expense ratio) via SSE ──
+  const sumResult = await openSSEStream(
+    `${PROXY}/stream/etf-summary?symbols=${encodeURIComponent(symbols.join(','))}`,
+    (msg) => {
+      if (msg.sym && msg.data) {
+        applyETFData(msg.sym, msg.data);
+        scheduleETFRender();
       }
-      scheduleETFRender(); // throttled: coalesces rapid NAV batch updates, doesn't block user interactions
-    } catch(e) { console.warn('fetchETFSummary /etf-nav failed', e.message); }
-    if (i + NAV_BATCH < symbols.length) await new Promise(r => setTimeout(r, 300));
+    }
+  );
+  if (!sumResult.ok) {
+    // Fallback: parallel batch requests
+    console.warn('etf-summary SSE failed, falling back to batch:', sumResult.error);
+    const CACHE_BATCH = 50;
+    try {
+      const batches = [];
+      for (let i = 0; i < symbols.length; i += CACHE_BATCH) batches.push(symbols.slice(i, i + CACHE_BATCH));
+      await Promise.all(batches.map(async batch => {
+        try {
+          const res = await fetch(`${PROXY}/etf-summary?symbols=${encodeURIComponent(batch.join(','))}`);
+          if (!res.ok) return;
+          const payload = await res.json().catch(() => null);
+          for (const [sym, e] of Object.entries(payload?.etfs || {})) applyETFData(sym, e);
+        } catch(e) { console.warn('fetchETFSummary batch fallback failed', e.message); }
+      }));
+      renderETFSection();
+    } catch(e) { console.warn('fetchETFSummary cache pass failed', e.message); }
+  }
+
+  // ── Pass 2: live NAV/price/premium via SSE ──
+  const navResult = await openSSEStream(
+    `${PROXY}/stream/etf-nav?symbols=${encodeURIComponent(symbols.join(','))}`,
+    (msg) => {
+      if (msg.sym && msg.data) {
+        applyETFNavData(msg.sym, msg.data);
+        scheduleETFRender();
+      }
+    }
+  );
+  if (!navResult.ok) {
+    // Fallback: parallel batches
+    console.warn('etf-nav SSE failed, falling back to batch:', navResult.error);
+    const NAV_BATCH = 10, NAV_PARALLEL = 3;
+    const navBatches = [];
+    for (let i = 0; i < symbols.length; i += NAV_BATCH) navBatches.push(symbols.slice(i, i + NAV_BATCH));
+    for (let i = 0; i < navBatches.length; i += NAV_PARALLEL) {
+      await Promise.allSettled(navBatches.slice(i, i + NAV_PARALLEL).map(async batch => {
+        try {
+          const res = await fetch(`${PROXY}/etf-nav?symbols=${encodeURIComponent(batch.join(','))}`);
+          if (!res.ok) return;
+          const payload = await res.json().catch(() => null);
+          for (const [sym, e] of Object.entries(payload?.etfs || {})) applyETFNavData(sym, e);
+          scheduleETFRender();
+        } catch(e) { console.warn('fetchETFSummary /etf-nav fallback failed', e.message); }
+      }));
+    }
   }
 }
 
@@ -5150,7 +5251,49 @@ async function addCustomStockSymbol(){
   renderDashboard();
 }
 
+// Applies a single metadata record into the matching asset object
+function applyFundMeta(sym, m) {
+  const asset = MIDCAP_STOCKS.find(s=>s.sym===sym)
+             || STOCK_ASSETS.find(s=>s.sym===sym)
+             || ETF_ASSETS.find(s=>s.sym===sym);
+  if (!asset || !m) return;
+  if (m.sector) { asset.fund = asset.fund || {}; asset.fund.yahooSector = m.sector; }
+  asset.fund = asset.fund || {};
+  asset.fund.marketCap = m.marketCap ?? asset.fund.marketCap ?? null;
+  asset.fund.totalDebt = m.totalDebt ?? asset.fund.totalDebt ?? null;
+  asset.fund.totalEquity = m.totalEquity ?? asset.fund.totalEquity ?? null;
+  asset.fund.trailingEps = m.trailingEps ?? asset.fund.trailingEps ?? null;
+  asset.fund.trailingPE = m.trailingPE ?? asset.fund.trailingPE ?? null;
+  asset.fund.forwardPE = m.forwardPE ?? asset.fund.forwardPE ?? null;
+  asset.fund.priceToBook = m.priceToBook ?? asset.fund.priceToBook ?? null;
+  asset.fund.dividendYield = m.dividendYield ?? asset.fund.dividendYield ?? null;
+  asset.fund.fiftyDayAvg = m.fiftyDayAvg ?? asset.fund.fiftyDayAvg ?? null;
+  asset.fund.twoHundredDayAvg = m.twoHundredDayAvg ?? asset.fund.twoHundredDayAvg ?? null;
+  asset.fund.roe = m.roe ?? asset.fund.roe ?? null;
+  asset.fund.sharesOutstanding = m.sharesOutstanding ?? asset.fund.sharesOutstanding ?? null;
+  asset.fund.epsGrowth = m.epsGrowth ?? asset.fund.epsGrowth ?? null;
+  asset.fund.pegRaw = m.peg ?? asset.fund.pegRaw ?? null;
+  asset.fund.priceTarget = m.priceTarget ?? asset.fund.priceTarget ?? null;
+  const price = stockData[sym]?.price ?? null;
+  const eps = asset.fund.trailingEps ?? null;
+  asset.fund.computed = asset.fund.computed || {};
+  asset.fund.computed.eps = eps;
+  asset.fund.computed.pe = (price && eps) ? (price / eps) : (asset.fund.trailingPE ?? null);
+  asset.fund.computed.roe = asset.fund.roe ?? null;
+  const td = asset.fund.totalDebt, te = asset.fund.totalEquity;
+  asset.fund.computed.de = (td != null && te != null && te !== 0) ? (td / te) : null;
+  let peg = asset.fund.pegRaw ?? null;
+  const g = asset.fund.epsGrowth ?? null;
+  if (peg == null && g != null && asset.fund.computed.pe) {
+    const growthPercent = (typeof g === 'number' && g > 1) ? g : (typeof g === 'number' ? g * 100 : null);
+    peg = (growthPercent && typeof growthPercent === 'number') ? asset.fund.computed.pe / growthPercent : null;
+  }
+  asset.fund.computed.peg = peg;
+}
+
 // Fetch fundamentals for any symbols — works for MIDCAP_STOCKS, STOCK_ASSETS, ETF_ASSETS
+// Uses SSE streaming so health scores and price targets appear as each symbol resolves,
+// falling back to parallel batch requests if SSE is unavailable.
 async function fetchSymbolMetadata(symbols){
   if(!symbols || !symbols.length) return;
   // Skip pure ETFs (cap==='etf') — fundamentals not meaningful for them
@@ -5159,66 +5302,32 @@ async function fetchSymbolMetadata(symbols){
     return !etf || etf.cap !== 'etf';
   });
   if(!symbols.length) return;
-  // Fetch in batches of 10 to keep requests manageable
-  const BATCH = 10;
-  for (let i = 0; i < symbols.length; i += BATCH) {
-    const batch = symbols.slice(i, i + BATCH);
-    try {
-      const res = await fetch(`${PROXY}/yahoo/summary?symbols=${encodeURIComponent(batch.join(','))}`);
-      if (!res.ok) continue;
-      const payload = await res.json().catch(()=>null);
-      const metas = payload?.metas || {};
-      for (const sym of Object.keys(metas)) {
-        const m = metas[sym]; if (!m) continue;
-        // Look up in all asset lists
-        const asset = MIDCAP_STOCKS.find(s=>s.sym===sym)
-                   || STOCK_ASSETS.find(s=>s.sym===sym)
-                   || ETF_ASSETS.find(s=>s.sym===sym);
-        if (!asset) continue;
-        // Do NOT overwrite asset.sector — it holds hand-curated NSE sector names used
-        // for the sector heatmap.  Store Yahoo's sector taxonomy separately if needed.
-        if (m.sector) { asset.fund = asset.fund || {}; asset.fund.yahooSector = m.sector; }
-        asset.fund = asset.fund || {};
-        asset.fund.marketCap = m.marketCap ?? asset.fund.marketCap ?? null;
-        asset.fund.totalDebt = m.totalDebt ?? asset.fund.totalDebt ?? null;
-        asset.fund.totalEquity = m.totalEquity ?? asset.fund.totalEquity ?? null;
-        asset.fund.trailingEps = m.trailingEps ?? asset.fund.trailingEps ?? null;
-        asset.fund.trailingPE = m.trailingPE ?? asset.fund.trailingPE ?? null;
-        asset.fund.forwardPE = m.forwardPE ?? asset.fund.forwardPE ?? null;
-        asset.fund.priceToBook = m.priceToBook ?? asset.fund.priceToBook ?? null;
-        asset.fund.dividendYield = m.dividendYield ?? asset.fund.dividendYield ?? null;
-        asset.fund.fiftyDayAvg = m.fiftyDayAvg ?? asset.fund.fiftyDayAvg ?? null;
-        asset.fund.twoHundredDayAvg = m.twoHundredDayAvg ?? asset.fund.twoHundredDayAvg ?? null;
-        asset.fund.roe = m.roe ?? asset.fund.roe ?? null;
-        asset.fund.sharesOutstanding = m.sharesOutstanding ?? asset.fund.sharesOutstanding ?? null;
-        asset.fund.epsGrowth = m.epsGrowth ?? asset.fund.epsGrowth ?? null;
-        asset.fund.pegRaw = m.peg ?? asset.fund.pegRaw ?? null;
-        asset.fund.priceTarget = m.priceTarget ?? asset.fund.priceTarget ?? null;
 
-        const price = stockData[sym]?.price ?? null;
-        const eps = asset.fund.trailingEps ?? null;
-        asset.fund.computed = asset.fund.computed || {};
-        asset.fund.computed.eps = eps;
-        asset.fund.computed.pe = (price && eps) ? (price / eps) : (asset.fund.trailingPE ?? null);
-        asset.fund.computed.roe = asset.fund.roe ?? null;
-        const td = asset.fund.totalDebt, te = asset.fund.totalEquity;
-        asset.fund.computed.de = (td != null && te != null && te !== 0) ? (td / te) : null;
-
-        let peg = asset.fund.pegRaw ?? null;
-        const g = asset.fund.epsGrowth ?? null;
-        if (peg == null && g != null && asset.fund.computed.pe) {
-          const growthPercent = (typeof g === 'number' && g > 1) ? g : (typeof g === 'number' ? g * 100 : null);
-          peg = (growthPercent && typeof growthPercent === 'number') ? asset.fund.computed.pe / growthPercent : null;
-        }
-        asset.fund.computed.peg = peg;
-      }
-      // Re-render table after each batch so health scores appear incrementally
-      renderTable();
-    } catch (e) {
-      console.warn('fetchSymbolMetadata batch failed', e);
+  const url = `${PROXY}/stream/yahoo-summary?symbols=${encodeURIComponent(symbols.join(','))}`;
+  const result = await openSSEStream(url, (msg) => {
+    if (msg.sym && msg.data) {
+      applyFundMeta(msg.sym, msg.data);
+      scheduleTableRender(); // debounced: renders as symbols trickle in
     }
-    // Small delay between batches to avoid hammering the proxy
-    if (i + BATCH < symbols.length) await new Promise(r=>setTimeout(r, 300));
+  });
+
+  if (!result.ok) {
+    // SSE failed — fall back to parallel batches
+    console.warn('yahoo-summary SSE failed, falling back to batch:', result.error);
+    const BATCH = 20, PARALLEL = 3;
+    const batches = [];
+    for (let i = 0; i < symbols.length; i += BATCH) batches.push(symbols.slice(i, i + BATCH));
+    for (let i = 0; i < batches.length; i += PARALLEL) {
+      await Promise.allSettled(batches.slice(i, i + PARALLEL).map(async batch => {
+        try {
+          const res = await fetch(`${PROXY}/yahoo/summary?symbols=${encodeURIComponent(batch.join(','))}`);
+          if (!res.ok) return;
+          const payload = await res.json().catch(()=>null);
+          for (const [sym, m] of Object.entries(payload?.metas || {})) applyFundMeta(sym, m);
+          renderTable();
+        } catch(e) { console.warn('fetchSymbolMetadata batch failed', e); }
+      }));
+    }
   }
 }
 

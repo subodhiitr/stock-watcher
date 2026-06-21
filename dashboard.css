@@ -127,6 +127,7 @@
   #setup-card-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px;}
   .setup-card{border:1px solid var(--border);border-radius:8px;background:rgba(15,23,42,.46);padding:10px;cursor:pointer;min-width:0;transition:border-color .15s,background .15s,transform .15s;}
   .setup-card:hover{border-color:var(--accent);background:rgba(0,212,170,.06);transform:translateY(-1px);}
+  .setup-card.active{border-color:var(--accent);background:rgba(0,212,170,.13);box-shadow:0 0 0 2px rgba(0,212,170,.25);}
   .setup-card .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
   .setup-card .value{font-family:'Space Mono',monospace;font-size:17px;font-weight:800;color:var(--accent);}
   .setup-card.pullbacks .value{color:var(--green);}

@@ -3954,6 +3954,176 @@ async function proxyRequestHandler(req, res) {
     return;
   }
 
+  // /stream/etf-nav?symbols=A,B  -- SSE: streams live NAV/price/premium per symbol as each resolves
+  if (pathname === '/stream/etf-nav') {
+    const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!symbols.length) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No symbols' })); return; }
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    let closed = false;
+    req.on('close', () => { closed = true; });
+    const send = (obj) => { if (!closed && !res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
+    try {
+      // Prime navMap once upfront (stale-while-revalidate — non-blocking if cached)
+      const hasData = navMapCache.savedAt > 0;
+      const isStale = (Date.now() - navMapCache.savedAt) >= navMapCache.TTL;
+      let navMap = {};
+      if (hasData) {
+        navMap = navMapCache.data;
+        if (isStale) refreshNavMapFromNSE().catch(e => console.warn('[stream/etf-nav] bg NSE refresh failed:', e.message));
+      } else {
+        await refreshNavMapFromNSE();
+        navMap = navMapCache.data;
+      }
+      const etfListData = {};
+      try {
+        if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
+          const cached = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8'));
+          for (const e of (cached.etfs || [])) etfListData[e.sym] = e;
+        }
+      } catch(_) {}
+
+      for (let i = 0; i < symbols.length; i += CONCURRENCY) {
+        if (closed) break;
+        const chunk = symbols.slice(i, i + CONCURRENCY);
+        await Promise.allSettled(chunk.map(sym => (async () => {
+          const nse = navMap[sym] || {};
+          const disk = etfListData[sym] || {};
+          try {
+            const path = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=1d&range=1d&includePrePost=false`;
+            let r = await httpsGet({ hostname: 'query1.finance.yahoo.com', path, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS });
+            if (r.status !== 200) r = await httpsGet({ hostname: 'query2.finance.yahoo.com', path, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS });
+            const meta = r.status === 200 ? JSON.parse(r.body)?.chart?.result?.[0]?.meta : null;
+            const price  = meta?.regularMarketPrice ?? null;
+            const volume = meta?.regularMarketVolume ?? nse.volume ?? disk.volume ?? null;
+            const high52 = nse.high52 || disk.high52 || meta?.fiftyTwoWeekHigh || null;
+            const low52  = nse.low52  || disk.low52  || meta?.fiftyTwoWeekLow  || null;
+            let nav = nse.nav || meta?.navPrice || disk.nav || null;
+            if (nav && price && disk.nav && Math.abs(nav - price) < 0.0001 && Math.abs(disk.nav - price) > 0.0001) nav = disk.nav;
+            const navPremium = (nav && price) ? +((( price - nav) / nav) * 100).toFixed(2) : null;
+            send({ sym, data: { price, nav, navPremium, high52, low52, volume, aum: nse.aum || null, expRatio: nse.expRatio || null } });
+          } catch(e) {
+            send({ sym, data: { nav: nse.nav||disk.nav||null, high52: nse.high52||disk.high52||null, low52: nse.low52||disk.low52||null, volume: nse.volume||disk.volume||null, navPremium: null, aum: nse.aum||null, expRatio: nse.expRatio||null } });
+          }
+        })()));
+      }
+    } catch(e) { send({ error: e.message }); }
+    if (!res.writableEnded) { res.write(`data: ${JSON.stringify({ done: true })}\n\n`); res.end(); }
+    return;
+  }
+
+  // /stream/etf-summary?symbols=A,B  -- SSE: flushes cache hits immediately, streams live fetches as they resolve
+  if (pathname === '/stream/etf-summary') {
+    const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!symbols.length) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No symbols' })); return; }
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    let closed = false;
+    req.on('close', () => { closed = true; });
+    const send = (obj) => { if (!closed && !res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
+    const now = Date.now();
+    try {
+      const etfListForSum = {};
+      try {
+        if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
+          const lc = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8'));
+          for (const e of (lc.etfs || [])) etfListForSum[e.sym] = e;
+        }
+      } catch(_) {}
+
+      const stale = [];
+      for (const sym of symbols) {
+        const meta = etfMetaCache[sym];
+        const metaFresh = meta && (now - (meta.savedAt || 0)) < ETF_META_TTL;
+        const oneMEntry = etfSumCache[sym];
+        const oneMFresh = oneMEntry && oneMEntry.version === ETF_SUM_CACHE_VERSION && (now - (oneMEntry.savedAt || 0)) < ETF_1M_RETURN_TTL;
+        if (metaFresh) {
+          const nav = etfListForSum[sym]?.nav ?? null;
+          const price = etfListForSum[sym]?.price ?? null;
+          const premium = (nav && price) ? +((price - nav) / nav * 100).toFixed(2) : null;
+          send({ sym, data: { nav, price, premium, expenseRatio: getETFExpenseRatio(sym),
+            category: meta.category ?? null, fundFamily: meta.fundFamily ?? lookupAMC(sym),
+            ytdReturn: meta.ytdReturn ?? null, oneMonthReturn: oneMEntry?.oneMonthReturn ?? null,
+            oneYearReturn: meta.oneYearReturn ?? null, threeYearReturn: meta.threeYearReturn ?? null,
+            fiveYearReturn: meta.fiveYearReturn ?? null,
+            high52: etfListForSum[sym]?.high52 ?? null, low52: etfListForSum[sym]?.low52 ?? null,
+          }});
+          if (!oneMFresh) stale.push(sym); // 1M-only refresh needed
+        } else {
+          stale.push(sym);
+        }
+      }
+
+      if (stale.length && !closed) {
+        const hasCrumb = await ensureCrumb();
+        const MODULES = 'defaultKeyStatistics,summaryDetail,fundProfile,fundPerformance';
+        for (let i = 0; i < stale.length; i += CONCURRENCY) {
+          if (closed) break;
+          const chunk = stale.slice(i, i + CONCURRENCY);
+          await Promise.allSettled(chunk.map(sym => (async () => {
+            try {
+              let nav = null, price = null, premium = null, expenseRatio = null,
+                  category = null, fundFamily = null, high52 = null, low52 = null, directReturns = {};
+              if (hasCrumb && yahooCrumb.value) {
+                const path = `/v10/finance/quoteSummary/${encodeURIComponent(sym)}.NS?modules=${MODULES}&crumb=${encodeURIComponent(yahooCrumb.value)}`;
+                const headers = { ...YAHOO_HEADERS, 'Cookie': yahooCrumb.cookies };
+                let r = await httpsGet({ hostname: 'query1.finance.yahoo.com', path, method: 'GET', timeout: 12000, headers });
+                if (r.status !== 200) r = await httpsGet({ hostname: 'query2.finance.yahoo.com', path, method: 'GET', timeout: 12000, headers });
+                if (r.status === 200) {
+                  const json = JSON.parse(r.body);
+                  const result = json?.quoteSummary?.result?.[0];
+                  if (result) {
+                    const stats = result.defaultKeyStatistics || {}, detail = result.summaryDetail || {};
+                    const profile = result.fundProfile || {}, performance = result.fundPerformance || {};
+                    nav = stats.nav?.raw ?? stats.navPrice?.raw ?? null;
+                    price = detail.previousClose?.raw ?? null;
+                    premium = (nav && price) ? +((price - nav) / nav * 100).toFixed(2) : null;
+                    expenseRatio = profile.annualReportExpenseRatio?.raw ?? stats.annualReportExpenseRatio?.raw ?? null;
+                    category = profile.categoryName ?? null;
+                    fundFamily = profile.family ?? null;
+                    high52 = detail.fiftyTwoWeekHigh?.raw ?? null;
+                    low52 = detail.fiftyTwoWeekLow?.raw ?? null;
+                    directReturns = parseDirectReturns(performance);
+                  }
+                }
+              }
+              if (expenseRatio == null) expenseRatio = getETFExpenseRatio(sym);
+              if (fundFamily == null) fundFamily = lookupAMC(sym);
+              if (nav == null) nav = etfListForSum[sym]?.nav ?? null;
+              if (nav && price && premium == null) premium = +((price - nav) / nav * 100).toFixed(2);
+              const needsComputed = ['oneMonthReturn','ytdReturn','oneYearReturn','threeYearReturn','fiveYearReturn'].some(k => directReturns[k] == null);
+              const computed = needsComputed ? await computeReturns(sym) : {};
+              const oneMonthReturn  = directReturns.oneMonthReturn  ?? computed.oneMonthReturn  ?? null;
+              const ytdReturn       = directReturns.ytdReturn       ?? computed.ytdReturn       ?? null;
+              const oneYearReturn   = directReturns.oneYearReturn   ?? computed.oneYearReturn   ?? null;
+              const threeYearReturn = directReturns.threeYearReturn ?? computed.threeYearReturn ?? null;
+              const fiveYearReturn  = directReturns.fiveYearReturn  ?? computed.fiveYearReturn  ?? null;
+              const data = { nav, price, premium, expenseRatio, category, fundFamily, oneMonthReturn, ytdReturn, oneYearReturn, threeYearReturn, fiveYearReturn, high52, low52 };
+              // Update caches
+              if (expenseRatio != null || fundFamily != null || oneYearReturn != null) {
+                etfMetaCache[sym] = { expenseRatio, category, fundFamily, ytdReturn, oneYearReturn, threeYearReturn, fiveYearReturn, savedAt: now };
+              }
+              if (oneMonthReturn != null) etfSumCache[sym] = { oneMonthReturn, savedAt: now, version: ETF_SUM_CACHE_VERSION };
+              send({ sym, data });
+            } catch(e) { console.warn(`[stream/etf-summary] ${sym}:`, e.message); }
+          })()));
+        }
+        saveEtfMetaCache();
+        saveEtfSumCache();
+      }
+    } catch(e) { send({ error: e.message }); }
+    if (!res.writableEnded) { res.write(`data: ${JSON.stringify({ done: true })}\n\n`); res.end(); }
+    return;
+  }
+
   // /yahoo?symbols=...
   if (pathname === '/yahoo') {
     const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -4063,6 +4233,146 @@ async function proxyRequestHandler(req, res) {
       res.writeHead(502, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
     }
+    return;
+  }
+
+  // /stream/intraday-signals?symbols=A,B  -- SSE: pushes each symbol as soon as its fetch resolves
+  if (pathname === '/stream/intraday-signals') {
+    const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    if (!symbols.length) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No symbols' })); return; }
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    let closed = false;
+    req.on('close', () => { closed = true; });
+    const send = (obj) => { if (!closed && !res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
+    try {
+      for (let i = 0; i < symbols.length; i += CONCURRENCY) {
+        if (closed) break;
+        const chunk = symbols.slice(i, i + CONCURRENCY);
+        await Promise.allSettled(chunk.map(sym =>
+          fetchIntradaySignal(sym)
+            .then(v => { if (v) send({ sym, data: v }); })
+            .catch(e => console.warn(`[stream/intraday] ${sym}:`, e.message))
+        ));
+      }
+    } catch(e) { send({ error: e.message }); }
+    if (!res.writableEnded) { res.write(`data: ${JSON.stringify({ done: true })}\n\n`); res.end(); }
+    return;
+  }
+
+  // /stream/yahoo-summary?symbols=A,B  -- SSE: flushes cache hits immediately, streams live fetches as they resolve
+  if (pathname === '/stream/yahoo-summary') {
+    const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!symbols.length) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No symbols' })); return; }
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    let closed = false;
+    req.on('close', () => { closed = true; });
+    const send = (obj) => { if (!closed && !res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
+    const now = Date.now();
+    try {
+      // Flush cache hits immediately so browser renders them right away
+      const stale = [];
+      for (const sym of symbols) {
+        const entry = fundCache[sym];
+        if (entry && (now - entry.savedAt) < FUND_CACHE_TTL) {
+          send({ sym, data: entry.data });
+        } else {
+          stale.push(sym);
+        }
+      }
+      // Stream live fetches as each one resolves
+      if (stale.length && !closed) {
+        const MODULES = 'financialData,defaultKeyStatistics,summaryDetail,assetProfile';
+        const hasCrumb = await ensureCrumb();
+        for (let i = 0; i < stale.length; i += CONCURRENCY) {
+          if (closed) break;
+          const chunk = stale.slice(i, i + CONCURRENCY);
+          await Promise.allSettled(chunk.map(sym => (async () => {
+            try {
+              let path, headers;
+              if (hasCrumb && yahooCrumb.value) {
+                path = `/v10/finance/quoteSummary/${encodeURIComponent(sym)}.NS?modules=${MODULES}&crumb=${encodeURIComponent(yahooCrumb.value)}`;
+                headers = { ...YAHOO_HEADERS, 'Cookie': yahooCrumb.cookies };
+              } else {
+                path = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=1d&range=1d&includePrePost=false`;
+                headers = YAHOO_HEADERS;
+              }
+              let r = await httpsGet({ hostname: 'query1.finance.yahoo.com', path, method: 'GET', timeout: 12000, headers });
+              if (r.status !== 200) r = await httpsGet({ hostname: 'query2.finance.yahoo.com', path, method: 'GET', timeout: 12000, headers });
+              if (r.status === 401 || r.status === 403) {
+                await refreshYahooCrumb();
+                if (yahooCrumb.value) {
+                  path = `/v10/finance/quoteSummary/${encodeURIComponent(sym)}.NS?modules=${MODULES}&crumb=${encodeURIComponent(yahooCrumb.value)}`;
+                  headers = { ...YAHOO_HEADERS, 'Cookie': yahooCrumb.cookies };
+                  r = await httpsGet({ hostname: 'query1.finance.yahoo.com', path, method: 'GET', timeout: 12000, headers });
+                }
+              }
+              if (r.status !== 200) return;
+              const json = JSON.parse(r.body);
+              const result = json?.quoteSummary?.result?.[0];
+              let data = null;
+              if (result) {
+                const fin = result.financialData || {}, stats = result.defaultKeyStatistics || {};
+                const detail = result.summaryDetail || {}, profile = result.assetProfile || {};
+                data = {
+                  trailingEps: fin.trailingEps?.raw ?? stats.trailingEps?.raw ?? null,
+                  forwardEps: stats.forwardEps?.raw ?? null,
+                  trailingPE: fin.trailingPE?.raw ?? stats.trailingPE?.raw ?? detail.trailingPE?.raw ?? null,
+                  forwardPE: fin.forwardPE?.raw ?? detail.forwardPE?.raw ?? null,
+                  marketCap: detail.marketCap?.raw ?? null,
+                  priceToBook: stats.priceToBook?.raw ?? null,
+                  dividendYield: detail.dividendYield?.raw ?? detail.trailingAnnualDividendYield?.raw ?? null,
+                  fiftyDayAvg: detail.fiftyDayAverage?.raw ?? null,
+                  twoHundredDayAvg: detail.twoHundredDayAverage?.raw ?? null,
+                  high52: detail.fiftyTwoWeekHigh?.raw ?? null,
+                  low52: detail.fiftyTwoWeekLow?.raw ?? null,
+                  roe: fin.returnOnEquity?.raw ?? null,
+                  totalDebt: fin.totalDebt?.raw ?? null,
+                  totalEquity: fin.totalStockholdersEquity?.raw ?? null,
+                  epsGrowth: fin.earningsGrowth?.raw ?? null,
+                  peg: stats.pegRatio?.raw ?? null,
+                  priceTarget: fin.targetMeanPrice?.raw ?? fin.targetMedianPrice?.raw ?? null,
+                  sharesOutstanding: stats.sharesOutstanding?.raw ?? null,
+                  sector: profile.sector ?? null,
+                  industry: profile.industry ?? null,
+                };
+              } else {
+                const meta = json?.chart?.result?.[0]?.meta;
+                if (meta) {
+                  const trailingEps = meta.epsTrailingTwelveMonths ?? null;
+                  const forwardEps = meta.epsForward ?? null;
+                  const trailingPE = meta.trailingPE ?? null;
+                  const price = meta.regularMarketPrice ?? null;
+                  data = { trailingEps, forwardEps, trailingPE,
+                    forwardPE: (forwardEps && price) ? +(price / forwardEps).toFixed(2) : null,
+                    marketCap: meta.marketCap ?? null, priceToBook: null, dividendYield: null,
+                    fiftyDayAvg: meta.fiftyDayAverage ?? null, twoHundredDayAvg: meta.twoHundredDayAverage ?? null,
+                    high52: meta.fiftyTwoWeekHigh ?? null, low52: meta.fiftyTwoWeekLow ?? null,
+                    roe: null, totalDebt: null, totalEquity: null, epsGrowth: null,
+                    peg: null, priceTarget: null, sharesOutstanding: null, sector: null, industry: null,
+                  };
+                }
+              }
+              if (data) {
+                fundCache[sym] = { data, savedAt: now };
+                send({ sym, data });
+              }
+            } catch(e) { console.warn(`[stream/summary] ${sym}:`, e.message); }
+          })()));
+        }
+        saveFundCache();
+      }
+    } catch(e) { send({ error: e.message }); }
+    if (!res.writableEnded) { res.write(`data: ${JSON.stringify({ done: true })}\n\n`); res.end(); }
     return;
   }
 
