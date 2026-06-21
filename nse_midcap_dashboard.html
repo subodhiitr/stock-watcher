@@ -68,22 +68,14 @@
   <!-- SOURCE PANEL -->
   <div id="source-panel">
     <h2>Choose Data Source</h2>
-    <p class="sub">All three options use the same local proxy (<code style="font-family:monospace;background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px;color:var(--accent)">node ticker_proxy.js</code>). NSE Direct &amp; Yahoo Finance are free — no API key needed.</p>
+    <p class="sub">Both options use the same local proxy (<code style="font-family:monospace;background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px;color:var(--accent)">node ticker_proxy.js</code>). Yahoo Finance &amp; NSE is free — no API key needed.</p>
 
     <div class="source-cards">
-      <!-- Yahoo Finance -->
+      <!-- Yahoo Finance & NSE -->
       <div class="source-card" id="card-yahoo" data-source="yahoo" onclick="selectSource('yahoo')" role="button" tabindex="0">
         <div class="sc-icon">💜</div>
-        <div class="sc-title">Yahoo Finance</div>
-        <div class="sc-desc">Fetches prices directly from Yahoo Finance's public <code style="font-family:monospace;font-size:11px">query1.finance.yahoo.com/v7</code> API. Real-time during market hours, 15-min delayed otherwise.</div>
-        <span class="sc-badge badge-proxy">Proxy · No Key · Free</span>
-      </div>
-
-      <!-- NSE Direct -->
-      <div class="source-card" id="card-nse" data-source="nse" onclick="selectSource('nse')" role="button" tabindex="0">
-        <div class="sc-icon">🏛️</div>
-        <div class="sc-title">NSE Direct</div>
-        <div class="sc-desc">Fetches from NSE India's official API (<code style="font-family:monospace;font-size:11px">nseindia.com/api</code>). Most accurate for Indian markets — requires proxy for CORS + session handling.</div>
+        <div class="sc-title">Yahoo Finance &amp; NSE</div>
+        <div class="sc-desc">Fetches prices from Yahoo Finance's public <code style="font-family:monospace;font-size:11px">query1.finance.yahoo.com/v7</code> API and NSE India. Real-time during market hours, 15-min delayed otherwise.</div>
         <span class="sc-badge badge-proxy">Proxy · No Key · Free</span>
       </div>
 
@@ -108,20 +100,6 @@
       <br>
       <button class="btn primary" onclick="connectYahoo()">⚡ Check Proxy &amp; Connect</button>
       <div class="connect-err" id="connect-err-yahoo"></div>
-    </div>
-
-    <!-- NSE extra -->
-    <div id="extra-nse" class="source-extra" style="display:none">
-      <div class="info-box">
-        <strong>Quick setup (30 seconds):</strong><br>
-        1. Open a terminal in the folder containing these files<br>
-        2. Run: <code>node ticker_proxy.js</code><br>
-        3. Keep that terminal open, then click Connect below
-      </div>
-      <div class="proxy-status" id="proxy-status-nse"></div>
-      <br>
-      <button class="btn primary" onclick="connectNSE()">⚡ Check Proxy &amp; Connect</button>
-      <div class="connect-err" id="connect-err-nse"></div>
     </div>
 
     <!-- AI extra -->
