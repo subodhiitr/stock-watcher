@@ -749,6 +749,7 @@ const COLUMN_PRESET_KEY = 'stock-watcher-column-preset';
 let columnPreset = localStorage.getItem(COLUMN_PRESET_KEY) || 'trading';
 let notificationsOpen = false;
 let newSimulationTradeKeys = loadNewSimulationTradeKeys();
+let openTradesModalMode = 'all'; // all | new
 let freshNewsSummary = { loading:false, loaded:false, date:null, count:0, symbolCount:0, items:[], scanned:0, error:'' };
 let freshNewsLastFetchAt = 0;
 let freshNewsBusy = false;
@@ -1905,7 +1906,7 @@ function registerNewSimulationTrade(trade) {
 }
 
 function pruneNewSimulationTradeKeys() {
-  const openKeys = new Set(getSimulationOpenTrades().map(simulationTradeKey).filter(Boolean));
+  const openKeys = new Set(paperTrades.filter(isOpenTrade).map(simulationTradeKey).filter(Boolean));
   const before = newSimulationTradeKeys.size;
   newSimulationTradeKeys = new Set([...newSimulationTradeKeys].filter(key => openKeys.has(key)));
   if (newSimulationTradeKeys.size !== before) saveNewSimulationTradeKeys();
@@ -1913,7 +1914,7 @@ function pruneNewSimulationTradeKeys() {
 
 function getNewSimulationOpenTrades() {
   const keys = newSimulationTradeKeys;
-  return getSimulationOpenTrades().filter(t => keys.has(simulationTradeKey(t)));
+  return paperTrades.filter(t => isOpenTrade(t) && keys.has(simulationTradeKey(t)));
 }
 
 function renderOpenTradeRows(openTrades, newKeys) {
@@ -1949,7 +1950,7 @@ function renderOpenTradesModal() {
   const body = document.getElementById('open-trades-modal-body');
   if (!body) return;
   pruneNewSimulationTradeKeys();
-  const openTrades = paperTrades
+  const allOpenTrades = paperTrades
     .filter(t => String(t.status || '').toLowerCase() === 'open')
     .slice()
     .sort((a, b) => {
@@ -1958,16 +1959,19 @@ function renderOpenTradesModal() {
       if (anew !== bnew) return bnew - anew;
       return new Date(b.openedAt || 0) - new Date(a.openedAt || 0);
     });
-  const newCount = openTrades.filter(t => newSimulationTradeKeys.has(simulationTradeKey(t))).length;
+  const newCount = allOpenTrades.filter(t => newSimulationTradeKeys.has(simulationTradeKey(t))).length;
+  const openTrades = openTradesModalMode === 'new'
+    ? allOpenTrades.filter(t => newSimulationTradeKeys.has(simulationTradeKey(t)))
+    : allOpenTrades;
   const rows = renderOpenTradeRows(openTrades, newSimulationTradeKeys);
   body.innerHTML = `
     <div class="portfolio-grid">
-      <div class="portfolio-card"><div class="label">Open trades</div><div class="value">${openTrades.length}</div></div>
-      <div class="portfolio-card"><div class="label">New simulation trades</div><div class="value ${newCount ? 'up' : ''}">${newCount}</div></div>
+      <div class="portfolio-card"><div class="label">Open trades</div><div class="value">${allOpenTrades.length}</div></div>
+      <div class="portfolio-card"><div class="label">New open trades</div><div class="value ${newCount ? 'up' : ''}">${newCount}</div></div>
       <div class="portfolio-card"><div class="label">Open exposure</div><div class="value">${moneyINR(openTrades.reduce((sum, t) => sum + paperTradeExposure(t), 0))}</div></div>
       <div class="portfolio-card"><div class="label">Open P&L</div><div class="value ${portfolioValueClass(openTrades.reduce((sum, t) => sum + (getPaperTradePnl(t, getCurrentTradePrice(t.symbol))?.pnl || 0), 0))}">${moneyINR(openTrades.reduce((sum, t) => sum + (getPaperTradePnl(t, getCurrentTradePrice(t.symbol))?.pnl || 0), 0))}</div></div>
     </div>
-    <div class="portfolio-section-title">All Open Trades</div>
+    <div class="portfolio-section-title">${openTradesModalMode === 'new' ? 'New Open Trades' : 'All Open Trades'}</div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table open-trades-table">
         <thead><tr><th>New</th><th>Mode</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Live</th><th>Target</th><th>SL</th><th>Net P&L</th><th>Entry Time</th><th>Entry Why</th><th>Action</th></tr></thead>
@@ -1977,7 +1981,8 @@ function renderOpenTradesModal() {
   `;
 }
 
-async function openOpenTradesModal() {
+async function openOpenTradesModal(mode = 'all') {
+  openTradesModalMode = mode === 'new' ? 'new' : 'all';
   renderOpenTradesModal();
   const modal = document.getElementById('open-trades-modal');
   if (modal) modal.style.display = 'flex';
@@ -1998,6 +2003,7 @@ function closeOpenTradesModal(e) {
 function markNewSimulationTradesSeen() {
   newSimulationTradeKeys.clear();
   saveNewSimulationTradeKeys();
+  openTradesModalMode = 'all';
   renderTopActionBar();
   renderOpenTradesModal();
 }
@@ -3992,11 +3998,8 @@ async function closePaperTradeAtPrice(trade, exitPrice, reason, silent = false) 
   if (!trade?.id || !Number.isFinite(Number(exitPrice))) return false;
   try {
     await postPaperTrade('close', { id: trade.id, exitPrice, reason });
-    await loadPaperTrades(true);
-    renderTable();
-    if (currentView === 'etfs') renderETFSection();
-    if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
-    if (document.getElementById('open-trades-modal')?.style.display === 'flex') renderOpenTradesModal();
+    applyClosedTradeLocally(trade.id, exitPrice, reason);
+    loadPaperTrades(true).catch(e => console.warn('post-close reconcile failed', e.message));
     if (document.getElementById('fund-modal')?.style.display === 'flex') openFundModal(trade.symbol);
     return true;
   } catch (e) {
@@ -4204,6 +4207,32 @@ function applyOpenedTradeLocally(trade) {
   if (document.getElementById('open-trades-modal')?.style.display === 'flex') renderOpenTradesModal();
 }
 
+function applyClosedTradeLocally(tradeId, exitPrice, reason = 'Manual exit') {
+  const idx = paperTrades.findIndex(t => isOpenTrade(t) && String(t.id || '') === String(tradeId || ''));
+  if (idx < 0) return;
+  const trade = paperTrades[idx];
+  const closedAt = new Date().toISOString();
+  const pnlObj = getPaperTradePnl(trade, exitPrice);
+  paperTrades[idx] = {
+    ...trade,
+    status:'closed',
+    exitPrice:+Number(exitPrice).toFixed(2),
+    closedAt,
+    closeReason:reason || 'Manual exit',
+    pnl:Number.isFinite(Number(pnlObj?.pnl)) ? Number(pnlObj.pnl) : null,
+    pnlPct:Number.isFinite(Number(pnlObj?.pnlPct)) ? Number(pnlObj.pnlPct) : null,
+    grossPnl:Number.isFinite(Number(pnlObj?.grossPnl)) ? Number(pnlObj.grossPnl) : null,
+    charges:Number.isFinite(Number(pnlObj?.charges)) ? Number(pnlObj.charges) : null,
+    chargeBreakup:pnlObj?.chargeBreakup || null,
+  };
+  paperTradesLoaded = true;
+  renderTopActionBar();
+  renderTable();
+  if (currentView === 'etfs') renderETFSection();
+  if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
+  if (document.getElementById('open-trades-modal')?.style.display === 'flex') renderOpenTradesModal();
+}
+
 async function openPaperTrade(sym, side) {
   const t = intradayData[sym];
   const price = getCurrentTradePrice(sym);
@@ -4249,8 +4278,10 @@ async function openPaperTrade(sym, side) {
 }
 
 async function closePaperTrade(id, sym) {
-  const price = getCurrentTradePrice(sym);
-  if (!price) { alert('Current price is not available. Refresh once and try again.'); return; }
+  const open = paperTrades.find(t => isOpenTrade(t) && String(t.id || '') === String(id || '')) || null;
+  const fallbackPrice = Number(open?.entryPrice || stockData[sym]?.price || 0);
+  const price = getCurrentTradePrice(sym) || (Number.isFinite(fallbackPrice) && fallbackPrice > 0 ? fallbackPrice : null);
+  if (!price) { alert('Exit price is not available right now. Refresh once and try again.'); return; }
   await closePaperTradeAtPrice({ id, symbol:sym }, price, 'Manual exit', false);
 }
 
