@@ -1859,7 +1859,13 @@ function loadDashboardStockUniverse() {
   try {
     for (const item of loadSavedStocksFile()) {
       const symbol = String(item?.sym || item?.symbol || item || '').trim().toUpperCase();
-      if (symbol) rows.push({ symbol, name:String(item?.name || symbol), assetType:'stock' });
+      if (symbol) rows.push({
+        symbol,
+        name:String(item?.name || symbol),
+        assetType:'stock',
+        sector:item?.sector || 'Custom',
+        cap:item?.cap || 'custom'
+      });
     }
   } catch(e) {
     console.warn('[fresh-news-cache] saved stock universe load failed:', e.message);
@@ -2328,20 +2334,12 @@ async function nseGet(path) {
   return res;
 }
 
-async function warmNSESession() {
-  if (nse.refreshing) return;
-  nse.refreshing = true;
-  console.log('[NSE] Warming session…');
-  try {
-    await nseGet('/');
-    await nseGet('/market-data/live-equity-market-data');
-    nse.lastRefresh = Date.now();
-    console.log('[NSE] Session ready (' + nse.cookies.length + ' chars)');
-  } catch(e) {
-    console.warn('[NSE] Warm failed:', e.message);
-  } finally {
-    nse.refreshing = false;
-  }
+function isNSETransientError(e) {
+  const msg = String(e?.message || '');
+  return e?.code === 'ECONNRESET'
+    || e?.code === 'ETIMEDOUT'
+    || e?.code === 'ECONNREFUSED'
+    || /read ECONNRESET|socket hang up|timed out|ECONNRESET/i.test(msg);
 }
 
 async function warmNSESession() {
@@ -2364,7 +2362,12 @@ async function warmNSESession() {
           lastErr = new Error(`warm ${warmPath} HTTP ${r.status}`);
         } catch(e) {
           lastErr = e;
-          console.warn(`[NSE] Warm path ${warmPath} failed: ${e.message}`);
+          const msg = e?.message || String(e);
+          if (isNSETransientError(e)) {
+            console.log(`[NSE] Warm path ${warmPath} reset by NSE, trying next path...`);
+          } else {
+            console.warn(`[NSE] Warm path ${warmPath} failed: ${msg}`);
+          }
         }
         await new Promise(r => setTimeout(r, 250));
       }
@@ -5083,7 +5086,7 @@ async function proxyRequestHandler(req, res) {
                 if (!item || typeof item === 'string') return null;
                 const sym = String(item.sym||item.symbol||'').trim().toUpperCase();
                 if (!sym) return null;
-                return { sym, sector: item.sector||null, cap: item.cap||null };
+                return { sym, name: item.name || sym, sector: item.sector||null, cap: item.cap||null };
               }).filter(Boolean);
             }
           }

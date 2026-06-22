@@ -11,14 +11,9 @@ A lightweight dashboard for Indian NSE midcap stocks, built with a local proxy f
    ```
 3. Start the Remix 3 app. It serves both the dashboard and the proxy/API routes from the same Node process:
    ```powershell
-   npm run dev
+   npm.cmd run dev
    ```
 4. Open `http://localhost:44100/` in your browser.
-
-The old standalone proxy command is still available for direct debugging:
-```powershell
-npm run proxy
-```
 
 ## AI setup
 
@@ -34,20 +29,20 @@ OPENAI_MODEL=gpt-4.1-mini
 
 Then start Remix normally:
 ```powershell
-npm run dev
+npm.cmd run dev
 ```
 
 You can also override the file using environment variables:
 ```powershell
 $env:OPENAI_API_KEY="sk-proj-your-key"
-npm run dev
+npm.cmd run dev
 ```
 
 Optional:
 ```powershell
 $env:OPENAI_MODEL="gpt-4.1-mini"
 ```
-The Remix app currently serves the existing dashboard HTML and assets from the project root. API calls use the same origin as the Remix page, so no separate `localhost:3001` proxy is needed when using `npm run dev`.
+The Remix app currently serves the existing dashboard HTML and assets from the project root. API calls use the same origin as the Remix page, so no separate `localhost:3001` proxy is needed when using `npm.cmd run dev`.
 
 Useful Remix routes:
 ```text

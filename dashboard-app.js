@@ -287,11 +287,12 @@ async function loadSavedStocks() {
       ? rawSym.trim().toUpperCase()
       : String(rawSym?.sym || '').trim().toUpperCase();
     if (!sym) continue;
+    const name   = typeof rawSym === 'string' ? sym : (rawSym?.name || sym);
     const sector = rawSym?.sector || 'Custom';
     const cap    = rawSym?.cap    || 'custom';
     if (MIDCAP_STOCKS.some(s=>s.sym===sym) || STOCK_ASSETS.some(e=>e.sym===sym) || STOCK_EXTRA_SYMBOLS.includes(sym)) continue;
     STOCK_EXTRA_SYMBOLS.push(sym);
-    STOCK_ASSETS.push({ sym, name: sym, sector, cap });
+    STOCK_ASSETS.push({ sym, name, sector, cap });
     newSymbols.push(sym);
   }
   if (newSymbols.length && dataSource) {
@@ -2096,6 +2097,8 @@ function renderTopActionBar() {
   set('action-new-trades', String(newOpenTrades.length), newOpenTrades.length ? 'up' : '');
   set('action-day-pnl', moneyINR(dayPnl), portfolioValueClass(dayPnl));
   set('action-last-refresh', bgRefreshActive ? 'Refreshing...' : lastDashboardRefreshAt ? new Date(lastDashboardRefreshAt).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) : '--');
+  const stockSearch = document.getElementById('search-box');
+  if (stockSearch) stockSearch.style.display = currentView === 'stocks' ? '' : 'none';
   const newCard = document.getElementById('new-trades-card');
   if (newCard) newCard.classList.toggle('has-new', newOpenTrades.length > 0);
   const openCard = document.getElementById('open-trades-card');
@@ -4650,6 +4653,22 @@ function sortBy(col){
   renderTable();
 }
 
+let lastAppliedStockSearch = '';
+function getStockSearchValue() {
+  const raw = document.getElementById('search-box')?.value || '';
+  const value = raw.trim().toLowerCase();
+  return value.length === 0 || value.length >= 3 ? value : lastAppliedStockSearch;
+}
+
+function handleStockSearchInput(input) {
+  const value = String(input?.value || '').trim().toLowerCase();
+  if (input) input.classList.toggle('search-too-short', value.length > 0 && value.length < 3);
+  if (value.length > 0 && value.length < 3) return;
+  if (value === lastAppliedStockSearch) return;
+  lastAppliedStockSearch = value;
+  renderTable();
+}
+
 function getAllStockRows() {
   return [
     ...MIDCAP_STOCKS.map((s,i)=>({...s,rank:i+1,data:stockData[s.sym]||null})),
@@ -4661,6 +4680,75 @@ function hasEventRiskForSymbol(sym) {
   const symbol = String(sym || '').toUpperCase();
   if (Array.isArray(freshNewsSummary.symbols)) return freshNewsSummary.symbols.includes(symbol);
   return (freshNewsSummary.items || []).some(item => item.symbol === symbol);
+}
+
+function getStockFilterFns() {
+  const hasFreshIntraday = r => {
+    const t = intradayData[r.sym];
+    return !!t && !getIntradayFreshness(t).stale;
+  };
+  const setupType = r => {
+    const t = intradayData[r.sym];
+    if (!t) return '';
+    const score = adjustedTradeScore(r);
+    const guard = getRiskGuard(r, t, score);
+    return getSetupType(r, t, guard);
+  };
+  return {
+    favorite: r => isStockFavorite(r.sym),
+    buy:      r => getSignal(r, r.data) === 'buy',
+    watch:    r => getSignal(r, r.data) === 'watch',
+    sell:     r => getSignal(r, r.data) === 'sell',
+    strong:   r => { const s = getHealthScore(r.sym); return s != null && s >= 80; },
+    fair:     r => { const s = getHealthScore(r.sym); return s != null && s >= 50 && s < 80; },
+    weak:     r => { const s = getHealthScore(r.sym); return s != null && s < 50; },
+    large:    r => r.cap === 'large',
+    mid:      r => r.cap === 'mid',
+    gainers:  r => (r.data?.change || 0) > 0,
+    losers:   r => (r.data?.change || 0) < 0,
+    opentrade:r => !!getOpenPaperTrade(r.sym),
+    tradeable:r => { const t = intradayData[r.sym]; if(!t) return false; const g = getRiskGuard(r, t, adjustedTradeScore(r)); return ['ok','small'].includes(g.level); },
+    risk:     r => { const t = intradayData[r.sym]; if(!t) return false; const g = getRiskGuard(r, t, adjustedTradeScore(r)); return ['avoid','invalid','chasing'].includes(g.level); },
+    hideavoid:r => { const t = intradayData[r.sym]; if(!t) return true; const g = getRiskGuard(r, t, adjustedTradeScore(r)); return !['avoid','invalid','chasing'].includes(g.level); },
+    triggered:r => intradayData[r.sym]?.entryStatus === 'Triggered' && hasFreshIntraday(r),
+    neartrigger:r => intradayData[r.sym]?.entryStatus === 'Near trigger' && hasFreshIntraday(r),
+    newsrisk: r => hasEventRiskForSymbol(r.sym),
+    setup_pullback: r => setupType(r) === 'VWAP_PULLBACK_OR_HOLD',
+    setup_runner: r => ['VOLUME_SHOCK_BREAKOUT', 'MOMENTUM_RUNNER', 'VWAP_TREND_CONTINUATION', 'FRESH_BREAKOUT'].includes(setupType(r)),
+    setup_short: r => ['VWAP_REJECTION', 'BREAKDOWN', 'SHORT_MOMENTUM'].includes(setupType(r)),
+  };
+}
+
+function getStockFilterGroups() {
+  return [
+    ['large', 'mid'],            // cap    - OR within group
+    ['buy', 'sell', 'watch'],    // signal - OR within group
+    ['strong', 'fair', 'weak'],  // health - OR within group
+    ['gainers', 'losers'],       // movement - OR within group
+    ['tradeable', 'hideavoid', 'risk'],
+    ['triggered', 'neartrigger'],
+    ['setup_pullback', 'setup_runner', 'setup_short'],
+    ['favorite'],                // standalone
+    ['opentrade'],               // standalone
+    ['newsrisk'],                // standalone
+  ];
+}
+
+function applyStockFilters(rows, filters = stockFilters) {
+  const activeFilters = filters instanceof Set ? filters : new Set(filters || []);
+  if (!activeFilters.size) return rows;
+  const filterFns = getStockFilterFns();
+  const stockGroups = getStockFilterGroups();
+  return rows.filter(r =>
+    stockGroups.every(group => {
+      const active = group.filter(f => activeFilters.has(f));
+      return !active.length || active.some(f => filterFns[f]?.(r) ?? true);
+    })
+  );
+}
+
+function countRowsForStockFilters(rows, ...modes) {
+  return applyStockFilters(rows, new Set(modes.filter(Boolean))).length;
 }
 
 function freshNewsUniverse() {
@@ -4799,32 +4887,18 @@ function closeFreshNewsModal(e) {
 function renderSetupCards(rows = getAllStockRows()) {
   const target = document.getElementById('setup-card-row');
   if (!target) return;
-  const enriched = rows.map(row => {
-    const t = intradayData[row.sym];
-    const score = t ? adjustedTradeScore(row) : 0;
-    const guard = t ? getRiskGuard(row, t, score) : null;
-    const setup = t ? getSetupType(row, t, guard) : '';
-    return { row, t, score, guard, setup, signal:t ? adjustedTradeSignal(score) : getSignal(row, row.data) };
-  });
-
-  // Counts aligned exactly with the filter functions used when the card is clicked
-  const filterFns = {
-    tradeable: r => { const t = intradayData[r.sym]; if(!t) return false; const g = getRiskGuard(r, t, adjustedTradeScore(r)); return ['ok','small'].includes(g.level); },
-    triggered: r => intradayData[r.sym]?.entryStatus === 'Triggered' && !getIntradayFreshness(intradayData[r.sym]).stale,
-    sell:      r => getSignal(r, r.data) === 'sell',
-    risk:      r => { const t = intradayData[r.sym]; if(!t) return false; const g = getRiskGuard(r, t, adjustedTradeScore(r)); return ['avoid','invalid','chasing'].includes(g.level); },
-  };
+  // Counts run through the exact same grouped filter engine as table clicks.
   const counts = {
-    pullbacks: enriched.filter(x => filterFns.tradeable(x.row) && filterFns.triggered(x.row)).length,
-    runners:   enriched.filter(x => filterFns.triggered(x.row)).length,
-    shorts:    enriched.filter(x => filterFns.sell(x.row)).length,
-    risk:      enriched.filter(x => filterFns.risk(x.row)).length,
+    pullbacks: countRowsForStockFilters(rows, 'tradeable', 'triggered', 'setup_pullback'),
+    runners:   countRowsForStockFilters(rows, 'triggered', 'setup_runner'),
+    shorts:    countRowsForStockFilters(rows, 'sell', 'setup_short'),
+    risk:      countRowsForStockFilters(rows, 'risk'),
     news:      freshNewsSummary.loading ? '...' : (freshNewsSummary.symbolCount || 0),
   };
   const cards = [
-    ['pullbacks', 'Best Pullbacks',    counts.pullbacks, 'Triggered tradeable setups',    "selectSetupCard('pullbacks','tradeable','triggered')"],
-    ['runners',   'Momentum Runners',  counts.runners,   'Triggered entry signals',       "selectSetupCard('runners','triggered')"],
-    ['shorts',    'Short Setups',      counts.shorts,    'Sell-side candidates',           "selectSetupCard('shorts','sell')"],
+    ['pullbacks', 'Best Pullbacks',    counts.pullbacks, 'Triggered VWAP pullback/hold',   "selectSetupCard('pullbacks','tradeable','triggered','setup_pullback')"],
+    ['runners',   'Momentum Runners',  counts.runners,   'Triggered breakout/momentum',    "selectSetupCard('runners','triggered','setup_runner')"],
+    ['shorts',    'Short Setups',      counts.shorts,    'Sell-side breakdown/rejection',  "selectSetupCard('shorts','sell','setup_short')"],
     ['risk',      'High Risk',         counts.risk,      'Avoid / invalid / chasing',     "selectSetupCard('risk','risk')"],
     ['news',      'Fresh News',        counts.news,      freshNewsSummary.date ? `Server scan ${freshNewsSummary.date}` : 'Today / last business day', "selectSetupCard(null);openFreshNewsModal()"],
   ];
@@ -4859,7 +4933,7 @@ function renderTable(options = {}) {
 }
 
 function renderTableNow(){
-  const search=document.getElementById('search-box').value.toLowerCase();
+  const search=getStockSearchValue();
   let rows=getAllStockRows();
   const totalRows = rows.length;
 
@@ -4887,43 +4961,7 @@ function renderTableNow(){
 
   // ── Cap / signal filters — multi-select AND logic ───────────
   if (stockFilters.size) {
-    const filterFns = {
-      favorite: r => isStockFavorite(r.sym),
-      buy:      r => getSignal(r, r.data) === 'buy',
-      watch:    r => getSignal(r, r.data) === 'watch',
-      sell:     r => getSignal(r, r.data) === 'sell',
-      strong:   r => { const s = getHealthScore(r.sym); return s != null && s >= 80; },
-      fair:     r => { const s = getHealthScore(r.sym); return s != null && s >= 50 && s < 80; },
-      weak:     r => { const s = getHealthScore(r.sym); return s != null && s < 50; },
-      large:    r => r.cap === 'large',
-      mid:      r => r.cap === 'mid',
-      gainers:  r => (r.data?.change || 0) > 0,
-      losers:   r => (r.data?.change || 0) < 0,
-      opentrade:r => !!getOpenPaperTrade(r.sym),
-      tradeable:r => { const t = intradayData[r.sym]; if(!t) return false; const g = getRiskGuard(r, t, adjustedTradeScore(r)); return ['ok','small'].includes(g.level); },
-      risk:r => { const t = intradayData[r.sym]; if(!t) return false; const g = getRiskGuard(r, t, adjustedTradeScore(r)); return ['avoid','invalid','chasing'].includes(g.level); },
-      hideavoid:r => { const t = intradayData[r.sym]; if(!t) return true; const g = getRiskGuard(r, t, adjustedTradeScore(r)); return !['avoid','invalid','chasing'].includes(g.level); },
-      triggered:r => intradayData[r.sym]?.entryStatus === 'Triggered' && !getIntradayFreshness(intradayData[r.sym]).stale,
-      neartrigger:r => intradayData[r.sym]?.entryStatus === 'Near trigger' && !getIntradayFreshness(intradayData[r.sym]).stale,
-      newsrisk:r => hasEventRiskForSymbol(r.sym),
-    };
-    const stockGroups = [
-      ['large', 'mid'],            // cap    — OR within group
-      ['buy', 'sell', 'watch'],    // signal — OR within group
-      ['strong', 'fair', 'weak'],  // health — OR within group
-      ['gainers', 'losers'],       // movement — OR within group
-      ['tradeable', 'hideavoid', 'risk'],
-      ['triggered', 'neartrigger'],
-      ['favorite'],                // standalone
-      ['opentrade'],               // standalone
-      ['newsrisk'],                 // standalone
-    ];
-    rows = rows.filter(r =>
-      stockGroups.every(group => {
-        const active = group.filter(f => stockFilters.has(f));
-        return !active.length || active.some(f => filterFns[f]?.(r) ?? true);
-      })
-    );
+    rows = applyStockFilters(rows);
   }
 
   // ── Sector active pill ───────────────────────────────────
@@ -5221,7 +5259,7 @@ async function saveUserStocks() {
   // Build payload with metadata when available
   const payload = STOCK_EXTRA_SYMBOLS.map(sym => {
     const entry = STOCK_ASSETS.find(s => s.sym === sym) || { sym };
-    return { sym: String(sym).trim().toUpperCase(), sector: entry.sector || null, cap: entry.cap || null };
+    return { sym: String(sym).trim().toUpperCase(), name: entry.name || sym, sector: entry.sector || null, cap: entry.cap || null };
   });
   saveSavedStocksToStorage(payload);
   try {

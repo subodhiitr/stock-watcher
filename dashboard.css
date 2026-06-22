@@ -50,9 +50,9 @@
   #source-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 32px;margin-bottom:20px;}
   #source-panel h2{font-size:18px;margin-bottom:6px;}
   #source-panel .sub{color:var(--muted);font-size:13px;margin-bottom:24px;}
-  .source-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:900px;}
-  @media(max-width:700px){.source-cards{grid-template-columns:1fr;}}
-  @media(max-width:950px) and (min-width:701px){.source-cards{grid-template-columns:1fr 1fr;}}
+  .source-cards{display:grid;grid-template-columns:minmax(230px,1fr) minmax(230px,1fr) auto;gap:16px;align-items:stretch;max-width:100%;}
+  @media(max-width:700px){.source-cards{grid-template-columns:1fr;}.source-connect-slot{justify-content:stretch}.source-connect-slot .btn{width:100%;}}
+  @media(max-width:950px) and (min-width:701px){.source-cards{grid-template-columns:1fr 1fr;}.source-connect-slot{grid-column:1 / -1;justify-content:flex-end;min-height:auto;}}
   .source-card{border:2px solid var(--border);border-radius:10px;padding:20px;cursor:pointer;transition:all .2s;background:var(--card);position:relative;}
   .source-card:hover{border-color:var(--accent);background:rgba(0,212,170,.04);}
   .source-card.selected{border-color:var(--accent);background:rgba(0,212,170,.07);}
@@ -73,14 +73,15 @@
   .badge-free{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.3);}
   .badge-key{background:rgba(245,158,11,.1);color:var(--yellow);border:1px solid rgba(245,158,11,.25);}
   .badge-proxy{background:rgba(167,139,250,.1);color:var(--accent3);border:1px solid rgba(167,139,250,.25);}
+  .source-connect-slot{display:flex;align-items:center;justify-content:flex-end;min-height:100%;}
 
-  .source-extra{margin-top:24px;max-width:560px;}
+  .source-extra{margin-top:24px;width:100%;}
   .source-extra label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
   .input-row{display:flex;gap:10px;}
   .text-input{flex:1;padding:10px 16px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:'Space Mono',monospace;outline:none;transition:border-color .2s;}
   .text-input:focus{border-color:var(--accent);}
   .text-input::placeholder{color:var(--muted);}
-  .info-box{background:rgba(14,165,233,.06);border:1px solid rgba(14,165,233,.2);border-radius:8px;padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.8;margin-top:14px;}
+  .info-box{background:rgba(14,165,233,.06);border:1px solid rgba(14,165,233,.2);border-radius:8px;padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.8;margin-top:14px;max-width:560px;}
   .info-box code{font-family:'Space Mono',monospace;background:rgba(0,0,0,.35);padding:1px 6px;border-radius:3px;color:var(--accent);}
   .info-box.yahoo-info{background:rgba(167,139,250,.06);border-color:rgba(167,139,250,.2);}
   .info-box.yahoo-info code{color:var(--accent3);}
@@ -139,8 +140,9 @@
   .column-preset-select{height:32px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;padding:4px 9px;outline:none;}
   .filter-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;transition:background .2s,color .2s,border-color .2s;font-family:'DM Sans',sans-serif;font-weight:600;}
   .filter-btn.active,.filter-btn:hover{background:var(--accent);color:#000;border-color:var(--accent);}
-  #search-box{padding:7px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;width:200px;margin-left:auto;}
+  #search-box{padding:7px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;width:190px;min-height:38px;flex:0 0 190px;}
   #search-box:focus{border-color:var(--accent);}
+  #search-box.search-too-short{border-color:rgba(245,158,11,.55);}
   #search-box::placeholder{color:var(--muted);}
   #stats-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:13px;color:var(--muted);}
   .stat-pill{display:flex;align-items:center;gap:6px;}
@@ -150,10 +152,11 @@
   .table-scroll-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:18px;line-height:1;display:inline-flex;align-items:center;justify-content:center;transition:color .15s,border-color .15s,background .15s;}
   .table-scroll-btn:hover:not(:disabled){color:var(--accent);border-color:var(--accent);background:rgba(0,212,170,.08);}
   .table-scroll-btn:disabled{opacity:.35;cursor:not-allowed;}
-  #stock-top-scroll,#etf-top-scroll{flex:1;overflow-x:auto;overflow-y:hidden;height:16px;border:1px solid var(--border);border-radius:999px;background:var(--card);}
+  #stock-top-scroll,#etf-top-scroll{flex:1;overflow-x:auto;overflow-y:hidden;height:16px;border:1px solid var(--border);border-radius:999px;background:var(--card);scrollbar-color:#64748b var(--card);scrollbar-width:thin;}
   #stock-top-scroll-inner,#etf-top-scroll-inner{height:1px;}
   #stock-top-scroll::-webkit-scrollbar,#etf-top-scroll::-webkit-scrollbar{height:10px;}
-  #stock-top-scroll::-webkit-scrollbar-thumb,#etf-top-scroll::-webkit-scrollbar-thumb{background:var(--accent);border-radius:999px;border:2px solid var(--card);}
+  #stock-top-scroll::-webkit-scrollbar-thumb,#etf-top-scroll::-webkit-scrollbar-thumb{background:#64748b;border-radius:999px;border:2px solid var(--card);}
+  #stock-top-scroll::-webkit-scrollbar-thumb:hover,#etf-top-scroll::-webkit-scrollbar-thumb:hover{background:#94a3b8;}
   #table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow-x:auto;}
   #etf-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow-x:auto;}
   table{width:100%;border-collapse:collapse;}

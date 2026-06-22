@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NSE Midcap Dashboard</title>
-<link rel="stylesheet" href="dashboard.css?v=20260620-30">
+<link rel="stylesheet" href="dashboard.css?v=20260620-31">
 </head>
 <body>
 
@@ -45,6 +45,7 @@
   </header>
 
   <div id="top-action-bar" style="display:none">
+    <input id="search-box" type="text" placeholder="Search stock..." oninput="handleStockSearchInput(this)" />
     <div class="action-metric"><span>Market</span><strong id="action-market">--</strong></div>
     <div class="action-metric"><span>Freshness</span><strong id="action-freshness">--</strong></div>
     <button id="simulation-card" class="action-metric action-button" type="button" onclick="toggleSimulation()" title="Start or stop simulation">
@@ -68,11 +69,11 @@
   <!-- SOURCE PANEL -->
   <div id="source-panel">
     <h2>Choose Data Source</h2>
-    <p class="sub">Both options use the same local proxy (<code style="font-family:monospace;background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px;color:var(--accent)">node ticker_proxy.js</code>). Yahoo Finance &amp; NSE is free — no API key needed.</p>
+    <p class="sub">Both options use the proxy built into the Remix server. Start it with <code style="font-family:monospace;background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px;color:var(--accent)">npm.cmd run dev</code>. Yahoo Finance &amp; NSE is free — no API key needed.</p>
 
     <div class="source-cards">
       <!-- Yahoo Finance & NSE -->
-      <div class="source-card" id="card-yahoo" data-source="yahoo" onclick="selectSource('yahoo')" role="button" tabindex="0">
+      <div class="source-card selected" id="card-yahoo" data-source="yahoo" onclick="selectSource('yahoo')" role="button" tabindex="0">
         <div class="sc-icon">💜</div>
         <div class="sc-title">Yahoo Finance &amp; NSE</div>
         <div class="sc-desc">Fetches prices from Yahoo Finance's public <code style="font-family:monospace;font-size:11px">query1.finance.yahoo.com/v7</code> API and NSE India. Real-time during market hours, 15-min delayed otherwise.</div>
@@ -86,19 +87,20 @@
         <div class="sc-desc">Uses OpenAI with live web search to gather prices. Requires the local proxy with OPENAI_API_KEY configured.</div>
         <span class="sc-badge badge-key">Proxy · OpenAI Key</span>
       </div>
+      <div class="source-connect-slot">
+        <button class="btn primary" onclick="connectYahoo()">Check Proxy &amp; Connect</button>
+      </div>
     </div>
 
     <!-- Yahoo extra -->
-    <div id="extra-yahoo" class="source-extra" style="display:none">
+    <div id="extra-yahoo" class="source-extra" style="display:block">
       <div class="info-box yahoo-info">
         <strong>Quick setup (30 seconds):</strong><br>
-        1. Open a terminal in the folder containing these files<br>
-        2. Run: <code>node ticker_proxy.js</code><br>
-        3. Keep that terminal open, then click Connect below
+        1. Open a terminal in the project folder<br>
+        2. Run: <code>npm.cmd run dev</code><br>
+        3. Open this page from Remix, then click Connect below
       </div>
       <div class="proxy-status" id="proxy-status-yahoo"></div>
-      <br>
-      <button class="btn primary" onclick="connectYahoo()">⚡ Check Proxy &amp; Connect</button>
       <div class="connect-err" id="connect-err-yahoo"></div>
     </div>
 
@@ -106,7 +108,7 @@
     <div id="extra-ai" class="source-extra" style="display:none">
       <label>OpenAI API</label>
       <div class="input-row">
-        <input id="api-key-input" class="text-input" type="text" value="Use OPENAI_API_KEY in ticker_proxy.js terminal" readonly />
+        <input id="api-key-input" class="text-input" type="text" value="Use OPENAI_API_KEY with npm.cmd run dev" readonly />
         <button class="btn primary" onclick="connectAI()">Check &amp; Connect →</button>
       </div>
       <div class="connect-err" id="connect-err-ai"></div>
@@ -173,7 +175,6 @@
         <button class="filter-btn" onclick="setFilter('hideavoid',this)">Hide avoid</button>
         <button class="filter-btn" onclick="setFilter('triggered',this)">Triggered</button>
         <button class="filter-btn" onclick="setFilter('neartrigger',this)">Near trigger</button>
-        <input id="search-box" type="text" placeholder="🔍 Search stock…" oninput="renderTable()" />
         <input id="stock-symbol-input" class="text-input" style="width:180px" placeholder="Add stock symbol" />
         <button class="btn" onclick="addCustomStockSymbol()">＋ Add Stock</button>
         <select id="column-preset-select" class="column-preset-select" onchange="setColumnPreset(this.value)" title="Column preset">

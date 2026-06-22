@@ -134,7 +134,7 @@ function Columns() {
 function GetStartedCard() {
   return () => (
     <div mix={[cardStyle, css({ flex: '0 0 auto' })]}>
-      <h2 mix={cardHeaderStyle}>Get started</h2>
+      <h2 mix={cardHeaderStyle}>Run dashboard</h2>
       <ul
         mix={css({
           listStyle: 'none',
@@ -147,13 +147,13 @@ function GetStartedCard() {
         })}
       >
         <li>
-          <CardLink href="https://api.remix.run" icon={<AtomIcon />} label="Remix API" />
+          <CardLink href="http://localhost:44100/" icon={<AtomIcon />} label="npm.cmd run dev" />
         </li>
         <li>
           <CardLink
-            href="https://discord.gg/xwx7mMzVkA"
+            href="http://localhost:44100/stocks"
             icon={<DiscordFaceIcon />}
-            label="Join Discord"
+            label="Open stock dashboard"
           />
         </li>
       </ul>

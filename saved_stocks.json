@@ -78,5 +78,245 @@
     "sym": "APOLLOTYRE",
     "sector": "Custom",
     "cap": "custom"
+  },
+  {
+    "sym": "NETWEB",
+    "name": "Netweb Technologies India",
+    "sector": "IT",
+    "cap": "custom"
+  },
+  {
+    "sym": "OLAELEC",
+    "name": "Ola Electric Mobility",
+    "sector": "Auto",
+    "cap": "custom"
+  },
+  {
+    "sym": "HSCL",
+    "name": "Himadri Speciality Chemical",
+    "sector": "Chemicals",
+    "cap": "custom"
+  },
+  {
+    "sym": "KAYNES",
+    "name": "Kaynes Technology India",
+    "sector": "Electronics",
+    "cap": "custom"
+  },
+  {
+    "sym": "DATAPATTNS",
+    "name": "Data Patterns India",
+    "sector": "Defence",
+    "cap": "custom"
+  },
+  {
+    "sym": "GRSE",
+    "name": "Garden Reach Shipbuilders",
+    "sector": "Defence",
+    "cap": "custom"
+  },
+  {
+    "sym": "MEESHO",
+    "name": "Meesho",
+    "sector": "Retail",
+    "cap": "custom"
+  },
+  {
+    "sym": "ATHERENERG",
+    "name": "Ather Energy",
+    "sector": "Auto",
+    "cap": "custom"
+  },
+  {
+    "sym": "WOCKPHARM",
+    "name": "Wockhardt",
+    "sector": "Pharma",
+    "cap": "custom"
+  },
+  {
+    "sym": "IFCI",
+    "name": "IFCI",
+    "sector": "Finance",
+    "cap": "custom"
+  },
+  {
+    "sym": "GMDCLTD",
+    "name": "Gujarat Mineral Development Corp",
+    "sector": "Metals",
+    "cap": "custom"
+  },
+  {
+    "sym": "AMBER",
+    "name": "Amber Enterprises India",
+    "sector": "Consumer",
+    "cap": "custom"
+  },
+  {
+    "sym": "CDSL",
+    "name": "Central Depository Services",
+    "sector": "Finance",
+    "cap": "custom"
+  },
+  {
+    "sym": "FORCEMOT",
+    "name": "Force Motors",
+    "sector": "Auto",
+    "cap": "custom"
+  },
+  {
+    "sym": "PINELABS",
+    "name": "Pine Labs",
+    "sector": "Finance",
+    "cap": "custom"
+  },
+  {
+    "sym": "JBMA",
+    "name": "JBM Auto",
+    "sector": "Auto",
+    "cap": "custom"
+  },
+  {
+    "sym": "GESHIP",
+    "name": "Great Eastern Shipping",
+    "sector": "Logistics",
+    "cap": "custom"
+  },
+  {
+    "sym": "AEGISLOG",
+    "name": "Aegis Logistics",
+    "sector": "Logistics",
+    "cap": "custom"
+  },
+  {
+    "sym": "TRITURBINE",
+    "name": "Triveni Turbine",
+    "sector": "Engineering",
+    "cap": "custom"
+  },
+  {
+    "sym": "PGEL",
+    "name": "PG Electroplast",
+    "sector": "Electronics",
+    "cap": "custom"
+  },
+  {
+    "sym": "COHANCE",
+    "name": "Cohance Lifesciences",
+    "sector": "Pharma",
+    "cap": "custom"
+  },
+  {
+    "sym": "INOXWIND",
+    "name": "Inox Wind",
+    "sector": "Energy",
+    "cap": "custom"
+  },
+  {
+    "sym": "RPOWER",
+    "name": "Reliance Power",
+    "sector": "Energy",
+    "cap": "custom"
+  },
+  {
+    "sym": "NBCC",
+    "name": "NBCC India",
+    "sector": "Realty",
+    "cap": "custom"
+  },
+  {
+    "sym": "ANANTRAJ",
+    "name": "Anant Raj",
+    "sector": "Realty",
+    "cap": "custom"
+  },
+  {
+    "sym": "ARE&M",
+    "name": "Amara Raja Energy & Mobility",
+    "sector": "Auto",
+    "cap": "custom"
+  },
+  {
+    "sym": "IDBI",
+    "name": "IDBI Bank",
+    "sector": "Banking",
+    "cap": "custom"
+  },
+  {
+    "sym": "FIRSTCRY",
+    "name": "Brainbees Solutions",
+    "sector": "Retail",
+    "cap": "custom"
+  },
+  {
+    "sym": "SONACOMS",
+    "name": "Sona BLW Precision Forgings",
+    "sector": "Auto",
+    "cap": "custom"
+  },
+  {
+    "sym": "FSL",
+    "name": "Firstsource Solutions",
+    "sector": "IT",
+    "cap": "custom"
+  },
+  {
+    "sym": "REDINGTON",
+    "name": "Redington",
+    "sector": "IT",
+    "cap": "custom"
+  },
+  {
+    "sym": "DELHIVERY",
+    "name": "Delhivery",
+    "sector": "Logistics",
+    "cap": "custom"
+  },
+  {
+    "sym": "HBLENGINE",
+    "name": "HBL Engineering",
+    "sector": "Industrials",
+    "cap": "custom"
+  },
+  {
+    "sym": "BLS",
+    "name": "BLS International Services",
+    "sector": "Services",
+    "cap": "custom"
+  },
+  {
+    "sym": "MANAPPURAM",
+    "name": "Manappuram Finance",
+    "sector": "Finance",
+    "cap": "custom"
+  },
+  {
+    "sym": "ITI",
+    "name": "ITI",
+    "sector": "Telecom",
+    "cap": "custom"
+  },
+  {
+    "sym": "CAMS",
+    "name": "Computer Age Management Services",
+    "sector": "Finance",
+    "cap": "custom"
+  },
+  {
+    "sym": "JYOTICNC",
+    "name": "Jyoti CNC Automation",
+    "sector": "Industrials",
+    "cap": "custom"
+  },
+  {
+    "sym": "URBANCO",
+    "name": "Urban Company",
+    "sector": "Services",
+    "cap": "custom"
+  },
+  {
+    "sym": "ANANDRATHI",
+    "name": "Anand Rathi Wealth",
+    "sector": "Finance",
+    "cap": "custom"
   }
 ]
