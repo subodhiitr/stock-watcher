@@ -11,7 +11,7 @@ const { initializeProxy, proxyRequestHandler } = require('../ticker_proxy.js') a
   proxyRequestHandler: http.RequestListener
 }
 
-const proxyPathPrefixes = ['/nse', '/ollama', '/openai', '/simulation-replay', '/yahoo']
+const proxyPathPrefixes = ['/nse', '/ollama', '/openai', '/paper-trades', '/simulation-replay', '/stream', '/yahoo']
 const proxyPaths = new Set([
   '/dashboard-bootstrap',
   '/dashboard-market',

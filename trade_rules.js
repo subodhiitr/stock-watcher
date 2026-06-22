@@ -18,6 +18,7 @@
     SIMULATION_TOP_N: 10,
     SIMULATION_DAILY_MAX_TRADES: 25,
     SIMULATION_DAILY_MAX_STOPS: 4,
+    SIMULATION_OVERRIDE_STOP_GUARD: false,
     SIMULATION_DAILY_MAX_STOPS_PROFIT_MULTIPLIER: 2,
     SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT: 0.2,
     SIMULATION_DAILY_MAX_NET_LOSS_PCT: 0.6,
@@ -75,6 +76,7 @@
     SIMULATION_TOP_N: 'Number of highest-ranked candidates considered first for simulation entries.',
     SIMULATION_DAILY_MAX_TRADES: 'Maximum number of new simulation entries allowed in one trading day.',
     SIMULATION_DAILY_MAX_STOPS: 'Base number of losing stop exits allowed in one day before blocking fresh entries.',
+    SIMULATION_OVERRIDE_STOP_GUARD: 'When enabled, simulation does not block fresh entries after hitting the daily stop guard. Other guards (daily loss, trade limit, cooldowns) still apply.',
     SIMULATION_DAILY_MAX_STOPS_PROFIT_MULTIPLIER: 'Multiplier applied to the daily stop limit after the day has enough profit buffer.',
     SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT: 'Portfolio profit percent needed before the higher daily stop limit is allowed.',
     SIMULATION_DAILY_MAX_NET_LOSS_PCT: 'Maximum net daily loss percent of portfolio capital before fresh entries are blocked.',
@@ -196,7 +198,8 @@
     settings = withDefaults(settings);
     if ((Number(stats.entries) || 0) >= settings.SIMULATION_DAILY_MAX_TRADES) return `daily trade limit ${settings.SIMULATION_DAILY_MAX_TRADES}`;
     const stopLimit = Number(stats.dailyStopLimit ?? getEffectiveStopLimit(stats.netPnl, settings));
-    if ((Number(stats.stops) || 0) >= stopLimit) {
+    const stopGuardOverride = !!settings.SIMULATION_OVERRIDE_STOP_GUARD;
+    if (!stopGuardOverride && (Number(stats.stops) || 0) >= stopLimit) {
       return `daily stop limit ${stopLimit}${stopLimit > settings.SIMULATION_DAILY_MAX_STOPS ? ' (profit buffer)' : ''}`;
     }
     if ((Number(stats.netLossPct) || 0) >= settings.SIMULATION_DAILY_MAX_NET_LOSS_PCT) return `daily loss guard ${round3(stats.netLossPct)}%`;

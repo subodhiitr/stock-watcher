@@ -3841,8 +3841,10 @@ async function proxyRequestHandler(req, res) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, index, symbols: nseIdxCache[cacheKey].symbols, stale: true }));
       } else {
-        res.writeHead(502, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
+        // Graceful fallback: keep dashboard startup healthy even if NSE blocks this endpoint.
+        console.warn(`[nse-idx-cache] empty fallback for "${index}" after error: ${e.message}`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, index, symbols: [], unavailable: true, error: e.message }));
       }
     }
     return;

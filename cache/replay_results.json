@@ -1,5 +1,5 @@
 {
-  "savedAt": 1782059933790,
+  "savedAt": 1782113986779,
   "entries": [
     {
       "key": "2026-06-18|autotune|c86046f63c9c880a|619612257013ae6b",
@@ -5358,6 +5358,80 @@
               "openExposure": 0,
               "cashAvailable": 2504219.4,
               "tradeCount": 102
+            },
+            "maxOpen": 20,
+            "maxActiveOpen": 15,
+            "maxNewPerCycle": 4,
+            "firstHourMaxEntries": 2,
+            "dailyMaxTrades": 25,
+            "dailyMaxStops": 4,
+            "dailyMaxStopsWhenProfitBuffer": 8,
+            "dailyStopProfitBufferPct": 0.2,
+            "maxPositionExposure": 100000,
+            "replayMode": "long+short",
+            "shortMinScore": 45
+          },
+          "summary": {
+            "trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "winRate": 0,
+            "gross": 0,
+            "fees": 0,
+            "net": 0,
+            "returnPct": 0,
+            "maxDrawdown": 0,
+            "maxDrawdownPct": 0,
+            "maxLossStreak": 0,
+            "currentLossStreak": 0
+          },
+          "trades": [],
+          "rejected": [],
+          "setupStats": [],
+          "quality": {
+            "summary": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winRate": 0,
+              "net": 0,
+              "avgHoldMin": 0,
+              "avgNetPct": 0
+            },
+            "bySetup": [],
+            "byExit": [],
+            "byHour": []
+          },
+          "dataQuality": [],
+          "top": [],
+          "bottom": []
+        }
+      }
+    },
+    {
+      "key": "22 Jun 2026|report|2214f258fcf1cc32|b5b98ddb2857fdb2",
+      "savedAt": 1782113986778,
+      "hitAt": 1782113986778,
+      "payload": {
+        "ok": true,
+        "date": "22 Jun 2026",
+        "count": 0,
+        "result": {
+          "snapshots": 0,
+          "first": null,
+          "last": null,
+          "settings": {
+            "capital": 2510000,
+            "availableCash": 1708148.5,
+            "capitalSource": "paper_trades.json portfolio capital",
+            "capitalDetail": {
+              "initial": 500000,
+              "addedCapital": 2010000,
+              "capital": 2510000,
+              "realized": -4736,
+              "openExposure": 797115.5,
+              "cashAvailable": 1708148.5,
+              "tradeCount": 129
             },
             "maxOpen": 20,
             "maxActiveOpen": 15,

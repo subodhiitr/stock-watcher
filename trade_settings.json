@@ -1,4 +1,6 @@
 {
-  "savedAt": 1781959177411,
-  "overrides": {}
+  "savedAt": 1782120473046,
+  "overrides": {
+    "SIMULATION_OVERRIDE_STOP_GUARD": 1
+  }
 }

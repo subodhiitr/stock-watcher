@@ -1002,7 +1002,8 @@
     if (slots <= 0) reasons.push('open position limit reached');
     if (Number.isFinite(cash) && cash <= 0) reasons.push('no available cash');
     const stopLimit = Number(dayStats.dailyStopLimit ?? TradeRules.getEffectiveStopLimit(dayStats.netPnl, settings));
-    if ((Number(dayStats.stops) || 0) >= stopLimit) reasons.push(`daily stop guard ${dayStats.stops}/${stopLimit}`);
+    const stopGuardOverride = !!settings.SIMULATION_OVERRIDE_STOP_GUARD;
+    if (!stopGuardOverride && (Number(dayStats.stops) || 0) >= stopLimit) reasons.push(`daily stop guard ${dayStats.stops}/${stopLimit}`);
     if ((Number(dayStats.entries) || 0) >= Number(settings.SIMULATION_DAILY_MAX_TRADES)) reasons.push(`daily trade limit ${dayStats.entries}/${settings.SIMULATION_DAILY_MAX_TRADES}`);
     if ((Number(dayStats.netLossPct) || 0) >= Number(settings.SIMULATION_DAILY_MAX_NET_LOSS_PCT)) reasons.push(`daily loss guard ${dayStats.netLossPct}%`);
     return {
@@ -1018,6 +1019,7 @@
       firstHourMax:Number(settings.SIMULATION_FIRST_HOUR_MAX_ENTRIES) || 0,
       stops:Number(dayStats.stops) || 0,
       stopLimit,
+      stopGuardOverride,
       netPnl:Number(dayStats.netPnl) || 0,
       netLossPct:Number(dayStats.netLossPct) || 0,
       cashAvailable:Number.isFinite(cash) ? round2(cash) : null,

@@ -1,4 +1,4 @@
-﻿// ═══════════════════════════════════
+// ═══════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════
 // Adaptive refresh: 2 min during market hours (9:15–15:30 IST), 10 min outside
@@ -701,6 +701,7 @@ const SIMULATION_MAX_ACTIVE_OPEN = TRADE_RULE_DEFAULTS.SIMULATION_MAX_ACTIVE_OPE
 const SIMULATION_TOP_N = TRADE_RULE_DEFAULTS.SIMULATION_TOP_N;
 const SIMULATION_DAILY_MAX_TRADES = TRADE_RULE_DEFAULTS.SIMULATION_DAILY_MAX_TRADES;
 const SIMULATION_DAILY_MAX_STOPS = TRADE_RULE_DEFAULTS.SIMULATION_DAILY_MAX_STOPS;
+const SIMULATION_OVERRIDE_STOP_GUARD = !!TRADE_RULE_DEFAULTS.SIMULATION_OVERRIDE_STOP_GUARD;
 const SIMULATION_DAILY_MAX_STOPS_PROFIT_MULTIPLIER = TRADE_RULE_DEFAULTS.SIMULATION_DAILY_MAX_STOPS_PROFIT_MULTIPLIER;
 const SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT = TRADE_RULE_DEFAULTS.SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT;
 const SIMULATION_DAILY_MAX_NET_LOSS_PCT = TRADE_RULE_DEFAULTS.SIMULATION_DAILY_MAX_NET_LOSS_PCT;
@@ -903,7 +904,7 @@ async function connectYahoo() {
     dataSource='yahoo'; activateDashboard('yahoo');
   } catch(e) {
     ps.style.display='none';
-    ce.textContent='✗ Cannot reach proxy. Run: node ticker_proxy.js';
+    ce.textContent='✗ Cannot reach backend proxy. Start Remix server (or node ticker_proxy.js for standalone mode).';
   }
 }
 
@@ -1023,7 +1024,7 @@ async function connectNSE() {
     dataSource='nse'; activateDashboard('nse');
   } catch(e) {
     ps.style.display='none';
-    ce.textContent='✗ Cannot reach proxy. Run: node ticker_proxy.js';
+    ce.textContent='✗ Cannot reach backend proxy. Start Remix server (or node ticker_proxy.js for standalone mode).';
   }
 }
 
@@ -1921,9 +1922,19 @@ function getNewSimulationOpenTrades() {
   return paperTrades.filter(t => isOpenTrade(t) && keys.has(simulationTradeKey(t)));
 }
 
+function getNewSimulationEventTrades() {
+  const keys = newSimulationTradeKeys;
+  return paperTrades.filter(t => keys.has(simulationTradeKey(t)));
+}
+
 function applyPaperTradesState(payload, { trackNewTrades = false } = {}) {
   if (!payload || !Array.isArray(payload.trades)) return;
   const prevOpenKeys = new Set(paperTrades.filter(isOpenTrade).map(simulationTradeKey).filter(Boolean));
+  const prevStatusByKey = new Map(
+    paperTrades
+      .map(trade => [simulationTradeKey(trade), String(trade?.status || '').toLowerCase()])
+      .filter(([key]) => !!key)
+  );
   paperTrades = payload.trades;
   paperTradesLoaded = true;
 
@@ -1936,11 +1947,37 @@ function applyPaperTradesState(payload, { trackNewTrades = false } = {}) {
 
   if (trackNewTrades) {
     let changed = false;
+    const nowMs = Date.now();
     for (const trade of paperTrades) {
       const key = simulationTradeKey(trade);
-      if (!key || !isOpenTrade(trade) || prevOpenKeys.has(key)) continue;
-      newSimulationTradeKeys.add(key);
-      changed = true;
+      if (!key) continue;
+      const prevStatus = prevStatusByKey.get(key) || '';
+      const nowOpen = isOpenTrade(trade);
+      const nowClosed = isClosedTrade(trade);
+
+      // New open entries
+      if (nowOpen && !prevOpenKeys.has(key)) {
+        newSimulationTradeKeys.add(key);
+        changed = true;
+        continue;
+      }
+
+      // Exit events for tracked positions (open -> closed)
+      if (nowClosed && prevStatus === 'open') {
+        newSimulationTradeKeys.add(key);
+        changed = true;
+        continue;
+      }
+
+      // Some simulation exits create a new closed record (e.g. partial close) with no previous key.
+      // Mark only very recent closed simulation rows to avoid flooding old history.
+      if (nowClosed && !prevStatus && String(trade?.source || '').toLowerCase() === 'simulation') {
+        const closedAtMs = new Date(trade.closedAt || trade.openedAt || 0).getTime();
+        if (Number.isFinite(closedAtMs) && (nowMs - closedAtMs) <= 3 * 60 * 1000) {
+          newSimulationTradeKeys.add(key);
+          changed = true;
+        }
+      }
     }
     if (changed) saveNewSimulationTradeKeys();
   }
@@ -2006,6 +2043,8 @@ function subscribePaperTradesStream() {
 function renderOpenTradeRows(openTrades, newKeys) {
   return openTrades.length ? openTrades.map(trade => {
     const isOpen = isOpenTrade(trade);
+    const eventType = isOpen ? 'Entry' : 'Exit';
+    const transactionTime = isOpen ? trade.openedAt : (trade.closedAt || trade.openedAt);
     const current = isOpen ? getCurrentTradePrice(trade.symbol) : Number(trade.exitPrice);
     const pnl = isOpen
       ? getPaperTradePnl(trade, current)
@@ -2036,11 +2075,12 @@ function renderOpenTradeRows(openTrades, newKeys) {
       <td>${moneyINR(trade.target)}</td>
       <td>${moneyINR(trade.stop)}</td>
       <td class="portfolio-pnl ${cls}">${pnl ? `${moneyINR(pnl.pnl)} (${pnl.pnlPct}% net)` : '--'}</td>
-      <td>${escapeHTML(formatTradeDateTime(isOpen ? trade.openedAt : (trade.closedAt || trade.openedAt)))}</td>
+      <td>${eventType}</td>
+      <td>${escapeHTML(formatTradeDateTime(transactionTime))}</td>
       <td class="portfolio-journal-cell" title="${escapeHTML(formatEntryJournal(trade))}">${escapeHTML(formatEntryJournal(trade))}</td>
       <td>${action}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="13" style="color:var(--muted);text-align:center;padding:16px">No trades</td></tr>`;
+  }).join('') : `<tr><td colspan="14" style="color:var(--muted);text-align:center;padding:16px">No trades</td></tr>`;
 }
 
 function renderOpenTradesModal() {
@@ -2077,7 +2117,7 @@ function renderOpenTradesModal() {
     <div class="portfolio-section-title">${openTradesModalMode === 'new' ? 'New Trade Events' : 'All Open Trades'}</div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table open-trades-table">
-        <thead><tr><th>New</th><th>Mode</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Live</th><th>Target</th><th>SL</th><th>Net P&L</th><th>Entry Time</th><th>Entry Why</th><th>Action</th></tr></thead>
+        <thead><tr><th>New</th><th>Mode</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Live</th><th>Target</th><th>SL</th><th>Net P&L</th><th>Event</th><th>Txn Time</th><th>Entry Why</th><th>Action</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -2138,15 +2178,16 @@ function getDashboardHealthItems() {
 
 function buildDashboardNotifications() {
   const items = [];
+  const now = Date.now();
   const openSim = getSimulationOpenTrades();
   const newSim = getNewSimulationOpenTrades();
   const dayPnl = todaysClosedPnl();
   const health = getDashboardHealthItems();
-  health.slice(0, 4).forEach(text => items.push({ level:'warn', title:'Dashboard health', text }));
-  if (newSim.length) items.push({ level:'good', title:'New simulation trades', text:`${newSim.length} new open trade${newSim.length === 1 ? '' : 's'}: ${newSim.map(t => t.symbol).join(', ')}` });
-  if (simulationState === 'running') items.push({ level:'good', title:'Simulation active', text:`${openSim.length} simulation positions open` });
-  if (simulationState === 'settling') items.push({ level:'warn', title:'Simulation settling', text:'No new entries; exits continue to be managed' });
-  if (Math.abs(dayPnl) > 0) items.push({ level:dayPnl >= 0 ? 'good' : 'danger', title:'Today P/L', text:moneyINR(dayPnl) });
+  health.slice(0, 4).forEach(text => items.push({ level:'warn', title:'Dashboard health', text, at:now }));
+  if (newSim.length) items.push({ level:'good', title:'New simulation trades', text:`${newSim.length} new open trade${newSim.length === 1 ? '' : 's'}: ${newSim.map(t => t.symbol).join(', ')}`, at:now });
+  if (simulationState === 'running') items.push({ level:'good', title:'Simulation active', text:`${openSim.length} simulation positions open`, at:now });
+  if (simulationState === 'settling') items.push({ level:'warn', title:'Simulation settling', text:'No new entries; exits continue to be managed', at:now });
+  if (Math.abs(dayPnl) > 0) items.push({ level:dayPnl >= 0 ? 'good' : 'danger', title:'Today P/L', text:moneyINR(dayPnl), at:now });
   getAllStockRows().slice(0, 220).forEach(row => {
     const t = intradayData[row.sym];
     if (!t || getIntradayFreshness(t).stale) return;
@@ -2155,9 +2196,9 @@ function buildDashboardNotifications() {
     const guard = getRiskGuard(row, t, score);
     const setup = getSetupType(row, t, guard);
     if (t.entryStatus === 'Triggered' && /FRESH_BREAKOUT|MOMENTUM_RUNNER|VOLUME_SHOCK/i.test(setup)) {
-      items.push({ level:'good', title:`${row.sym} ${setup}`, text:`Score ${score} | ${t.entryTrigger || 'Triggered'}` });
+      items.push({ level:'good', title:`${row.sym} ${setup}`, text:`Score ${score} | ${t.entryTrigger || 'Triggered'}`, at:now });
     } else if (sig === 'sell' && t.entryStatus === 'Triggered') {
-      items.push({ level:'danger', title:`${row.sym} short setup`, text:`Score ${score} | ${setup}` });
+      items.push({ level:'danger', title:`${row.sym} short setup`, text:`Score ${score} | ${setup}`, at:now });
     }
   });
   paperTrades
@@ -2168,11 +2209,12 @@ function buildDashboardNotifications() {
       level:String(t.status).toLowerCase() === 'open' ? 'good' : (Number(t.pnl) >= 0 ? 'good' : 'danger'),
       title:`${String(t.status || '').toUpperCase()} ${t.symbol}`,
       text:[String(t.side || '').toUpperCase(), t.qty ? `${t.qty} qty` : '', t.pnl != null ? moneyINR(t.pnl) : moneyINR(t.entryPrice)].filter(Boolean).join(' | '),
+      at:now,
     }));
   Object.entries(stockNewsCache).slice(-10).forEach(([key, value]) => {
     const sym = key.split('|')[0];
     const ev = (value.events || []).find(e => e?.type === 'Results' || /dividend|result|board/i.test(`${e?.type || ''} ${e?.title || ''}`));
-    if (ev) items.push({ level:/dividend/i.test(`${ev.type || ''} ${ev.title || ''}`) ? 'good' : 'warn', title:`${sym} event`, text:ev.title || ev.type || 'Event' });
+    if (ev) items.push({ level:/dividend/i.test(`${ev.type || ''} ${ev.title || ''}`) ? 'good' : 'warn', title:`${sym} event`, text:ev.title || ev.type || 'Event', at:now });
   });
   return items.slice(0, 12);
 }
@@ -2188,7 +2230,10 @@ function renderNotificationPanel() {
   if (!panel) return;
   panel.style.display = notificationsOpen ? 'block' : 'none';
   const content = items.length
-    ? items.map(item => `<div class="notification-item ${escapeHTML(item.level || '')}"><strong>${escapeHTML(item.title)}</strong><span>${escapeHTML(item.text)}</span></div>`).join('')
+    ? items.map(item => {
+        const timeStr = item.at ? formatTradeDateTime(item.at) : '--';
+        return `<div class="notification-item ${escapeHTML(item.level || '')}"><strong>${escapeHTML(item.title)}</strong><span>${escapeHTML(item.text)}</span><div class="notification-time">${escapeHTML(timeStr)}</div></div>`;
+      }).join('')
     : '<div class="notification-item"><strong>No alerts</strong><span>Dashboard looks quiet right now.</span></div>';
   panel.innerHTML = `
     <div class="notification-panel-header">
@@ -2212,6 +2257,7 @@ function renderTopActionBar() {
   const openTrades = paperTrades.filter(t => String(t.status || '').toLowerCase() === 'open');
   pruneNewSimulationTradeKeys();
   const newOpenTrades = getNewSimulationOpenTrades();
+  const newEventTrades = getNewSimulationEventTrades();
   const dayPnl = todaysClosedPnl();
   const tabSyms = new Set(
     currentView === 'etfs'
@@ -2233,13 +2279,13 @@ function renderTopActionBar() {
   set('action-freshness', freshText, stale ? 'down' : '');
   set('action-simulation', simulationState.toUpperCase(), simulationState === 'running' ? 'up' : simulationState === 'settling' ? 'down' : '');
   set('action-open-trades', `${openTrades.length} / ${moneyINR(summary.openExposure)}`);
-  set('action-new-trades', String(newOpenTrades.length), newOpenTrades.length ? 'up' : '');
+  set('action-new-trades', String(newEventTrades.length), newEventTrades.length ? 'up' : '');
   set('action-day-pnl', moneyINR(dayPnl), portfolioValueClass(dayPnl));
   set('action-last-refresh', bgRefreshActive ? 'Refreshing...' : lastDashboardRefreshAt ? new Date(lastDashboardRefreshAt).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) : '--');
   const stockSearch = document.getElementById('search-box');
   if (stockSearch) stockSearch.style.display = currentView === 'stocks' ? '' : 'none';
   const newCard = document.getElementById('new-trades-card');
-  if (newCard) newCard.classList.toggle('has-new', newOpenTrades.length > 0);
+  if (newCard) newCard.classList.toggle('has-new', newEventTrades.length > 0);
   const openCard = document.getElementById('open-trades-card');
   if (openCard) openCard.classList.toggle('has-open', openTrades.length > 0);
   const simCard = document.getElementById('simulation-card');
@@ -2542,6 +2588,16 @@ async function saveTradeSettingOverrides(overrides) {
   }
 }
 
+async function toggleSimulationStopGuardOverride() {
+  const current = loadTradeSettingOverrides();
+  const enabledNow = !!(current?.SIMULATION_OVERRIDE_STOP_GUARD ?? SIMULATION_OVERRIDE_STOP_GUARD);
+  const next = { ...current, SIMULATION_OVERRIDE_STOP_GUARD: !enabledNow };
+  await saveTradeSettingOverrides(next);
+  renderTopActionBar();
+  if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+}
+
 async function applyReplaySettings(row) {
   if (!row) return;
   const current = loadTradeSettingOverrides();
@@ -2569,6 +2625,7 @@ function renderSettingsModal() {
   const overrides = loadTradeSettingOverrides();
   const effective = TradeRules.withDefaults ? TradeRules.withDefaults(getSimulationEngineSettings()) : { ...defaults, ...getSimulationEngineSettings() };
   const summary = getPortfolioSummary();
+  const stopGuardOverride = !!effective.SIMULATION_OVERRIDE_STOP_GUARD;
   const rows = Object.keys(defaults).map(key => {
     const current = effective[key];
     const def = defaults[key];
@@ -2584,6 +2641,7 @@ function renderSettingsModal() {
       <div class="settings-card"><div class="label">Portfolio capital</div><div class="value">${moneyINR(effective.PORTFOLIO_INITIAL_CAPITAL)}</div></div>
       <div class="settings-card"><div class="label">Per position cap</div><div class="value">${moneyINR(effective.MAX_POSITION_EXPOSURE)}</div></div>
       <div class="settings-card"><div class="label">Minimum net profit</div><div class="value">${formatSettingValue(effective.SIMULATION_MIN_NET_PROFIT_PCT, 'SIMULATION_MIN_NET_PROFIT_PCT')}</div></div>
+      <div class="settings-card"><div class="label">Stop guard override</div><div class="value ${stopGuardOverride ? 'up' : ''}">${stopGuardOverride ? 'Enabled' : 'Disabled'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="toggleSimulationStopGuardOverride()">${stopGuardOverride ? 'Disable override' : 'Enable override'}</button></div></div>
     </div>
     <div class="portfolio-section-title">Effective Trade Rule Settings</div>
     <div class="settings-table-wrap">
@@ -2729,6 +2787,7 @@ function getSimulationEngineSettings() {
     SIMULATION_TOP_N,
     SIMULATION_DAILY_MAX_TRADES,
     SIMULATION_DAILY_MAX_STOPS,
+    SIMULATION_OVERRIDE_STOP_GUARD,
     SIMULATION_DAILY_MAX_STOPS_PROFIT_MULTIPLIER,
     SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT,
     SIMULATION_DAILY_MAX_NET_LOSS_PCT,
@@ -4118,7 +4177,7 @@ async function closePaperTradeAtPrice(trade, exitPrice, reason, silent = false) 
   try {
     await postPaperTrade('close', { id: trade.id, exitPrice, reason });
     applyClosedTradeLocally(trade.id, exitPrice, reason);
-    loadPaperTrades(true).catch(e => console.warn('post-close reconcile failed', e.message));
+    loadPaperTrades(true, true).catch(e => console.warn('post-close reconcile failed', e.message));
     if (document.getElementById('fund-modal')?.style.display === 'flex') openFundModal(trade.symbol);
     return true;
   } catch (e) {
@@ -4132,7 +4191,7 @@ async function partialClosePaperTradeAtPrice(trade, exitPrice, qty, reason, runn
   if (!trade?.id || !Number.isFinite(Number(exitPrice)) || !Number.isFinite(Number(qty)) || Number(qty) <= 0) return false;
   try {
     await postPaperTrade('partial-close', { id: trade.id, exitPrice, qty:Math.floor(Number(qty)), reason, runner:!!runner });
-    await loadPaperTrades(true);
+    await loadPaperTrades(true, true);
     renderTable();
     if (currentView === 'etfs') renderETFSection();
     if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
@@ -4169,15 +4228,32 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
       if (!openAfterExits.length) setSimulationState('off');
       return;
     }
-    if (simulationState !== 'running' || !allowEntries || !isSimulationEntryWindow() || isSimulationEodSettlementTime()) return;
+    if (simulationState !== 'running' || !allowEntries || !isSimulationEntryWindow() || isSimulationEodSettlementTime()) {
+      const blockReasons = [];
+      if (simulationState !== 'running') blockReasons.push(`state=${simulationState}`);
+      if (!allowEntries) blockReasons.push('allowEntries=false');
+      if (!isSimulationEntryWindow()) blockReasons.push('outside entry window');
+      if (isSimulationEodSettlementTime()) blockReasons.push('EOD settlement time');
+      if (blockReasons.length) console.warn('[SimCycle] Entry blocked:', blockReasons.join(', '));
+      return;
+    }
 
     let summary = getPortfolioSummary();
     const totalOpen = paperTrades.filter(isOpenTrade).length;
     const simOpenCount = getSimulationOpenTrades().length;
     let slots = Math.max(0, Math.min(SIMULATION_MAX_OPEN - totalOpen, SIMULATION_MAX_ACTIVE_OPEN - simOpenCount));
-    if (slots <= 0 || summary.cashAvailable <= 0) return;
+    if (slots <= 0 || summary.cashAvailable <= 0) {
+      if (slots <= 0) console.warn(`[SimCycle] No slots available: total=${totalOpen}, simOpen=${simOpenCount}`);
+      if (summary.cashAvailable <= 0) console.warn('[SimCycle] No cash available');
+      return;
+    }
 
     const candidates = getSimulationCandidates();
+    if (candidates.length === 0) {
+      console.warn('[SimCycle] No candidates found for simulation entry');
+      simulationBusy = false;
+      return;
+    }
     let openedThisCycle = 0;
     for (let i = 0; i < candidates.length; i++) {
       const { row, t, score, side } = candidates[i];
@@ -4188,7 +4264,11 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
       const setupType = candidates[i].derivedSetupType || candidates[i].setupType || getSetupType(row, t, getRiskGuard(row, t, score));
       const blockReason = getSimulationEntryBlockReason(row.sym, setupType);
       if (blockReason) {
-        if (/daily/i.test(blockReason)) break;
+        if (/daily/i.test(blockReason)) {
+          console.warn(`[SimCycle] Daily limit hit on ${row.sym}: ${blockReason}`);
+          break;
+        }
+        console.debug(`[SimCycle] ${row.sym} ${setupType} blocked: ${blockReason}`);
         continue;
       }
       const price = getCurrentTradePrice(row.sym);
@@ -4246,6 +4326,7 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
       await loadPaperTrades(true);
       const openedTrade = openResult?.trade || getOpenPaperTrade(row.sym);
       registerNewSimulationTrade(openedTrade);
+      if (openedTrade) console.log(`[SimCycle] Opened ${row.sym} ${setupType} ${qty}@${price}`);
       slots -= 1;
       openedThisCycle += 1;
     }
@@ -4257,7 +4338,7 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
   }
 }
 
-async function loadPaperTrades(forceServer = false) {
+async function loadPaperTrades(forceServer = false, trackNewTrades = false) {
   if (paperTradesLoading) return paperTradesLoading;
   paperTradesLoading = (async () => {
   try {
@@ -4269,7 +4350,7 @@ async function loadPaperTrades(forceServer = false) {
       if (!res.ok) throw new Error('paper-trades HTTP ' + res.status);
       payload = await res.json().catch(() => null);
     }
-    applyPaperTradesState(payload, { trackNewTrades: false });
+    applyPaperTradesState(payload, { trackNewTrades });
   } catch (e) {
     console.warn('loadPaperTrades failed', e.message);
     paperTrades = [];
@@ -4316,7 +4397,7 @@ function applyClosedTradeLocally(tradeId, exitPrice, reason = 'Manual exit') {
   const trade = paperTrades[idx];
   const closedAt = new Date().toISOString();
   const pnlObj = getPaperTradePnl(trade, exitPrice);
-  paperTrades[idx] = {
+  const closedTrade = {
     ...trade,
     status:'closed',
     exitPrice:+Number(exitPrice).toFixed(2),
@@ -4328,6 +4409,13 @@ function applyClosedTradeLocally(tradeId, exitPrice, reason = 'Manual exit') {
     charges:Number.isFinite(Number(pnlObj?.charges)) ? Number(pnlObj.charges) : null,
     chargeBreakup:pnlObj?.chargeBreakup || null,
   };
+  paperTrades[idx] = closedTrade;
+  // Track the closed trade as a new event
+  const key = simulationTradeKey(closedTrade);
+  if (key) {
+    newSimulationTradeKeys.add(key);
+    saveNewSimulationTradeKeys();
+  }
   paperTradesLoaded = true;
   renderTopActionBar();
   renderTable();
@@ -6803,3 +6891,4 @@ async function sendChatMessage(){
     input.focus();
   }
 }
+

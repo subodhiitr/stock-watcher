@@ -50,6 +50,7 @@
   .notification-item.warn strong{color:var(--yellow);}
   .notification-item.danger strong{color:var(--red);}
   .notification-item.good strong{color:var(--green);}
+  .notification-time{font-size:10px;color:var(--muted);margin-top:4px;font-family:'Space Mono',monospace;}
 
   /* SOURCE PANEL */
   #source-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 32px;margin-bottom:20px;}
