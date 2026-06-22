@@ -1,5 +1,5 @@
 {
-  "savedAt": 1782008760878,
+  "savedAt": 1782104836502,
   "portfolio": {
     "initialCapital": 500000,
     "capitalAdds": [
@@ -16,6 +16,316 @@
     ]
   },
   "trades": [
+    {
+      "id": "1782104836501-crx9ls",
+      "status": "open",
+      "symbol": "RECLTD",
+      "name": "REC Ltd",
+      "side": "buy",
+      "qty": 273,
+      "entryPrice": 365.5,
+      "target": 369.89,
+      "stop": 364.04,
+      "signal": "buy",
+      "score": 89,
+      "rr": 3,
+      "reservedCapital": 99781.5,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": "Triggered | Buy above 360.45 with VWAP hold | Above VWAP | SuperTrend bullish | RSI bullish",
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-22T05:07:16.501Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "RECLTD",
+          "transaction_type": "BUY",
+          "quantity": 273,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 365.5,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 369.89,
+          "stop": 364.04,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T05:07:16.501Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "RECLTD",
+              "transaction_type": "BUY",
+              "quantity": 273,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 365.5,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782104004078-z4tupr",
+      "status": "open",
+      "symbol": "AUROPHARMA",
+      "name": "Aurobindo Pharma",
+      "side": "buy",
+      "qty": 67,
+      "entryPrice": 1490,
+      "target": 1507.88,
+      "stop": 1484.04,
+      "signal": "buy",
+      "score": 9,
+      "rr": 3,
+      "reservedCapital": 99830,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": "Wait | Wait for clear VWAP/pivot confirmation | Below VWAP | SuperTrend bullish | RSI weak",
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-22T04:53:24.078Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "AUROPHARMA",
+          "transaction_type": "BUY",
+          "quantity": 67,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 1490,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 1507.88,
+          "stop": 1484.04,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T04:53:24.078Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "AUROPHARMA",
+              "transaction_type": "BUY",
+              "quantity": 67,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 1490,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782103900397-outig2",
+      "status": "open",
+      "symbol": "MGL",
+      "name": "Mahanagar Gas",
+      "side": "buy",
+      "qty": 81,
+      "entryPrice": 1230,
+      "target": 1244.76,
+      "stop": 1225.08,
+      "signal": "buy",
+      "score": 75,
+      "rr": 3,
+      "reservedCapital": 99630,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "FRESH_BREAKOUT",
+      "setup": "Simulation | FRESH_BREAKOUT | Triggered | Buy above 1225.00 with VWAP hold | Above VWAP | SuperTrend bullish | RSI bullish",
+      "entryContext": {
+        "selectedRank": 2,
+        "score": 75,
+        "setupType": "FRESH_BREAKOUT",
+        "side": "buy",
+        "reason": "selected rank 2",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 1225.00 with VWAP hold",
+          "vwap": 1226.75,
+          "vwapBandPosition": "upper-half",
+          "ema9": 1229.76,
+          "ema20": null,
+          "rsi": 66.9,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.16,
+          "rr": 3,
+          "reasons": [
+            "Above VWAP",
+            "SuperTrend bullish",
+            "RSI bullish",
+            "Opening range breakout",
+            "Above previous day high"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.57,
+          "sectorAvg": 0.42545454545454553
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T04:51:40.397Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "MGL",
+          "transaction_type": "BUY",
+          "quantity": 81,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 1230,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 1244.76,
+          "stop": 1225.08,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T04:51:40.397Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "MGL",
+              "transaction_type": "BUY",
+              "quantity": 81,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 1230,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782103900256-6e7964",
+      "status": "open",
+      "symbol": "ABCAPITAL",
+      "name": "Aditya Birla Capital",
+      "side": "buy",
+      "qty": 261,
+      "entryPrice": 382.65,
+      "target": 387.24,
+      "stop": 381.12,
+      "signal": "buy",
+      "score": 99,
+      "rr": 3,
+      "reservedCapital": 99871.65,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "FRESH_BREAKOUT",
+      "setup": "Simulation | FRESH_BREAKOUT | Triggered | Buy above 380.75 with VWAP hold | Above VWAP | SuperTrend bullish | RSI bullish",
+      "entryContext": {
+        "selectedRank": 1,
+        "score": 99,
+        "setupType": "FRESH_BREAKOUT",
+        "side": "buy",
+        "reason": "selected rank 1",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 380.75 with VWAP hold",
+          "vwap": 380.9,
+          "vwapBandPosition": "upper-half",
+          "ema9": 382.3,
+          "ema20": null,
+          "rsi": 63.3,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.77,
+          "rr": 3,
+          "reasons": [
+            "Above VWAP",
+            "SuperTrend bullish",
+            "RSI bullish",
+            "Opening range breakout",
+            "Above previous day high"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.57,
+          "sectorAvg": 0.8227999999999999
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T04:51:40.256Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "ABCAPITAL",
+          "transaction_type": "BUY",
+          "quantity": 261,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 382.65,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 387.24,
+          "stop": 381.12,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T04:51:40.256Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "ABCAPITAL",
+              "transaction_type": "BUY",
+              "quantity": 261,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 382.65,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ]
+      }
+    },
     {
       "id": "1782008639354-bq8c1u",
       "status": "closed",

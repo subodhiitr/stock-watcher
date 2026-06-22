@@ -1,13 +1,30 @@
 {
   "ok": true,
   "date": "2026-06-22",
-  "savedAt": 1782096960213,
-  "builtInMs": 39114,
+  "savedAt": 1782104440440,
+  "builtInMs": 40078,
   "source": "nse-market-wide+symbol-announcements",
   "scanned": 298,
-  "count": 3,
-  "symbolCount": 3,
+  "count": 5,
+  "symbolCount": 5,
   "items": [
+    {
+      "symbol": "AAVAS",
+      "name": "AAVAS",
+      "assetType": "stock",
+      "type": "Deal",
+      "title": "General Updates: Aavas Financiers Limited has informed the Exchange about Clarification Letter on Market Rumour",
+      "source": "NSE",
+      "url": "https://nsearchives.nseindia.com/corporate/AAVAS_22062026094137_CL.pdf",
+      "publishedAt": "2026-06-22T04:12:12.000Z",
+      "dateKey": "2026-06-22",
+      "resultVerdict": null,
+      "resultVerdictReason": null,
+      "newsSentiment": "Positive",
+      "tradeImpactScore": 80,
+      "tradeImpactAbs": 80,
+      "tradeImpactReason": "Business momentum, deal, approval, or expansion news"
+    },
     {
       "symbol": "AUROPHARMA",
       "name": "Aurobindo Pharma",
@@ -41,6 +58,23 @@
       "tradeImpactScore": 55,
       "tradeImpactAbs": 55,
       "tradeImpactReason": "Shareholder return or corporate action"
+    },
+    {
+      "symbol": "SUVEN",
+      "name": "Suven Pharmaceuticals",
+      "assetType": "stock",
+      "type": "Announcement",
+      "title": "Suven Life Sciences Limited has informed the Exchange regarding a press release dated Jun 22, 2026, titled \"Suven Life Sciences to showcase its Differentiated CNS Clinical Candidates and Partnering Strategies at BIO International Convention 2026, 22-25, June 2",
+      "source": "NSE",
+      "url": "https://nsearchives.nseindia.com/corporate/SUVEN_22062026102304_Suvenpressrelease22062026.pdf",
+      "publishedAt": "2026-06-22T04:53:19.000Z",
+      "dateKey": "2026-06-22",
+      "resultVerdict": null,
+      "resultVerdictReason": null,
+      "newsSentiment": "Neutral",
+      "tradeImpactScore": 20,
+      "tradeImpactAbs": 20,
+      "tradeImpactReason": "General company update"
     },
     {
       "symbol": "923GS2043",

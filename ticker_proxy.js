@@ -2448,7 +2448,7 @@ function chartToQuote(sym, data) {
       volume     : meta.regularMarketVolume || 0,
       open       : meta.regularMarketDayHigh ? (result.indicators?.quote?.[0]?.open?.[0] || 0) : 0,
       prevClose  : prev,
-      marketState: meta.marketState || 'CLOSED',
+      marketState: meta.marketState || '',
     };
   } catch(e) {
     return null;

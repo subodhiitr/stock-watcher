@@ -914,9 +914,15 @@ async function fetchYahooIndices() {
 
 function applyYahooQuotes(quotes) {
   let changed = false;
+  let sawMarketState = false;
+  let hasRegularSession = false;
   for (const [sym, q] of Object.entries(quotes || {})) {
     if (!q) continue;
-    marketOpen = (q.marketState || '').toUpperCase() === 'REGULAR';
+    const marketState = String(q.marketState || '').toUpperCase();
+    if (marketState) {
+      sawMarketState = true;
+      if (/REGULAR|OPEN/.test(marketState)) hasRegularSession = true;
+    }
     const prev = stockData[sym] || {};
     stockData[sym] = {
       price    : q.price    || prev.price    || 0,
@@ -929,6 +935,7 @@ function applyYahooQuotes(quotes) {
     };
     changed = true;
   }
+  if (sawMarketState) marketOpen = hasRegularSession;
   return changed;
 }
 
@@ -1038,8 +1045,15 @@ async function fetchNSEIndices() {
 async function fetchNSEMarketStatus() {
   try {
     const data = await nseGet('/api/marketStatus');
-    const seg  = (data.marketState||[]).find(s=>s.market==='Capital Market'||s.marketStatus);
-    marketOpen = seg ? (seg.marketStatus||'').toLowerCase().includes('open') : null;
+    const states = Array.isArray(data?.marketState) ? data.marketState : [];
+    const seg = states.find(s => /capital\s*market/i.test(String(s?.market || '')))
+      || states.find(s => /equity|capital|cm/i.test(String(s?.market || '')))
+      || null;
+    const statusText = String(seg?.marketStatus || '').toLowerCase();
+    if (statusText.includes('open')) marketOpen = true;
+    else if (statusText.includes('close')) marketOpen = false;
+    else if (!seg) marketOpen = isMarketHoursNow();
+    else marketOpen = null;
     renderMarketStatus();
   } catch(e) { console.warn('NSE market status:', e.message); }
 }
@@ -1666,7 +1680,7 @@ function getPortfolioCapital() {
 }
 
 function getOpenPaperTrade(sym) {
-  return paperTrades.find(t => t.status === 'open' && t.symbol === sym) || null;
+  return paperTrades.find(t => String(t.status || '').toLowerCase() === 'open' && t.symbol === sym) || null;
 }
 
 function estimateZerodhaIntradayCharges(entryPrice, exitPrice, qty, side = 'buy') {
@@ -2155,6 +2169,14 @@ function computeClosedPaperPnl(trade) {
   return getPaperTradePnl(trade, exit)?.pnl ?? null;
 }
 
+function isOpenTrade(trade) {
+  return String(trade?.status || '').toLowerCase() === 'open';
+}
+
+function isClosedTrade(trade) {
+  return String(trade?.status || '').toLowerCase() === 'closed';
+}
+
 function portfolioValueClass(v) {
   const n = Number(v);
   return n >= 0 ? 'up' : 'down';
@@ -2215,11 +2237,11 @@ function renderPortfolioModal() {
   const summary = getPortfolioSummary();
   const riskStats = getPortfolioRiskStats(paperTrades, summary.capital);
   const safety = getSimulationSafetySummary();
-  const openCount = paperTrades.filter(t => t.status === 'open').length;
-  const closedCount = paperTrades.filter(t => t.status === 'closed').length;
+  const openCount = paperTrades.filter(isOpenTrade).length;
+  const closedCount = paperTrades.filter(isClosedTrade).length;
   const todaysTrades = paperTrades.filter(isTradeToday);
   const transactionRows = todaysTrades.length ? todaysTrades.map(trade => {
-    const isOpen = trade.status === 'open';
+    const isOpen = isOpenTrade(trade);
     const current = isOpen ? getCurrentTradePrice(trade.symbol) : Number(trade.exitPrice);
     const livePnl = getPaperTradePnl(trade, current);
     const pnlObj = isOpen ? livePnl : { pnl:Number(trade.pnl), pnlPct:Number(trade.pnlPct), grossPnl:Number(trade.grossPnl), charges:Number(trade.charges), chargeBreakup:trade.chargeBreakup };
@@ -2515,7 +2537,7 @@ function setSimulationState(state) {
 
 function updateSimulationButton() {
   const btn = document.getElementById('simulation-btn');
-  const openSim = paperTrades.filter(t => t.status === 'open' && t.source === 'simulation').length;
+  const openSim = paperTrades.filter(t => isOpenTrade(t) && t.source === 'simulation').length;
   if (btn) {
     btn.classList.remove('primary', 'sim-running', 'sim-settling');
     if (simulationState === 'running') {
@@ -2567,7 +2589,7 @@ function isSimulationEodSettlementTime() {
 }
 
 function getSimulationOpenTrades() {
-  return paperTrades.filter(t => t.status === 'open' && t.source === 'simulation');
+  return paperTrades.filter(t => isOpenTrade(t) && t.source === 'simulation');
 }
 
 function getSimulationEngineSettings() {
@@ -2864,7 +2886,7 @@ function getSimulationCandidates() {
     Date.now(),
     getSimulationEngineSettings(),
     {
-      openSymbols:new Set(paperTrades.filter(t => t.status === 'open').map(t => t.symbol)),
+      openSymbols:new Set(paperTrades.filter(isOpenTrade).map(t => t.symbol)),
       entryBlockReason:(sym, setupType) => getSimulationEntryBlockReason(sym, setupType),
       market:{ indices:indexData },
     }
@@ -3082,7 +3104,7 @@ function buildSimulationSnapshotCandidates(limit = 30, lowestLimit = 30) {
     Date.now(),
     settings,
     {
-      openSymbols:new Set(paperTrades.filter(t => t.status === 'open').map(t => t.symbol)),
+      openSymbols:new Set(paperTrades.filter(isOpenTrade).map(t => t.symbol)),
       entryBlockReason:(sym, setupType) => getSimulationEntryBlockReason(sym, setupType),
       market:{ indices:indexData },
       topN:SIMULATION_TOP_N,
@@ -3389,9 +3411,9 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
   let currentBySymbol = new Map();
   const lastKnownBySymbol = new Map();
   const previousCandidateBySymbol = new Map();
-  const openTrades = () => trades.filter(t => t.status === 'open');
+  const openTrades = () => trades.filter(isOpenTrade);
   const simOpenTrades = () => openTrades().filter(t => t.source === 'simulation');
-  const realizedPnl = () => trades.filter(t => t.status === 'closed').reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
+  const realizedPnl = () => trades.filter(isClosedTrade).reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
   const openExposure = () => openTrades().reduce((sum, t) => sum + ((Number(t.entryPrice) || 0) * (Number(t.qty) || 0)), 0);
   const cashAvailable = () => capital + realizedPnl() - openExposure();
   const sameDay = (a, b) => getTradeDateKey(a) === getTradeDateKey(b);
@@ -3560,7 +3582,7 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
     const price = lastPrice.get(trade.symbol);
     if (Number.isFinite(price)) closeTrade(trade, price, 'Replay mark at last snapshot', lastAt.get(trade.symbol) || ordered.at(-1)?.at, true);
   }
-  const closed = trades.filter(t => t.status === 'closed');
+  const closed = trades.filter(isClosedTrade);
   const wins = closed.filter(t => Number(t.pnl) > 0).length;
   const net = closed.reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
   const fees = closed.reduce((sum, t) => sum + (Number(t.charges) || 0), 0);
@@ -3970,7 +3992,7 @@ async function closePaperTradeAtPrice(trade, exitPrice, reason, silent = false) 
   if (!trade?.id || !Number.isFinite(Number(exitPrice))) return false;
   try {
     await postPaperTrade('close', { id: trade.id, exitPrice, reason });
-    await loadPaperTrades();
+    await loadPaperTrades(true);
     renderTable();
     if (currentView === 'etfs') renderETFSection();
     if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
@@ -3988,7 +4010,7 @@ async function partialClosePaperTradeAtPrice(trade, exitPrice, qty, reason, runn
   if (!trade?.id || !Number.isFinite(Number(exitPrice)) || !Number.isFinite(Number(qty)) || Number(qty) <= 0) return false;
   try {
     await postPaperTrade('partial-close', { id: trade.id, exitPrice, qty:Math.floor(Number(qty)), reason, runner:!!runner });
-    await loadPaperTrades();
+    await loadPaperTrades(true);
     renderTable();
     if (currentView === 'etfs') renderETFSection();
     if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
@@ -4028,7 +4050,7 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
     if (simulationState !== 'running' || !allowEntries || !isSimulationEntryWindow() || isSimulationEodSettlementTime()) return;
 
     let summary = getPortfolioSummary();
-    const totalOpen = paperTrades.filter(t => t.status === 'open').length;
+    const totalOpen = paperTrades.filter(isOpenTrade).length;
     const simOpenCount = getSimulationOpenTrades().length;
     let slots = Math.max(0, Math.min(SIMULATION_MAX_OPEN - totalOpen, SIMULATION_MAX_ACTIVE_OPEN - simOpenCount));
     if (slots <= 0 || summary.cashAvailable <= 0) return;
@@ -4099,7 +4121,7 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
           },
         },
       });
-      await loadPaperTrades();
+      await loadPaperTrades(true);
       const openedTrade = openResult?.trade || getOpenPaperTrade(row.sym);
       registerNewSimulationTrade(openedTrade);
       slots -= 1;
@@ -4113,12 +4135,12 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
   }
 }
 
-async function loadPaperTrades() {
+async function loadPaperTrades(forceServer = false) {
   if (paperTradesLoading) return paperTradesLoading;
   paperTradesLoading = (async () => {
   try {
     let payload = null;
-    if (!paperTradesLoaded && dashboardBootstrap && Array.isArray(dashboardBootstrap.trades)) {
+    if (!forceServer && !paperTradesLoaded && dashboardBootstrap && Array.isArray(dashboardBootstrap.trades)) {
       payload = { trades:dashboardBootstrap.trades, portfolio:dashboardBootstrap.portfolio };
     } else {
       const res = await fetch(PAPER_TRADES_ENDPOINT, { signal: AbortSignal.timeout(5000) });
@@ -4169,6 +4191,19 @@ async function postPaperTrade(action, payload) {
   return json;
 }
 
+function applyOpenedTradeLocally(trade) {
+  if (!trade || !trade.symbol) return;
+  const idx = paperTrades.findIndex(t => isOpenTrade(t) && t.symbol === trade.symbol);
+  if (idx >= 0) paperTrades[idx] = trade;
+  else paperTrades.unshift(trade);
+  paperTradesLoaded = true;
+  renderTopActionBar();
+  renderTable();
+  if (currentView === 'etfs') renderETFSection();
+  if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
+  if (document.getElementById('open-trades-modal')?.style.display === 'flex') renderOpenTradesModal();
+}
+
 async function openPaperTrade(sym, side) {
   const t = intradayData[sym];
   const price = getCurrentTradePrice(sym);
@@ -4188,7 +4223,7 @@ async function openPaperTrade(sym, side) {
   const sideScore = side === 'sell' ? -Math.abs(score) : Math.abs(score);
   const plan = suggestion.plan || getPaperPlanForSide(t, side, price);
   try {
-    await postPaperTrade('open', {
+    const openResult = await postPaperTrade('open', {
       symbol: sym,
       name: asset.name || sym,
       side,
@@ -4206,10 +4241,8 @@ async function openPaperTrade(sym, side) {
       portfolioInitial:getPortfolioCapital(),
       setup: [t.entryStatus, t.entryTrigger, ...(t.reasons || []).slice(0, 3)].filter(Boolean).join(' | '),
     });
-    await loadPaperTrades();
-    renderTable();
-    if (currentView === 'etfs') renderETFSection();
-    if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
+    applyOpenedTradeLocally(openResult?.trade);
+    loadPaperTrades(true).catch(e => console.warn('post-open reconcile failed', e.message));
   } catch (e) {
     alert(e.message || 'Could not open paper trade');
   }
