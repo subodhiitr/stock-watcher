@@ -1,5 +1,5 @@
 {
-  "savedAt": 1782105594070,
+  "savedAt": 1782111332554,
   "portfolio": {
     "initialCapital": 500000,
     "capitalAdds": [
@@ -16,6 +16,2206 @@
     ]
   },
   "trades": [
+    {
+      "id": "1782111307231-6ucxxv",
+      "status": "open",
+      "symbol": "SONACOMS",
+      "name": "Sona BLW Precision Forgings",
+      "side": "buy",
+      "qty": 160,
+      "entryPrice": 622,
+      "target": 629.46,
+      "stop": 619.51,
+      "signal": "buy",
+      "score": 100,
+      "rr": 3,
+      "reservedCapital": 99520,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "FRESH_BREAKOUT",
+      "setup": "Simulation | FRESH_BREAKOUT | Triggered | Buy above 620.75 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "entryContext": {
+        "selectedRank": 1,
+        "score": 100,
+        "setupType": "FRESH_BREAKOUT",
+        "side": "buy",
+        "reason": "selected rank 1",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 620.75 with VWAP hold",
+          "vwap": 620.3,
+          "vwapBandPosition": "upper-half",
+          "ema9": 619.96,
+          "ema20": 619.13,
+          "rsi": 66.5,
+          "superTrendDirection": "bullish",
+          "relVolume": 2.1,
+          "rr": 3,
+          "reasons": [
+            "Above VWAP",
+            "EMA 9 above EMA 20",
+            "SuperTrend bullish",
+            "RSI bullish",
+            "Opening range breakout"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.48,
+          "sectorAvg": 0.7858823529411766
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T06:55:07.231Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "SONACOMS",
+          "transaction_type": "BUY",
+          "quantity": 160,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 622,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 629.46,
+          "stop": 619.51,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T06:55:07.231Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "SONACOMS",
+              "transaction_type": "BUY",
+              "quantity": 160,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 622,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782111307155-zb98rs",
+      "status": "closed",
+      "symbol": "ABCAPITAL",
+      "name": "Aditya Birla Capital",
+      "side": "buy",
+      "qty": 130,
+      "entryPrice": 382.65,
+      "target": null,
+      "stop": 381.12,
+      "signal": "buy",
+      "score": 99,
+      "rr": 3,
+      "reservedCapital": 49744.5,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "FRESH_BREAKOUT",
+      "setup": "Simulation | FRESH_BREAKOUT | Triggered | Buy above 380.75 with VWAP hold | Above VWAP | SuperTrend bullish | RSI bullish",
+      "entryContext": {
+        "selectedRank": 1,
+        "score": 99,
+        "setupType": "FRESH_BREAKOUT",
+        "side": "buy",
+        "reason": "selected rank 1",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 380.75 with VWAP hold",
+          "vwap": 380.9,
+          "vwapBandPosition": "upper-half",
+          "ema9": 382.3,
+          "ema20": null,
+          "rsi": 63.3,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.77,
+          "rr": 3,
+          "reasons": [
+            "Above VWAP",
+            "SuperTrend bullish",
+            "RSI bullish",
+            "Opening range breakout",
+            "Above previous day high"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.57,
+          "sectorAvg": 0.8227999999999999
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T04:51:40.256Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "ABCAPITAL",
+          "transaction_type": "BUY",
+          "quantity": 261,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 382.65,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 387.24,
+          "stop": 381.12,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T04:51:40.256Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "ABCAPITAL",
+              "transaction_type": "BUY",
+              "quantity": 261,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 382.65,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:54:35.416Z",
+            "event": "partial_exit_dry_run_created",
+            "reason": "Simulation partial target runner",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "ABCAPITAL",
+              "transaction_type": "SELL",
+              "quantity": 130,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 387.24,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:55:07.155Z",
+            "event": "partial_exit_dry_run_created",
+            "reason": "Simulation partial target runner",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "ABCAPITAL",
+              "transaction_type": "SELL",
+              "quantity": 130,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 387.24,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "ABCAPITAL",
+          "transaction_type": "SELL",
+          "quantity": 130,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 387.24,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "partialExits": [
+        {
+          "id": "1782111275416-mt12m2",
+          "qty": 130,
+          "exitPrice": 387.24,
+          "closedAt": "2026-06-22T06:54:35.416Z",
+          "reason": "Simulation partial target runner",
+          "pnl": 543.45
+        },
+        {
+          "id": "1782111307155-zb98rs",
+          "qty": 130,
+          "exitPrice": 387.24,
+          "closedAt": "2026-06-22T06:55:07.155Z",
+          "reason": "Simulation partial target runner",
+          "pnl": 543.45
+        }
+      ],
+      "_partialTargetBooked": true,
+      "_runnerArmed": true,
+      "_runnerWideTrail": true,
+      "parentId": "1782103900256-6e7964",
+      "exitPrice": 387.24,
+      "closedAt": "2026-06-22T06:55:07.155Z",
+      "closeReason": "Simulation partial target runner",
+      "pnl": 543.45,
+      "pnlPct": 1.09,
+      "grossPnl": 596.7,
+      "charges": 53.25,
+      "chargeBreakup": {
+        "total": 53.25,
+        "totalPct": 0.107,
+        "brokerage": 30.03,
+        "stt": 12.59,
+        "transaction": 3.07,
+        "gst": 5.98,
+        "sebi": 0.1,
+        "stamp": 1.49,
+        "turnover": 100085.7
+      }
+    },
+    {
+      "id": "1782111280759-n8dce6",
+      "status": "open",
+      "symbol": "GPPL",
+      "name": "Gujarat Pipavav Port",
+      "side": "buy",
+      "qty": 638,
+      "entryPrice": 156.5,
+      "target": 158.38,
+      "stop": 155.87,
+      "signal": "buy",
+      "score": 81,
+      "rr": 3,
+      "reservedCapital": 99847,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "FRESH_BREAKOUT",
+      "setup": "Simulation | FRESH_BREAKOUT | Triggered | Buy above 156.05 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "entryContext": {
+        "selectedRank": 3,
+        "score": 81,
+        "setupType": "FRESH_BREAKOUT",
+        "side": "buy",
+        "reason": "selected rank 3",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 156.05 with VWAP hold",
+          "vwap": 156.34,
+          "vwapBandPosition": "upper-half",
+          "ema9": 156.85,
+          "ema20": 156.83,
+          "rsi": 46.7,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.37,
+          "rr": 3,
+          "reasons": [
+            "Above VWAP",
+            "EMA 9 above EMA 20",
+            "SuperTrend bullish",
+            "Opening range breakout",
+            "Above previous day high"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.45,
+          "sectorAvg": 0.40166666666666667
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T06:54:40.759Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "GPPL",
+          "transaction_type": "BUY",
+          "quantity": 638,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 156.5,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 158.38,
+          "stop": 155.87,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T06:54:40.759Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "GPPL",
+              "transaction_type": "BUY",
+              "quantity": 638,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 156.5,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782111280693-oxm3ww",
+      "status": "open",
+      "symbol": "IRCTC",
+      "name": "IRCTC",
+      "side": "buy",
+      "qty": 190,
+      "entryPrice": 524,
+      "target": 530.29,
+      "stop": 521.9,
+      "signal": "buy",
+      "score": 91,
+      "rr": 3,
+      "reservedCapital": 99560,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "FRESH_BREAKOUT",
+      "setup": "Simulation | FRESH_BREAKOUT | Triggered | Buy above 523.90 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "entryContext": {
+        "selectedRank": 2,
+        "score": 91,
+        "setupType": "FRESH_BREAKOUT",
+        "side": "buy",
+        "reason": "selected rank 2",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 523.90 with VWAP hold",
+          "vwap": 522.94,
+          "vwapBandPosition": "upper-half",
+          "ema9": 523.63,
+          "ema20": 522.93,
+          "rsi": 63.2,
+          "superTrendDirection": "bullish",
+          "relVolume": 0.85,
+          "rr": 3,
+          "reasons": [
+            "Above VWAP",
+            "EMA 9 above EMA 20",
+            "SuperTrend bullish",
+            "RSI bullish",
+            "Opening range breakout"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.45,
+          "sectorAvg": 0.40166666666666667
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T06:54:40.693Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "IRCTC",
+          "transaction_type": "BUY",
+          "quantity": 190,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 524,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 530.29,
+          "stop": 521.9,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T06:54:40.693Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "IRCTC",
+              "transaction_type": "BUY",
+              "quantity": 190,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 524,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782111278032-5o5czv",
+      "status": "open",
+      "symbol": "JSWENERGY",
+      "name": "JSW Energy",
+      "side": "buy",
+      "qty": 171,
+      "entryPrice": 581.65,
+      "target": 588.63,
+      "stop": 579.32,
+      "signal": "buy",
+      "score": 97,
+      "rr": 3,
+      "reservedCapital": 99462.15,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "FRESH_BREAKOUT",
+      "setup": "Simulation | FRESH_BREAKOUT | Triggered | Buy above 581.00 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "entryContext": {
+        "selectedRank": 1,
+        "score": 97,
+        "setupType": "FRESH_BREAKOUT",
+        "side": "buy",
+        "reason": "selected rank 1",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 581.00 with VWAP hold",
+          "vwap": 577.99,
+          "vwapBandPosition": "upper-half",
+          "ema9": 581.5,
+          "ema20": 579.57,
+          "rsi": 60,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.12,
+          "rr": 3,
+          "reasons": [
+            "Above VWAP",
+            "EMA 9 above EMA 20",
+            "SuperTrend bullish",
+            "RSI bullish",
+            "Opening range breakout"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.45,
+          "sectorAvg": 0.7013636363636364
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T06:54:38.032Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "JSWENERGY",
+          "transaction_type": "BUY",
+          "quantity": 171,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 581.65,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 588.63,
+          "stop": 579.32,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T06:54:38.032Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "JSWENERGY",
+              "transaction_type": "BUY",
+              "quantity": 171,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 581.65,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782111275416-mt12m2",
+      "status": "closed",
+      "symbol": "ABCAPITAL",
+      "name": "Aditya Birla Capital",
+      "side": "buy",
+      "qty": 130,
+      "entryPrice": 382.65,
+      "target": 387.24,
+      "stop": 381.12,
+      "signal": "buy",
+      "score": 99,
+      "rr": 3,
+      "reservedCapital": 49744.5,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "FRESH_BREAKOUT",
+      "setup": "Simulation | FRESH_BREAKOUT | Triggered | Buy above 380.75 with VWAP hold | Above VWAP | SuperTrend bullish | RSI bullish",
+      "entryContext": {
+        "selectedRank": 1,
+        "score": 99,
+        "setupType": "FRESH_BREAKOUT",
+        "side": "buy",
+        "reason": "selected rank 1",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 380.75 with VWAP hold",
+          "vwap": 380.9,
+          "vwapBandPosition": "upper-half",
+          "ema9": 382.3,
+          "ema20": null,
+          "rsi": 63.3,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.77,
+          "rr": 3,
+          "reasons": [
+            "Above VWAP",
+            "SuperTrend bullish",
+            "RSI bullish",
+            "Opening range breakout",
+            "Above previous day high"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.57,
+          "sectorAvg": 0.8227999999999999
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T04:51:40.256Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "ABCAPITAL",
+          "transaction_type": "BUY",
+          "quantity": 261,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 382.65,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 387.24,
+          "stop": 381.12,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T04:51:40.256Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "ABCAPITAL",
+              "transaction_type": "BUY",
+              "quantity": 261,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 382.65,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:54:35.416Z",
+            "event": "partial_exit_dry_run_created",
+            "reason": "Simulation partial target runner",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "ABCAPITAL",
+              "transaction_type": "SELL",
+              "quantity": 130,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 387.24,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "ABCAPITAL",
+          "transaction_type": "SELL",
+          "quantity": 130,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 387.24,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "parentId": "1782103900256-6e7964",
+      "exitPrice": 387.24,
+      "closedAt": "2026-06-22T06:54:35.416Z",
+      "closeReason": "Simulation partial target runner",
+      "pnl": 543.45,
+      "pnlPct": 1.09,
+      "grossPnl": 596.7,
+      "charges": 53.25,
+      "chargeBreakup": {
+        "total": 53.25,
+        "totalPct": 0.107,
+        "brokerage": 30.03,
+        "stt": 12.59,
+        "transaction": 3.07,
+        "gst": 5.98,
+        "sebi": 0.1,
+        "stamp": 1.49,
+        "turnover": 100085.7
+      }
+    },
+    {
+      "id": "1782111273018-ek17dp",
+      "status": "closed",
+      "symbol": "DELHIVERY",
+      "name": "Delhivery",
+      "side": "buy",
+      "qty": 106,
+      "entryPrice": 470,
+      "target": 478.46,
+      "stop": 466.48,
+      "signal": "buy",
+      "score": 73,
+      "rr": 2.4,
+      "reservedCapital": 49820,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "FRESH_BREAKOUT",
+      "setup": "Simulation | FRESH_BREAKOUT | Triggered | Buy above 469.85 with VWAP hold | Above VWAP | EMA 9 below EMA 20 | SuperTrend bullish",
+      "entryContext": {
+        "selectedRank": 1,
+        "score": 73,
+        "setupType": "FRESH_BREAKOUT",
+        "side": "buy",
+        "reason": "selected rank 1",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 469.85 with VWAP hold",
+          "vwap": 469.2,
+          "vwapBandPosition": "upper-half",
+          "ema9": 394.45,
+          "ema20": 428.95,
+          "rsi": 51.9,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.65,
+          "rr": 2.4,
+          "reasons": [
+            "Above VWAP",
+            "EMA 9 below EMA 20",
+            "SuperTrend bullish",
+            "Opening range breakout",
+            "Above previous day high"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.6,
+          "sectorAvg": 0.6533333333333334
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T06:00:20.028Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "DELHIVERY",
+          "transaction_type": "BUY",
+          "quantity": 212,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 470,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 478.46,
+          "stop": 466.48,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T06:00:20.028Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "DELHIVERY",
+              "transaction_type": "BUY",
+              "quantity": 212,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 470,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:54:33.018Z",
+            "event": "partial_exit_dry_run_created",
+            "reason": "Simulation partial target",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "DELHIVERY",
+              "transaction_type": "SELL",
+              "quantity": 106,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 478.46,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "DELHIVERY",
+          "transaction_type": "SELL",
+          "quantity": 106,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 478.46,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "parentId": "1782108020028-pqbc06",
+      "exitPrice": 478.46,
+      "closedAt": "2026-06-22T06:54:33.018Z",
+      "closeReason": "Simulation partial target",
+      "pnl": 843.24,
+      "pnlPct": 1.69,
+      "grossPnl": 896.76,
+      "charges": 53.52,
+      "chargeBreakup": {
+        "total": 53.52,
+        "totalPct": 0.107,
+        "brokerage": 30.16,
+        "stt": 12.68,
+        "transaction": 3.09,
+        "gst": 6,
+        "sebi": 0.1,
+        "stamp": 1.49,
+        "turnover": 100536.76
+      }
+    },
+    {
+      "id": "1782110194499-yvks4u",
+      "status": "closed",
+      "symbol": "TIMKEN",
+      "name": "Timken India",
+      "side": "buy",
+      "qty": 13,
+      "entryPrice": 3774.6,
+      "target": 3819.9,
+      "stop": 3759.5,
+      "signal": "buy",
+      "score": 97,
+      "rr": 3,
+      "reservedCapital": 49069.8,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "VWAP_TREND_CONTINUATION",
+      "setup": "Simulation | VWAP_TREND_CONTINUATION | Triggered | Buy above 3724.80 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "entryContext": {
+        "selectedRank": 1,
+        "score": 97,
+        "setupType": "VWAP_TREND_CONTINUATION",
+        "side": "buy",
+        "reason": "selected rank 1",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 3724.80 with VWAP hold",
+          "vwap": 3749.01,
+          "vwapBandPosition": "upper-half",
+          "ema9": 3765.31,
+          "ema20": 3752.47,
+          "rsi": 70.4,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.23,
+          "rr": 3,
+          "reasons": [
+            "Above VWAP",
+            "EMA 9 above EMA 20",
+            "SuperTrend bullish",
+            "RSI bullish",
+            "Opening range breakout"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.59,
+          "sectorAvg": 0.5592857142857143
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T05:50:56.249Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "TIMKEN",
+          "transaction_type": "BUY",
+          "quantity": 26,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 3774.6,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 3819.9,
+          "stop": 3759.5,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T05:50:56.249Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "TIMKEN",
+              "transaction_type": "BUY",
+              "quantity": 26,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 3774.6,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:36:34.499Z",
+            "event": "partial_exit_dry_run_created",
+            "reason": "Simulation partial target",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "TIMKEN",
+              "transaction_type": "SELL",
+              "quantity": 13,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 3819.9,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "TIMKEN",
+          "transaction_type": "SELL",
+          "quantity": 13,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 3819.9,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "parentId": "1782107456249-44u3sv",
+      "exitPrice": 3819.9,
+      "closedAt": "2026-06-22T06:36:34.499Z",
+      "closeReason": "Simulation partial target",
+      "pnl": 536.37,
+      "pnlPct": 1.09,
+      "grossPnl": 588.9,
+      "charges": 52.53,
+      "chargeBreakup": {
+        "total": 52.53,
+        "totalPct": 0.107,
+        "brokerage": 29.62,
+        "stt": 12.41,
+        "transaction": 3.03,
+        "gst": 5.89,
+        "sebi": 0.1,
+        "stamp": 1.47,
+        "turnover": 98728.5
+      }
+    },
+    {
+      "id": "1782108373383-2hjwos",
+      "status": "open",
+      "symbol": "ESCORTS",
+      "name": "Escorts Kubota",
+      "side": "buy",
+      "qty": 34,
+      "entryPrice": 2917.1,
+      "target": 2952.11,
+      "stop": 2905.43,
+      "signal": "buy",
+      "score": 87,
+      "rr": 3,
+      "reservedCapital": 99181.4,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "VWAP_TREND_CONTINUATION",
+      "setup": "Simulation | VWAP_TREND_CONTINUATION | Triggered | Buy above 2879.50 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "entryContext": {
+        "selectedRank": 1,
+        "score": 87,
+        "setupType": "VWAP_TREND_CONTINUATION",
+        "side": "buy",
+        "reason": "selected rank 1",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 2879.50 with VWAP hold",
+          "vwap": 2887.34,
+          "vwapBandPosition": "upper-half",
+          "ema9": 2910.41,
+          "ema20": 2895.64,
+          "rsi": 70.5,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.28,
+          "rr": 3,
+          "reasons": [
+            "Above VWAP",
+            "EMA 9 above EMA 20",
+            "SuperTrend bullish",
+            "RSI bullish",
+            "Opening range breakout"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.63,
+          "sectorAvg": 0.7188235294117646
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T06:06:13.383Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "ESCORTS",
+          "transaction_type": "BUY",
+          "quantity": 34,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 2917.1,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 2952.11,
+          "stop": 2905.43,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T06:06:13.383Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "ESCORTS",
+              "transaction_type": "BUY",
+              "quantity": 34,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 2917.1,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782108020028-pqbc06",
+      "status": "open",
+      "symbol": "DELHIVERY",
+      "name": "Delhivery",
+      "side": "buy",
+      "qty": 106,
+      "entryPrice": 470,
+      "target": null,
+      "stop": 466.48,
+      "signal": "buy",
+      "score": 73,
+      "rr": 2.4,
+      "reservedCapital": 49820,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "FRESH_BREAKOUT",
+      "setup": "Simulation | FRESH_BREAKOUT | Triggered | Buy above 469.85 with VWAP hold | Above VWAP | EMA 9 below EMA 20 | SuperTrend bullish",
+      "entryContext": {
+        "selectedRank": 1,
+        "score": 73,
+        "setupType": "FRESH_BREAKOUT",
+        "side": "buy",
+        "reason": "selected rank 1",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 469.85 with VWAP hold",
+          "vwap": 469.2,
+          "vwapBandPosition": "upper-half",
+          "ema9": 394.45,
+          "ema20": 428.95,
+          "rsi": 51.9,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.65,
+          "rr": 2.4,
+          "reasons": [
+            "Above VWAP",
+            "EMA 9 below EMA 20",
+            "SuperTrend bullish",
+            "Opening range breakout",
+            "Above previous day high"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.6,
+          "sectorAvg": 0.6533333333333334
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T06:00:20.028Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "DELHIVERY",
+          "transaction_type": "BUY",
+          "quantity": 212,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 470,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 478.46,
+          "stop": 466.48,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T06:00:20.028Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "DELHIVERY",
+              "transaction_type": "BUY",
+              "quantity": 212,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 470,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:54:33.018Z",
+            "event": "partial_exit_dry_run_created",
+            "reason": "Simulation partial target",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "DELHIVERY",
+              "transaction_type": "SELL",
+              "quantity": 106,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 478.46,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "DELHIVERY",
+          "transaction_type": "SELL",
+          "quantity": 106,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 478.46,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "partialExits": [
+        {
+          "id": "1782111273018-ek17dp",
+          "qty": 106,
+          "exitPrice": 478.46,
+          "closedAt": "2026-06-22T06:54:33.018Z",
+          "reason": "Simulation partial target",
+          "pnl": 843.24
+        }
+      ],
+      "_partialTargetBooked": true,
+      "_runnerArmed": true,
+      "_runnerWideTrail": false
+    },
+    {
+      "id": "1782107456406-znv9vi",
+      "status": "open",
+      "symbol": "IEX",
+      "name": "Indian Energy Exchange",
+      "side": "buy",
+      "qty": 790,
+      "entryPrice": 126.57,
+      "target": 128.09,
+      "stop": 126.06,
+      "signal": "buy",
+      "score": 87,
+      "rr": 3,
+      "reservedCapital": 99990.3,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "VWAP_TREND_CONTINUATION",
+      "setup": "Simulation | VWAP_TREND_CONTINUATION | Triggered | Buy above 124.90 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "entryContext": {
+        "selectedRank": 2,
+        "score": 87,
+        "setupType": "VWAP_TREND_CONTINUATION",
+        "side": "buy",
+        "reason": "selected rank 2",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 124.90 with VWAP hold",
+          "vwap": 125.75,
+          "vwapBandPosition": "upper-half",
+          "ema9": 126.42,
+          "ema20": 125.66,
+          "rsi": 74,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.58,
+          "rr": 3,
+          "reasons": [
+            "Above VWAP",
+            "EMA 9 above EMA 20",
+            "SuperTrend bullish",
+            "RSI bullish",
+            "Opening range breakout"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.59,
+          "sectorAvg": 0.7995454545454547
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T05:50:56.406Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "IEX",
+          "transaction_type": "BUY",
+          "quantity": 790,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 126.57,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 128.09,
+          "stop": 126.06,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T05:50:56.406Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "IEX",
+              "transaction_type": "BUY",
+              "quantity": 790,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 126.57,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782107456249-44u3sv",
+      "status": "closed",
+      "symbol": "TIMKEN",
+      "name": "Timken India",
+      "side": "buy",
+      "qty": 13,
+      "entryPrice": 3774.6,
+      "target": null,
+      "stop": 3759.5,
+      "signal": "buy",
+      "score": 97,
+      "rr": 3,
+      "reservedCapital": 49069.8,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "VWAP_TREND_CONTINUATION",
+      "setup": "Simulation | VWAP_TREND_CONTINUATION | Triggered | Buy above 3724.80 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "entryContext": {
+        "selectedRank": 1,
+        "score": 97,
+        "setupType": "VWAP_TREND_CONTINUATION",
+        "side": "buy",
+        "reason": "selected rank 1",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 3724.80 with VWAP hold",
+          "vwap": 3749.01,
+          "vwapBandPosition": "upper-half",
+          "ema9": 3765.31,
+          "ema20": 3752.47,
+          "rsi": 70.4,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.23,
+          "rr": 3,
+          "reasons": [
+            "Above VWAP",
+            "EMA 9 above EMA 20",
+            "SuperTrend bullish",
+            "RSI bullish",
+            "Opening range breakout"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.59,
+          "sectorAvg": 0.5592857142857143
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T05:50:56.249Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "exit_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "TIMKEN",
+          "transaction_type": "BUY",
+          "quantity": 26,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 3774.6,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 3819.9,
+          "stop": 3759.5,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T05:50:56.249Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "TIMKEN",
+              "transaction_type": "BUY",
+              "quantity": 26,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 3774.6,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:36:34.499Z",
+            "event": "partial_exit_dry_run_created",
+            "reason": "Simulation partial target",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "TIMKEN",
+              "transaction_type": "SELL",
+              "quantity": 13,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 3819.9,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:36:51.595Z",
+            "event": "exit_dry_run_created",
+            "reason": "Simulation momentum break",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "TIMKEN",
+              "transaction_type": "SELL",
+              "quantity": 13,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 3844.8,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "TIMKEN",
+          "transaction_type": "SELL",
+          "quantity": 13,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 3844.8,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "partialExits": [
+        {
+          "id": "1782110194499-yvks4u",
+          "qty": 13,
+          "exitPrice": 3819.9,
+          "closedAt": "2026-06-22T06:36:34.499Z",
+          "reason": "Simulation partial target",
+          "pnl": 536.37
+        }
+      ],
+      "_partialTargetBooked": true,
+      "_runnerArmed": true,
+      "_runnerWideTrail": false,
+      "exitPrice": 3844.8,
+      "closedAt": "2026-06-22T06:36:51.595Z",
+      "closeReason": "Simulation momentum break",
+      "pnl": 859.86,
+      "pnlPct": 1.75,
+      "grossPnl": 912.6,
+      "charges": 52.74,
+      "chargeBreakup": {
+        "total": 52.74,
+        "totalPct": 0.107,
+        "brokerage": 29.72,
+        "stt": 12.5,
+        "transaction": 3.04,
+        "gst": 5.91,
+        "sebi": 0.1,
+        "stamp": 1.47,
+        "turnover": 99052.2
+      }
+    },
+    {
+      "id": "1782106815210-7p7eg6",
+      "status": "closed",
+      "symbol": "AEGISLOG",
+      "name": "Aegis Logistics",
+      "side": "buy",
+      "qty": 93,
+      "entryPrice": 1071.4,
+      "target": 1084.26,
+      "stop": 1067.11,
+      "signal": "buy",
+      "score": 97,
+      "rr": 3,
+      "reservedCapital": 99640.2,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": "Near trigger | Buy above 1074.65 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-22T05:40:15.210Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "exit_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "AEGISLOG",
+          "transaction_type": "BUY",
+          "quantity": 93,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 1071.4,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 1084.26,
+          "stop": 1067.11,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T05:40:15.210Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "AEGISLOG",
+              "transaction_type": "BUY",
+              "quantity": 93,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 1071.4,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:55:10.328Z",
+            "event": "exit_dry_run_created",
+            "reason": "Manual exit",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "AEGISLOG",
+              "transaction_type": "SELL",
+              "quantity": 93,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 1066.8,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "AEGISLOG",
+          "transaction_type": "SELL",
+          "quantity": 93,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 1066.8,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "exitPrice": 1066.8,
+      "closedAt": "2026-06-22T06:55:10.328Z",
+      "closeReason": "Manual exit",
+      "pnl": -510.23,
+      "pnlPct": -0.51,
+      "grossPnl": -427.8,
+      "charges": 82.43,
+      "chargeBreakup": {
+        "total": 82.43,
+        "totalPct": 0.083,
+        "brokerage": 40,
+        "stt": 24.8,
+        "transaction": 6.1,
+        "gst": 8.33,
+        "sebi": 0.2,
+        "stamp": 2.99,
+        "turnover": 198852.6
+      }
+    },
+    {
+      "id": "1782106308780-5e4ctj",
+      "status": "closed",
+      "symbol": "ANANDRATHI",
+      "name": "Anand Rathi Wealth",
+      "side": "buy",
+      "qty": 51,
+      "entryPrice": 1938.8,
+      "target": 1962.07,
+      "stop": 1930.01,
+      "signal": "buy",
+      "score": 95,
+      "rr": 2.65,
+      "reservedCapital": 98878.8,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "VWAP_TREND_CONTINUATION",
+      "setup": "Simulation | VWAP_TREND_CONTINUATION | Triggered | Buy above 1904.60 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "entryContext": {
+        "selectedRank": 2,
+        "score": 95,
+        "setupType": "VWAP_TREND_CONTINUATION",
+        "side": "buy",
+        "reason": "selected rank 2",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 1904.60 with VWAP hold",
+          "vwap": 1919.32,
+          "vwapBandPosition": "upper-half",
+          "ema9": 1934.53,
+          "ema20": 1917.82,
+          "rsi": 74.3,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.49,
+          "rr": 2.65,
+          "reasons": [
+            "Above VWAP",
+            "EMA 9 above EMA 20",
+            "SuperTrend bullish",
+            "RSI bullish",
+            "Opening range breakout"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.61,
+          "sectorAvg": 1.0036
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T05:31:48.780Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "exit_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "ANANDRATHI",
+          "transaction_type": "BUY",
+          "quantity": 51,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 1938.8,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 1962.07,
+          "stop": 1930.01,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T05:31:48.780Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "ANANDRATHI",
+              "transaction_type": "BUY",
+              "quantity": 51,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 1938.8,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:00:19.720Z",
+            "event": "exit_dry_run_created",
+            "reason": "Simulation confirmed stop",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "ANANDRATHI",
+              "transaction_type": "SELL",
+              "quantity": 51,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 1927,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "ANANDRATHI",
+          "transaction_type": "SELL",
+          "quantity": 51,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 1927,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "exitPrice": 1927,
+      "closedAt": "2026-06-22T06:00:19.720Z",
+      "closeReason": "Simulation confirmed stop",
+      "pnl": -683.91,
+      "pnlPct": -0.69,
+      "grossPnl": -601.8,
+      "charges": 82.11,
+      "chargeBreakup": {
+        "total": 82.11,
+        "totalPct": 0.083,
+        "brokerage": 40,
+        "stt": 24.57,
+        "transaction": 6.05,
+        "gst": 8.32,
+        "sebi": 0.2,
+        "stamp": 2.97,
+        "turnover": 197155.8
+      }
+    },
+    {
+      "id": "1782106308725-cwa9kj",
+      "status": "closed",
+      "symbol": "FINCABLES",
+      "name": "Finolex Cables",
+      "side": "buy",
+      "qty": 83,
+      "entryPrice": 1197.2,
+      "target": 1211.57,
+      "stop": 1192.21,
+      "signal": "buy",
+      "score": 100,
+      "rr": 2.88,
+      "reservedCapital": 99367.6,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "VWAP_TREND_CONTINUATION",
+      "setup": "Simulation | VWAP_TREND_CONTINUATION | Triggered | Buy above 1182.00 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "entryContext": {
+        "selectedRank": 1,
+        "score": 100,
+        "setupType": "VWAP_TREND_CONTINUATION",
+        "side": "buy",
+        "reason": "selected rank 1",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 1182.00 with VWAP hold",
+          "vwap": 1187.99,
+          "vwapBandPosition": "upper-half",
+          "ema9": 1195.08,
+          "ema20": 1186.46,
+          "rsi": 62.2,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.47,
+          "rr": 2.88,
+          "reasons": [
+            "Above VWAP",
+            "EMA 9 above EMA 20",
+            "SuperTrend bullish",
+            "RSI bullish",
+            "Opening range breakout"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.61,
+          "sectorAvg": 0.5571428571428572
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T05:31:48.725Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "exit_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "FINCABLES",
+          "transaction_type": "BUY",
+          "quantity": 83,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 1197.2,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 1211.57,
+          "stop": 1192.21,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T05:31:48.725Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "FINCABLES",
+              "transaction_type": "BUY",
+              "quantity": 83,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 1197.2,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:36:36.822Z",
+            "event": "exit_dry_run_created",
+            "reason": "Simulation time stop cost guard",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "FINCABLES",
+              "transaction_type": "SELL",
+              "quantity": 83,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 1193.3,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "FINCABLES",
+          "transaction_type": "SELL",
+          "quantity": 83,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 1193.3,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "exitPrice": 1193.3,
+      "closedAt": "2026-06-22T06:36:36.822Z",
+      "closeReason": "Simulation time stop cost guard",
+      "pnl": -406.06,
+      "pnlPct": -0.41,
+      "grossPnl": -323.7,
+      "charges": 82.36,
+      "chargeBreakup": {
+        "total": 82.36,
+        "totalPct": 0.083,
+        "brokerage": 40,
+        "stt": 24.76,
+        "transaction": 6.09,
+        "gst": 8.33,
+        "sebi": 0.2,
+        "stamp": 2.98,
+        "turnover": 198411.5
+      }
+    },
+    {
+      "id": "1782106197239-zzvj1b",
+      "status": "closed",
+      "symbol": "IRFC",
+      "name": "Indian Railway Finance",
+      "side": "buy",
+      "qty": 990,
+      "entryPrice": 100.95,
+      "target": 102.16,
+      "stop": 100.55,
+      "signal": "buy",
+      "score": 91,
+      "rr": 3,
+      "reservedCapital": 99940.5,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": "Triggered | Buy above 100.89 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-22T05:29:57.239Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "exit_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "IRFC",
+          "transaction_type": "BUY",
+          "quantity": 990,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 100.95,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 102.16,
+          "stop": 100.55,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T05:29:57.239Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "IRFC",
+              "transaction_type": "BUY",
+              "quantity": 990,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 100.95,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:55:26.915Z",
+            "event": "exit_dry_run_created",
+            "reason": "Manual exit",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "IRFC",
+              "transaction_type": "SELL",
+              "quantity": 990,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 100.7,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "IRFC",
+          "transaction_type": "SELL",
+          "quantity": 990,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 100.7,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "exitPrice": 100.7,
+      "closedAt": "2026-06-22T06:55:26.915Z",
+      "closeReason": "Manual exit",
+      "pnl": -330.09,
+      "pnlPct": -0.33,
+      "grossPnl": -247.5,
+      "charges": 82.59,
+      "chargeBreakup": {
+        "total": 82.59,
+        "totalPct": 0.083,
+        "brokerage": 40,
+        "stt": 24.92,
+        "transaction": 6.13,
+        "gst": 8.34,
+        "sebi": 0.2,
+        "stamp": 3,
+        "turnover": 199633.5
+      }
+    },
+    {
+      "id": "1782106195328-5f8dpo",
+      "status": "closed",
+      "symbol": "RPOWER",
+      "name": "Reliance Power",
+      "side": "buy",
+      "qty": 3699,
+      "entryPrice": 27.03,
+      "target": 27.35,
+      "stop": 26.92,
+      "signal": "buy",
+      "score": 91,
+      "rr": 2.99,
+      "reservedCapital": 99983.97,
+      "portfolioInitial": 2510000,
+      "source": "simulation",
+      "assetType": "stock",
+      "setupType": "VWAP_TREND_CONTINUATION",
+      "setup": "Simulation | VWAP_TREND_CONTINUATION | Triggered | Buy above 26.85 with VWAP hold | Above VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "entryContext": {
+        "selectedRank": 1,
+        "score": 91,
+        "setupType": "VWAP_TREND_CONTINUATION",
+        "side": "buy",
+        "reason": "selected rank 1",
+        "indicators": {
+          "entryStatus": "Triggered",
+          "entryTrigger": "Buy above 26.85 with VWAP hold",
+          "vwap": 26.82,
+          "vwapBandPosition": "upper-half",
+          "ema9": 26.99,
+          "ema20": 26.85,
+          "rsi": 73.2,
+          "superTrendDirection": "bullish",
+          "relVolume": 1.28,
+          "rr": 2.99,
+          "reasons": [
+            "Above VWAP",
+            "EMA 9 above EMA 20",
+            "SuperTrend bullish",
+            "RSI bullish",
+            "Opening range breakout"
+          ]
+        },
+        "market": {
+          "niftyChange": 0.62,
+          "sectorAvg": 0.6595454545454547
+        }
+      },
+      "notes": "",
+      "openedAt": "2026-06-22T05:29:55.328Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "exit_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "RPOWER",
+          "transaction_type": "BUY",
+          "quantity": 3699,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 27.03,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 27.35,
+          "stop": 26.92,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T05:29:55.328Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "RPOWER",
+              "transaction_type": "BUY",
+              "quantity": 3699,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 27.03,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:37:10.709Z",
+            "event": "exit_dry_run_created",
+            "reason": "Simulation time stop cost guard",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "RPOWER",
+              "transaction_type": "SELL",
+              "quantity": 3699,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 26.88,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "RPOWER",
+          "transaction_type": "SELL",
+          "quantity": 3699,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 26.88,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "exitPrice": 26.88,
+      "closedAt": "2026-06-22T06:37:10.709Z",
+      "closeReason": "Simulation time stop cost guard",
+      "pnl": -637.37,
+      "pnlPct": -0.64,
+      "grossPnl": -554.85,
+      "charges": 82.52,
+      "chargeBreakup": {
+        "total": 82.52,
+        "totalPct": 0.083,
+        "brokerage": 40,
+        "stt": 24.86,
+        "transaction": 6.12,
+        "gst": 8.34,
+        "sebi": 0.2,
+        "stamp": 3,
+        "turnover": 199413.09
+      }
+    },
+    {
+      "id": "1782105893316-via31v",
+      "status": "closed",
+      "symbol": "BAJAJ-AUTO",
+      "name": "Bajaj Auto",
+      "side": "buy",
+      "qty": 9,
+      "entryPrice": 10183,
+      "target": 10305.2,
+      "stop": 10142.27,
+      "signal": "buy",
+      "score": 60,
+      "rr": 3,
+      "reservedCapital": 91647,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": "Triggered | Buy above 10134.00 with VWAP hold | Below VWAP | EMA 9 above EMA 20 | SuperTrend bullish",
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-22T05:24:53.316Z",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "exit_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "BAJAJ-AUTO",
+          "transaction_type": "BUY",
+          "quantity": 9,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 10183,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 10305.2,
+          "stop": 10142.27,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-22T05:24:53.316Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "BAJAJ-AUTO",
+              "transaction_type": "BUY",
+              "quantity": 9,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 10183,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:55:32.551Z",
+            "event": "exit_dry_run_created",
+            "reason": "Manual exit",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "BAJAJ-AUTO",
+              "transaction_type": "SELL",
+              "quantity": 9,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 10174,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "BAJAJ-AUTO",
+          "transaction_type": "SELL",
+          "quantity": 9,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 10174,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "exitPrice": 10174,
+      "closedAt": "2026-06-22T06:55:32.551Z",
+      "closeReason": "Manual exit",
+      "pnl": -160.69,
+      "pnlPct": -0.18,
+      "grossPnl": -81,
+      "charges": 79.69,
+      "chargeBreakup": {
+        "total": 79.69,
+        "totalPct": 0.087,
+        "brokerage": 40,
+        "stt": 22.89,
+        "transaction": 5.62,
+        "gst": 8.25,
+        "sebi": 0.18,
+        "stamp": 2.75,
+        "turnover": 183213
+      }
+    },
     {
       "id": "1782105594068-jvjol8",
       "status": "open",
@@ -202,7 +2402,7 @@
     },
     {
       "id": "1782105593927-3igds1",
-      "status": "open",
+      "status": "closed",
       "symbol": "INOXWIND",
       "name": "Inox Wind",
       "side": "buy",
@@ -254,7 +2454,7 @@
       "broker": {
         "name": "zerodha",
         "mode": "dry-run",
-        "status": "entry_dry_run",
+        "status": "exit_dry_run",
         "entryOrder": {
           "exchange": "NSE",
           "tradingsymbol": "INOXWIND",
@@ -288,8 +2488,55 @@
               "variety": "regular",
               "tag": "stockdash-dry"
             }
+          },
+          {
+            "at": "2026-06-22T06:37:11.938Z",
+            "event": "exit_dry_run_created",
+            "reason": "Simulation signal deterioration",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "INOXWIND",
+              "transaction_type": "SELL",
+              "quantity": 1070,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 93,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
           }
-        ]
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "INOXWIND",
+          "transaction_type": "SELL",
+          "quantity": 1070,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 93,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "exitPrice": 93,
+      "closedAt": "2026-06-22T06:37:11.938Z",
+      "closeReason": "Simulation signal deterioration",
+      "pnl": -499.84,
+      "pnlPct": -0.5,
+      "grossPnl": -417.3,
+      "charges": 82.54,
+      "chargeBreakup": {
+        "total": 82.54,
+        "totalPct": 0.083,
+        "brokerage": 40,
+        "stt": 24.88,
+        "transaction": 6.12,
+        "gst": 8.34,
+        "sebi": 0.2,
+        "stamp": 3,
+        "turnover": 199437.3
       }
     },
     {
@@ -812,14 +3059,14 @@
       "symbol": "ABCAPITAL",
       "name": "Aditya Birla Capital",
       "side": "buy",
-      "qty": 261,
+      "qty": 1,
       "entryPrice": 382.65,
-      "target": 387.24,
+      "target": null,
       "stop": 381.12,
       "signal": "buy",
       "score": 99,
       "rr": 3,
-      "reservedCapital": 99871.65,
+      "reservedCapital": 382.65,
       "portfolioInitial": 2510000,
       "source": "simulation",
       "assetType": "stock",
@@ -894,9 +3141,76 @@
               "variety": "regular",
               "tag": "stockdash-dry"
             }
+          },
+          {
+            "at": "2026-06-22T06:54:35.416Z",
+            "event": "partial_exit_dry_run_created",
+            "reason": "Simulation partial target runner",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "ABCAPITAL",
+              "transaction_type": "SELL",
+              "quantity": 130,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 387.24,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-22T06:55:07.155Z",
+            "event": "partial_exit_dry_run_created",
+            "reason": "Simulation partial target runner",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "ABCAPITAL",
+              "transaction_type": "SELL",
+              "quantity": 130,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 387.24,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
           }
-        ]
-      }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "ABCAPITAL",
+          "transaction_type": "SELL",
+          "quantity": 130,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 387.24,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "partialExits": [
+        {
+          "id": "1782111275416-mt12m2",
+          "qty": 130,
+          "exitPrice": 387.24,
+          "closedAt": "2026-06-22T06:54:35.416Z",
+          "reason": "Simulation partial target runner",
+          "pnl": 543.45
+        },
+        {
+          "id": "1782111307155-zb98rs",
+          "qty": 130,
+          "exitPrice": 387.24,
+          "closedAt": "2026-06-22T06:55:07.155Z",
+          "reason": "Simulation partial target runner",
+          "pnl": 543.45
+        }
+      ],
+      "_partialTargetBooked": true,
+      "_runnerArmed": true,
+      "_runnerWideTrail": true
     },
     {
       "id": "1782008639354-bq8c1u",

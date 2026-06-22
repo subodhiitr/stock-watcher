@@ -81,6 +81,7 @@ const FRESH_NEWS_STARTUP_STALE_MS = 6 * 60 * 60 * 1000;
 const replayResultCache    = new Map();
 const replayJobs           = new Map();
 const activeReplayJobs     = new Map();
+const paperTradeStreamClients = new Set();
 let freshNewsDayCache      = null;
 const freshNewsBuildJobs   = new Map();
 let freshNewsCronTimer     = null;
@@ -353,6 +354,28 @@ function savePaperTradesFile(trades) {
     savePaperStateFile(state);
   } catch (e) {
     console.warn('[paper-trades] Save error:', e.message);
+  }
+}
+
+function writeSseEvent(res, data) {
+  try {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function broadcastPaperTradeState(reason = 'update') {
+  if (!paperTradeStreamClients.size) return;
+  const state = loadPaperStateFile();
+  const payload = { ok: true, reason, trades: state.trades, portfolio: state.portfolio, sentAt: Date.now() };
+  for (const client of [...paperTradeStreamClients]) {
+    const ok = writeSseEvent(client.res, payload);
+    if (!ok) {
+      if (client.keepAlive) clearInterval(client.keepAlive);
+      paperTradeStreamClients.delete(client);
+    }
   }
 }
 
@@ -4635,6 +4658,37 @@ async function proxyRequestHandler(req, res) {
 
   // Holdings are populated as a side-effect of /etf-summary fetches.
   // This endpoint ONLY serves from cache — no live fetch.
+  if (pathname === '/paper-trades/stream') {
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+      return;
+    }
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'X-Accel-Buffering': 'no',
+    });
+    res.write(': connected\n\n');
+
+    const client = {
+      res,
+      keepAlive: setInterval(() => {
+        try { res.write(': ping\n\n'); } catch (_) {}
+      }, 25000),
+    };
+    paperTradeStreamClients.add(client);
+    writeSseEvent(res, { ok: true, reason: 'init', ...loadPaperStateFile(), sentAt: Date.now() });
+
+    req.on('close', () => {
+      if (client.keepAlive) clearInterval(client.keepAlive);
+      paperTradeStreamClients.delete(client);
+    });
+    return;
+  }
+
   // /paper-trades -- local paper trading journal for locked intraday entries
   if (pathname === '/paper-trades') {
     if (req.method === 'GET') {
@@ -4665,6 +4719,7 @@ async function proxyRequestHandler(req, res) {
             note: String(payload.note || 'Manual capital add'),
           });
           savePaperStateFile(state);
+          broadcastPaperTradeState('add-capital');
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, portfolio: state.portfolio }));
           return;
@@ -4729,6 +4784,7 @@ async function proxyRequestHandler(req, res) {
           }
           trades.unshift(trade);
           savePaperTradesFile(trades);
+          broadcastPaperTradeState('open');
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, trade }));
           return;
@@ -4764,6 +4820,7 @@ async function proxyRequestHandler(req, res) {
             trade.broker.audit.push({ at: closedAt, event: 'exit_dry_run_created', reason: trade.closeReason, order: exitOrder });
           }
           savePaperTradesFile(trades);
+          broadcastPaperTradeState('close');
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, trade }));
           return;
@@ -4825,6 +4882,7 @@ async function proxyRequestHandler(req, res) {
           }
           trades.unshift(partialTrade);
           savePaperTradesFile(trades);
+          broadcastPaperTradeState('partial-close');
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, trade, partial: partialTrade }));
           return;
@@ -4834,6 +4892,7 @@ async function proxyRequestHandler(req, res) {
           const id = String(payload.id || '');
           const next = trades.filter(t => t.id !== id);
           savePaperTradesFile(next);
+          broadcastPaperTradeState('delete');
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, deleted: trades.length - next.length }));
           return;

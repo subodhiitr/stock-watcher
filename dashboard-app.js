@@ -21,6 +21,7 @@ const STOCK_STORAGE_KEY = 'stock-watcher-stock-symbols';
 const STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;
 const STOCK_FAV_STORAGE_KEY = 'stock-watcher-stock-favorites';
 const PAPER_TRADES_ENDPOINT = `${PROXY}/paper-trades`;
+const PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;
 const FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;
 const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;
 const SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;
@@ -674,6 +675,8 @@ const INTRADAY_STALE_MS = 5 * 60 * 1000;
 let paperTrades = [];      // local paper trades loaded from proxy JSON file
 let paperTradesLoaded = false;
 let paperTradesLoading = null;
+let paperTradesStream = null;
+let paperTradesStreamReconnectTimer = null;
 let etfSort        = { col:'change', dir:-1 };
 let etfSearch      = '';
 let targetFilter   = 'all';
@@ -1053,8 +1056,7 @@ async function fetchNSEMarketStatus() {
     const statusText = String(seg?.marketStatus || '').toLowerCase();
     if (statusText.includes('open')) marketOpen = true;
     else if (statusText.includes('close')) marketOpen = false;
-    else if (!seg) marketOpen = isMarketHoursNow();
-    else marketOpen = null;
+    else marketOpen = isMarketHoursNow();
     renderMarketStatus();
   } catch(e) { console.warn('NSE market status:', e.message); }
 }
@@ -1279,6 +1281,8 @@ async function fetchAll() {
     if (etfSymsToFetch.length) {
       await fetchAdditionalSymbols(etfSymsToFetch, { force: true });
     }
+
+    await loadPaperTrades(true);
 
     if (firstLoad) setProgress(100);
     else setBgProgress(100);
@@ -1546,14 +1550,14 @@ function markIntradayBatchStale(batch, reason) {
 
 async function fetchIntradaySignals(symbols) {
   if (!symbols || !symbols.length) return;
-  const now = Date.now();
   let anyUpdated = false;
 
   const url = `${PROXY}/stream/intraday-signals?symbols=${encodeURIComponent(symbols.join(','))}`;
   const result = await openSSEStream(url, (msg) => {
     if (msg.sym && msg.data?.signal) {
+      const fetchedAt = Date.now();
       rememberPreviousSimulationSignal(msg.sym);
-      intradayData[msg.sym] = { ...msg.data, fetchedAt: now, stale: false, fetchFailed: false };
+      intradayData[msg.sym] = { ...msg.data, fetchedAt, stale: false, fetchFailed: false };
       anyUpdated = true;
       scheduleTableRender(); // debounced: coalesces per-symbol renders
     }
@@ -1906,9 +1910,9 @@ function registerNewSimulationTrade(trade) {
 }
 
 function pruneNewSimulationTradeKeys() {
-  const openKeys = new Set(paperTrades.filter(isOpenTrade).map(simulationTradeKey).filter(Boolean));
+  const activeKeys = new Set(paperTrades.map(simulationTradeKey).filter(Boolean));
   const before = newSimulationTradeKeys.size;
-  newSimulationTradeKeys = new Set([...newSimulationTradeKeys].filter(key => openKeys.has(key)));
+  newSimulationTradeKeys = new Set([...newSimulationTradeKeys].filter(key => activeKeys.has(key)));
   if (newSimulationTradeKeys.size !== before) saveNewSimulationTradeKeys();
 }
 
@@ -1917,17 +1921,110 @@ function getNewSimulationOpenTrades() {
   return paperTrades.filter(t => isOpenTrade(t) && keys.has(simulationTradeKey(t)));
 }
 
+function applyPaperTradesState(payload, { trackNewTrades = false } = {}) {
+  if (!payload || !Array.isArray(payload.trades)) return;
+  const prevOpenKeys = new Set(paperTrades.filter(isOpenTrade).map(simulationTradeKey).filter(Boolean));
+  paperTrades = payload.trades;
+  paperTradesLoaded = true;
+
+  if (payload.portfolio && typeof payload.portfolio === 'object') {
+    portfolioState = {
+      initialCapital: Number(payload.portfolio.initialCapital) || PORTFOLIO_FALLBACK_INITIAL_CAPITAL,
+      capitalAdds: Array.isArray(payload.portfolio.capitalAdds) ? payload.portfolio.capitalAdds : [],
+    };
+  }
+
+  if (trackNewTrades) {
+    let changed = false;
+    for (const trade of paperTrades) {
+      const key = simulationTradeKey(trade);
+      if (!key || !isOpenTrade(trade) || prevOpenKeys.has(key)) continue;
+      newSimulationTradeKeys.add(key);
+      changed = true;
+    }
+    if (changed) saveNewSimulationTradeKeys();
+  }
+
+  pruneNewSimulationTradeKeys();
+  if (simulationState === 'settling' && !getSimulationOpenTrades().length) {
+    simulationState = 'off';
+    localStorage.setItem(SIMULATION_STATE_KEY, simulationState);
+  }
+  updateSimulationButton();
+  updateBrokerModeButton();
+  renderTopActionBar();
+  renderTable();
+  if (currentView === 'etfs') renderETFSection();
+  if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
+  if (document.getElementById('open-trades-modal')?.style.display === 'flex') renderOpenTradesModal();
+}
+
+function subscribePaperTradesStream() {
+  if (paperTradesStream) return;
+
+  const connect = () => {
+    if (paperTradesStream) return;
+    try {
+      paperTradesStream = new EventSource(PAPER_TRADES_STREAM_ENDPOINT);
+    } catch (e) {
+      console.warn('paper-trades SSE init failed', e.message);
+      if (!paperTradesStreamReconnectTimer) {
+        paperTradesStreamReconnectTimer = setTimeout(() => {
+          paperTradesStreamReconnectTimer = null;
+          connect();
+        }, 3000);
+      }
+      return;
+    }
+
+    paperTradesStream.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data || '{}');
+        if (Array.isArray(payload?.trades)) {
+          applyPaperTradesState(payload, { trackNewTrades: payload.reason !== 'init' });
+        }
+      } catch (e) {
+        console.warn('paper-trades SSE parse failed', e.message);
+      }
+    };
+
+    paperTradesStream.onerror = () => {
+      try { paperTradesStream?.close(); } catch (_) {}
+      paperTradesStream = null;
+      if (!paperTradesStreamReconnectTimer) {
+        paperTradesStreamReconnectTimer = setTimeout(() => {
+          paperTradesStreamReconnectTimer = null;
+          connect();
+        }, 3000);
+      }
+    };
+  };
+
+  connect();
+}
+
 function renderOpenTradeRows(openTrades, newKeys) {
   return openTrades.length ? openTrades.map(trade => {
-    const current = getCurrentTradePrice(trade.symbol);
-    const pnl = getPaperTradePnl(trade, current);
+    const isOpen = isOpenTrade(trade);
+    const current = isOpen ? getCurrentTradePrice(trade.symbol) : Number(trade.exitPrice);
+    const pnl = isOpen
+      ? getPaperTradePnl(trade, current)
+      : {
+          pnl: Number(trade.pnl),
+          pnlPct: Number(trade.pnlPct),
+          grossPnl: Number(trade.grossPnl),
+          charges: Number(trade.charges),
+          chargeBreakup: trade.chargeBreakup,
+        };
     const key = simulationTradeKey(trade);
     const isNew = newKeys.has(key);
-    const cls = pnl ? portfolioValueClass(pnl.pnl) : '';
+    const cls = Number.isFinite(Number(pnl?.pnl)) ? portfolioValueClass(Number(pnl.pnl)) : '';
     const isManual = trade.source !== 'simulation';
-    const action = isManual
-      ? `<button class="paper-btn exit" onclick="closePaperTrade('${escapeHTML(trade.id)}','${escapeHTML(trade.symbol)}')">Exit</button>`
-      : '<span style="color:var(--muted);font-size:11px">Auto managed</span>';
+    const action = isOpen
+      ? (isManual
+        ? `<button class="paper-btn exit" onclick="closePaperTrade('${escapeHTML(trade.id)}','${escapeHTML(trade.symbol)}')">Exit</button>`
+        : '<span style="color:var(--muted);font-size:11px">Auto managed</span>')
+      : `<span style="color:var(--muted);font-size:11px">${escapeHTML(trade.closeReason || 'Exited')}</span>`;
     return `<tr class="${isNew ? 'new-trade-highlight' : ''}">
       <td>${isNew ? '<span class="new-trade-pill">New</span>' : '--'}</td>
       <td>${escapeHTML(trade.source === 'simulation' ? 'Sim' : 'Manual')}</td>
@@ -1939,11 +2036,11 @@ function renderOpenTradeRows(openTrades, newKeys) {
       <td>${moneyINR(trade.target)}</td>
       <td>${moneyINR(trade.stop)}</td>
       <td class="portfolio-pnl ${cls}">${pnl ? `${moneyINR(pnl.pnl)} (${pnl.pnlPct}% net)` : '--'}</td>
-      <td>${escapeHTML(formatTradeDateTime(trade.openedAt))}</td>
+      <td>${escapeHTML(formatTradeDateTime(isOpen ? trade.openedAt : (trade.closedAt || trade.openedAt)))}</td>
       <td class="portfolio-journal-cell" title="${escapeHTML(formatEntryJournal(trade))}">${escapeHTML(formatEntryJournal(trade))}</td>
       <td>${action}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="13" style="color:var(--muted);text-align:center;padding:16px">No open trades</td></tr>`;
+  }).join('') : `<tr><td colspan="13" style="color:var(--muted);text-align:center;padding:16px">No trades</td></tr>`;
 }
 
 function renderOpenTradesModal() {
@@ -1951,7 +2048,7 @@ function renderOpenTradesModal() {
   if (!body) return;
   pruneNewSimulationTradeKeys();
   const allOpenTrades = paperTrades
-    .filter(t => String(t.status || '').toLowerCase() === 'open')
+    .filter(isOpenTrade)
     .slice()
     .sort((a, b) => {
       const anew = newSimulationTradeKeys.has(simulationTradeKey(a)) ? 1 : 0;
@@ -1959,19 +2056,25 @@ function renderOpenTradesModal() {
       if (anew !== bnew) return bnew - anew;
       return new Date(b.openedAt || 0) - new Date(a.openedAt || 0);
     });
+  const newEventTrades = paperTrades
+    .filter(t => newSimulationTradeKeys.has(simulationTradeKey(t)))
+    .slice()
+    .sort((a, b) => new Date(b.closedAt || b.openedAt || 0) - new Date(a.closedAt || a.openedAt || 0));
   const newCount = allOpenTrades.filter(t => newSimulationTradeKeys.has(simulationTradeKey(t))).length;
-  const openTrades = openTradesModalMode === 'new'
-    ? allOpenTrades.filter(t => newSimulationTradeKeys.has(simulationTradeKey(t)))
+  const visibleTrades = openTradesModalMode === 'new'
+    ? newEventTrades
     : allOpenTrades;
-  const rows = renderOpenTradeRows(openTrades, newSimulationTradeKeys);
+  const visibleOpenTrades = visibleTrades.filter(isOpenTrade);
+  const pnlBaseTrades = openTradesModalMode === 'new' ? visibleTrades : visibleOpenTrades;
+  const rows = renderOpenTradeRows(visibleTrades, newSimulationTradeKeys);
   body.innerHTML = `
     <div class="portfolio-grid">
       <div class="portfolio-card"><div class="label">Open trades</div><div class="value">${allOpenTrades.length}</div></div>
-      <div class="portfolio-card"><div class="label">New open trades</div><div class="value ${newCount ? 'up' : ''}">${newCount}</div></div>
-      <div class="portfolio-card"><div class="label">Open exposure</div><div class="value">${moneyINR(openTrades.reduce((sum, t) => sum + paperTradeExposure(t), 0))}</div></div>
-      <div class="portfolio-card"><div class="label">Open P&L</div><div class="value ${portfolioValueClass(openTrades.reduce((sum, t) => sum + (getPaperTradePnl(t, getCurrentTradePrice(t.symbol))?.pnl || 0), 0))}">${moneyINR(openTrades.reduce((sum, t) => sum + (getPaperTradePnl(t, getCurrentTradePrice(t.symbol))?.pnl || 0), 0))}</div></div>
+      <div class="portfolio-card"><div class="label">${openTradesModalMode === 'new' ? 'New events' : 'New open trades'}</div><div class="value ${newEventTrades.length ? 'up' : ''}">${openTradesModalMode === 'new' ? newEventTrades.length : newCount}</div></div>
+      <div class="portfolio-card"><div class="label">Open exposure</div><div class="value">${moneyINR(visibleOpenTrades.reduce((sum, t) => sum + paperTradeExposure(t), 0))}</div></div>
+      <div class="portfolio-card"><div class="label">${openTradesModalMode === 'new' ? 'Net P&L' : 'Open P&L'}</div><div class="value ${portfolioValueClass(pnlBaseTrades.reduce((sum, t) => sum + (isOpenTrade(t) ? (getPaperTradePnl(t, getCurrentTradePrice(t.symbol))?.pnl || 0) : (Number(t.pnl) || 0)), 0))}">${moneyINR(pnlBaseTrades.reduce((sum, t) => sum + (isOpenTrade(t) ? (getPaperTradePnl(t, getCurrentTradePrice(t.symbol))?.pnl || 0) : (Number(t.pnl) || 0)), 0))}</div></div>
     </div>
-    <div class="portfolio-section-title">${openTradesModalMode === 'new' ? 'New Open Trades' : 'All Open Trades'}</div>
+    <div class="portfolio-section-title">${openTradesModalMode === 'new' ? 'New Trade Events' : 'All Open Trades'}</div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table open-trades-table">
         <thead><tr><th>New</th><th>Mode</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Live</th><th>Target</th><th>SL</th><th>Net P&L</th><th>Entry Time</th><th>Entry Why</th><th>Action</th></tr></thead>
@@ -1979,6 +2082,9 @@ function renderOpenTradesModal() {
       </table>
     </div>
   `;
+  // Update Mark Seen button visibility based on mode
+  const markSeenBtn = document.querySelector('#open-trades-modal [onclick="markNewSimulationTradesSeen()"]');
+  if (markSeenBtn) markSeenBtn.style.display = openTradesModalMode === 'new' ? 'block' : 'none';
 }
 
 async function openOpenTradesModal(mode = 'all') {
@@ -1986,11 +2092,17 @@ async function openOpenTradesModal(mode = 'all') {
   renderOpenTradesModal();
   const modal = document.getElementById('open-trades-modal');
   if (modal) modal.style.display = 'flex';
+  // Show/hide Mark Seen button based on mode
+  const markSeenBtn = modal?.querySelector('[onclick="markNewSimulationTradesSeen()"]');
+  if (markSeenBtn) markSeenBtn.style.display = openTradesModalMode === 'new' ? 'block' : 'none';
   if (!paperTradesLoaded) {
     const body = document.getElementById('open-trades-modal-body');
     if (body) body.innerHTML = `<div style="color:var(--muted);padding:16px">Loading open trades...</div>`;
     await loadPaperTrades();
     renderOpenTradesModal();
+    // Update button visibility after reload too
+    const mkBtn = modal?.querySelector('[onclick="markNewSimulationTradesSeen()"]');
+    if (mkBtn) mkBtn.style.display = openTradesModalMode === 'new' ? 'block' : 'none';
   }
 }
 
@@ -2075,9 +2187,16 @@ function renderNotificationPanel() {
   }
   if (!panel) return;
   panel.style.display = notificationsOpen ? 'block' : 'none';
-  panel.innerHTML = items.length
+  const content = items.length
     ? items.map(item => `<div class="notification-item ${escapeHTML(item.level || '')}"><strong>${escapeHTML(item.title)}</strong><span>${escapeHTML(item.text)}</span></div>`).join('')
     : '<div class="notification-item"><strong>No alerts</strong><span>Dashboard looks quiet right now.</span></div>';
+  panel.innerHTML = `
+    <div class="notification-panel-header">
+      <strong>Notifications</strong>
+      <button class="notification-panel-close" type="button" onclick="toggleNotifications()" aria-label="Close notifications">✕</button>
+    </div>
+    <div class="notification-panel-body">${content}</div>
+  `;
 }
 
 function toggleNotifications() {
@@ -4150,24 +4269,7 @@ async function loadPaperTrades(forceServer = false) {
       if (!res.ok) throw new Error('paper-trades HTTP ' + res.status);
       payload = await res.json().catch(() => null);
     }
-    paperTrades = Array.isArray(payload?.trades) ? payload.trades : [];
-    paperTradesLoaded = true;
-    pruneNewSimulationTradeKeys();
-    if (payload?.portfolio && typeof payload.portfolio === 'object') {
-      portfolioState = {
-        initialCapital: Number(payload.portfolio.initialCapital) || PORTFOLIO_FALLBACK_INITIAL_CAPITAL,
-        capitalAdds: Array.isArray(payload.portfolio.capitalAdds) ? payload.portfolio.capitalAdds : [],
-      };
-    }
-    if (simulationState === 'settling' && !getSimulationOpenTrades().length) {
-      simulationState = 'off';
-      localStorage.setItem(SIMULATION_STATE_KEY, simulationState);
-    }
-    updateSimulationButton();
-    updateBrokerModeButton();
-    renderTopActionBar();
-    if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
-    if (document.getElementById('open-trades-modal')?.style.display === 'flex') renderOpenTradesModal();
+    applyPaperTradesState(payload, { trackNewTrades: false });
   } catch (e) {
     console.warn('loadPaperTrades failed', e.message);
     paperTrades = [];
@@ -4200,6 +4302,7 @@ function applyOpenedTradeLocally(trade) {
   if (idx >= 0) paperTrades[idx] = trade;
   else paperTrades.unshift(trade);
   paperTradesLoaded = true;
+  registerNewSimulationTrade(trade);
   renderTopActionBar();
   renderTable();
   if (currentView === 'etfs') renderETFSection();
@@ -6310,6 +6413,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadSavedStocks(),
     loadPaperTrades(),
   ]);
+  subscribePaperTradesStream();
   applyDashboardRouteHint();
 });
 

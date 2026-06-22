@@ -39,6 +39,11 @@
   #dashboard-health-banner{margin:-4px 0 16px;padding:10px 12px;border-radius:9px;border:1px solid rgba(245,158,11,.28);background:rgba(245,158,11,.09);color:var(--yellow);font-size:12px;line-height:1.5;}
   #dashboard-health-banner.ok{border-color:rgba(16,185,129,.25);background:rgba(16,185,129,.07);color:var(--green);}
   #notification-panel{position:fixed;right:24px;top:96px;z-index:520;width:min(380px,calc(100vw - 36px));max-height:70vh;overflow:auto;border:1px solid var(--border);border-radius:12px;background:rgba(14,22,35,.96);box-shadow:0 18px 54px rgba(0,0,0,.48);padding:12px;}
+  .notification-panel-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:2px 2px 10px;border-bottom:1px solid rgba(30,45,66,.65);margin-bottom:4px;}
+  .notification-panel-header strong{font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted);}
+  .notification-panel-close{width:28px;height:28px;border-radius:999px;border:1px solid rgba(244,63,94,.38);background:rgba(244,63,94,.12);color:var(--red);display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1;cursor:pointer;flex:0 0 auto;transition:all .2s;}
+  .notification-panel-close:hover{background:rgba(244,63,94,.2);border-color:rgba(244,63,94,.55);color:#ff8aa1;}
+  .notification-panel-body{display:block;}
   .notification-item{padding:9px 10px;border-bottom:1px solid rgba(30,45,66,.65);font-size:12px;line-height:1.4;}
   .notification-item:last-child{border-bottom:0;}
   .notification-item strong{display:block;margin-bottom:2px;}
@@ -294,6 +299,8 @@
 .modal-card.replay{max-width:min(1120px,calc(100vw - 36px));max-height:88vh;overflow:auto;}
   .modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
   .modal-header h3{font-size:16px;margin:0;}
+  .modal-close-btn{width:32px;height:32px;border-radius:999px;border:1px solid rgba(244,63,94,.38);background:rgba(244,63,94,.12);color:var(--red);display:inline-flex;align-items:center;justify-content:center;font-size:18px;line-height:1;cursor:pointer;flex:0 0 auto;transition:all .2s;}
+  .modal-close-btn:hover{background:rgba(244,63,94,.2);border-color:rgba(244,63,94,.55);color:#ff8aa1;}
   .modal-row{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
   .modal-row label{font-size:12px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;}
   .modal-actions{display:flex;justify-content:flex-end;gap:10px;}
