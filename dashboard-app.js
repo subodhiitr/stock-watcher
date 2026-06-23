@@ -1827,6 +1827,23 @@ function getTradeDateKey(value) {
   return d.toLocaleDateString('en-IN', { year:'numeric', month:'short', day:'2-digit' });
 }
 
+function getTradeDateISO(value) {
+  const d = value ? new Date(value) : new Date();
+  if (Number.isNaN(d.getTime())) return '';
+  const ist = new Date(d.getTime() + 5.5 * 3600 * 1000);
+  const y = ist.getUTCFullYear();
+  const m = String(ist.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(ist.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function normalizeReplayDay(value) {
+  const raw = String(value || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const iso = getTradeDateISO(raw || Date.now());
+  return iso || getTradeDateISO();
+}
+
 function formatTradeDateTime(value) {
   if (!value) return '--';
   const d = new Date(value);
@@ -3648,17 +3665,21 @@ function summarizeReplaySetupPerformance(trades) {
 }
 
 function compareReplayWithActual(day, replayTrades) {
+  const replayDay = normalizeReplayDay(day);
   const actual = paperTrades
-    .filter(t => t.source === 'simulation' && getTradeDateKey(t.closedAt || t.openedAt) === day)
+    .filter(t => t.source === 'simulation' && normalizeReplayDay(t.closedAt || t.openedAt) === replayDay)
     .filter(t => String(t.status || '').toLowerCase() === 'closed');
   const parity = SimulationEngine.summarizeReplayParity(actual, replayTrades || []);
   const outcome = summarizeOutcomeParity(actual, replayTrades || []);
   // Calculate actual net P&L from closed simulation trades
   const actualNet = actual.reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
+  const replayNet = (replayTrades || []).reduce((sum, t) => sum + replayTradeNet(t), 0);
   return {
     ...parity,
     outcome,
+    replayNet: +(replayNet || 0).toFixed(2),
     actualNet: +(actualNet || 0).toFixed(2),
+    diff: +((replayNet || 0) - (actualNet || 0)).toFixed(2),
     onlyReplay:parity.replayOnly || [],
     onlyActual:parity.actualOnly || [],
   };
@@ -3682,13 +3703,17 @@ function summarizeOutcomeBuckets(trades) {
       gross:0,
       fees:0,
     };
-    const pnl = Number(trade?.pnl) || 0;
+    const pnl = replayTradeNet(trade);
+    const gross = Number.isFinite(Number(trade?.grossPnl))
+      ? Number(trade.grossPnl)
+      : (Number(trade?.gross) || 0);
+    const fees = replayTradeFees(trade);
     row.trades += 1;
     row.wins += pnl > 0 ? 1 : 0;
     row.losses += pnl <= 0 ? 1 : 0;
     row.net += pnl;
-    row.gross += Number(trade?.grossPnl) || 0;
-    row.fees += Number(trade?.charges) || 0;
+    row.gross += gross;
+    row.fees += fees;
     buckets.set(key, row);
   }
   return buckets;
@@ -4267,7 +4292,7 @@ function renderReplayReport(day, snapshots, result, opts = {}) {
   lastReplayDebugResult = { day, snapshots, result, compare, sweepRows, autoTuneRows, quality };
   if (body) body.innerHTML = `
     <div class="replay-toolbar">
-      <label>Replay date <input id="replay-date-input" class="text-input replay-date-input" type="date" value="${escapeHTML(day)}" /></label>
+      <label>Replay date <input id="replay-date-input" class="text-input replay-date-input" type="date" value="${escapeHTML(normalizeReplayDay(day))}" /></label>
       <button class="paper-btn buy" data-replay-job-btn="report" onclick="runReplayForSelectedDate()">Run</button>
       <button class="paper-btn" data-replay-job-btn="sweep" onclick="runReplaySweepForCurrent()">Best Settings</button>
       <button class="paper-btn" data-replay-job-btn="autotune" onclick="runReplayAutoTune5D()">Auto Tune 5D</button>
@@ -4357,7 +4382,7 @@ async function runReplayToday(dayOverride = null) {
   const modal = document.getElementById('replay-modal');
   const body = document.getElementById('replay-modal-body');
   if (modal) modal.style.display = 'flex';
-  const day = dayOverride || getTradeDateKey();
+  const day = normalizeReplayDay(dayOverride || getTradeDateISO());
   if (body) body.innerHTML = `<div style="color:var(--muted);padding:16px">Running replay for ${escapeHTML(day)} on proxy...</div>`;
   try {
     const res = await fetch(`${SIM_REPLAY_ENDPOINT}?day=${encodeURIComponent(day)}`, { signal:AbortSignal.timeout(REPLAY_FETCH_TIMEOUT_MS) });
@@ -4383,7 +4408,7 @@ async function startReplayJob(day, mode) {
 }
 
 async function pollReplayJob(jobId, onUpdate = null) {
-  for (let attempt = 0; attempt < 90; attempt++) {
+  for (let attempt = 0; attempt < 300; attempt++) {
     await new Promise(resolve => setTimeout(resolve, attempt < 2 ? 750 : 2000));
     const res = await fetch(`${SIM_REPLAY_JOB_ENDPOINT}?id=${encodeURIComponent(jobId)}`, { signal:AbortSignal.timeout(15000) });
     const payload = await res.json().catch(() => ({}));
@@ -4398,7 +4423,7 @@ async function pollReplayJob(jobId, onUpdate = null) {
 }
 
 function runReplayForSelectedDate() {
-  const day = document.getElementById('replay-date-input')?.value || getTradeDateKey();
+  const day = document.getElementById('replay-date-input')?.value || getTradeDateISO();
   return runReplayToday(day);
 }
 
@@ -4462,7 +4487,7 @@ function downloadTextFile(filename, text, mime = 'text/plain') {
 
 function exportReplayReport(format = 'json') {
   if (!lastReplayDebugResult) return;
-  const day = lastReplayDebugResult.day || getTradeDateKey();
+  const day = normalizeReplayDay(lastReplayDebugResult.day || getTradeDateISO());
   if (format === 'csv') {
     const esc = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const rows = [['symbol','side','setup','qty','entry','exit','net','entryTime','exitTime','reason']]
@@ -6082,7 +6107,7 @@ function renderStockNews(sym, items, events, fromCache) {
 async function loadReplayWhyMissed(sym) {
   const target = document.getElementById('replay-why-box');
   if (!target) return;
-  const day = document.getElementById('replay-date-input')?.value || getTradeDateKey();
+  const day = document.getElementById('replay-date-input')?.value || getTradeDateISO();
   target.innerHTML = `<div class="replay-note">Checking replay for ${escapeHTML(sym)} on ${escapeHTML(day)}...</div>`;
   try {
     const res = await fetch(`${SIM_REPLAY_WHY_ENDPOINT}?day=${encodeURIComponent(day)}&symbol=${encodeURIComponent(sym)}`, { signal:AbortSignal.timeout(REPLAY_FETCH_TIMEOUT_MS) });

@@ -650,22 +650,85 @@ function uniqueSweepSettings(settingsList) {
   });
 }
 
+function uniqueSweepOutcomes(rows) {
+  const seen = new Set();
+  const ordered = Array.isArray(rows) ? rows : [];
+  return ordered.filter(row => {
+    const key = [
+      Number(row?.net || 0).toFixed(2),
+      Number(row?.winRate || 0).toFixed(1),
+      Math.floor(Number(row?.trades || 0)),
+      Number(row?.maxDrawdown || row?.drawdown || 0).toFixed(2),
+      Math.floor(Number(row?.maxLossStreak || row?.lossStreak || 0)),
+    ].join('|');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function buildQuickSweepSettings(baseSettings) {
   const base = { ...baseSettings };
-  return uniqueSweepSettings([
-    base,
-    { ...base, SIMULATION_MIN_SCORE:55 },
-    { ...base, SIMULATION_TOP_N:15 },
-    { ...base, SIMULATION_FIRST_HOUR_MAX_ENTRIES:1 },
-    { ...base, SIMULATION_FIRST_HOUR_MAX_ENTRIES:3 },
-    { ...base, SIMULATION_MAX_NEW_PER_CYCLE:3 },
-    { ...base, SIMULATION_LONG_TRAIL_PCT:0.8 },
-  ]);
+  const clampInt = (value, min, max) => Math.max(min, Math.min(max, Math.round(Number(value) || 0)));
+  const clampTrail = value => +Math.max(0.2, Math.min(2.0, Number(value) || 0.6)).toFixed(1);
+  const candidateSet = (values, normalize) => [...new Set(values.map(normalize).filter(v => Number.isFinite(Number(v))))];
+
+  const minScores = candidateSet([
+    base.SIMULATION_MIN_SCORE,
+    Number(base.SIMULATION_MIN_SCORE) - 5,
+    Number(base.SIMULATION_MIN_SCORE) + 5,
+  ], v => clampInt(v, 40, 90));
+
+  const topNs = candidateSet([
+    base.SIMULATION_TOP_N,
+    Number(base.SIMULATION_TOP_N) - 2,
+    Number(base.SIMULATION_TOP_N) + 2,
+  ], v => clampInt(v, 5, 25));
+
+  const perCycles = candidateSet([
+    base.SIMULATION_MAX_NEW_PER_CYCLE,
+    Number(base.SIMULATION_MAX_NEW_PER_CYCLE) - 1,
+    Number(base.SIMULATION_MAX_NEW_PER_CYCLE) + 1,
+  ], v => clampInt(v, 1, 8));
+
+  const firstHours = candidateSet([
+    base.SIMULATION_FIRST_HOUR_MAX_ENTRIES,
+    Number(base.SIMULATION_FIRST_HOUR_MAX_ENTRIES) - 1,
+    Number(base.SIMULATION_FIRST_HOUR_MAX_ENTRIES) + 1,
+  ], v => clampInt(v, 1, 6));
+
+  const trails = candidateSet([
+    base.SIMULATION_LONG_TRAIL_PCT,
+    Number(base.SIMULATION_LONG_TRAIL_PCT) - 0.2,
+    Number(base.SIMULATION_LONG_TRAIL_PCT) + 0.2,
+  ], clampTrail);
+
+  const variants = [base];
+  for (const minScore of minScores) {
+    for (const topN of topNs) {
+      for (const perCycle of perCycles) {
+        for (const firstHour of firstHours) {
+          for (const trail of trails) {
+            variants.push({
+              ...base,
+              SIMULATION_MIN_SCORE:minScore,
+              SIMULATION_TOP_N:topN,
+              SIMULATION_MAX_NEW_PER_CYCLE:perCycle,
+              SIMULATION_FIRST_HOUR_MAX_ENTRIES:firstHour,
+              SIMULATION_LONG_TRAIL_PCT:trail,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return uniqueSweepSettings(variants);
 }
 
 function runQuickReplaySweep(snapshots, baseSettings, maxVariants = 5) {
   const limit = Math.max(1, Math.floor(Number(maxVariants) || 5));
-  return normalizeSweepRows(buildQuickSweepSettings(baseSettings).map(settings => {
+  const ranked = normalizeSweepRows(buildQuickSweepSettings(baseSettings).map(settings => {
     const result = Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings);
     return {
       minScore:settings.SIMULATION_MIN_SCORE,
@@ -682,8 +745,8 @@ function runQuickReplaySweep(snapshots, baseSettings, maxVariants = 5) {
       maxLossStreak:result.summary.maxLossStreak,
     };
   }))
-    .sort((a, b) => b.net - a.net || a.maxDrawdown - b.maxDrawdown || b.winRate - a.winRate)
-    .slice(0, limit);
+    .sort((a, b) => b.net - a.net || a.maxDrawdown - b.maxDrawdown || b.winRate - a.winRate);
+  return uniqueSweepOutcomes(ranked).slice(0, limit);
 }
 
 function stableHash(value) {
@@ -705,7 +768,7 @@ function replaySnapshotVersion(day, mode) {
   return stableHash(versionParts);
 }
 
-const REPLAY_CACHE_SCHEMA_VERSION = 'v2';
+const REPLAY_CACHE_SCHEMA_VERSION = 'v3';
 
 function replayCacheKey(day, mode, settings) {
   return [
@@ -838,7 +901,13 @@ function createReplayJob(day, mode) {
   activeReplayJobs.set(cacheKey, job);
   const child = fork(REPLAY_WORKER_FILE, [], { stdio:['ignore', 'ignore', 'pipe', 'ipc'] });
   const workerErrors = [];
+  const maxRunMs = mode === 'sweep' ? 600000 : mode === 'autotune' ? 720000 : 120000;
+  let watchdog = null;
   const finalizeActiveJob = () => {
+    if (watchdog) {
+      clearTimeout(watchdog);
+      watchdog = null;
+    }
     if (activeReplayJobs.get(cacheKey)?.id === job.id) activeReplayJobs.delete(cacheKey);
     job.updatedAt = new Date().toISOString();
   };
@@ -895,6 +964,13 @@ function createReplayJob(day, mode) {
     if (job.status === 'done' || job.status === 'error') return;
     finishWithInlineFallback(`Replay worker exited (${signal || code})`);
   });
+  watchdog = setTimeout(() => {
+    if (job.status !== 'running') return;
+    job.status = 'error';
+    job.error = `Replay worker timed out after ${Math.round(maxRunMs / 1000)}s`;
+    try { process.kill(child.pid, 'SIGTERM'); } catch (_) {}
+    finalizeActiveJob();
+  }, maxRunMs);
   child.send({ day, mode });
   return job;
 }
