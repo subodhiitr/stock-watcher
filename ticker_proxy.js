@@ -81,6 +81,7 @@ const FRESH_NEWS_CACHE_VERSION = 4;
 const FRESH_NEWS_CACHE_MAX_DAYS = 30;
 const FRESH_NEWS_CRON_TIMES_IST = ['10:30', '15:45'];   // twice daily server-side refresh
 const FRESH_NEWS_STARTUP_STALE_MS = 6 * 60 * 60 * 1000;
+const REPLAY_DEEP_SWEEP_TIME_IST = '15:50';
 const replayResultCache    = new Map();
 const replayJobs           = new Map();
 const activeReplayJobs     = new Map();
@@ -88,6 +89,7 @@ const paperTradeStreamClients = new Set();
 let freshNewsDayCache      = null;
 const freshNewsBuildJobs   = new Map();
 let freshNewsCronTimer     = null;
+let replayDeepSweepTimer   = null;
 
 function loadPropertiesFile(filePath) {
   try {
@@ -643,6 +645,10 @@ function uniqueSweepSettings(settingsList) {
       settings.SIMULATION_MAX_NEW_PER_CYCLE,
       settings.SIMULATION_FIRST_HOUR_MAX_ENTRIES,
       settings.SIMULATION_LONG_TRAIL_PCT,
+      settings.SIMULATION_STOP_CONFIRM_BARS,
+      settings.SIMULATION_EXIT_FADE_CONFIRM_BARS,
+      settings.SIMULATION_STOP_GRACE_MIN,
+      settings.SIMULATION_TARGET_PARTIAL_QTY_PCT,
     ].join('|');
     if (seen.has(key)) return false;
     seen.add(key);
@@ -736,6 +742,176 @@ function runQuickReplaySweep(snapshots, baseSettings, maxVariants = 5) {
       perCycle:settings.SIMULATION_MAX_NEW_PER_CYCLE,
       firstHour:settings.SIMULATION_FIRST_HOUR_MAX_ENTRIES,
       trail:settings.SIMULATION_LONG_TRAIL_PCT,
+      stopConfirm:settings.SIMULATION_STOP_CONFIRM_BARS,
+      fadeConfirm:settings.SIMULATION_EXIT_FADE_CONFIRM_BARS,
+      stopGrace:settings.SIMULATION_STOP_GRACE_MIN,
+      partialQty:settings.SIMULATION_TARGET_PARTIAL_QTY_PCT,
+      trades:result.summary.trades,
+      winRate:result.summary.winRate,
+      net:result.summary.net,
+      returnPct:result.summary.returnPct,
+      maxDrawdown:result.summary.maxDrawdown,
+      maxDrawdownPct:result.summary.maxDrawdownPct,
+      maxLossStreak:result.summary.maxLossStreak,
+    };
+  }))
+    .sort((a, b) => b.net - a.net || a.maxDrawdown - b.maxDrawdown || b.winRate - a.winRate);
+  return uniqueSweepOutcomes(ranked).slice(0, limit);
+}
+
+function buildDeepSweepSettings(baseSettings) {
+  const base = { ...baseSettings };
+  const clampInt = (value, min, max) => Math.max(min, Math.min(max, Math.round(Number(value) || 0)));
+  const clampTrail = value => +Math.max(0.2, Math.min(2.5, Number(value) || 0.6)).toFixed(1);
+  const candidateSet = (values, normalize) => [...new Set(values.map(normalize).filter(v => Number.isFinite(Number(v))))];
+
+  const minScores = candidateSet([
+    base.SIMULATION_MIN_SCORE,
+    Number(base.SIMULATION_MIN_SCORE) - 10,
+    Number(base.SIMULATION_MIN_SCORE) - 5,
+    Number(base.SIMULATION_MIN_SCORE) + 5,
+    Number(base.SIMULATION_MIN_SCORE) + 10,
+  ], v => clampInt(v, 35, 95));
+
+  const topNs = candidateSet([
+    base.SIMULATION_TOP_N,
+    Number(base.SIMULATION_TOP_N) - 4,
+    Number(base.SIMULATION_TOP_N) - 2,
+    Number(base.SIMULATION_TOP_N) + 2,
+    Number(base.SIMULATION_TOP_N) + 4,
+  ], v => clampInt(v, 5, 30));
+
+  const perCycles = candidateSet([
+    base.SIMULATION_MAX_NEW_PER_CYCLE,
+    Number(base.SIMULATION_MAX_NEW_PER_CYCLE) - 2,
+    Number(base.SIMULATION_MAX_NEW_PER_CYCLE) - 1,
+    Number(base.SIMULATION_MAX_NEW_PER_CYCLE) + 1,
+    Number(base.SIMULATION_MAX_NEW_PER_CYCLE) + 2,
+  ], v => clampInt(v, 1, 10));
+
+  const firstHours = candidateSet([
+    base.SIMULATION_FIRST_HOUR_MAX_ENTRIES,
+    Number(base.SIMULATION_FIRST_HOUR_MAX_ENTRIES) - 1,
+    Number(base.SIMULATION_FIRST_HOUR_MAX_ENTRIES) + 1,
+    Number(base.SIMULATION_FIRST_HOUR_MAX_ENTRIES) + 2,
+  ], v => clampInt(v, 1, 8));
+
+  const trails = candidateSet([
+    base.SIMULATION_LONG_TRAIL_PCT,
+    Number(base.SIMULATION_LONG_TRAIL_PCT) - 0.4,
+    Number(base.SIMULATION_LONG_TRAIL_PCT) - 0.2,
+    Number(base.SIMULATION_LONG_TRAIL_PCT) + 0.2,
+    Number(base.SIMULATION_LONG_TRAIL_PCT) + 0.4,
+  ], clampTrail);
+
+  const stopConfirmBars = candidateSet([
+    base.SIMULATION_STOP_CONFIRM_BARS,
+    Number(base.SIMULATION_STOP_CONFIRM_BARS) - 1,
+    Number(base.SIMULATION_STOP_CONFIRM_BARS) + 1,
+    Number(base.SIMULATION_STOP_CONFIRM_BARS) + 2,
+  ], v => clampInt(v, 1, 6));
+
+  const fadeConfirmBars = candidateSet([
+    base.SIMULATION_EXIT_FADE_CONFIRM_BARS,
+    Number(base.SIMULATION_EXIT_FADE_CONFIRM_BARS) - 1,
+    Number(base.SIMULATION_EXIT_FADE_CONFIRM_BARS) + 1,
+    Number(base.SIMULATION_EXIT_FADE_CONFIRM_BARS) + 2,
+  ], v => clampInt(v, 1, 6));
+
+  const stopGraceMins = candidateSet([
+    base.SIMULATION_STOP_GRACE_MIN,
+    Number(base.SIMULATION_STOP_GRACE_MIN) - 5,
+    Number(base.SIMULATION_STOP_GRACE_MIN) + 5,
+  ], v => clampInt(v, 3, 45));
+
+  const partialQtyPcts = candidateSet([
+    base.SIMULATION_TARGET_PARTIAL_QTY_PCT,
+    Number(base.SIMULATION_TARGET_PARTIAL_QTY_PCT) - 10,
+    Number(base.SIMULATION_TARGET_PARTIAL_QTY_PCT) + 10,
+  ], v => clampInt(v, 20, 80));
+
+  const variants = [base];
+
+  // Core entry/flow parameters full cartesian sweep.
+  for (const minScore of minScores) {
+    for (const topN of topNs) {
+      for (const perCycle of perCycles) {
+        for (const firstHour of firstHours) {
+          for (const trail of trails) {
+            variants.push({
+              ...base,
+              SIMULATION_MIN_SCORE:minScore,
+              SIMULATION_TOP_N:topN,
+              SIMULATION_MAX_NEW_PER_CYCLE:perCycle,
+              SIMULATION_FIRST_HOUR_MAX_ENTRIES:firstHour,
+              SIMULATION_LONG_TRAIL_PCT:trail,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // Exit/risk-only cartesian sweep on base entry profile.
+  for (const stopConfirm of stopConfirmBars) {
+    for (const fadeConfirm of fadeConfirmBars) {
+      for (const stopGrace of stopGraceMins) {
+        for (const partialQty of partialQtyPcts) {
+          variants.push({
+            ...base,
+            SIMULATION_STOP_CONFIRM_BARS:stopConfirm,
+            SIMULATION_EXIT_FADE_CONFIRM_BARS:fadeConfirm,
+            SIMULATION_STOP_GRACE_MIN:stopGrace,
+            SIMULATION_TARGET_PARTIAL_QTY_PCT:partialQty,
+          });
+        }
+      }
+    }
+  }
+
+  // Couple core trend sensitivity with confirm bars.
+  for (const minScore of minScores) {
+    for (const topN of topNs) {
+      for (const trail of trails) {
+        for (const stopConfirm of stopConfirmBars) {
+          variants.push({
+            ...base,
+            SIMULATION_MIN_SCORE:minScore,
+            SIMULATION_TOP_N:topN,
+            SIMULATION_LONG_TRAIL_PCT:trail,
+            SIMULATION_STOP_CONFIRM_BARS:stopConfirm,
+          });
+        }
+        for (const fadeConfirm of fadeConfirmBars) {
+          variants.push({
+            ...base,
+            SIMULATION_MIN_SCORE:minScore,
+            SIMULATION_TOP_N:topN,
+            SIMULATION_LONG_TRAIL_PCT:trail,
+            SIMULATION_EXIT_FADE_CONFIRM_BARS:fadeConfirm,
+          });
+        }
+      }
+    }
+  }
+
+  return uniqueSweepSettings(variants);
+}
+
+function runDeepReplaySweep(snapshots, baseSettings, maxVariants = 20) {
+  const limit = Math.max(1, Math.floor(Number(maxVariants) || 20));
+  const ranked = normalizeSweepRows(buildDeepSweepSettings(baseSettings).map(settings => {
+    const result = Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings);
+    return {
+      minScore:settings.SIMULATION_MIN_SCORE,
+      topN:settings.SIMULATION_TOP_N,
+      perCycle:settings.SIMULATION_MAX_NEW_PER_CYCLE,
+      firstHour:settings.SIMULATION_FIRST_HOUR_MAX_ENTRIES,
+      trail:settings.SIMULATION_LONG_TRAIL_PCT,
+      stopConfirm:settings.SIMULATION_STOP_CONFIRM_BARS,
+      fadeConfirm:settings.SIMULATION_EXIT_FADE_CONFIRM_BARS,
+      stopGrace:settings.SIMULATION_STOP_GRACE_MIN,
+      partialQty:settings.SIMULATION_TARGET_PARTIAL_QTY_PCT,
       trades:result.summary.trades,
       winRate:result.summary.winRate,
       net:result.summary.net,
@@ -768,7 +944,7 @@ function replaySnapshotVersion(day, mode) {
   return stableHash(versionParts);
 }
 
-const REPLAY_CACHE_SCHEMA_VERSION = 'v3';
+const REPLAY_CACHE_SCHEMA_VERSION = 'v4';
 
 function replayCacheKey(day, mode, settings) {
   return [
@@ -871,9 +1047,38 @@ function buildReplayAutoTuneResponse(day) {
   });
 }
 
+function buildReplayDeepSweepResponse(day, options = {}) {
+  const settings = Backtest.loadSettings({ day });
+  const cacheKey = replayCacheKey(day, 'deep_sweep', settings);
+  const cached = getCachedReplay(cacheKey);
+  if (cached) return { ...cached, cached:true };
+  if (options.cachedOnly) {
+    return {
+      ok:true,
+      date:day,
+      count:0,
+      sweepRows:[],
+      cached:false,
+      pending:true,
+      message:'Post-market deep sweep cache not ready yet.',
+    };
+  }
+  const snapshots = readReplaySnapshotsForDay(day);
+  const result = compactReplayResult(Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings));
+  const response = {
+    ok:true,
+    date:day,
+    count:snapshots.length,
+    result,
+    sweepRows:runDeepReplaySweep(snapshots, settings, 20),
+    deepSweep:true,
+  };
+  return setCachedReplay(cacheKey, response);
+}
+
 function replayModeFromParams(params) {
   const mode = String(params?.mode || 'report').toLowerCase();
-  return ['report', 'sweep', 'autotune'].includes(mode) ? mode : 'report';
+  return ['report', 'sweep', 'autotune', 'deep_sweep'].includes(mode) ? mode : 'report';
 }
 
 function getReplayCacheForMode(day, mode) {
@@ -901,7 +1106,7 @@ function createReplayJob(day, mode) {
   activeReplayJobs.set(cacheKey, job);
   const child = fork(REPLAY_WORKER_FILE, [], { stdio:['ignore', 'ignore', 'pipe', 'ipc'] });
   const workerErrors = [];
-  const maxRunMs = mode === 'sweep' ? 600000 : mode === 'autotune' ? 720000 : 120000;
+  const maxRunMs = mode === 'deep_sweep' ? 1800000 : mode === 'sweep' ? 600000 : mode === 'autotune' ? 720000 : 120000;
   let watchdog = null;
   const finalizeActiveJob = () => {
     if (watchdog) {
@@ -915,7 +1120,9 @@ function createReplayJob(day, mode) {
     try {
       const payload = mode === 'autotune'
         ? buildReplayAutoTuneResponse(day)
-        : buildReplayResponse(day, { sweep:mode === 'sweep' });
+        : mode === 'deep_sweep'
+          ? buildReplayDeepSweepResponse(day)
+          : buildReplayResponse(day, { sweep:mode === 'sweep' });
       job.result = setCachedReplay(cacheKey, payload);
       job.status = 'done';
       job.fallback = true;
@@ -2435,6 +2642,71 @@ function startFreshNewsCron() {
     }, 5000);
     if (startupTimer.unref) startupTimer.unref();
   }
+}
+
+function replayDeepSweepDelayMs(now = new Date()) {
+  const offsetMs = 5.5 * 60 * 60 * 1000;
+  const ist = new Date(now.getTime() + offsetMs);
+  const y = ist.getUTCFullYear();
+  const m = ist.getUTCMonth();
+  const d = ist.getUTCDate();
+  const [slotH, slotM] = REPLAY_DEEP_SWEEP_TIME_IST.split(':').map(Number);
+  for (let add = 0; add < 8; add++) {
+    const candidateIstMs = Date.UTC(y, m, d + add, slotH, slotM, 0, 0);
+    const candidateIst = new Date(candidateIstMs);
+    const day = candidateIst.getUTCDay();
+    if (day === 0 || day === 6) continue;
+    const candidateUtcMs = candidateIstMs - offsetMs;
+    if (candidateUtcMs > now.getTime() + 5000) return candidateUtcMs - now.getTime();
+  }
+  return 12 * 60 * 60 * 1000;
+}
+
+async function ensureDeepSweepForDay(day, reason = 'scheduled') {
+  try {
+    const mode = 'deep_sweep';
+    const { cached } = getReplayCacheForMode(day, mode);
+    if (cached?.sweepRows?.length) {
+      console.log(`[replay-deep-sweep] Cache already present for ${day} (${reason})`);
+      return;
+    }
+    const job = createReplayJob(day, mode);
+    console.log(`[replay-deep-sweep] Job ${job.id} ${job.status} for ${day} (${reason})`);
+  } catch (e) {
+    console.warn(`[replay-deep-sweep] Failed for ${day}:`, e.message);
+  }
+}
+
+function scheduleNextDeepSweep() {
+  if (replayDeepSweepTimer) clearTimeout(replayDeepSweepTimer);
+  const delay = replayDeepSweepDelayMs();
+  replayDeepSweepTimer = setTimeout(async () => {
+    try {
+      await ensureDeepSweepForDay(getIstDateKey(), 'scheduled-close');
+    } catch (e) {
+      console.warn('[replay-deep-sweep] Scheduled run failed:', e.message);
+    } finally {
+      scheduleNextDeepSweep();
+    }
+  }, delay);
+  if (replayDeepSweepTimer.unref) replayDeepSweepTimer.unref();
+  console.log(`[replay-deep-sweep] Next post-close run in ${Math.round(delay / 60000)}m`);
+}
+
+function startReplayDeepSweepScheduler() {
+  scheduleNextDeepSweep();
+  const startupTimer = setTimeout(() => {
+    const now = new Date();
+    const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);
+    const weekday = ist.getUTCDay() >= 1 && ist.getUTCDay() <= 5;
+    const mins = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+    if (weekday && mins >= 15 * 60 + 35) {
+      ensureDeepSweepForDay(getIstDateKey(), 'startup-after-close').catch(e =>
+        console.warn('[replay-deep-sweep] Startup run failed:', e.message)
+      );
+    }
+  }, 12000);
+  if (startupTimer.unref) startupTimer.unref();
 }
 
 const nse = { cookies: '', lastRefresh: 0, refreshing: false, warmPromise: null, TTL: 5 * 60 * 1000 };
@@ -5337,9 +5609,12 @@ async function proxyRequestHandler(req, res) {
     try {
       const day = (searchParams.get('day') || searchParams.get('date') || getIstDateKey()).trim();
       const mode = String(searchParams.get('mode') || 'report').toLowerCase();
+      const cachedOnly = searchParams.get('cachedOnly') === '1';
       let payload;
       if (mode === 'autotune') {
         payload = buildReplayAutoTuneResponse(day);
+      } else if (mode === 'deep_sweep') {
+        payload = buildReplayDeepSweepResponse(day, { cachedOnly });
       } else {
         payload = buildReplayResponse(day, { sweep: mode === 'sweep' || searchParams.get('sweep') === '1' });
       }
@@ -5565,6 +5840,7 @@ async function initializeProxy() {
   initializeZerodha();
   
   startFreshNewsCron();
+  startReplayDeepSweepScheduler();
 }
 
 function initializeZerodha() {

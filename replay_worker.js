@@ -84,6 +84,10 @@ function uniqueSweepSettings(settingsList) {
       settings.SIMULATION_MAX_NEW_PER_CYCLE,
       settings.SIMULATION_FIRST_HOUR_MAX_ENTRIES,
       settings.SIMULATION_LONG_TRAIL_PCT,
+      settings.SIMULATION_STOP_CONFIRM_BARS,
+      settings.SIMULATION_EXIT_FADE_CONFIRM_BARS,
+      settings.SIMULATION_STOP_GRACE_MIN,
+      settings.SIMULATION_TARGET_PARTIAL_QTY_PCT,
     ].join('|');
     if (seen.has(key)) return false;
     seen.add(key);
@@ -177,6 +181,176 @@ function runQuickReplaySweep(snapshots, baseSettings, maxVariants = 5) {
       perCycle:settings.SIMULATION_MAX_NEW_PER_CYCLE,
       firstHour:settings.SIMULATION_FIRST_HOUR_MAX_ENTRIES,
       trail:settings.SIMULATION_LONG_TRAIL_PCT,
+      stopConfirm:settings.SIMULATION_STOP_CONFIRM_BARS,
+      fadeConfirm:settings.SIMULATION_EXIT_FADE_CONFIRM_BARS,
+      stopGrace:settings.SIMULATION_STOP_GRACE_MIN,
+      partialQty:settings.SIMULATION_TARGET_PARTIAL_QTY_PCT,
+      trades:result.summary.trades,
+      winRate:result.summary.winRate,
+      net:result.summary.net,
+      returnPct:result.summary.returnPct,
+      maxDrawdown:result.summary.maxDrawdown,
+      maxDrawdownPct:result.summary.maxDrawdownPct,
+      maxLossStreak:result.summary.maxLossStreak,
+    };
+  }))
+    .sort((a, b) => b.net - a.net || a.maxDrawdown - b.maxDrawdown || b.winRate - a.winRate);
+  return uniqueSweepOutcomes(ranked).slice(0, limit);
+}
+
+function buildDeepSweepSettings(baseSettings) {
+  const base = { ...baseSettings };
+  const clampInt = (value, min, max) => Math.max(min, Math.min(max, Math.round(Number(value) || 0)));
+  const clampTrail = value => +Math.max(0.2, Math.min(2.5, Number(value) || 0.6)).toFixed(1);
+  const candidateSet = (values, normalize) => [...new Set(values.map(normalize).filter(v => Number.isFinite(Number(v))))];
+
+  const minScores = candidateSet([
+    base.SIMULATION_MIN_SCORE,
+    Number(base.SIMULATION_MIN_SCORE) - 10,
+    Number(base.SIMULATION_MIN_SCORE) - 5,
+    Number(base.SIMULATION_MIN_SCORE) + 5,
+    Number(base.SIMULATION_MIN_SCORE) + 10,
+  ], v => clampInt(v, 35, 95));
+
+  const topNs = candidateSet([
+    base.SIMULATION_TOP_N,
+    Number(base.SIMULATION_TOP_N) - 4,
+    Number(base.SIMULATION_TOP_N) - 2,
+    Number(base.SIMULATION_TOP_N) + 2,
+    Number(base.SIMULATION_TOP_N) + 4,
+  ], v => clampInt(v, 5, 30));
+
+  const perCycles = candidateSet([
+    base.SIMULATION_MAX_NEW_PER_CYCLE,
+    Number(base.SIMULATION_MAX_NEW_PER_CYCLE) - 2,
+    Number(base.SIMULATION_MAX_NEW_PER_CYCLE) - 1,
+    Number(base.SIMULATION_MAX_NEW_PER_CYCLE) + 1,
+    Number(base.SIMULATION_MAX_NEW_PER_CYCLE) + 2,
+  ], v => clampInt(v, 1, 10));
+
+  const firstHours = candidateSet([
+    base.SIMULATION_FIRST_HOUR_MAX_ENTRIES,
+    Number(base.SIMULATION_FIRST_HOUR_MAX_ENTRIES) - 1,
+    Number(base.SIMULATION_FIRST_HOUR_MAX_ENTRIES) + 1,
+    Number(base.SIMULATION_FIRST_HOUR_MAX_ENTRIES) + 2,
+  ], v => clampInt(v, 1, 8));
+
+  const trails = candidateSet([
+    base.SIMULATION_LONG_TRAIL_PCT,
+    Number(base.SIMULATION_LONG_TRAIL_PCT) - 0.4,
+    Number(base.SIMULATION_LONG_TRAIL_PCT) - 0.2,
+    Number(base.SIMULATION_LONG_TRAIL_PCT) + 0.2,
+    Number(base.SIMULATION_LONG_TRAIL_PCT) + 0.4,
+  ], clampTrail);
+
+  const stopConfirmBars = candidateSet([
+    base.SIMULATION_STOP_CONFIRM_BARS,
+    Number(base.SIMULATION_STOP_CONFIRM_BARS) - 1,
+    Number(base.SIMULATION_STOP_CONFIRM_BARS) + 1,
+    Number(base.SIMULATION_STOP_CONFIRM_BARS) + 2,
+  ], v => clampInt(v, 1, 6));
+
+  const fadeConfirmBars = candidateSet([
+    base.SIMULATION_EXIT_FADE_CONFIRM_BARS,
+    Number(base.SIMULATION_EXIT_FADE_CONFIRM_BARS) - 1,
+    Number(base.SIMULATION_EXIT_FADE_CONFIRM_BARS) + 1,
+    Number(base.SIMULATION_EXIT_FADE_CONFIRM_BARS) + 2,
+  ], v => clampInt(v, 1, 6));
+
+  const stopGraceMins = candidateSet([
+    base.SIMULATION_STOP_GRACE_MIN,
+    Number(base.SIMULATION_STOP_GRACE_MIN) - 5,
+    Number(base.SIMULATION_STOP_GRACE_MIN) + 5,
+  ], v => clampInt(v, 3, 45));
+
+  const partialQtyPcts = candidateSet([
+    base.SIMULATION_TARGET_PARTIAL_QTY_PCT,
+    Number(base.SIMULATION_TARGET_PARTIAL_QTY_PCT) - 10,
+    Number(base.SIMULATION_TARGET_PARTIAL_QTY_PCT) + 10,
+  ], v => clampInt(v, 20, 80));
+
+  const variants = [base];
+
+  // Core entry/flow parameters full cartesian sweep.
+  for (const minScore of minScores) {
+    for (const topN of topNs) {
+      for (const perCycle of perCycles) {
+        for (const firstHour of firstHours) {
+          for (const trail of trails) {
+            variants.push({
+              ...base,
+              SIMULATION_MIN_SCORE:minScore,
+              SIMULATION_TOP_N:topN,
+              SIMULATION_MAX_NEW_PER_CYCLE:perCycle,
+              SIMULATION_FIRST_HOUR_MAX_ENTRIES:firstHour,
+              SIMULATION_LONG_TRAIL_PCT:trail,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // Exit/risk-only cartesian sweep on base entry profile.
+  for (const stopConfirm of stopConfirmBars) {
+    for (const fadeConfirm of fadeConfirmBars) {
+      for (const stopGrace of stopGraceMins) {
+        for (const partialQty of partialQtyPcts) {
+          variants.push({
+            ...base,
+            SIMULATION_STOP_CONFIRM_BARS:stopConfirm,
+            SIMULATION_EXIT_FADE_CONFIRM_BARS:fadeConfirm,
+            SIMULATION_STOP_GRACE_MIN:stopGrace,
+            SIMULATION_TARGET_PARTIAL_QTY_PCT:partialQty,
+          });
+        }
+      }
+    }
+  }
+
+  // Couple core trend sensitivity with confirm bars.
+  for (const minScore of minScores) {
+    for (const topN of topNs) {
+      for (const trail of trails) {
+        for (const stopConfirm of stopConfirmBars) {
+          variants.push({
+            ...base,
+            SIMULATION_MIN_SCORE:minScore,
+            SIMULATION_TOP_N:topN,
+            SIMULATION_LONG_TRAIL_PCT:trail,
+            SIMULATION_STOP_CONFIRM_BARS:stopConfirm,
+          });
+        }
+        for (const fadeConfirm of fadeConfirmBars) {
+          variants.push({
+            ...base,
+            SIMULATION_MIN_SCORE:minScore,
+            SIMULATION_TOP_N:topN,
+            SIMULATION_LONG_TRAIL_PCT:trail,
+            SIMULATION_EXIT_FADE_CONFIRM_BARS:fadeConfirm,
+          });
+        }
+      }
+    }
+  }
+
+  return uniqueSweepSettings(variants);
+}
+
+function runDeepReplaySweep(snapshots, baseSettings, maxVariants = 20) {
+  const limit = Math.max(1, Math.floor(Number(maxVariants) || 20));
+  const ranked = normalizeSweepRows(buildDeepSweepSettings(baseSettings).map(settings => {
+    const result = Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings);
+    return {
+      minScore:settings.SIMULATION_MIN_SCORE,
+      topN:settings.SIMULATION_TOP_N,
+      perCycle:settings.SIMULATION_MAX_NEW_PER_CYCLE,
+      firstHour:settings.SIMULATION_FIRST_HOUR_MAX_ENTRIES,
+      trail:settings.SIMULATION_LONG_TRAIL_PCT,
+      stopConfirm:settings.SIMULATION_STOP_CONFIRM_BARS,
+      fadeConfirm:settings.SIMULATION_EXIT_FADE_CONFIRM_BARS,
+      stopGrace:settings.SIMULATION_STOP_GRACE_MIN,
+      partialQty:settings.SIMULATION_TARGET_PARTIAL_QTY_PCT,
       trades:result.summary.trades,
       winRate:result.summary.winRate,
       net:result.summary.net,
@@ -209,6 +383,18 @@ function runReplay(day, mode) {
       autoTuneRows:runQuickReplaySweep(recent, settings, 3),
     };
   }
+  if (mode === 'deep_sweep') {
+    const snapshots = readSnapshotsForDay(day);
+    const result = compactReplayResult(Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings));
+    return {
+      ok:true,
+      date:day,
+      count:snapshots.length,
+      result,
+      sweepRows:runDeepReplaySweep(snapshots, settings, 20),
+      deepSweep:true,
+    };
+  }
   const snapshots = readSnapshotsForDay(day);
   const result = compactReplayResult(Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings));
   const response = {
@@ -226,7 +412,7 @@ function runReplay(day, mode) {
 process.on('message', message => {
   try {
     const day = String(message?.day || '').trim();
-    const mode = ['report', 'sweep', 'autotune'].includes(message?.mode) ? message.mode : 'report';
+    const mode = ['report', 'sweep', 'autotune', 'deep_sweep'].includes(message?.mode) ? message.mode : 'report';
     if (!day) throw new Error('day is required');
     process.send?.({ ok:true, payload:runReplay(day, mode) });
   } catch (e) {

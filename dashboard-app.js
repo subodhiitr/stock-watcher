@@ -2738,6 +2738,10 @@ async function applyReplaySettings(row) {
     SIMULATION_MAX_NEW_PER_CYCLE:Number(row.perCycle),
     SIMULATION_FIRST_HOUR_MAX_ENTRIES:Number(row.firstHour),
     SIMULATION_LONG_TRAIL_PCT:Number(row.trail),
+    SIMULATION_STOP_CONFIRM_BARS:Number(row.stopConfirm),
+    SIMULATION_EXIT_FADE_CONFIRM_BARS:Number(row.fadeConfirm),
+    SIMULATION_STOP_GRACE_MIN:Number(row.stopGrace),
+    SIMULATION_TARGET_PARTIAL_QTY_PCT:Number(row.partialQty),
   };
   Object.keys(next).forEach(key => {
     if (!Number.isFinite(Number(next[key]))) delete next[key];
@@ -4165,13 +4169,17 @@ function sweepReplayRows(rows) {
     <td>${row.perCycle}</td>
     <td>${row.firstHour ?? '--'}</td>
     <td>${row.trail}%</td>
+    <td>${row.stopConfirm ?? '--'}</td>
+    <td>${row.fadeConfirm ?? '--'}</td>
+    <td>${row.stopGrace ?? '--'}</td>
+    <td>${row.partialQty ?? '--'}%</td>
     <td>${row.trades}</td>
     <td>${row.winRate}%</td>
     <td class="portfolio-pnl ${portfolioValueClass(rowNet)}">${moneyINR(rowNet)}</td>
     <td>${moneyINR(row.drawdown)}</td>
     <td><button class="paper-btn" onclick="applyReplaySettingsFromRow(${index}, 'sweep')">Apply</button></td>
   </tr>`;
-  }).join('') || `<tr><td colspan="11" style="color:var(--muted);text-align:center;padding:16px">Sweep not run yet</td></tr>`;
+  }).join('') || `<tr><td colspan="15" style="color:var(--muted);text-align:center;padding:16px">Sweep not run yet</td></tr>`;
 }
 
 function replayComparisonHTML(currentSummary, rows) {
@@ -4189,6 +4197,10 @@ function replayComparisonHTML(currentSummary, rows) {
       perCycle:'SIMULATION_MAX_NEW_PER_CYCLE',
       firstHour:'SIMULATION_FIRST_HOUR_MAX_ENTRIES',
       trail:'SIMULATION_LONG_TRAIL_PCT',
+      stopConfirm:'SIMULATION_STOP_CONFIRM_BARS',
+      fadeConfirm:'SIMULATION_EXIT_FADE_CONFIRM_BARS',
+      stopGrace:'SIMULATION_STOP_GRACE_MIN',
+      partialQty:'SIMULATION_TARGET_PARTIAL_QTY_PCT',
     };
     const current = Number(settings[map[key]]);
     const next = Number(best[key]);
@@ -4204,13 +4216,17 @@ function replayComparisonHTML(currentSummary, rows) {
       <mark class="${changed('perCycle')}">Cycle ${best.perCycle}</mark>
       <mark class="${changed('firstHour')}">First hour ${best.firstHour ?? '--'}</mark>
       <mark class="${changed('trail')}">Trail ${best.trail}%</mark>
+      <mark class="${changed('stopConfirm')}">Stop confirm ${best.stopConfirm ?? '--'}</mark>
+      <mark class="${changed('fadeConfirm')}">Fade confirm ${best.fadeConfirm ?? '--'}</mark>
+      <mark class="${changed('stopGrace')}">Stop grace ${best.stopGrace ?? '--'}m</mark>
+      <mark class="${changed('partialQty')}">Partial ${best.partialQty ?? '--'}%</mark>
     </strong></div>
   </div><div class="replay-note ${guard.level === 'warn' ? 'warn' : ''}">${escapeHTML(guard.message)}</div>`;
 }
 
 function describeReplaySettingsRow(row) {
   if (!row) return '--';
-  return `Score ${row.minScore}, Top ${row.topN}, Cycle ${row.perCycle}, First hour ${row.firstHour ?? '--'}, Trail ${row.trail}%`;
+  return `Score ${row.minScore}, Top ${row.topN}, Cycle ${row.perCycle}, First hour ${row.firstHour ?? '--'}, Trail ${row.trail}%, Stop confirm ${row.stopConfirm ?? '--'}, Fade confirm ${row.fadeConfirm ?? '--'}, Stop grace ${row.stopGrace ?? '--'}m, Partial qty ${row.partialQty ?? '--'}%`;
 }
 
 function analyzeAutoTuneGuardrails(row, currentSummary = {}) {
@@ -4366,7 +4382,7 @@ function renderReplayReport(day, snapshots, result, opts = {}) {
 
     <div class="portfolio-section-title">Best Settings Sweep</div>
     <div class="portfolio-table-wrap"><table class="replay-table">
-      <thead><tr><th>#</th><th>Min Score</th><th>Top N</th><th>Per Cycle</th><th>First Hr</th><th>Trail</th><th>Trades</th><th>Win %</th><th>Net P&L</th><th>Drawdown</th><th>Use</th></tr></thead>
+      <thead><tr><th>#</th><th>Min Score</th><th>Top N</th><th>Per Cycle</th><th>First Hr</th><th>Trail</th><th>Stop Confirm</th><th>Fade Confirm</th><th>Stop Grace</th><th>Partial Qty</th><th>Trades</th><th>Win %</th><th>Net P&L</th><th>Drawdown</th><th>Use</th></tr></thead>
       <tbody>${sweepReplayRows(sweepRows)}</tbody>
     </table></div>
 
@@ -4436,7 +4452,18 @@ async function runReplaySweepForCurrent() {
   if (statusBox) statusBox.innerHTML = `<div id="${progressId}" class="replay-note">Starting settings sweep job...</div>`;
   setReplayJobBusy('sweep', true, 'Sweeping...');
   try {
-    const job = await startReplayJob(lastReplayDebugResult.day, 'sweep');
+    const day = normalizeReplayDay(lastReplayDebugResult.day || getTradeDateISO());
+    const cachedRes = await fetch(`${SIM_REPLAY_ENDPOINT}?day=${encodeURIComponent(day)}&mode=deep_sweep&cachedOnly=1`, { signal:AbortSignal.timeout(10000) });
+    const cachedPayload = await cachedRes.json().catch(() => ({}));
+    if (cachedRes.ok && cachedPayload.ok !== false && cachedPayload.cached && Array.isArray(cachedPayload.sweepRows) && cachedPayload.sweepRows.length) {
+      const el = document.getElementById(progressId);
+      if (el) el.textContent = `Loaded post-market deep sweep cache (${cachedPayload.sweepRows.length} rows).`;
+      renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows:cachedPayload.sweepRows || [], autoTuneRows:lastReplayDebugResult.autoTuneRows });
+      return;
+    }
+    const el = document.getElementById(progressId);
+    if (el) el.textContent = 'No cached post-market deep sweep found. Running deep sweep now...';
+    const job = await startReplayJob(day, 'deep_sweep');
     const payload = await pollReplayJob(job.id, update => {
       const el = document.getElementById(progressId);
       if (el) el.textContent = `Settings sweep ${update.status}${update.cached ? ' (cached)' : update.reused ? ' (reused)' : update.workerPid ? ` (worker ${update.workerPid})` : ''}... ${update.id}`;
