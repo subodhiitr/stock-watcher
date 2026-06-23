@@ -41,6 +41,9 @@ const crypto = require('crypto');
 const { fork } = require('child_process');
 const Backtest = require('./backtest_simulation');
 const SimulationEngine = require('./simulation_engine');
+const { loadCredentials } = require('./zerodha-credentials');
+const KiteClient = require('./zerodha-kite-client');
+const ConfirmationPoller = require('./zerodha-confirmation-poller');
 const PORT  = 3001;
 const USER_OPENAI_PROPERTIES = path.join(os.homedir(), 'openai.properties');
 const SAVED_ETF_FILE = path.join(__dirname, 'saved_etfs.json');
@@ -116,6 +119,14 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || openaiProps.OPENAI_MODEL || ope
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || openaiProps.OLLAMA_BASE_URL || openaiProps.ollama_base_url || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || openaiProps.OLLAMA_MODEL || openaiProps.ollama_model || '';
 const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || openaiProps.OLLAMA_TIMEOUT_MS || openaiProps.ollama_timeout_ms || 180000);
+
+// Zerodha Live integration
+let brokerMode = 'paper'; // paper, zerodha_dry_run, zerodha_live
+let zerodhaCredentials = null;
+let kiteClientLive = null;
+let kiteClientDry = null;
+let confirmationPoller = null;
+let zerodhaLiveFailureCount = 0;
 
 function parseVolumeField(item) {
   const raw = item.totalTradedVolume ?? item.tradedVolume ?? item.volume ?? item.totalTradedQty ?? item.quantityTraded ?? item.qtyTraded ?? 0;
@@ -548,7 +559,7 @@ function saveSimulationSnapshotsFile(state, dateKey = getIstDateKey()) {
     return snapshots;
   } catch (e) {
     console.warn('[simulation-snapshots] Save error:', e.message);
-    return [];
+    return null;
   }
 }
 
@@ -653,7 +664,8 @@ function buildQuickSweepSettings(baseSettings) {
 }
 
 function runQuickReplaySweep(snapshots, baseSettings, maxVariants = 5) {
-  return normalizeSweepRows(buildQuickSweepSettings(baseSettings).slice(0, maxVariants).map(settings => {
+  const limit = Math.max(1, Math.floor(Number(maxVariants) || 5));
+  return normalizeSweepRows(buildQuickSweepSettings(baseSettings).map(settings => {
     const result = Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings);
     return {
       minScore:settings.SIMULATION_MIN_SCORE,
@@ -671,7 +683,7 @@ function runQuickReplaySweep(snapshots, baseSettings, maxVariants = 5) {
     };
   }))
     .sort((a, b) => b.net - a.net || a.maxDrawdown - b.maxDrawdown || b.winRate - a.winRate)
-    .slice(0, 10);
+    .slice(0, limit);
 }
 
 function stableHash(value) {
@@ -693,8 +705,16 @@ function replaySnapshotVersion(day, mode) {
   return stableHash(versionParts);
 }
 
+const REPLAY_CACHE_SCHEMA_VERSION = 'v2';
+
 function replayCacheKey(day, mode, settings) {
-  return [day || getIstDateKey(), mode || 'report', replaySnapshotVersion(day, mode), stableHash(settings)].join('|');
+  return [
+    day || getIstDateKey(),
+    mode || 'report',
+    REPLAY_CACHE_SCHEMA_VERSION,
+    replaySnapshotVersion(day, mode),
+    stableHash(settings),
+  ].join('|');
 }
 
 function getCachedReplay(key) {
@@ -817,39 +837,63 @@ function createReplayJob(day, mode) {
   }
   activeReplayJobs.set(cacheKey, job);
   const child = fork(REPLAY_WORKER_FILE, [], { stdio:['ignore', 'ignore', 'pipe', 'ipc'] });
+  const workerErrors = [];
+  const finalizeActiveJob = () => {
+    if (activeReplayJobs.get(cacheKey)?.id === job.id) activeReplayJobs.delete(cacheKey);
+    job.updatedAt = new Date().toISOString();
+  };
+  const finishWithInlineFallback = (reason) => {
+    try {
+      const payload = mode === 'autotune'
+        ? buildReplayAutoTuneResponse(day)
+        : buildReplayResponse(day, { sweep:mode === 'sweep' });
+      job.result = setCachedReplay(cacheKey, payload);
+      job.status = 'done';
+      job.fallback = true;
+      job.fallbackReason = reason || 'worker-fallback';
+    } catch (e) {
+      job.status = 'error';
+      const details = workerErrors.join(' | ');
+      job.error = [reason, e?.stack || e?.message || String(e), details].filter(Boolean).join(' | ');
+    }
+    finalizeActiveJob();
+  };
   job.status = 'running';
   job.workerPid = child.pid;
   job.updatedAt = new Date().toISOString();
   child.stderr?.on('data', chunk => {
     const line = String(chunk || '').trim();
-    if (line) console.warn('[replay-worker]', line);
+    if (!line) return;
+    workerErrors.push(line);
+    if (workerErrors.length > 12) workerErrors.shift();
+    console.warn('[replay-worker]', line);
   });
   child.on('message', message => {
     if (job.status === 'done' || job.status === 'error') return;
-    if (message?.ok) {
+    if (message && typeof message === 'object' && message.ok === true) {
       job.result = setCachedReplay(cacheKey, message.payload);
       job.status = 'done';
-    } else {
-      job.status = 'error';
-      job.error = message?.error || 'Replay worker failed';
+      finalizeActiveJob();
+      child.disconnect?.();
+      return;
     }
-    job.updatedAt = new Date().toISOString();
-    if (activeReplayJobs.get(cacheKey)?.id === job.id) activeReplayJobs.delete(cacheKey);
-    child.disconnect?.();
+    if (message && typeof message === 'object' && message.ok === false) {
+      const reason = message.error || workerErrors.join(' | ') || 'Replay worker failed';
+      finishWithInlineFallback(reason);
+      child.disconnect?.();
+      return;
+    } else {
+      // Ignore unexpected IPC messages; wait for success/error/exit.
+      return;
+    }
   });
   child.on('error', e => {
-    if (job.status === 'done') return;
-    job.status = 'error';
-    job.error = e.message || String(e);
-    job.updatedAt = new Date().toISOString();
-    if (activeReplayJobs.get(cacheKey)?.id === job.id) activeReplayJobs.delete(cacheKey);
+    if (job.status === 'done' || job.status === 'error') return;
+    finishWithInlineFallback(e?.stack || e?.message || String(e));
   });
   child.on('exit', (code, signal) => {
     if (job.status === 'done' || job.status === 'error') return;
-    job.status = 'error';
-    job.error = `Replay worker exited (${signal || code})`;
-    job.updatedAt = new Date().toISOString();
-    if (activeReplayJobs.get(cacheKey)?.id === job.id) activeReplayJobs.delete(cacheKey);
+    finishWithInlineFallback(`Replay worker exited (${signal || code})`);
   });
   child.send({ day, mode });
   return job;
@@ -2887,39 +2931,53 @@ function computeVolumeShockMetrics(rawHighs, rawLows, rawCloses, rawVolumes, tim
 }
 
 function buildIntradaySignal(sym, result, dailyContext = {}) {
-  const quote = result?.indicators?.quote?.[0] || {};
-  const meta = result?.meta || {};
-  const rawOpens = quote.open || [];
-  const rawHighs = quote.high || [];
-  const rawLows = quote.low || [];
-  const rawCloses = quote.close || [];
-  const rawVolumes = quote.volume || [];
-  const timestamps = result?.timestamp || [];
-  const closes = compactFinite(quote.close);
-  const highs = compactFinite(quote.high);
-  const lows = compactFinite(quote.low);
-  const volumes = compactFinite(quote.volume);
-  if (closes.length < 6) return null;
+  try {
+    const quote = result?.indicators?.quote?.[0] || {};
+    const meta = result?.meta || {};
+    const rawOpens = quote.open || [];
+    const rawHighs = quote.high || [];
+    const rawLows = quote.low || [];
+    const rawCloses = quote.close || [];
+    const rawVolumes = quote.volume || [];
+    const timestamps = result?.timestamp || [];
+    const closes = compactFinite(quote.close);
+    const highs = compactFinite(quote.high);
+    const lows = compactFinite(quote.low);
+    const volumes = compactFinite(quote.volume);
+    
+    if (closes.length < 6) {
+      // Insufficient data - return stale marker
+      const price = Number(meta.regularMarketPrice) || (closes.length > 0 ? closes[closes.length - 1] : null);
+      if (!price) return null;
+      return {
+        symbol: sym,
+        price: +price.toFixed(2),
+        stale: true,
+        fetchFailed: true,
+        staleReason: `Insufficient intraday data (${closes.length} candles, need 6+)`,
+        savedAt: new Date().toISOString(),
+      };
+    }
 
-  const price = Number(meta.regularMarketPrice) || closes[closes.length - 1];
-  const prevClose = Number(meta.previousClose) || closes[0];
-  const openPrice = Number(meta.regularMarketOpen) || closes[0];
-  const lastClose = closes[closes.length - 1];
-  const prevBarClose = closes.length > 1 ? closes[closes.length - 2] : lastClose;
-  const ema9 = ema(closes, 9);
-  const ema20 = ema(closes, 20);
-  const rsi14 = rsi(closes, 14);
-  const vwap = computeVWAP(highs, lows, closes, volumes);
-  const atr14 = atr(highs, lows, closes, 14) || (price * 0.006);
-  const vwapBands = computeVWAPBands(highs, lows, closes, volumes, vwap, price, 1.5);
-  const st = superTrend(highs, lows, closes, 10, 3);
-  const openingHigh = highs.slice(0, 3).length ? Math.max(...highs.slice(0, 3)) : null;
-  const openingLow = lows.slice(0, 3).length ? Math.min(...lows.slice(0, 3)) : null;
-  const recentSwingHigh = highs.slice(-6, -1).length ? Math.max(...highs.slice(-6, -1)) : null;
-  const recentSwingLow = lows.slice(-6, -1).length ? Math.min(...lows.slice(-6, -1)) : null;
-  const recentLow10 = lows.slice(-11, -1).length ? Math.min(...lows.slice(-11, -1)) : null;
-  const prevBarLow = lows.length > 1 ? lows[lows.length - 2] : null;
-  const recentVol = volumes.slice(-10, -1).filter(v => v > 0);
+    const price = Number(meta.regularMarketPrice) || closes[closes.length - 1];
+    const prevClose = Number(meta.previousClose) || closes[0];
+    const openPrice = Number(meta.regularMarketOpen) || closes[0];
+    const lastClose = closes[closes.length - 1];
+    const prevBarClose = closes.length > 1 ? closes[closes.length - 2] : lastClose;
+    const ema9 = ema(closes, 9);
+    const ema20 = ema(closes, 20);
+    const rsi14 = rsi(closes, 14);
+    const vwap = computeVWAP(highs, lows, closes, volumes);
+    const atr14 = atr(highs, lows, closes, 14) || (price * 0.006);
+    const vwapBands = computeVWAPBands(highs, lows, closes, volumes, vwap, price, 1.5);
+    const st = superTrend(highs, lows, closes, 10, 3);
+    const openingHigh = highs.slice(0, 3).length ? Math.max(...highs.slice(0, 3)) : null;
+    const openingLow = lows.slice(0, 3).length ? Math.min(...lows.slice(0, 3)) : null;
+    const recentSwingHigh = highs.slice(-6, -1).length ? Math.max(...highs.slice(-6, -1)) : null;
+    const recentSwingLow = lows.slice(-6, -1).length ? Math.min(...lows.slice(-6, -1)) : null;
+    const recentLow10 = lows.slice(-11, -1).length ? Math.min(...lows.slice(-11, -1)) : null;
+    const prevBarLow = lows.length > 1 ? lows[lows.length - 2] : null;
+    const recentVol = volumes.slice(-10, -1).filter(v => v > 0);
   const avgRecentVol = recentVol.length ? recentVol.reduce((a, b) => a + b, 0) / recentVol.length : 0;
   const lastVolume = volumes[volumes.length - 1] || 0;
   const volumeSpike = avgRecentVol > 0 && lastVolume > avgRecentVol * 1.5;
@@ -3113,7 +3171,25 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     dayChange: prevClose ? +(((price - prevClose) / prevClose) * 100).toFixed(2) : null,
     reasons: reasons.slice(0, 6),
     savedAt: new Date().toISOString(),
-  };
+    };
+  } catch (err) {
+    console.error(`[buildIntradaySignal] ${sym}: ERROR - ${err.message}`);
+    const quote = result?.indicators?.quote?.[0] || {};
+    const meta = result?.meta || {};
+    const closes = compactFinite(quote.close);
+    const price = Number(meta.regularMarketPrice) || (closes.length > 0 ? closes[closes.length - 1] : null);
+    if (price) {
+      return {
+        symbol: sym,
+        price: +price.toFixed(2),
+        stale: true,
+        error: true,
+        errorReason: err.message,
+        savedAt: new Date().toISOString(),
+      };
+    }
+    return null;
+  }
 }
 
 async function fetchIntradaySignal(sym) {
@@ -3121,20 +3197,48 @@ async function fetchIntradaySignal(sym) {
   if (intradaySignalCache[sym] && (now - intradaySignalCache[sym].t) < INTRADAY_SIGNAL_TTL) {
     return intradaySignalCache[sym].v;
   }
-  const intradayPath = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=5m&range=1d&includePrePost=false`;
-  const dailyPath = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=1d&range=1mo&includePrePost=false`;
-  let [r, daily] = await Promise.all([
-    httpsGet({ hostname: 'query1.finance.yahoo.com', path: intradayPath, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS }),
-    httpsGet({ hostname: 'query1.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS }),
-  ]);
-  if (r.status !== 200) r = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: intradayPath, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS });
-  if (daily.status !== 200) daily = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS });
-  if (r.status !== 200) return null;
-  const result = JSON.parse(r.body)?.chart?.result?.[0];
-  const dailyResult = daily.status === 200 ? JSON.parse(daily.body)?.chart?.result?.[0] : null;
-  const signal = buildIntradaySignal(sym, result, buildDailyTradeContext(dailyResult));
-  if (signal) intradaySignalCache[sym] = { v: signal, t: now };
-  return signal;
+  
+  try {
+    const intradayPath = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=5m&range=1d&includePrePost=false`;
+    const dailyPath = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=1d&range=1mo&includePrePost=false`;
+    
+    // Fetch both intraday and daily with increased timeout (20s each)
+    let [r, daily] = await Promise.all([
+      httpsGet({ hostname: 'query1.finance.yahoo.com', path: intradayPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null })),
+      httpsGet({ hostname: 'query1.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null })),
+    ]);
+    
+    // Retry intraday from query2 if needed
+    if (r.status !== 200) {
+      r = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: intradayPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+    }
+    
+    // Retry daily from query2 if needed
+    if (daily.status !== 200) {
+      daily = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+    }
+    
+    // If no intraday data, return null (will be handled as stale by caller)
+    if (r.status !== 200) {
+      return null;
+    }
+    
+    const result = JSON.parse(r.body)?.chart?.result?.[0];
+    if (!result) {
+      return null;
+    }
+    
+    const quote = result?.indicators?.quote?.[0];
+    const closes = (quote?.close || []).filter(v => Number.isFinite(v));
+    
+    const dailyResult = daily?.status === 200 ? JSON.parse(daily.body)?.chart?.result?.[0] : null;
+    const signal = buildIntradaySignal(sym, result, buildDailyTradeContext(dailyResult));
+    if (signal) intradaySignalCache[sym] = { v: signal, t: now };
+    return signal;
+  } catch (err) {
+    console.warn(`[intraday] ${sym}: error - ${err.message}`);
+    return null;
+  }
 }
 
 const AMC_RULES = [
@@ -4276,19 +4380,41 @@ async function proxyRequestHandler(req, res) {
     });
     let closed = false;
     req.on('close', () => { closed = true; });
-    const send = (obj) => { if (!closed && !res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
+    const send = (obj) => { 
+      try { 
+        if (!closed && !res.writableEnded) {
+          const msg = `data: ${JSON.stringify(obj)}\n\n`;
+          res.write(msg);
+        }
+      } catch (err) {
+        closed = true;
+      }
+    };
     try {
       for (let i = 0; i < symbols.length; i += CONCURRENCY) {
         if (closed) break;
         const chunk = symbols.slice(i, i + CONCURRENCY);
         await Promise.allSettled(chunk.map(sym =>
           fetchIntradaySignal(sym)
-            .then(v => { if (v) send({ sym, data: v }); })
-            .catch(e => console.warn(`[stream/intraday] ${sym}:`, e.message))
+            .then(v => { 
+              // Always send a response, even if data is null (fallback to stale marker)
+              if (v) {
+                send({ sym, data: v });
+              } else {
+                send({ sym, data: { stale: true, fetchFailed: true, staleReason: 'Insufficient intraday data (less than 6 5m candles)' } });
+              }
+            })
+            .catch(e => {
+              console.warn(`[stream/intraday] ${sym}:`, e.message);
+              send({ sym, data: { stale: true, fetchFailed: true, staleReason: e.message } });
+            })
         ));
       }
-    } catch(e) { send({ error: e.message }); }
-    if (!res.writableEnded) { res.write(`data: ${JSON.stringify({ done: true })}\n\n`); res.end(); }
+    } catch(e) { 
+      console.error('[stream/intraday] stream error:', e.message);
+      send({ error: e.message }); 
+    }
+    if (!closed && !res.writableEnded) { res.write(`data: ${JSON.stringify({ done: true })}\n\n`); res.end(); }
     return;
   }
 
@@ -4412,7 +4538,11 @@ async function proxyRequestHandler(req, res) {
       const results = {};
       for (let i = 0; i < symbols.length; i += CONCURRENCY) {
         const chunk = symbols.slice(i, i + CONCURRENCY);
-        const settled = await Promise.allSettled(chunk.map(sym => fetchIntradaySignal(sym).then(v => ({ sym, v }))));
+        const settled = await Promise.allSettled(chunk.map(sym => 
+          fetchIntradaySignal(sym)
+            .then(v => ({ sym, v: v || { stale: true, fetchFailed: true, staleReason: 'Insufficient intraday data' } }))
+            .catch(e => ({ sym, v: { stale: true, fetchFailed: true, staleReason: e.message } }))
+        ));
         for (const r of settled) {
           if (r.status === 'fulfilled' && r.value?.v) results[r.value.sym] = r.value.v;
         }
@@ -4691,6 +4821,56 @@ async function proxyRequestHandler(req, res) {
     return;
   }
 
+  // /broker-mode -- Switch between paper, zerodha_dry_run, zerodha_live
+  if (pathname === '/broker-mode') {
+    if (req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, mode: brokerMode }));
+      return;
+    }
+    if (req.method === 'POST') {
+      try {
+        const payload = await readJsonBody(req);
+        const newMode = String(payload.mode || '').toLowerCase();
+        if (!['paper', 'zerodha_dry_run', 'zerodha_live'].includes(newMode)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid mode. Valid modes: paper, zerodha_dry_run, zerodha_live' }));
+          return;
+        }
+        brokerMode = newMode;
+        if (newMode === 'zerodha_live') {
+          zerodhaLiveFailureCount = 0; // Reset failure counter when switching to live
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, mode: brokerMode }));
+        return;
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+        return;
+      }
+    }
+  }
+
+  // /broker-status -- Get broker connection health and status
+  if (pathname === '/broker-status') {
+    if (req.method === 'GET') {
+      const status = {
+        mode: brokerMode,
+        zerodha: {
+          credentialsLoaded: !!zerodhaCredentials,
+          clientsInitialized: !!kiteClientLive && !!kiteClientDry,
+          pollerRunning: confirmationPoller !== null,
+          failureCount: zerodhaLiveFailureCount,
+          isDisabled: zerodhaLiveFailureCount >= 3,
+        },
+      };
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, ...status }));
+      return;
+    }
+  }
+
   // /paper-trades -- local paper trading journal for locked intraday entries
   if (pathname === '/paper-trades') {
     if (req.method === 'GET') {
@@ -4768,7 +4948,7 @@ async function proxyRequestHandler(req, res) {
             setup: payload.setup || null,
             entryContext: payload.entryContext && typeof payload.entryContext === 'object' ? payload.entryContext : null,
             notes: payload.notes || '',
-            openedAt: new Date().toISOString(),
+            openedAt: String(payload.transactionTime || '').match(/\d{4}-\d{2}-\d{2}T/) ? payload.transactionTime : new Date().toISOString(),
           };
           if (dryRunEntryOrder) {
             trade.broker = {
@@ -4783,6 +4963,46 @@ async function proxyRequestHandler(req, res) {
               },
               audit: [{ at: trade.openedAt, event: 'entry_dry_run_created', order: dryRunEntryOrder }],
             };
+          } else if (brokerMode === 'zerodha_live' && kiteClientLive && zerodhaCredentials) {
+            // Attempt to place live order via Kite API
+            const liveEntryOrder = buildZerodhaDryRunOrder({ ...payload, symbol, side, qty, entryPrice, assetType: payload.assetType === 'etf' ? 'etf' : 'stock' }, null, 'entry');
+            try {
+              const orderId = await kiteClientLive.placeOrder(liveEntryOrder);
+              trade.broker = {
+                name: 'zerodha',
+                mode: 'live',
+                orderId: orderId,
+                status: 'pending',
+                createdAt: trade.openedAt,
+                confirmedAt: null,
+                confirmationAttempts: 0,
+                confirmationError: null,
+                exitPlan: {
+                  target: trade.target,
+                  stop: trade.stop,
+                  squareOff: 'intraday dashboard managed exit',
+                },
+                audit: [{ at: trade.openedAt, event: 'live_order_placed', orderId: orderId, elapsed: 0, attempts: 1 }],
+              };
+              zerodhaLiveFailureCount = 0;
+              console.log(`[zerodha-live] Order placed: ${orderId} for ${symbol}`);
+            } catch (e) {
+              zerodhaLiveFailureCount++;
+              console.error(`[zerodha-live] Order placement failed (${zerodhaLiveFailureCount}):`, e.message);
+              // Fallback to paper mode if too many failures
+              if (zerodhaLiveFailureCount >= 3) {
+                console.warn('[zerodha-live] Too many failures. Disabling zerodha_live mode, falling back to paper mode.');
+                brokerMode = 'paper';
+              }
+              trade.broker = {
+                name: 'zerodha',
+                mode: 'live',
+                status: 'failed',
+                error: e.message,
+                createdAt: trade.openedAt,
+                audit: [{ at: trade.openedAt, event: 'live_order_failed', error: e.message }],
+              };
+            }
           }
           trades.unshift(trade);
           savePaperTradesFile(trades);
@@ -4802,7 +5022,7 @@ async function proxyRequestHandler(req, res) {
             return;
           }
           const pnl = computePaperTradePnl(trade, exitPrice);
-          const closedAt = new Date().toISOString();
+          const closedAt = String(payload.transactionTime || '').match(/\d{4}-\d{2}-\d{2}T/) ? payload.transactionTime : new Date().toISOString();
           Object.assign(trade, {
             status: 'closed',
             exitPrice:+exitPrice.toFixed(2),
@@ -4820,6 +5040,35 @@ async function proxyRequestHandler(req, res) {
             trade.broker.exitOrder = exitOrder;
             trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
             trade.broker.audit.push({ at: closedAt, event: 'exit_dry_run_created', reason: trade.closeReason, order: exitOrder });
+          } else if (trade.broker?.name === 'zerodha' && trade.broker?.mode === 'live' && trade.broker?.orderId && kiteClientLive) {
+            // Cancel or exit live order
+            try {
+              const orderId = trade.broker.orderId;
+              if (trade.broker.status === 'pending') {
+                // If still pending, cancel it
+                await kiteClientLive.cancelOrder(orderId);
+                trade.broker.status = 'cancelled';
+              } else if (trade.broker.status === 'confirmed') {
+                // If filled, place exit order (market order to square off)
+                const exitOrder = buildZerodhaDryRunOrder({ ...trade, exitPrice }, trade, 'exit');
+                const exitOrderId = await kiteClientLive.placeOrder(exitOrder);
+                trade.broker.exitOrderId = exitOrderId;
+                trade.broker.status = 'exit_placed';
+              }
+              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+              trade.broker.audit.push({ at: closedAt, event: 'live_exit_processed', reason: trade.closeReason, orderId: trade.broker.orderId });
+              zerodhaLiveFailureCount = 0;
+              console.log(`[zerodha-live] Exit processed for order: ${orderId}`);
+            } catch (e) {
+              zerodhaLiveFailureCount++;
+              console.error(`[zerodha-live] Exit failed (${zerodhaLiveFailureCount}):`, e.message);
+              if (zerodhaLiveFailureCount >= 3) {
+                console.warn('[zerodha-live] Too many failures. Disabling zerodha_live mode, falling back to paper mode.');
+                brokerMode = 'paper';
+              }
+              trade.broker.status = 'exit_failed';
+              trade.broker.error = e.message;
+            }
           }
           savePaperTradesFile(trades);
           broadcastPaperTradeState('close');
@@ -4839,7 +5088,7 @@ async function proxyRequestHandler(req, res) {
             res.end(JSON.stringify({ error: 'Open trade id, partial qty below open qty, and exitPrice are required' }));
             return;
           }
-          const closedAt = new Date().toISOString();
+          const closedAt = String(payload.transactionTime || '').match(/\d{4}-\d{2}-\d{2}T/) ? payload.transactionTime : new Date().toISOString();
           const partialTrade = {
             ...trade,
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -5032,7 +5281,7 @@ async function proxyRequestHandler(req, res) {
     if (req.method === 'GET') {
       const day = (searchParams.get('day') || searchParams.get('date') || '').trim();
       const state = day ? loadSimulationSnapshotsFile(day) : { snapshots: loadAllSimulationSnapshots() };
-      const snapshots = day ? saveSimulationSnapshotsFile(state, day) : state.snapshots;
+      const snapshots = day ? (saveSimulationSnapshotsFile(state, day) || state.snapshots) : state.snapshots;
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: day || null, count: snapshots.length, snapshots }));
       return;
@@ -5045,10 +5294,14 @@ async function proxyRequestHandler(req, res) {
         const state = loadSimulationSnapshotsFile(day);
         state.snapshots.push(snapshot);
         const snapshots = saveSimulationSnapshotsFile(state, day);
+        if (!Array.isArray(snapshots)) throw new Error('Failed to persist snapshot file');
+        const verifyState = loadSimulationSnapshotsFile(day);
+        const persisted = Array.isArray(verifyState.snapshots) && verifyState.snapshots.some(s => s && s.id === snapshot.id);
+        if (!persisted) throw new Error('Snapshot write verification failed');
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: day, file: path.basename(getSimulationSnapshotFile(day)), count: snapshots.length, snapshot }));
       } catch(e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: e.message || 'Invalid snapshot payload' }));
       }
       return;
@@ -5231,7 +5484,40 @@ async function initializeProxy() {
   if (proxyInitialized) return;
   proxyInitialized = true;
   await Promise.all([warmNSESession(), refreshYahooCrumb()]);
+  
+  // Initialize Zerodha integration
+  initializeZerodha();
+  
   startFreshNewsCron();
+}
+
+function initializeZerodha() {
+  try {
+    zerodhaCredentials = loadCredentials();
+    if (!zerodhaCredentials) {
+      console.log('[zerodha] Credentials not loaded. Zerodha integration disabled.');
+      return;
+    }
+    
+    const { apiKey, apiSecret, accessToken } = zerodhaCredentials;
+    
+    // Create clients for live and dry modes
+    kiteClientLive = new KiteClient(apiKey, apiSecret, accessToken, false);
+    kiteClientDry = new KiteClient(apiKey, apiSecret, accessToken, true);
+    
+    // Initialize confirmation poller with reference to paper trades
+    confirmationPoller = new ConfirmationPoller(
+      kiteClientLive,
+      loadPaperStateFile().trades,
+      () => brokerMode
+    );
+    
+    // Start the poller
+    confirmationPoller.start();
+    console.log('[zerodha] Initialization complete. Confirmation poller started.');
+  } catch (e) {
+    console.error('[zerodha] Initialization failed:', e.message);
+  }
 }
 
 function startProxyServer(port = PORT) {

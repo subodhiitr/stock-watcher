@@ -32,6 +32,9 @@ const TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;
 const TRADE_SETTING_OVERRIDES_KEY = 'stock-watcher-trade-setting-overrides';
 const OPENAI_ENDPOINT = `${PROXY}/openai`;
 const OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;
+const DEBUG_INTRADAY_LOGS = false;
+const DEBUG_SIM_LOGS = false;
+const DEBUG_EVENT_LOGS = false;
 
 let STOCK_FAVORITES = new Set();
 let ETF_FAVORITES = new Set();
@@ -653,22 +656,27 @@ function scheduleTableRender() {
 function openSSEStream(url, onData, { timeoutMs = 90000 } = {}) {
   return new Promise((resolve) => {
     let es;
-    try { es = new EventSource(url); } catch(e) { resolve({ ok: false, error: e.message }); return; }
+    try { es = new EventSource(url); } catch(e) { 
+      console.error('EventSource creation failed:', e.message);
+      resolve({ ok: false, error: e.message }); 
+      return; 
+    }
     const cleanup = () => { try { es.close(); } catch(_) {} };
-    const timer = setTimeout(() => { cleanup(); resolve({ ok: false, error: 'timeout' }); }, timeoutMs);
+    const timer = setTimeout(() => { cleanup(); resolve({ ok: false, error: 'timeout after ' + timeoutMs + 'ms' }); }, timeoutMs);
     es.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
         if (msg.done) { clearTimeout(timer); cleanup(); resolve({ ok: true }); return; }
         if (msg.error) { console.warn('SSE stream error event:', msg.error); return; }
         onData(msg);
-      } catch(e) { console.warn('SSE parse error:', e.message); }
+      } catch(e) { console.warn('SSE parse error:', e.message, 'data:', event.data.substring(0, 100)); }
     };
-    es.onerror = () => { clearTimeout(timer); cleanup(); resolve({ ok: false, error: 'connection error' }); };
+    es.onerror = (err) => { clearTimeout(timer); cleanup(); console.error('SSE connection error:', err); resolve({ ok: false, error: 'connection error' }); };
   });
 }
 const sparklineData = {};  // sym -> normalised % array from /sparklines
 const intradayData = {};   // sym -> short-term VWAP/EMA/RSI/ATR setup
+let intradayDataUpdateCount = 0;  // track how many times we store intraday data
 const setupOutcomeTracker = new Map(); // setup key -> rolling max favorable/adverse move
 const simulationPreviousSignalCandidates = new Map(); // sym -> previous refresh candidate for confirmation
 const INTRADAY_STALE_MS = 5 * 60 * 1000;
@@ -749,6 +757,7 @@ const BROKER_MODE_KEY = 'stock-watcher-broker-mode';
 let simulationState = localStorage.getItem(SIMULATION_STATE_KEY) || 'off'; // off | running | settling
 let simulationBusy = false;
 let brokerMode = localStorage.getItem(BROKER_MODE_KEY) === 'zerodha_dry_run' ? 'zerodha_dry_run' : 'paper';
+let brokerConnectionStatus = null; // { mode, zerodha: { credentialsLoaded, clientsInitialized, pollerRunning, failureCount, isDisabled } }
 const COLUMN_PRESET_KEY = 'stock-watcher-column-preset';
 let columnPreset = localStorage.getItem(COLUMN_PRESET_KEY) || 'trading';
 let notificationsOpen = false;
@@ -767,6 +776,7 @@ let lastDashboardRefreshAt = null;
 let tableRenderScheduled = false;
 let tableRenderPending = false;
 let dashboardRenderScheduled = false;
+let simulationCycleTimer = null;
 
 function yieldToBrowser() {
   return new Promise(resolve => requestAnimationFrame(() => resolve()));
@@ -780,6 +790,18 @@ function scheduleWork(fn, delay = 0) {
       fn();
     }
   }, delay);
+}
+
+// Broker mode helpers
+function isZerodhaLive() { return brokerMode === 'zerodha_live'; }
+function isZeodhaMode() { return brokerMode.startsWith('zerodha'); }
+
+function startSimulationCycleTimer() {
+  if (simulationCycleTimer) return;
+  // Keep exits progressing even when feed events are sparse; ensures EOD settlement execution.
+  simulationCycleTimer = setInterval(() => {
+    runSimulationCycle({ allowEntries:false }).catch(e => console.warn('simulation timer cycle failed', e.message));
+  }, 15000);
 }
 
 const PRESET_ETFS = [
@@ -841,7 +863,7 @@ function changeSource() {
   dataSource=null; stockData={}; indexData={}; ETF_ASSETS=[]; etfListLoaded=false; etfSectorFilter=''; etfFilters=new Set(); stockFilters=new Set();
   clearInterval(countdownTimer);
   ['source-panel'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='block'; });
-  ['index-bar','sector-section','main-section','mkt-status-bar',
+  ['index-bar','sector-section','main-section',
    'pause-btn','change-src-btn','source-indicator','top-action-bar','dashboard-health-banner','notification-panel']
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
 }
@@ -856,8 +878,8 @@ function activateDashboard(src) {
 
   const si = document.getElementById('source-indicator');
   if(si) si.style.display = 'inline-block';
-  if (src==='yahoo') { si.textContent='💜 Yahoo Finance'; si.className='source-indicator yahoo'; const msb=document.getElementById('mkt-status-bar'); if(msb) msb.style.display='flex'; }
-  else if (src==='nse') { si.textContent='🏛️ NSE Direct'; si.className='source-indicator nse'; const msb=document.getElementById('mkt-status-bar'); if(msb) msb.style.display='flex'; }
+  if (src==='yahoo') { si.textContent='💜 Yahoo Finance'; si.className='source-indicator yahoo'; }
+  else if (src==='nse') { si.textContent='🏛️ NSE Direct'; si.className='source-indicator nse'; }
   else { si.textContent='🤖 AI Mode'; si.className='source-indicator ai'; }
 
   renderDashboardShell('Preparing live rows...');
@@ -1391,11 +1413,8 @@ function togglePause(){
 //  RENDER
 // ═══════════════════════════════════
 function renderMarketStatus(){
-  const bar=document.getElementById('mkt-status-bar');
-  const txt=document.getElementById('mkt-status-text');
-  if(marketOpen===null)return;
-  if(marketOpen){bar.className='open';txt.textContent='● Market Open — Live prices';}
-  else{bar.className='closed';txt.textContent='● Market Closed — Last traded prices';}
+  // Market status row removed from UI; keep this as a no-op to avoid touching call sites.
+  return;
 }
 
 function renderIndices(){
@@ -1523,21 +1542,37 @@ async function fetchSparklines(symbols) {
 }
 
 async function fetchIntradaySignalBatch(batch, attempt = 1) {
-  const res = await fetch(`${PROXY}/intraday-signals?symbols=${encodeURIComponent(batch.join(','))}`, { signal: AbortSignal.timeout(25000) });
-  if (!res.ok) throw new Error(`intraday HTTP ${res.status}`);
-  const payload = await res.json().catch(() => null);
-  const data = payload?.data || {};
-  let updated = false;
-  const now = Date.now();
-  for (const sym of batch) {
-    const setup = data[sym];
-    if (setup && setup.signal) {
-      rememberPreviousSimulationSignal(sym);
-      intradayData[sym] = { ...setup, fetchedAt:now, stale:false, fetchFailed:false, retryAttempt:attempt };
-      updated = true;
+  try {
+    // Increased timeout to 60 seconds (25 symbols * 20s / 8 concurrent = ~62.5s per batch)
+    const res = await fetch(`${PROXY}/intraday-signals?symbols=${encodeURIComponent(batch.join(','))}`, { signal: AbortSignal.timeout(60000) });
+    if (!res.ok) throw new Error(`intraday HTTP ${res.status}`);
+    const payload = await res.json().catch(() => null);
+    const data = payload?.data || {};
+    let updated = 0;
+    const now = Date.now();
+    for (const sym of batch) {
+      const setup = data[sym];
+      if (setup && typeof setup === 'object') {
+        // Accept any setup object, even if it doesn't have signal (partial data is ok)
+        rememberPreviousSimulationSignal(sym);
+        intradayData[sym] = { ...setup, fetchedAt:now, stale:false, fetchFailed:false, retryAttempt:attempt };
+        intradayDataUpdateCount++;
+        updated++;
+        console.debug(`[batch] ${sym}: stored (update #${intradayDataUpdateCount}), keys: ${Object.keys(setup).slice(0,4).join(',')}`);
+      } else if (setup === null || setup === undefined) {
+        // Data explicitly null - mark as stale to indicate we tried but failed
+        if (!intradayData[sym]) {
+          intradayData[sym] = { fetchedAt:now, stale:true, fetchFailed:true, staleReason:'No data from server', retryAttempt:attempt };
+          intradayDataUpdateCount++;
+        }
+      }
     }
+    console.info(`batch fetch: ${batch.length} symbols → ${updated} updated (total: ${intradayDataUpdateCount})`);
+    return updated > 0;
+  } catch (err) {
+    console.error('fetchIntradaySignalBatch error:', err.message);
+    throw err;
   }
-  return updated;
 }
 
 function markIntradayBatchStale(batch, reason) {
@@ -1552,21 +1587,30 @@ function markIntradayBatchStale(batch, reason) {
 async function fetchIntradaySignals(symbols) {
   if (!symbols || !symbols.length) return;
   let anyUpdated = false;
+  let sseCount = 0, batchCount = 0;
 
+  if (DEBUG_INTRADAY_LOGS) console.info(`[fetchIntradaySignals] starting for ${symbols.length} symbols, current intradayData has ${Object.keys(intradayData).length}`);
   const url = `${PROXY}/stream/intraday-signals?symbols=${encodeURIComponent(symbols.join(','))}`;
+  // Increased timeout to 180s (3 min) since fetching intraday data from Yahoo can take time with retries
   const result = await openSSEStream(url, (msg) => {
-    if (msg.sym && msg.data?.signal) {
+    if (msg.sym && msg.data && typeof msg.data === 'object') {
+      // Accept any msg.data, even if it doesn't have signal yet (allow partial updates)
       const fetchedAt = Date.now();
       rememberPreviousSimulationSignal(msg.sym);
       intradayData[msg.sym] = { ...msg.data, fetchedAt, stale: false, fetchFailed: false };
+      intradayDataUpdateCount++;
       anyUpdated = true;
+      sseCount++;
+      if (DEBUG_INTRADAY_LOGS) console.debug(`[intraday] ${msg.sym}: stored (update #${intradayDataUpdateCount}), keys: target=${msg.data.target}, signal=${msg.data.signal}, stale=${msg.data.stale}`);
       scheduleTableRender(); // debounced: coalesces per-symbol renders
+    } else if (msg.sym) {
+      if (DEBUG_INTRADAY_LOGS) console.warn('intraday SSE: invalid data for', msg.sym, 'data:', msg.data);
     }
-  });
+  }, { timeoutMs: 180000 });
 
   if (!result.ok) {
     // SSE failed — fall back to parallel batches
-    console.warn('intraday SSE failed, falling back to batch:', result.error);
+    if (DEBUG_INTRADAY_LOGS) console.warn('intraday SSE failed, falling back to batch:', result.error, `(received ${sseCount} items before failure)`);
     const BATCH = 25, PARALLEL = 3;
     const batches = [];
     for (let i = 0; i < symbols.length; i += BATCH) batches.push(symbols.slice(i, i + BATCH));
@@ -1574,16 +1618,20 @@ async function fetchIntradaySignals(symbols) {
       await Promise.allSettled(batches.slice(i, i + PARALLEL).map(async batch => {
         try {
           const updated = await fetchIntradaySignalBatch(batch, 1);
-          if (updated) { anyUpdated = true; scheduleTableRender(); }
+          if (updated) { anyUpdated = true; batchCount += batch.length; scheduleTableRender(); }
         } catch(e) {
-          console.warn('fallback batch failed:', e.message);
+          if (DEBUG_INTRADAY_LOGS) console.warn('fallback batch failed:', e.message);
           markIntradayBatchStale(batch, e.message);
         }
       }));
     }
+    if (DEBUG_INTRADAY_LOGS) console.info(`intraday: SSE${sseCount > 0 ? ' partial' : ''} + batch fallback completed (${sseCount} SSE + ${batchCount} batch = ${sseCount + batchCount} items, total updates: ${intradayDataUpdateCount})`);
+  } else {
+    if (DEBUG_INTRADAY_LOGS) console.info(`intraday: SSE stream completed successfully (${sseCount} items, total updates: ${intradayDataUpdateCount})`);
   }
 
   if (anyUpdated) {
+    if (DEBUG_INTRADAY_LOGS) console.info(`[fetchIntradaySignals] completed: intradayData now has ${Object.keys(intradayData).length} symbols, total updates: ${intradayDataUpdateCount}`);
     saveSimulationSnapshot('intraday-refresh').catch(e => console.warn('simulation snapshot failed', e.message));
     runSimulationCycle({ allowEntries:true }).catch(e => console.warn('simulation cycle failed', e.message));
   }
@@ -2058,25 +2106,52 @@ function renderOpenTradeRows(openTrades, newKeys) {
     const key = simulationTradeKey(trade);
     const isNew = newKeys.has(key);
     const cls = Number.isFinite(Number(pnl?.pnl)) ? portfolioValueClass(Number(pnl.pnl)) : '';
+    const isPartialExitEvent = !isOpen && (Boolean(trade.parentId) || /partial/i.test(String(trade.closeReason || '')));
+    const qtyDisplay = `${Number(trade.qty || 0).toLocaleString('en-IN')}${isPartialExitEvent ? ' (partial)' : ''}`;
     const isManual = trade.source !== 'simulation';
     const action = isOpen
       ? (isManual
         ? `<button class="paper-btn exit" onclick="closePaperTrade('${escapeHTML(trade.id)}','${escapeHTML(trade.symbol)}')">Exit</button>`
         : '<span style="color:var(--muted);font-size:11px">Auto managed</span>')
       : `<span style="color:var(--muted);font-size:11px">${escapeHTML(trade.closeReason || 'Exited')}</span>`;
+    
+    // Broker status indicator
+    let statusHTML = '--';
+    if (trade.broker?.name === 'zerodha') {
+      if (trade.broker.status === 'pending') {
+        statusHTML = '⏳ Pending';
+      } else if (trade.broker.status === 'confirmed') {
+        statusHTML = '✅ Confirmed';
+      } else if (trade.broker.status === 'rejected') {
+        statusHTML = '❌ Rejected';
+      } else if (trade.broker.status === 'timeout') {
+        statusHTML = '⚠️ Timeout';
+      } else if (trade.broker.status === 'failed') {
+        statusHTML = '❌ Failed';
+      } else if (trade.broker.status === 'exit_placed') {
+        statusHTML = '🚪 Exiting';
+      } else if (trade.broker.status === 'cancelled') {
+        statusHTML = '✗ Cancelled';
+      } else if (trade.broker.status === 'entry_dry_run') {
+        statusHTML = '🔄 Dry Entry';
+      } else if (trade.broker.status === 'exit_dry_run') {
+        statusHTML = '🔄 Dry Exit';
+      }
+    }
+    
     return `<tr class="${isNew ? 'new-trade-highlight' : ''}">
-      <td>${isNew ? '<span class="new-trade-pill">New</span>' : '--'}</td>
+      <td>${eventType}</td>
+      <td>${escapeHTML(formatTradeDateTime(transactionTime))}</td>
       <td>${escapeHTML(trade.source === 'simulation' ? 'Sim' : 'Manual')}</td>
       <td>${escapeHTML(trade.symbol || '--')}</td>
       <td>${escapeHTML(String(trade.side || '--').toUpperCase())}</td>
-      <td>${Number(trade.qty || 0).toLocaleString('en-IN')}</td>
+      <td>${escapeHTML(qtyDisplay)}</td>
       <td>${moneyINR(trade.entryPrice)}</td>
       <td>${moneyINR(current)}</td>
+      <td>${statusHTML}</td>
       <td>${moneyINR(trade.target)}</td>
       <td>${moneyINR(trade.stop)}</td>
       <td class="portfolio-pnl ${cls}">${pnl ? `${moneyINR(pnl.pnl)} (${pnl.pnlPct}% net)` : '--'}</td>
-      <td>${eventType}</td>
-      <td>${escapeHTML(formatTradeDateTime(transactionTime))}</td>
       <td class="portfolio-journal-cell" title="${escapeHTML(formatEntryJournal(trade))}">${escapeHTML(formatEntryJournal(trade))}</td>
       <td>${action}</td>
     </tr>`;
@@ -2117,7 +2192,7 @@ function renderOpenTradesModal() {
     <div class="portfolio-section-title">${openTradesModalMode === 'new' ? 'New Trade Events' : 'All Open Trades'}</div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table open-trades-table">
-        <thead><tr><th>New</th><th>Mode</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Live</th><th>Target</th><th>SL</th><th>Net P&L</th><th>Event</th><th>Txn Time</th><th>Entry Why</th><th>Action</th></tr></thead>
+        <thead><tr><th>Event</th><th>Txn Time</th><th>Mode</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Live</th><th>Status</th><th>Target</th><th>SL</th><th>Net P&L</th><th>Entry Why</th><th>Action</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -2275,7 +2350,8 @@ function renderTopActionBar() {
     el.textContent = text;
     el.className = cls;
   };
-  set('action-market', marketOpen === true ? 'Open' : marketOpen === false ? 'Closed' : '--', marketOpen === true ? 'up' : marketOpen === false ? 'down' : '');
+  const effectiveMarketOpen = (marketOpen === true || marketOpen === false) ? marketOpen : isMarketHoursNow();
+  set('action-market', effectiveMarketOpen ? 'Open' : 'Closed', effectiveMarketOpen ? 'up' : 'down');
   set('action-freshness', freshText, stale ? 'down' : '');
   set('action-simulation', simulationState.toUpperCase(), simulationState === 'running' ? 'up' : simulationState === 'settling' ? 'down' : '');
   set('action-open-trades', `${openTrades.length} / ${moneyINR(summary.openExposure)}`);
@@ -2487,6 +2563,24 @@ function renderPortfolioModal() {
         <tbody>${transactionRows}</tbody>
       </table>
     </div>
+    <div class="portfolio-section-title">Zerodha Connection Status</div>
+    <div class="portfolio-grid">
+      <div class="portfolio-card"><div class="label">Mode</div><div class="value">${escapeHTML(brokerConnectionStatus?.mode || 'paper')}</div></div>
+      <div class="portfolio-card"><div class="label">Credentials</div><div class="value">${brokerConnectionStatus?.zerodha?.credentialsLoaded ? '✅ Loaded' : '❌ Missing'}</div></div>
+      <div class="portfolio-card"><div class="label">API Clients</div><div class="value">${brokerConnectionStatus?.zerodha?.clientsInitialized ? '✅ Ready' : '⚠️ Not initialized'}</div></div>
+      <div class="portfolio-card"><div class="label">Poller</div><div class="value">${brokerConnectionStatus?.zerodha?.pollerRunning ? '🟢 Running' : '⚫ Stopped'}</div></div>
+      <div class="portfolio-card"><div class="label">Failures</div><div class="value">${brokerConnectionStatus?.zerodha?.failureCount || 0} / 3 (threshold)</div></div>
+      <div class="portfolio-card"><div class="label">Live Status</div><div class="value">${brokerConnectionStatus?.zerodha?.isDisabled ? '🔴 Disabled' : '🟢 Enabled'}</div></div>
+    </div>
+    <div class="portfolio-section-title">Recent Trade Confirmations</div>
+    <div class="portfolio-table-wrap" id="zerodha-confirmations-table">
+      <table class="portfolio-table" style="min-width:500px">
+        <thead><tr><th>Symbol</th><th>Order ID</th><th>Status</th><th>Attempts</th><th>Last Event</th></tr></thead>
+        <tbody id="zerodha-confirmations-tbody">
+          <tr><td colspan="5" style="color:var(--muted);text-align:center;padding:16px">No recent confirmations</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div class="portfolio-section-title">Day Wise Realized P&L</div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table" style="min-width:360px">
@@ -2522,6 +2616,7 @@ async function openPortfolioModal() {
     await loadPaperTrades();
   }
   renderPortfolioModal();
+  updateZerodhaConfirmationsTable();
 }
 
 function closePortfolioModal(e) {
@@ -2598,6 +2693,24 @@ async function toggleSimulationStopGuardOverride() {
   if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
 }
 
+async function setNiftyRegimeOverride(valueStr) {
+  const current = loadTradeSettingOverrides();
+  const value = parseFloat(valueStr);
+  if (Number.isFinite(value) && value >= -1 && value <= 1) {
+    const next = { ...current, SIMULATION_MARKET_REGIME_NIFTY_PCT: value };
+    await saveTradeSettingOverrides(next);
+    if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+  }
+}
+
+function clearNiftyRegimeOverride() {
+  const current = loadTradeSettingOverrides();
+  const next = { ...current };
+  delete next.SIMULATION_MARKET_REGIME_NIFTY_PCT;
+  saveTradeSettingOverrides(next);
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+}
+
 async function applyReplaySettings(row) {
   if (!row) return;
   const current = loadTradeSettingOverrides();
@@ -2626,6 +2739,8 @@ function renderSettingsModal() {
   const effective = TradeRules.withDefaults ? TradeRules.withDefaults(getSimulationEngineSettings()) : { ...defaults, ...getSimulationEngineSettings() };
   const summary = getPortfolioSummary();
   const stopGuardOverride = !!effective.SIMULATION_OVERRIDE_STOP_GUARD;
+  const niftyRegimeOverride = overrides.SIMULATION_MARKET_REGIME_NIFTY_PCT;
+  const niftyRegimeValue = Number.isFinite(niftyRegimeOverride) ? niftyRegimeOverride : effective.SIMULATION_MARKET_REGIME_NIFTY_PCT;
   const rows = Object.keys(defaults).map(key => {
     const current = effective[key];
     const def = defaults[key];
@@ -2642,6 +2757,7 @@ function renderSettingsModal() {
       <div class="settings-card"><div class="label">Per position cap</div><div class="value">${moneyINR(effective.MAX_POSITION_EXPOSURE)}</div></div>
       <div class="settings-card"><div class="label">Minimum net profit</div><div class="value">${formatSettingValue(effective.SIMULATION_MIN_NET_PROFIT_PCT, 'SIMULATION_MIN_NET_PROFIT_PCT')}</div></div>
       <div class="settings-card"><div class="label">Stop guard override</div><div class="value ${stopGuardOverride ? 'up' : ''}">${stopGuardOverride ? 'Enabled' : 'Disabled'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="toggleSimulationStopGuardOverride()">${stopGuardOverride ? 'Disable override' : 'Enable override'}</button></div></div>
+      <div class="settings-card"><div class="label">Nifty regime threshold</div><div class="value ${Number.isFinite(niftyRegimeOverride) ? 'up' : ''}">${niftyRegimeValue.toFixed(3)}</div><div style="margin-top:8px"><input type="number" step="0.001" min="-1" max="1" value="${niftyRegimeValue.toFixed(3)}" onchange="setNiftyRegimeOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(niftyRegimeOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(niftyRegimeOverride) ? ` <button class="btn" type="button" onclick="clearNiftyRegimeOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
     </div>
     <div class="portfolio-section-title">Effective Trade Rule Settings</div>
     <div class="settings-table-wrap">
@@ -2691,20 +2807,46 @@ function formatZerodhaOrder(order) {
 function updateBrokerModeButton() {
   const btn = document.getElementById('broker-mode-btn');
   if (!btn) return;
-  btn.classList.remove('broker-dry', 'primary');
-  if (isZerodhaDryRun()) {
+  btn.classList.remove('broker-dry', 'broker-live', 'primary');
+  
+  if (brokerMode === 'zerodha_live') {
+    btn.classList.add('broker-live');
+    const status = brokerConnectionStatus?.zerodha?.isDisabled ? '🔴' : '🟢';
+    btn.textContent = `${status} Zerodha Live`;
+    btn.title = brokerConnectionStatus?.zerodha?.isDisabled 
+      ? 'Zerodha Live is disabled due to repeated failures. Switch mode to reset.' 
+      : 'Live mode: trades are executed against real Zerodha account.';
+  } else if (brokerMode === 'zerodha_dry_run') {
     btn.classList.add('broker-dry');
-    btn.textContent = 'Zerodha Dry';
+    const status = brokerConnectionStatus?.zerodha?.clientsInitialized ? '🟡' : '🔴';
+    btn.textContent = `${status} Zerodha Dry`;
     btn.title = 'Dry-run mode: trades remain virtual and Zerodha order payloads are saved for validation.';
   } else {
-    btn.textContent = 'Paper';
+    btn.textContent = '📄 Paper';
     btn.title = 'Paper mode: trades are virtual only.';
   }
 }
 
 function toggleBrokerMode() {
-  brokerMode = isZerodhaDryRun() ? 'paper' : 'zerodha_dry_run';
+  // Cycle through: paper → zerodha_dry_run → zerodha_live → paper
+  if (brokerMode === 'paper') {
+    brokerMode = 'zerodha_dry_run';
+  } else if (brokerMode === 'zerodha_dry_run') {
+    brokerMode = 'zerodha_live';
+  } else if (brokerMode === 'zerodha_live') {
+    brokerMode = 'paper';
+  } else {
+    brokerMode = 'paper';
+  }
   localStorage.setItem(BROKER_MODE_KEY, brokerMode);
+  
+  // Update mode on backend
+  fetch('/broker-mode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: brokerMode }),
+  }).catch(e => console.warn('[broker] Mode change failed:', e.message));
+  
   updateBrokerModeButton();
   renderTable();
   if (currentView === 'etfs') renderETFSection();
@@ -2768,7 +2910,7 @@ function isSimulationEntryWindow() {
 
 function isSimulationEodSettlementTime() {
   const { day, mins } = getIstClockParts();
-  return day === 0 || day === 6 || mins >= 15 * 60 + 20;
+  return day === 0 || day === 6 || mins >= 15 * 60 + 15;
 }
 
 function getSimulationOpenTrades() {
@@ -3051,8 +3193,16 @@ function getSimulationCandidates() {
       const t = intradayData[row.sym];
       const score = t ? adjustedTradeScore(row) : -999;
       const signal = adjustedTradeSignal(score);
-      const guard = t ? getRiskGuard(row, t, score) : null;
-      const side = signal === 'sell' ? 'sell' : signal === 'buy' ? 'buy' : null;
+      let guard = t ? getRiskGuard(row, t, score) : null;
+      let side = signal === 'sell' ? 'sell' : signal === 'buy' ? 'buy' : null;
+      let setupType = t ? getSetupType(row, t, guard) : 'NO_SIGNAL';
+      
+      // Check for high-profit short trigger: stocks up 17%+ before 1 PM get marked as sell candidates
+      if (t && !side && TradeRules.checkHighProfitShortTrigger(Number(t.dayChangePercent || 0))) {
+        side = 'sell';
+        setupType = 'High Profit Short';
+      }
+      
       const cost = t && side ? getTradeCostContext(row, t, side) : null;
       const candidate = buildSimulationEngineCandidate(row, t, score, side, guard, cost);
       candidate.row = row;
@@ -3061,7 +3211,7 @@ function getSimulationCandidates() {
       candidate.side = side;
       candidate.guard = guard;
       candidate.previousCandidate = simulationPreviousSignalCandidates.get(row.sym) || null;
-      candidate.derivedSetupType = t ? getSetupType(row, t, guard) : 'NO_SIGNAL';
+      candidate.derivedSetupType = setupType;
       return candidate;
     })
     .filter(candidate => candidate.t);
@@ -3338,9 +3488,7 @@ function buildSimulationSnapshotCandidates(limit = 30, lowestLimit = 30) {
 }
 
 async function saveSimulationSnapshot(source = 'intraday-refresh') {
-  if (!isMarketHoursNow()) return;
   const candidates = buildSimulationSnapshotCandidates(30, 30);
-  if (!candidates.length) return;
   const outcomes = candidates.map(c => c.outcome).filter(Boolean);
   const avg = (field) => outcomes.length
     ? +(outcomes.reduce((sum, item) => sum + (Number(item[field]) || 0), 0) / outcomes.length).toFixed(3)
@@ -3501,14 +3649,135 @@ function summarizeReplaySetupPerformance(trades) {
 
 function compareReplayWithActual(day, replayTrades) {
   const actual = paperTrades
-    .filter(t => t.source === 'simulation' && getTradeDateKey(t.openedAt || t.closedAt) === day)
+    .filter(t => t.source === 'simulation' && getTradeDateKey(t.closedAt || t.openedAt) === day)
     .filter(t => String(t.status || '').toLowerCase() === 'closed');
   const parity = SimulationEngine.summarizeReplayParity(actual, replayTrades || []);
+  const outcome = summarizeOutcomeParity(actual, replayTrades || []);
+  // Calculate actual net P&L from closed simulation trades
+  const actualNet = actual.reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
   return {
     ...parity,
+    outcome,
+    actualNet: +(actualNet || 0).toFixed(2),
     onlyReplay:parity.replayOnly || [],
     onlyActual:parity.actualOnly || [],
   };
+}
+
+function summarizeOutcomeBuckets(trades) {
+  const buckets = new Map();
+  for (const trade of (trades || [])) {
+    const symbol = String(trade?.symbol || '').toUpperCase();
+    const side = String(trade?.side || 'buy').toUpperCase();
+    if (!symbol) continue;
+    const key = `${symbol}|${side}`;
+    const row = buckets.get(key) || {
+      key,
+      symbol,
+      side,
+      trades:0,
+      wins:0,
+      losses:0,
+      net:0,
+      gross:0,
+      fees:0,
+    };
+    const pnl = Number(trade?.pnl) || 0;
+    row.trades += 1;
+    row.wins += pnl > 0 ? 1 : 0;
+    row.losses += pnl <= 0 ? 1 : 0;
+    row.net += pnl;
+    row.gross += Number(trade?.grossPnl) || 0;
+    row.fees += Number(trade?.charges) || 0;
+    buckets.set(key, row);
+  }
+  return buckets;
+}
+
+function summarizeOutcomeParity(actualTrades, replayTrades) {
+  const actualMap = summarizeOutcomeBuckets(actualTrades);
+  const replayMap = summarizeOutcomeBuckets(replayTrades);
+  const keys = [...new Set([...actualMap.keys(), ...replayMap.keys()])];
+  const rows = keys.map(key => {
+    const a = actualMap.get(key) || { symbol:key.split('|')[0], side:key.split('|')[1], trades:0, wins:0, net:0, fees:0 };
+    const r = replayMap.get(key) || { symbol:key.split('|')[0], side:key.split('|')[1], trades:0, wins:0, net:0, fees:0 };
+    const aWinRate = a.trades ? (a.wins / a.trades) * 100 : 0;
+    const rWinRate = r.trades ? (r.wins / r.trades) * 100 : 0;
+    return {
+      key,
+      symbol:a.symbol,
+      side:a.side,
+      status:a.trades && r.trades ? 'matched' : (a.trades ? 'actual-only' : 'replay-only'),
+      actualTrades:a.trades,
+      replayTrades:r.trades,
+      actualNet:+(a.net || 0).toFixed(2),
+      replayNet:+(r.net || 0).toFixed(2),
+      netDiff:+((r.net || 0) - (a.net || 0)).toFixed(2),
+      winRateDiff:+(rWinRate - aWinRate).toFixed(1),
+      feeDiff:+((r.fees || 0) - (a.fees || 0)).toFixed(2),
+      tradeCountDiff:(r.trades || 0) - (a.trades || 0),
+    };
+  }).sort((a, b) => Math.abs(b.netDiff) - Math.abs(a.netDiff) || Math.abs(b.tradeCountDiff) - Math.abs(a.tradeCountDiff));
+
+  const matched = rows.filter(r => r.status === 'matched').length;
+  const actualOnly = rows.filter(r => r.status === 'actual-only').length;
+  const replayOnly = rows.filter(r => r.status === 'replay-only').length;
+  const totalActualNet = rows.reduce((sum, r) => sum + (r.actualNet || 0), 0);
+  const totalReplayNet = rows.reduce((sum, r) => sum + (r.replayNet || 0), 0);
+  return {
+    rows,
+    matched,
+    actualOnly,
+    replayOnly,
+    outcomes:rows.length,
+    parityPct:+((matched / Math.max(1, rows.length)) * 100).toFixed(1),
+    totalActualNet:+totalActualNet.toFixed(2),
+    totalReplayNet:+totalReplayNet.toFixed(2),
+    netDiff:+(totalReplayNet - totalActualNet).toFixed(2),
+    absNetDeviation:+rows.reduce((sum, r) => sum + Math.abs(Number(r.netDiff) || 0), 0).toFixed(2),
+  };
+}
+
+function outcomeDeviationRows(outcome) {
+  const rows = (outcome?.rows || []).slice(0, 30);
+  return rows.map(row => `<tr>
+    <td>${escapeHTML(row.symbol)}</td>
+    <td>${escapeHTML(row.side)}</td>
+    <td>${escapeHTML(row.status)}</td>
+    <td>${row.actualTrades}</td>
+    <td>${row.replayTrades}</td>
+    <td class="portfolio-pnl ${portfolioValueClass(row.actualNet)}">${moneyINR(row.actualNet)}</td>
+    <td class="portfolio-pnl ${portfolioValueClass(row.replayNet)}">${moneyINR(row.replayNet)}</td>
+    <td class="portfolio-pnl ${portfolioValueClass(row.netDiff)}">${moneyINR(row.netDiff)}</td>
+    <td class="portfolio-pnl ${portfolioValueClass(-row.winRateDiff)}">${row.winRateDiff}%</td>
+  </tr>`).join('') || `<tr><td colspan="9" style="color:var(--muted);text-align:center;padding:16px">No outcome deviations available</td></tr>`;
+}
+
+function buildReplayImprovementHints(compare, quality, settings = getSimulationEngineSettings()) {
+  const hints = [];
+  const outcome = compare?.outcome || {};
+  if ((outcome.replayOnly || 0) >= (outcome.actualOnly || 0) + 2) {
+    hints.push(`Replay is over-trading vs actual (${outcome.replayOnly} replay-only outcomes). Consider tighter entries: raise SIMULATION_MIN_SCORE above ${settings.SIMULATION_MIN_SCORE}, reduce SIMULATION_TOP_N below ${settings.SIMULATION_TOP_N}, or reduce SIMULATION_MAX_NEW_PER_CYCLE below ${settings.SIMULATION_MAX_NEW_PER_CYCLE}.`);
+  }
+  if ((outcome.actualOnly || 0) >= (outcome.replayOnly || 0) + 2) {
+    hints.push(`Replay is under-trading vs actual (${outcome.actualOnly} actual-only outcomes). Consider looser entries: lower SIMULATION_MIN_SCORE below ${settings.SIMULATION_MIN_SCORE}, increase SIMULATION_TOP_N above ${settings.SIMULATION_TOP_N}, or increase SIMULATION_MAX_NEW_PER_CYCLE above ${settings.SIMULATION_MAX_NEW_PER_CYCLE}.`);
+  }
+  if ((outcome.netDiff || 0) < 0) {
+    hints.push(`Replay net is below actual by ${moneyINR(Math.abs(outcome.netDiff || 0))}. Focus on exits: tune SIMULATION_LONG_TRAIL_PCT (now ${settings.SIMULATION_LONG_TRAIL_PCT}%), SIMULATION_STOP_CONFIRM_BARS (now ${settings.SIMULATION_STOP_CONFIRM_BARS}), and SIMULATION_EXIT_FADE_CONFIRM_BARS (now ${settings.SIMULATION_EXIT_FADE_CONFIRM_BARS}).`);
+  }
+  const byExit = quality?.byExit || [];
+  const stopExit = byExit.find(r => /stop/i.test(String(r?.key || r?.setup || '')));
+  if (stopExit && Number(stopExit.trades) >= 3 && Number(stopExit.net) < 0) {
+    hints.push(`Stop exits are net negative (${moneyINR(stopExit.net)} over ${stopExit.trades} trades). Consider increasing stop confirmation/grace (SIMULATION_STOP_CONFIRM_BARS, SIMULATION_STOP_GRACE_MIN) to avoid whipsaws.`);
+  }
+  if (!hints.length) {
+    hints.push('Outcome parity is reasonably aligned. For incremental improvement, test small parameter steps: SIMULATION_MIN_SCORE ±5, SIMULATION_TOP_N ±2, SIMULATION_LONG_TRAIL_PCT ±0.2, then compare outcome deviations again.');
+  }
+  return hints;
+}
+
+function replayHintsHTML(hints) {
+  return (hints || []).map((hint, index) => `<div class="replay-note">${index + 1}. ${escapeHTML(hint)}</div>`).join('');
 }
 
 function cloneReplaySnapshots(snapshots) {
@@ -3845,8 +4114,26 @@ function tradeQualityRows(rows) {
   </tr>`).join('') || `<tr><td colspan="10" style="color:var(--muted);text-align:center;padding:16px">No trade quality data yet</td></tr>`;
 }
 
+function replayNetValue(rowOrSummary) {
+  const candidates = [
+    rowOrSummary?.net,
+    rowOrSummary?.pnl,
+    rowOrSummary?.netPnl,
+    rowOrSummary?.totalNet,
+    rowOrSummary?.summary?.net,
+    rowOrSummary?.summary?.pnl,
+  ];
+  for (const value of candidates) {
+    const num = Number(value);
+    if (Number.isFinite(num)) return num;
+  }
+  return 0;
+}
+
 function sweepReplayRows(rows) {
-  return (rows || []).map((row, index) => `<tr>
+  return (rows || []).map((row, index) => {
+    const rowNet = replayNetValue(row);
+    return `<tr>
     <td>${index + 1}</td>
     <td>${row.minScore}</td>
     <td>${row.topN}</td>
@@ -3855,17 +4142,19 @@ function sweepReplayRows(rows) {
     <td>${row.trail}%</td>
     <td>${row.trades}</td>
     <td>${row.winRate}%</td>
-    <td class="portfolio-pnl ${portfolioValueClass(row.net)}">${moneyINR(row.net)}</td>
+    <td class="portfolio-pnl ${portfolioValueClass(rowNet)}">${moneyINR(rowNet)}</td>
     <td>${moneyINR(row.drawdown)}</td>
     <td><button class="paper-btn" onclick="applyReplaySettingsFromRow(${index}, 'sweep')">Apply</button></td>
-  </tr>`).join('') || `<tr><td colspan="11" style="color:var(--muted);text-align:center;padding:16px">Sweep not run yet</td></tr>`;
+  </tr>`;
+  }).join('') || `<tr><td colspan="11" style="color:var(--muted);text-align:center;padding:16px">Sweep not run yet</td></tr>`;
 }
 
 function replayComparisonHTML(currentSummary, rows) {
   const best = (rows || [])[0];
   if (!best) return '<div class="replay-note">Run Best Settings or Auto Tune to compare current rules with a tuned variant.</div>';
-  const currentNet = Number(currentSummary?.net) || 0;
-  const diff = (Number(best.net) || 0) - currentNet;
+  const currentNet = replayNetValue(currentSummary);
+  const bestNet = replayNetValue(best);
+  const diff = bestNet - currentNet;
   const guard = analyzeAutoTuneGuardrails(best, currentSummary);
   const settings = getSimulationEngineSettings();
   const changed = key => {
@@ -3882,7 +4171,7 @@ function replayComparisonHTML(currentSummary, rows) {
   };
   return `<div class="replay-compare-grid">
     <div><span>Current net</span><strong class="${portfolioValueClass(currentNet)}">${moneyINR(currentNet)}</strong></div>
-    <div><span>Best net</span><strong class="${portfolioValueClass(best.net)}">${moneyINR(best.net)}</strong></div>
+    <div><span>Best net</span><strong class="${portfolioValueClass(bestNet)}">${moneyINR(bestNet)}</strong></div>
     <div><span>Difference</span><strong class="${portfolioValueClass(diff)}">${moneyINR(diff)}</strong></div>
     <div><span>Best settings</span><strong>
       <mark class="${changed('minScore')}">Score ${best.minScore}</mark>
@@ -3902,8 +4191,8 @@ function describeReplaySettingsRow(row) {
 function analyzeAutoTuneGuardrails(row, currentSummary = {}) {
   if (!row) return { level:'info', message:'No auto-tune row selected.' };
   const trades = Number(row.trades) || 0;
-  const currentNet = Number(currentSummary?.net) || 0;
-  const diff = (Number(row.net) || 0) - currentNet;
+  const currentNet = replayNetValue(currentSummary);
+  const diff = replayNetValue(row) - currentNet;
   const warnings = [];
   if (trades < 5) warnings.push('few trades');
   if ((Number(row.maxDrawdownPct) || 0) > 0.25) warnings.push(`drawdown ${row.maxDrawdownPct}%`);
@@ -3926,6 +4215,7 @@ function applyReplaySettingsFromRow(index, source = 'sweep') {
 function replayJobRows(jobs) {
   return (jobs || []).slice(0, 8).map(job => {
     const best = job.result?.sweepRows?.[0] || job.result?.autoTuneRows?.[0] || null;
+    const bestNet = replayNetValue(best);
     const started = job.createdAt ? formatTradeDateTime(job.createdAt) : '--';
     const flags = [job.cached ? 'cached' : '', job.reused ? 'reused' : '', job.workerPid ? `pid ${job.workerPid}` : ''].filter(Boolean).join(' | ') || '--';
     return `<tr>
@@ -3934,7 +4224,7 @@ function replayJobRows(jobs) {
       <td><span class="job-status ${escapeHTML(job.status || '')}">${escapeHTML(job.status || '--')}</span></td>
       <td>${escapeHTML(started)}</td>
       <td>${escapeHTML(flags)}</td>
-      <td>${best ? `Score ${escapeHTML(best.minScore)} / FH ${escapeHTML(best.firstHour ?? '--')} / ${moneyINR(best.net)}` : escapeHTML(job.error || '--')}</td>
+      <td>${best ? `Score ${escapeHTML(best.minScore)} / FH ${escapeHTML(best.firstHour ?? '--')} / ${moneyINR(bestNet)}` : escapeHTML(job.error || '--')}</td>
     </tr>`;
   }).join('') || `<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:12px">No replay jobs yet</td></tr>`;
 }
@@ -3968,10 +4258,12 @@ function renderReplayReport(day, snapshots, result, opts = {}) {
   const body = document.getElementById('replay-modal-body');
   if (modal) modal.style.display = 'flex';
   const compare = compareReplayWithActual(day, result.trades || []);
+  const outcome = compare.outcome || { rows:[], parityPct:0, matched:0, outcomes:0, actualOnly:0, replayOnly:0, netDiff:0, absNetDeviation:0 };
   const sweepRows = opts.sweepRows || [];
   const autoTuneRows = opts.autoTuneRows || [];
   const bestRows = autoTuneRows.length ? autoTuneRows : sweepRows;
   const quality = result.quality || SimulationEngine.summarizeTradeQuality(result.trades || [], getSimulationEngineSettings());
+  const hints = buildReplayImprovementHints(compare, quality, getSimulationEngineSettings());
   lastReplayDebugResult = { day, snapshots, result, compare, sweepRows, autoTuneRows, quality };
   if (body) body.innerHTML = `
     <div class="replay-toolbar">
@@ -3990,20 +4282,29 @@ function renderReplayReport(day, snapshots, result, opts = {}) {
       <div class="replay-card"><div class="label">Replay Net</div><div class="value ${portfolioValueClass(result.summary.net)}">${moneyINR(result.summary.net)} (${result.summary.returnPct}%)</div></div>
       <div class="replay-card"><div class="label">Actual Net</div><div class="value ${portfolioValueClass(compare.actualNet)}">${moneyINR(compare.actualNet)}</div></div>
       <div class="replay-card"><div class="label">Replay vs Actual</div><div class="value ${portfolioValueClass(compare.diff)}">${moneyINR(compare.diff)}</div></div>
-      <div class="replay-card"><div class="label">Parity match</div><div class="value ${compare.matchPct >= 80 ? '' : 'down'}">${compare.matchPct ?? 0}%</div></div>
+      <div class="replay-card"><div class="label">Outcome parity</div><div class="value ${outcome.parityPct >= 80 ? '' : 'down'}">${outcome.parityPct ?? 0}%</div></div>
       <div class="replay-card"><div class="label">Drawdown</div><div class="value ${result.summary.maxDrawdown > 0 ? 'down' : ''}">${moneyINR(result.summary.maxDrawdown)} (${result.summary.maxDrawdownPct}%)</div></div>
       <div class="replay-card"><div class="label">Loss streak</div><div class="value ${result.summary.currentLossStreak > 0 ? 'down' : ''}">${result.summary.currentLossStreak} now / ${result.summary.maxLossStreak} max</div></div>
     </div>
 
     <div class="replay-debug-grid">
-      <div class="replay-debug-card"><div class="portfolio-section-title">Live vs Replay Parity</div>
-        <div class="replay-note">Matched ${compare.matched || 0} symbols (${compare.matchPct ?? 0}%). Actual ${compare.actualCount} trades, replay ${compare.replayCount}. Replay only: ${escapeHTML(compare.onlyReplay.join(', ') || '--')}. Actual only: ${escapeHTML(compare.onlyActual.join(', ') || '--')}.</div>
+      <div class="replay-debug-card"><div class="portfolio-section-title">Outcome-Level Parity</div>
+        <div class="replay-note">Matched outcomes ${outcome.matched}/${outcome.outcomes} (${outcome.parityPct}%). Actual-only outcomes: ${outcome.actualOnly}. Replay-only outcomes: ${outcome.replayOnly}. Net deviation: ${moneyINR(outcome.netDiff)}. Absolute deviation sum: ${moneyINR(outcome.absNetDeviation)}.</div>
       </div>
       <div class="replay-debug-card"><div class="portfolio-section-title">Auto Tune Suggestion</div>
         <div class="replay-note">${autoTuneRows.length ? `Best 5D setting: ${describeReplaySettingsRow(autoTuneRows[0])}, net ${moneyINR(autoTuneRows[0].net)}. ${analyzeAutoTuneGuardrails(autoTuneRows[0], result.summary).message}` : 'Run Auto Tune 5D to compare recent retained snapshot days.'}</div>
         ${autoTuneRows.length ? '<button class="paper-btn buy" onclick="applyReplaySettingsFromRow(0, &quot;auto&quot;)">Apply Auto Tune</button>' : ''}
       </div>
     </div>
+
+    <div class="portfolio-section-title">Outcome Deviations (Actual vs Replay)</div>
+    <div class="portfolio-table-wrap"><table class="replay-table">
+      <thead><tr><th>Symbol</th><th>Side</th><th>Status</th><th>Actual Trades</th><th>Replay Trades</th><th>Actual Net</th><th>Replay Net</th><th>Net Diff</th><th>Win% Diff</th></tr></thead>
+      <tbody>${outcomeDeviationRows(outcome)}</tbody>
+    </table></div>
+
+    <div class="portfolio-section-title">Suggested Setting Improvements</div>
+    ${replayHintsHTML(hints)}
 
     <div class="portfolio-section-title">Current vs Best Settings</div>
     ${replayComparisonHTML(result.summary, bestRows)}
@@ -4175,7 +4476,8 @@ function exportReplayReport(format = 'json') {
 async function closePaperTradeAtPrice(trade, exitPrice, reason, silent = false) {
   if (!trade?.id || !Number.isFinite(Number(exitPrice))) return false;
   try {
-    await postPaperTrade('close', { id: trade.id, exitPrice, reason });
+    const transactionTime = new Date().toISOString();
+    await postPaperTrade('close', { id: trade.id, exitPrice, reason, transactionTime });
     applyClosedTradeLocally(trade.id, exitPrice, reason);
     loadPaperTrades(true, true).catch(e => console.warn('post-close reconcile failed', e.message));
     if (document.getElementById('fund-modal')?.style.display === 'flex') openFundModal(trade.symbol);
@@ -4190,7 +4492,8 @@ async function closePaperTradeAtPrice(trade, exitPrice, reason, silent = false) 
 async function partialClosePaperTradeAtPrice(trade, exitPrice, qty, reason, runner = false, silent = false) {
   if (!trade?.id || !Number.isFinite(Number(exitPrice)) || !Number.isFinite(Number(qty)) || Number(qty) <= 0) return false;
   try {
-    await postPaperTrade('partial-close', { id: trade.id, exitPrice, qty:Math.floor(Number(qty)), reason, runner:!!runner });
+    const transactionTime = new Date().toISOString();
+    await postPaperTrade('partial-close', { id: trade.id, exitPrice, qty:Math.floor(Number(qty)), reason, runner:!!runner, transactionTime });
     await loadPaperTrades(true, true);
     renderTable();
     if (currentView === 'etfs') renderETFSection();
@@ -4212,7 +4515,21 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
   try {
     for (const trade of [...simOpen]) {
       const price = getCurrentTradePrice(trade.symbol);
-      const exit = getSimulationExit(trade, price);
+      let exit = getSimulationExit(trade, price);
+      if (!exit && isSimulationEodSettlementTime()) {
+        const fallbackPrice = Number(price)
+          || Number(trade.entryPrice)
+          || Number(trade.stop)
+          || Number(trade.target);
+        if (Number.isFinite(fallbackPrice) && fallbackPrice > 0) {
+          exit = {
+            reason: Number.isFinite(Number(price))
+              ? 'Simulation EOD square-off'
+              : 'Simulation EOD square-off (fallback price)',
+            exitPrice: fallbackPrice,
+          };
+        }
+      }
       if (exit?.action === 'partial') {
         const qty = Math.max(1, Math.floor(Number(trade.qty || 0) * Number(exit.qtyPct || 50) / 100));
         if (qty > 0 && qty < Number(trade.qty || 0)) {
@@ -4234,7 +4551,7 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
       if (!allowEntries) blockReasons.push('allowEntries=false');
       if (!isSimulationEntryWindow()) blockReasons.push('outside entry window');
       if (isSimulationEodSettlementTime()) blockReasons.push('EOD settlement time');
-      if (blockReasons.length) console.warn('[SimCycle] Entry blocked:', blockReasons.join(', '));
+      if (DEBUG_SIM_LOGS && blockReasons.length) console.warn('[SimCycle] Entry blocked:', blockReasons.join(', '));
       return;
     }
 
@@ -4243,14 +4560,14 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
     const simOpenCount = getSimulationOpenTrades().length;
     let slots = Math.max(0, Math.min(SIMULATION_MAX_OPEN - totalOpen, SIMULATION_MAX_ACTIVE_OPEN - simOpenCount));
     if (slots <= 0 || summary.cashAvailable <= 0) {
-      if (slots <= 0) console.warn(`[SimCycle] No slots available: total=${totalOpen}, simOpen=${simOpenCount}`);
-      if (summary.cashAvailable <= 0) console.warn('[SimCycle] No cash available');
+      if (DEBUG_SIM_LOGS && slots <= 0) console.warn(`[SimCycle] No slots available: total=${totalOpen}, simOpen=${simOpenCount}`);
+      if (DEBUG_SIM_LOGS && summary.cashAvailable <= 0) console.warn('[SimCycle] No cash available');
       return;
     }
 
     const candidates = getSimulationCandidates();
     if (candidates.length === 0) {
-      console.warn('[SimCycle] No candidates found for simulation entry');
+      if (DEBUG_SIM_LOGS) console.warn('[SimCycle] No candidates found for simulation entry');
       simulationBusy = false;
       return;
     }
@@ -4265,10 +4582,10 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
       const blockReason = getSimulationEntryBlockReason(row.sym, setupType);
       if (blockReason) {
         if (/daily/i.test(blockReason)) {
-          console.warn(`[SimCycle] Daily limit hit on ${row.sym}: ${blockReason}`);
+          if (DEBUG_SIM_LOGS) console.warn(`[SimCycle] Daily limit hit on ${row.sym}: ${blockReason}`);
           break;
         }
-        console.debug(`[SimCycle] ${row.sym} ${setupType} blocked: ${blockReason}`);
+        if (DEBUG_SIM_LOGS) console.debug(`[SimCycle] ${row.sym} ${setupType} blocked: ${blockReason}`);
         continue;
       }
       const price = getCurrentTradePrice(row.sym);
@@ -4279,8 +4596,22 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
       const suggestion = getSuggestedPaperQty(t, tradeSide, price, summary.cashAvailable, allocation);
       const qty = Number(suggestion.qty || 0);
       if (qty <= 0) continue;
-      const plan = suggestion.plan || getPaperPlanForSide(t, tradeSide, price);
+      let plan = suggestion.plan || getPaperPlanForSide(t, tradeSide, price);
+      
+      // Special handling for High Profit Short: 1.5% target, 1% stop
+      if (setupType === 'High Profit Short' && tradeSide === 'sell') {
+        const profitTargetPct = Number(getSimulationEngineSettings().SIMULATION_HIGH_PROFIT_EXIT_PROFIT_PCT) || 1.5;
+        const stopLossPct = Number(getSimulationEngineSettings().SIMULATION_HIGH_PROFIT_EXIT_STOP_PCT) || 1;
+        plan = {
+          ...plan,
+          target: Number((price * (1 - profitTargetPct / 100)).toFixed(2)),
+          stop: Number((price * (1 + stopLossPct / 100)).toFixed(2)),
+        };
+      }
+      
+      const transactionTime = new Date().toISOString();
       const openResult = await postPaperTrade('open', {
+        transactionTime,
         symbol: row.sym,
         name: row.name || row.sym,
         side: tradeSide,
@@ -4326,7 +4657,7 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
       await loadPaperTrades(true);
       const openedTrade = openResult?.trade || getOpenPaperTrade(row.sym);
       registerNewSimulationTrade(openedTrade);
-      if (openedTrade) console.log(`[SimCycle] Opened ${row.sym} ${setupType} ${qty}@${price}`);
+      if (DEBUG_SIM_LOGS && openedTrade) console.log(`[SimCycle] Opened ${row.sym} ${setupType} ${qty}@${price}`);
       slots -= 1;
       openedThisCycle += 1;
     }
@@ -4716,6 +5047,10 @@ function renderTradeCell(row) {
 
 function renderShortTargetCell(row) {
   const t = intradayData[row.sym];
+  if (!t) {
+    console.debug(`[renderShortTargetCell] ${row.sym}: no intradayData, keys present:`, Object.keys(intradayData).slice(0, 5));
+    return '<span style="color:var(--muted);font-size:12px">--</span>';
+  }
   const open = getOpenPaperTrade(row.sym);
   if (open) {
     const price = getCurrentTradePrice(row.sym);
@@ -4730,7 +5065,10 @@ function renderShortTargetCell(row) {
       <span class="stop">Cost ${pnl ? moneyINR(pnl.charges) : '--'}</span>
     </div>`;
   }
-  if (!t || t.target == null) return '<span style="color:var(--muted);font-size:12px">--</span>';
+  if (t.target == null) {
+    console.debug(`[renderShortTargetCell] ${row.sym}: no target, data keys:`, Object.keys(t).slice(0, 8));
+    return '<span style="color:var(--muted);font-size:12px">--</span>';
+  }
   const up = t.target >= (t.price || row.data?.price || 0);
   const col = up ? 'var(--green)' : 'var(--red)';
   const size = getPositionSize(t);
@@ -5260,6 +5598,9 @@ function renderTableNow(){
   const tbody=document.getElementById('stock-tbody');
   if(!rows.length){tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--muted)">No stocks match</td></tr>';return;}
   const sigLabels={buy:'🟢 BUY',watch:'🟡 WATCH',hold:'⬜ HOLD',sell:'🔴 SELL'};
+  if (rows.length > 0 && Object.keys(intradayData).length === 0) {
+    console.warn(`[renderTableNow] ${rows.length} rows to render but intradayData is EMPTY!`);
+  }
   const rowsHTML = rows.map(row => {
     const d=row.data,chg=d?.change||0,price=d?.price||0,sig=getSignal(row,d);
     return `
@@ -5894,7 +6235,7 @@ function scheduleVisibleEventFlags(rows) {
         };
         if ((payload.events || []).length) renderTable();
       } catch(e) {
-        console.warn('event flag fetch failed', row.sym, e.message);
+        if (DEBUG_EVENT_LOGS) console.warn('event flag fetch failed', row.sym, e.message);
       }
     }, 900 + idx * 1400);
   });
@@ -6503,7 +6844,62 @@ document.addEventListener('DOMContentLoaded', async () => {
   ]);
   subscribePaperTradesStream();
   applyDashboardRouteHint();
+
+  // Run periodic simulation exits so EOD settlement does not depend only on feed refresh callbacks.
+  startSimulationCycleTimer();
+  
+  // Start polling broker status
+  pollBrokerStatus();
+  setInterval(pollBrokerStatus, 30000); // Poll every 30 seconds
 });
+
+// ═══════════════════════════════════
+//  BROKER STATUS POLLING
+// ═══════════════════════════════════
+async function pollBrokerStatus() {
+  try {
+    const res = await fetch('/broker-status');
+    if (res.ok) {
+      brokerConnectionStatus = await res.json();
+      updateBrokerModeButton();
+    }
+  } catch (e) {
+    console.warn('[broker] Status poll failed:', e.message);
+  }
+}
+
+function updateZerodhaConfirmationsTable() {
+  const tbody = document.getElementById('zerodha-confirmations-tbody');
+  if (!tbody) return;
+  
+  // Get trades with Zerodha broker metadata
+  const zerodhaTradesWithAudit = paperTrades
+    .filter(t => t.broker?.name === 'zerodha' && t.broker?.audit?.length)
+    .sort((a, b) => new Date(b.openedAt || 0) - new Date(a.openedAt || 0))
+    .slice(0, 10); // Show last 10
+  
+  if (!zerodhaTradesWithAudit.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:16px">No recent confirmations</td></tr>`;
+    return;
+  }
+  
+  tbody.innerHTML = zerodhaTradesWithAudit.map(trade => {
+    const orderId = trade.broker.orderId || '--';
+    const status = trade.broker.status || '--';
+    const attempts = trade.broker.confirmationAttempts || 0;
+    const lastAudit = trade.broker.audit[trade.broker.audit.length - 1] || {};
+    const lastEvent = lastAudit.event || '--';
+    const elapsed = lastAudit.elapsed ? `${(lastAudit.elapsed / 1000).toFixed(1)}s` : '--';
+    
+    return `<tr>
+      <td>${escapeHTML(trade.symbol || '--')}</td>
+      <td style="font-size:11px;font-family:monospace">${escapeHTML(String(orderId).slice(0, 12))}</td>
+      <td>${escapeHTML(status)}</td>
+      <td>${attempts}</td>
+      <td><span title="${escapeHTML(lastEvent)}">${escapeHTML(lastEvent.slice(0, 20))}</span> (${elapsed})</td>
+    </tr>`;
+  }).join('');
+}
 
 // ═══════════════════════════════════
 //  FUNDAMENTALS CHAT BOT

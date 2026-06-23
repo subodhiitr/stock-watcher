@@ -6,5 +6,8 @@
     "proxy": "node --max-http-header-size=65536 ticker_proxy.js",
     "start": "npm --prefix my-remix-app run start",
     "typecheck": "npm --prefix my-remix-app run typecheck"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
   }
 }

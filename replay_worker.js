@@ -105,7 +105,8 @@ function buildQuickSweepSettings(baseSettings) {
 }
 
 function runQuickReplaySweep(snapshots, baseSettings, maxVariants = 5) {
-  return normalizeSweepRows(buildQuickSweepSettings(baseSettings).slice(0, maxVariants).map(settings => {
+  const limit = Math.max(1, Math.floor(Number(maxVariants) || 5));
+  return normalizeSweepRows(buildQuickSweepSettings(baseSettings).map(settings => {
     const result = Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings);
     return {
       minScore:settings.SIMULATION_MIN_SCORE,
@@ -123,7 +124,7 @@ function runQuickReplaySweep(snapshots, baseSettings, maxVariants = 5) {
     };
   }))
     .sort((a, b) => b.net - a.net || a.maxDrawdown - b.maxDrawdown || b.winRate - a.winRate)
-    .slice(0, 10);
+    .slice(0, limit);
 }
 
 function readSnapshotsForDay(day) {

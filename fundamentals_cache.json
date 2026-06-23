@@ -7448,5 +7448,30 @@
       "industry": "Specialty Industrial Machinery"
     },
     "savedAt": 1782064833219
+  },
+  "WOCKPHARM": {
+    "data": {
+      "trailingEps": null,
+      "forwardEps": null,
+      "trailingPE": null,
+      "forwardPE": null,
+      "marketCap": null,
+      "priceToBook": null,
+      "dividendYield": null,
+      "fiftyDayAvg": null,
+      "twoHundredDayAvg": null,
+      "high52": null,
+      "low52": null,
+      "roe": null,
+      "totalDebt": null,
+      "totalEquity": null,
+      "epsGrowth": null,
+      "peg": null,
+      "priceTarget": null,
+      "sharesOutstanding": null,
+      "sector": null,
+      "industry": null
+    },
+    "savedAt": 1782217615777
   }
 }

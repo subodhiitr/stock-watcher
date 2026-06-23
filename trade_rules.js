@@ -63,6 +63,10 @@
     SIMULATION_MARKET_REGIME_SECTOR_PCT: 0.15,
     SIMULATION_MARKET_REGIME_RS_PCT: 0.2,
     SIMULATION_AUTO_SHORTS: true,
+    SIMULATION_HIGH_PROFIT_EXIT_THRESHOLD_PCT: 17,
+    SIMULATION_HIGH_PROFIT_EXIT_PROFIT_PCT: 1.5,
+    SIMULATION_HIGH_PROFIT_EXIT_STOP_PCT: 1,
+    SIMULATION_HIGH_PROFIT_EXIT_HOUR_CUTOFF: 13,
   };
 
   const SETTING_DESCRIPTIONS = {
@@ -121,6 +125,10 @@
     SIMULATION_MARKET_REGIME_SECTOR_PCT: 'Sector average change threshold used by the market-regime guard. Long entries are blocked when sector is weaker than this negative threshold; shorts are blocked when sector is stronger than this positive threshold.',
     SIMULATION_MARKET_REGIME_RS_PCT: 'Relative strength threshold against Nifty used by the market-regime guard. Long entries need stock RS above negative threshold; shorts need stock RS below positive threshold.',
     SIMULATION_AUTO_SHORTS: 'When true, simulation may open short/sell-side entries. When false, it only auto-buys long setups.',
+    SIMULATION_HIGH_PROFIT_EXIT_THRESHOLD_PCT: 'Stock gain percentage before the hour cutoff that triggers an automatic short entry. When stock increases this much before 1 PM IST, simulation will open a short to capture mean reversion.',
+    SIMULATION_HIGH_PROFIT_EXIT_PROFIT_PCT: 'Target profit percent for the automatic short entry triggered by high gains. Default is 1.5% (stock drops 1.5% from entry).',
+    SIMULATION_HIGH_PROFIT_EXIT_STOP_PCT: 'Stop loss percent for the automatic short entry. Default is 1% (stock rises 1% from entry triggers stop).',
+    SIMULATION_HIGH_PROFIT_EXIT_HOUR_CUTOFF: 'Hour (24-hour IST) after which the high-profit short trigger no longer applies. Default is 13 (1 PM IST). After this hour, stocks are not triggered for short entry even if they gained 17%+.',
   };
 
   function withDefaults(settings) {
@@ -240,6 +248,20 @@
     return '';
   }
 
+  function checkHighProfitShortTrigger(priceChangePercent, at = Date.now(), settings = {}) {
+    settings = withDefaults(settings);
+    const gainThreshold = Number(settings.SIMULATION_HIGH_PROFIT_EXIT_THRESHOLD_PCT) || 17;
+    const hourCutoff = Number(settings.SIMULATION_HIGH_PROFIT_EXIT_HOUR_CUTOFF) || 13;
+    
+    if (Number(priceChangePercent) < gainThreshold) return false;
+    
+    const mins = getIstMinutes(at);
+    if (mins == null) return false;
+    
+    const hour = Math.floor(mins / 60);
+    return hour < hourCutoff;
+  }
+
   return {
     DEFAULT_SETTINGS,
     SETTING_DESCRIPTIONS,
@@ -250,5 +272,6 @@
     getProfitReentryBlockReason,
     buildDayStats,
     getEntryBlockReason,
+    checkHighProfitShortTrigger,
   };
 });
