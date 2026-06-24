@@ -1336,6 +1336,15 @@ function cleanTradingSymbol(symbol) {
   return String(symbol || '').trim().toUpperCase().replace(/\.NS$/i, '');
 }
 
+const NSE_SYMBOL_ALIASES = {
+  WOCKPHARM: 'WOCKPHARMA',
+};
+
+function resolveNseSymbol(symbol) {
+  const clean = cleanTradingSymbol(symbol);
+  return NSE_SYMBOL_ALIASES[clean] || clean;
+}
+
 function buildZerodhaDryRunOrder(payload, trade, phase = 'entry') {
   const side = String(payload?.side || trade?.side || 'buy').toLowerCase();
   const isExit = phase === 'exit';
@@ -1828,11 +1837,10 @@ async function nseJsonWithRetry(path, label, retries = 3) {
         r = await nseGet(path);
       }
       if (r.status !== 200) throw new Error(`${label} HTTP ${r.status}`);
-      return JSON.parse(r.body);
+      return parseNseJsonResponse(r, label);
     } catch(e) {
       lastErr = e;
-      const retryable = e.code === 'ECONNRESET' || e.code === 'ETIMEDOUT' || e.code === 'ECONNREFUSED' ||
-                        /socket hang up|timed out|ECONNRESET/i.test(e.message || '');
+      const retryable = isNSETransientError(e);
       if (!retryable || attempt === retries) break;
       await new Promise(r => setTimeout(r, attempt * 750));
     }
@@ -2754,7 +2762,20 @@ function isNSETransientError(e) {
   return e?.code === 'ECONNRESET'
     || e?.code === 'ETIMEDOUT'
     || e?.code === 'ECONNREFUSED'
-    || /read ECONNRESET|socket hang up|timed out|ECONNRESET/i.test(msg);
+    || e?.code === 'NSE_HTML'
+    || /read ECONNRESET|socket hang up|timed out|ECONNRESET|returned HTML/i.test(msg);
+}
+
+function parseNseJsonResponse(r, label) {
+  const body = String(r?.body || '');
+  const contentType = String(r?.headers?.['content-type'] || '');
+  const trimmed = body.trim();
+  if (/text\/html/i.test(contentType) || trimmed.startsWith('<')) {
+    const err = new Error(`${label} returned HTML instead of JSON`);
+    err.code = 'NSE_HTML';
+    throw err;
+  }
+  return JSON.parse(body || '{}');
 }
 
 async function warmNSESession() {
@@ -2878,7 +2899,7 @@ async function yahooQuote(nseSymbols) {
   for (let i = 0; i < nseSymbols.length; i += CONCURRENCY) {
     const chunk = nseSymbols.slice(i, i + CONCURRENCY);
     const settled = await Promise.allSettled(
-      chunk.map(sym => yahooChart(sym + '.NS').then(data => ({ sym, data })))
+      chunk.map(sym => yahooChart(resolveNseSymbol(sym) + '.NS').then(data => ({ sym, data })))
     );
     for (const r of settled) {
       if (r.status === 'fulfilled' && r.value?.data) {
@@ -3547,8 +3568,9 @@ async function fetchIntradaySignal(sym) {
   }
   
   try {
-    const intradayPath = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=5m&range=1d&includePrePost=false`;
-    const dailyPath = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=1d&range=1mo&includePrePost=false`;
+    const yahooSym = resolveNseSymbol(sym);
+    const intradayPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=5m&range=1d&includePrePost=false`;
+    const dailyPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=1d&range=1mo&includePrePost=false`;
     
     // Fetch both intraday and daily with increased timeout (20s each)
     let [r, daily] = await Promise.all([
@@ -4274,9 +4296,10 @@ async function proxyRequestHandler(req, res) {
         res.end(JSON.stringify({ ok: true, index, symbols: entry.symbols, fromCache: true }));
         return;
       }
-      // Fetch fresh
-      const r = await nseGet(`/api/equity-stockIndices?index=${encodeURIComponent(index)}`);
-      const items = JSON.parse(r.body)?.data || [];
+      // Fetch fresh through the warmed/retry path. NSE sometimes returns an
+      // HTML challenge page on this API; treat that as transient, not JSON.
+      const payload = await nseJsonWithRetry(`/api/equity-stockIndices?index=${encodeURIComponent(index)}`, `index symbols ${index}`);
+      const items = payload?.data || [];
       const symbols = items
         .map(item => ({ sym: (item.symbol||'').trim().toUpperCase(), name: item.meta?.companyName || item.symbol || '' }))
         .filter(s => s.sym);
@@ -5745,11 +5768,11 @@ async function proxyRequestHandler(req, res) {
           if (Array.isArray(payload)) {
             // Support array of strings or array of objects { sym, sector, cap }
             if (payload.length && typeof payload[0] === 'string') {
-              toSave = payload.map(s => String(s).trim().toUpperCase()).filter(Boolean);
+              toSave = payload.map(s => resolveNseSymbol(s)).filter(Boolean);
             } else {
               toSave = payload.map(item => {
                 if (!item || typeof item === 'string') return null;
-                const sym = String(item.sym||item.symbol||'').trim().toUpperCase();
+                const sym = resolveNseSymbol(item.sym||item.symbol||'');
                 if (!sym) return null;
                 return { sym, name: item.name || sym, sector: item.sector||null, cap: item.cap||null };
               }).filter(Boolean);

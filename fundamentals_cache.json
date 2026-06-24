@@ -7473,5 +7473,30 @@
       "industry": null
     },
     "savedAt": 1782217615777
+  },
+  "WOCKPHARMA": {
+    "data": {
+      "trailingEps": 13.09,
+      "forwardEps": null,
+      "trailingPE": 153.58289,
+      "forwardPE": null,
+      "marketCap": 326674284544,
+      "priceToBook": 6.6037087,
+      "dividendYield": 0,
+      "fiftyDayAvg": 1676.196,
+      "twoHundredDayAvg": 1438.295,
+      "high52": 2422.3,
+      "low52": 1086.7,
+      "roe": 0.04005,
+      "totalDebt": 22329999360,
+      "totalEquity": null,
+      "epsGrowth": null,
+      "peg": null,
+      "priceTarget": null,
+      "sharesOutstanding": 162492169,
+      "sector": "Healthcare",
+      "industry": "Drug Manufacturers - Specialty & Generic"
+    },
+    "savedAt": 1782233454928
   }
 }
