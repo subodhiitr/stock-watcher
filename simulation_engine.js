@@ -867,6 +867,30 @@
     return null;
   }
 
+  function getSimulationExitIntent(trade, candidate, at, settings, opts) {
+    const price = getCandidatePrice(candidate);
+    if (!trade || !Number.isFinite(price) || price <= 0) return null;
+    const exit = getSimulationExit(trade, price, candidate, at, settings, opts);
+    if (!exit) return null;
+    return {
+      symbol: trade.symbol,
+      trade,
+      candidate,
+      price,
+      ...exit,
+    };
+  }
+
+  function getSimulationEntryIntents(candidates, at, settings, context = {}) {
+    return selectSimulationEntryCandidates(candidates, at, settings, context)
+      .map(candidate => ({
+        symbol: candidate.symbol,
+        side: candidate.side || candidate.signal || 'buy',
+        price: getCandidatePrice(candidate),
+        candidate,
+      }));
+  }
+
   function exitBucket(reason) {
     const text = String(reason || '').toLowerCase();
     if (text.includes('target')) return 'Target';
@@ -1083,6 +1107,8 @@
     getSimulationStopExit,
     getMomentumRunnerExit,
     getSimulationExit,
+    getSimulationExitIntent,
+    getSimulationEntryIntents,
     getMomentumFadeExit,
     getTradeHoldMinutes,
     exitBucket,
