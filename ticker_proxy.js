@@ -70,6 +70,10 @@ const NSE_IDX_CACHE_FILE   = path.join(__dirname, 'nse_index_cache.json');
 const NSE_IDX_CACHE_TTL    = 24 * 60 * 60 * 1000;        // 24 hours
 const SAVED_STOCK_FAV_FILE = path.join(__dirname, 'saved_stock_favs.json');
 const PAPER_TRADES_FILE    = process.env.PAPER_TRADES_FILE || path.join(__dirname, 'paper_trades.json');
+const TRADE_EXECUTION_PATH = '/trade-execution';
+const PAPER_TRADES_ALIAS_PATH = '/paper-trades';
+const TRADE_EXECUTION_STREAM_PATH = `${TRADE_EXECUTION_PATH}/stream`;
+const PAPER_TRADES_ALIAS_STREAM_PATH = `${PAPER_TRADES_ALIAS_PATH}/stream`;
 const SIMULATION_RUNTIME_FILE = process.env.SIMULATION_RUNTIME_FILE || path.join(__dirname, 'simulation_runtime.json');
 const REPLAY_WORKER_FILE   = path.join(__dirname, 'replay_worker.js');
 const APP_CACHE_DIR        = path.join(__dirname, 'cache');
@@ -5610,7 +5614,7 @@ async function proxyRequestHandler(req, res) {
 
   // Holdings are populated as a side-effect of /etf-summary fetches.
   // This endpoint ONLY serves from cache — no live fetch.
-  if (pathname === '/paper-trades/stream') {
+  if (pathname === TRADE_EXECUTION_STREAM_PATH || pathname === PAPER_TRADES_ALIAS_STREAM_PATH) {
     if (req.method !== 'GET') {
       res.writeHead(405, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Method not allowed' }));
@@ -5966,8 +5970,8 @@ async function proxyRequestHandler(req, res) {
     return;
   }
 
-  // /paper-trades -- local paper trading journal for locked intraday entries
-  if (pathname === '/paper-trades') {
+  // /trade-execution (/paper-trades alias) -- local paper trading journal for locked intraday entries
+  if (pathname === TRADE_EXECUTION_PATH || pathname === PAPER_TRADES_ALIAS_PATH) {
     if (req.method === 'GET') {
       const state = loadPaperStateFile();
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -6008,7 +6012,7 @@ async function proxyRequestHandler(req, res) {
           const side = String(payload.side || 'buy').toLowerCase();
           const qty = Number(payload.qty);
           const entryPrice = Number(payload.entryPrice);
-          if (!symbol || !['buy', 'sell'].includes(side) || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(entryPrice) || entryPrice <= 0) {
+          if (!symbol || !['buy', 'sell'].includes(side) || !Number.isInteger(qty) || qty <= 0 || !Number.isFinite(entryPrice) || entryPrice <= 0) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'symbol, side, qty and entryPrice are required' }));
             return;
@@ -6029,14 +6033,14 @@ async function proxyRequestHandler(req, res) {
             symbol,
             name: String(payload.name || symbol),
             side,
-            qty: Math.floor(qty),
+            qty,
             entryPrice:+entryPrice.toFixed(2),
             target: Number.isFinite(Number(payload.target)) ? +Number(payload.target).toFixed(2) : null,
             stop: Number.isFinite(Number(payload.stop)) ? +Number(payload.stop).toFixed(2) : null,
             signal: payload.signal || null,
             score: Number.isFinite(Number(payload.score)) ? Number(payload.score) : null,
             rr: Number.isFinite(Number(payload.rr)) ? Number(payload.rr) : null,
-            reservedCapital: Number.isFinite(Number(payload.reservedCapital)) ? +Number(payload.reservedCapital).toFixed(2) : +(entryPrice * Math.floor(qty)).toFixed(2),
+            reservedCapital: Number.isFinite(Number(payload.reservedCapital)) ? +Number(payload.reservedCapital).toFixed(2) : +(entryPrice * qty).toFixed(2),
             portfolioInitial: Number.isFinite(Number(payload.portfolioInitial)) ? +Number(payload.portfolioInitial).toFixed(2) : null,
             source: payload.source === 'simulation' ? 'simulation' : 'manual',
             assetType: payload.assetType === 'etf' ? 'etf' : 'stock',
@@ -6156,7 +6160,12 @@ async function proxyRequestHandler(req, res) {
           const id = String(payload.id || '');
           const exitPrice = Number(payload.exitPrice);
           const trade = trades.find(t => t.id === id && t.status === 'open');
-          if (!trade || !Number.isFinite(exitPrice) || exitPrice <= 0) {
+          if (!trade) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Open trade id is required', code: 'OPEN_TRADE_REQUIRED' }));
+            return;
+          }
+          if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Open trade id and exitPrice are required' }));
             return;
@@ -6247,12 +6256,22 @@ async function proxyRequestHandler(req, res) {
         if (action === 'partial-close') {
           const id = String(payload.id || '');
           const exitPrice = Number(payload.exitPrice);
-          const requestedQty = Math.floor(Number(payload.qty));
+          const requestedQty = Number(payload.qty);
           const trade = trades.find(t => t.id === id && t.status === 'open');
           const openQty = Math.floor(Number(trade?.qty || 0));
-          if (!trade || !Number.isFinite(exitPrice) || exitPrice <= 0 || !Number.isFinite(requestedQty) || requestedQty <= 0 || requestedQty >= openQty) {
+          if (!trade) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Open trade id is required', code: 'OPEN_TRADE_REQUIRED' }));
+            return;
+          }
+          if (!Number.isFinite(exitPrice) || exitPrice <= 0 || !Number.isInteger(requestedQty) || requestedQty <= 0) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Open trade id, partial qty below open qty, and exitPrice are required' }));
+            return;
+          }
+          if (requestedQty >= openQty) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Partial qty must be lower than open qty', code: 'PARTIAL_QTY_CONFLICT' }));
             return;
           }
           const closedAt = String(payload.transactionTime || '').match(/\d{4}-\d{2}-\d{2}T/) ? payload.transactionTime : new Date().toISOString();
@@ -6323,6 +6342,12 @@ async function proxyRequestHandler(req, res) {
 
         if (action === 'delete') {
           const id = String(payload.id || '');
+          const trade = trades.find(t => t.id === id);
+          if (trade && trade.status !== 'closed') {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Only closed trades can be deleted', code: 'TRADE_NOT_CLOSED' }));
+            return;
+          }
           const next = trades.filter(t => t.id !== id);
           savePaperTradesFile(next);
           broadcastPaperTradeState('delete');
@@ -6828,7 +6853,8 @@ function startProxyServer(port = PORT) {
 ║  GET /etf-favs              ETF favorites storage ║
 ║  GET /stock-prefs           Stock prefs storage  ║
 ║  GET /stock-favs            Stock favorites storage║
-║  GET /paper-trades          Paper trade journal  ║
+║  GET /trade-execution       Paper trade journal  ║
+║  GET /paper-trades          Alias (compat)       ║
 ║                                                  ║
 ║  Press Ctrl+C to stop.                           ║
 ╚══════════════════════════════════════════════════╝
