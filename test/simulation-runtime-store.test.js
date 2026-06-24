@@ -3,7 +3,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { loadRuntimeState, DEFAULT_RUNTIME_STATE } = require('../server/simulation-runtime-store');
+const {
+  loadRuntimeState,
+  saveRuntimeState,
+  transitionRuntimeState,
+  RuntimeStateTransitionError,
+  DEFAULT_RUNTIME_STATE
+} = require('../server/simulation-runtime-store');
 
 const FIXTURE_ROOT = path.join(__dirname, '.simulation-runtime-store-fixtures');
 
@@ -61,4 +67,60 @@ test('loadRuntimeState coerces malformed values and rewrites normalized file', (
   assert.deepEqual(state, expected);
   const persisted = JSON.parse(fs.readFileSync(filePath, 'utf8'));
   assert.deepEqual(persisted, expected);
+});
+
+test('saveRuntimeState merges partial updates with persisted state', () => {
+  const filePath = path.join(FIXTURE_ROOT, 'merge.json');
+
+  fs.writeFileSync(
+    filePath,
+    JSON.stringify({
+      state: 'running',
+      autoResume: false,
+      lastTickAt: 1700000000000,
+      updatedAt: 1700000000000,
+      lastError: 'previous',
+      version: 2
+    }),
+    'utf8'
+  );
+
+  const saved = saveRuntimeState(filePath, { lastError: '' });
+  const persisted = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+
+  assert.equal(saved.state, 'running');
+  assert.equal(saved.autoResume, false);
+  assert.equal(saved.version, 2);
+  assert.equal(saved.lastError, '');
+  assert.ok(saved.updatedAt > 0);
+  assert.deepEqual(persisted, saved);
+});
+
+test('transitionRuntimeState enforces legal lifecycle transitions', () => {
+  const started = transitionRuntimeState(DEFAULT_RUNTIME_STATE, { type: 'start', autoResume: false });
+  assert.equal(started.state, 'running');
+  assert.equal(started.autoResume, false);
+
+  const settling = transitionRuntimeState(started, { type: 'stop', mode: 'settle' });
+  assert.equal(settling.state, 'settling');
+
+  const stopped = transitionRuntimeState(settling, { type: 'settled' });
+  assert.equal(stopped.state, 'off');
+});
+
+test('transitionRuntimeState rejects invalid transitions', () => {
+  assert.throws(
+    () => transitionRuntimeState({ ...DEFAULT_RUNTIME_STATE, state: 'settling' }, { type: 'start' }),
+    RuntimeStateTransitionError
+  );
+
+  assert.throws(
+    () => transitionRuntimeState(DEFAULT_RUNTIME_STATE, { type: 'stop', mode: 'settle' }),
+    RuntimeStateTransitionError
+  );
+
+  assert.throws(
+    () => transitionRuntimeState(DEFAULT_RUNTIME_STATE, { type: 'unknown' }),
+    RuntimeStateTransitionError
+  );
 });
