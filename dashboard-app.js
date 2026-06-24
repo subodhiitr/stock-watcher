@@ -22,6 +22,9 @@ const STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;
 const STOCK_FAV_STORAGE_KEY = 'stock-watcher-stock-favorites';
 const PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;
 const PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;
+const SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;
+const SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;
+const SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;
 const FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;
 const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;
 const SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;
@@ -760,6 +763,7 @@ const SIMULATION_AUTO_MANUAL_EXITS = !!TRADE_RULE_DEFAULTS.SIMULATION_AUTO_MANUA
 const BROKER_MODE_KEY = 'stock-watcher-broker-mode';
 let simulationState = localStorage.getItem(SIMULATION_STATE_KEY) || 'off'; // off | running | settling
 let simulationBusy = false;
+let simulationRuntimeStatus = null;
 let brokerMode = ['paper', 'zerodha_dry_run', 'zerodha_live', 'sharekhan_live'].includes(localStorage.getItem(BROKER_MODE_KEY))
   ? localStorage.getItem(BROKER_MODE_KEY)
   : 'paper';
@@ -1662,7 +1666,6 @@ async function fetchIntradaySignals(symbols) {
   if (anyUpdated) {
     if (DEBUG_INTRADAY_LOGS) console.info(`[fetchIntradaySignals] completed: intradayData now has ${Object.keys(intradayData).length} symbols, total updates: ${intradayDataUpdateCount}`);
     saveSimulationSnapshot('intraday-refresh').catch(e => console.warn('simulation snapshot failed', e.message));
-    runSimulationCycle({ allowEntries:true }).catch(e => console.warn('simulation cycle failed', e.message));
   }
 }
 
@@ -2077,10 +2080,6 @@ function applyPaperTradesState(payload, { trackNewTrades = false } = {}) {
   }
 
   pruneNewSimulationTradeKeys();
-  if (simulationState === 'settling' && !getSimulationOpenTrades().length) {
-    simulationState = 'off';
-    localStorage.setItem(SIMULATION_STATE_KEY, simulationState);
-  }
   updateSimulationButton();
   updateBrokerModeButton();
   renderTopActionBar();
@@ -2111,6 +2110,9 @@ function subscribePaperTradesStream() {
     paperTradesStream.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data || '{}');
+        if (payload?.simulationRuntime && typeof payload.simulationRuntime === 'object') {
+          applySimulationRuntimeStatus(payload.simulationRuntime);
+        }
         if (Array.isArray(payload?.trades)) {
           applyPaperTradesState(payload, { trackNewTrades: payload.reason !== 'init' });
         }
@@ -3293,44 +3295,125 @@ function toggleBrokerMode() {
   if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
 }
 
-function setSimulationState(state) {
+function setSimulationState(state, { persist = true } = {}) {
   simulationState = ['running', 'settling'].includes(state) ? state : 'off';
-  localStorage.setItem(SIMULATION_STATE_KEY, simulationState);
+  if (persist) localStorage.setItem(SIMULATION_STATE_KEY, simulationState);
   updateSimulationButton();
   renderTopActionBar();
 }
 
+function applySimulationRuntimeStatus(payload = null) {
+  if (!payload || typeof payload !== 'object') return null;
+  const normalizedState = ['running', 'settling'].includes(payload.state) ? payload.state : 'off';
+  simulationRuntimeStatus = { ...(simulationRuntimeStatus || {}), ...payload, state: normalizedState };
+  setSimulationState(normalizedState);
+  return simulationRuntimeStatus;
+}
+
+function createSimulationControlRuntime({
+  startEndpoint,
+  stopEndpoint,
+  statusEndpoint,
+  getState,
+  setBusy,
+  applyStatus,
+  fetchImpl,
+}) {
+  const callApi = async (endpoint, options = {}) => {
+    const response = await fetchImpl(endpoint, options);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.ok === false) {
+      const reason = payload?.error || payload?.message || `HTTP ${response.status}`;
+      throw new Error(reason);
+    }
+    applyStatus(payload);
+    return payload;
+  };
+
+  return {
+    async toggle() {
+      const state = getState();
+      const shouldStop = state === 'running' || state === 'settling';
+      const endpoint = shouldStop ? stopEndpoint : startEndpoint;
+      const body = shouldStop ? { mode: 'settle' } : {};
+      setBusy(true);
+      try {
+        return await callApi(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+      } finally {
+        setBusy(false);
+      }
+    },
+    async refreshStatus() {
+      return callApi(statusEndpoint, { method: 'GET' });
+    },
+  };
+}
+
+const simulationControlRuntime = createSimulationControlRuntime({
+  startEndpoint: SIMULATION_START_ENDPOINT,
+  stopEndpoint: SIMULATION_STOP_ENDPOINT,
+  statusEndpoint: SIMULATION_STATUS_ENDPOINT,
+  getState: () => simulationState,
+  setBusy: (value) => {
+    simulationBusy = value;
+    updateSimulationButton();
+  },
+  applyStatus: (payload) => {
+    applySimulationRuntimeStatus(payload);
+  },
+  fetchImpl: (...args) => fetch(...args),
+});
+
 function updateSimulationButton() {
   const btn = document.getElementById('simulation-btn');
   const openSim = paperTrades.filter(t => isOpenTrade(t) && t.source === 'simulation').length;
+  const simCard = document.getElementById('simulation-card');
   if (btn) {
     btn.classList.remove('primary', 'sim-running', 'sim-settling');
     if (simulationState === 'running') {
       btn.classList.add('sim-running');
-      btn.textContent = `Stop Sim (${openSim})`;
+      btn.textContent = simulationBusy ? 'Updating…' : `Stop Sim (${openSim})`;
       btn.title = 'Simulation is opening top-10 suggested trades and managing exits';
     } else if (simulationState === 'settling') {
       btn.classList.add('sim-settling');
-      btn.textContent = `Settling (${openSim})`;
+      btn.textContent = simulationBusy ? 'Updating…' : `Settling (${openSim})`;
       btn.title = 'No new simulation trades. Existing simulation trades exit at target, stop, or end of day.';
     } else {
       btn.classList.add('primary');
-      btn.textContent = 'Start Simulation';
+      btn.textContent = simulationBusy ? 'Updating…' : 'Start Simulation';
       btn.title = 'Auto paper-trade top-10 buy suggestions with Rs 5L portfolio limit';
     }
+    btn.disabled = simulationBusy;
+  }
+  if (simCard) {
+    simCard.disabled = simulationBusy;
+    simCard.classList.toggle('is-busy', simulationBusy);
   }
   renderTopActionBar();
 }
 
+async function refreshSimulationStatusFromServer({ silent = false } = {}) {
+  try {
+    return await simulationControlRuntime.refreshStatus();
+  } catch (e) {
+    if (!silent) console.warn('simulation status refresh failed', e.message);
+    return null;
+  }
+}
+
 async function toggleSimulation() {
   if (!paperTradesLoaded) await loadPaperTrades();
-  if (simulationState === 'running') {
-    setSimulationState('settling');
-    runSimulationCycle({ allowEntries:false }).catch(e => console.warn('simulation settle failed', e.message));
-    return;
+  if (simulationBusy) return;
+  try {
+    await simulationControlRuntime.toggle();
+  } catch (e) {
+    console.warn('simulation toggle failed', e.message);
+    await refreshSimulationStatusFromServer({ silent: true });
   }
-  setSimulationState('running');
-  runSimulationCycle({ allowEntries:true }).catch(e => console.warn('simulation start failed', e.message));
 }
 
 function getIstClockParts() {
@@ -7408,15 +7491,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   subscribePaperTradesStream();
   applyDashboardRouteHint();
 
-  // Run periodic simulation exits so EOD settlement does not depend only on feed refresh callbacks.
-  startSimulationCycleTimer();
+  await refreshSimulationStatusFromServer({ silent: true });
   
   // Start polling broker + live portfolio status
-  await pollBrokerStatus();
-  await pollZerodhaPortfolioState();
+  await Promise.all([
+    pollBrokerStatus(),
+    pollZerodhaPortfolioState(),
+  ]);
   setInterval(async () => {
-    await pollBrokerStatus();
-    await pollZerodhaPortfolioState();
+    await Promise.all([
+      refreshSimulationStatusFromServer({ silent: true }),
+      pollBrokerStatus(),
+      pollZerodhaPortfolioState(),
+    ]);
   }, 30000);
 });
 
