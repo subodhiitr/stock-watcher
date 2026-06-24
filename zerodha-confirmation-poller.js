@@ -1,8 +1,8 @@
 // zerodha-confirmation-poller.js
 
 class ConfirmationPoller {
-  constructor(kiteClient, deps, brokerModeGetter) {
-    this.kiteClient = kiteClient;
+  constructor(brokerClient, deps, brokerModeGetter, options = {}) {
+    this.brokerClient = brokerClient;
     if (Array.isArray(deps)) {
       // Backward compatibility for older constructor usage.
       this.loadTrades = () => deps;
@@ -14,6 +14,14 @@ class ConfirmationPoller {
       this.broadcast = typeof deps?.broadcast === 'function' ? deps.broadcast : () => {};
     }
     this.brokerModeGetter = brokerModeGetter; // function that returns current brokerMode
+    this.options = {
+      brokerName: options.brokerName || 'zerodha',
+      liveMode: options.liveMode || 'zerodha_live',
+      dryMode: Object.prototype.hasOwnProperty.call(options, 'dryMode') ? options.dryMode : 'zerodha_dry_run',
+      liveTradeMode: options.liveTradeMode || 'live',
+      dryTradeMode: options.dryTradeMode || 'dry-run',
+      classifyOrderStatus: typeof options.classifyOrderStatus === 'function' ? options.classifyOrderStatus : null,
+    };
     this.pollingInterval = null;
     this.pollIntervalMs = 10000; // 10 seconds
     this.maxTimeoutMs = 900000; // 15 minutes
@@ -25,6 +33,9 @@ class ConfirmationPoller {
   }
 
   classifyOrderStatus(status) {
+    if (this.options.classifyOrderStatus) {
+      return this.options.classifyOrderStatus(status);
+    }
     const normalized = this.normalizeOrderStatus(status);
     if (normalized === 'COMPLETE') return 'confirmed';
     if (normalized === 'REJECTED') return 'rejected';
@@ -62,16 +73,18 @@ class ConfirmationPoller {
   async pollPendingTrades() {
     try {
       const brokerMode = this.brokerModeGetter();
-      
-      // Only poll if in zerodha modes
-      if (brokerMode !== 'zerodha_live' && brokerMode !== 'zerodha_dry_run') {
+      const inLiveMode = brokerMode === this.options.liveMode;
+      const inDryMode = this.options.dryMode ? brokerMode === this.options.dryMode : false;
+      if (!inLiveMode && !inDryMode) {
         return;
       }
 
       const allTrades = this.loadTrades();
+      const targetTradeMode = inLiveMode ? this.options.liveTradeMode : this.options.dryTradeMode;
       const trades = allTrades.filter(t => 
+        t.broker?.name === this.options.brokerName &&
         t.broker?.status === 'pending' && 
-        t.broker?.mode === (brokerMode === 'zerodha_live' ? 'live' : 'dry-run')
+        t.broker?.mode === targetTradeMode
       );
 
       for (const trade of trades) {
@@ -100,7 +113,7 @@ class ConfirmationPoller {
       if (elapsedMs > this.maxTimeoutMs) {
         let cancelled = false;
         if (trade.broker?.orderId) {
-          cancelled = await this.kiteClient.cancelOrder(trade.broker.orderId);
+          cancelled = await this.brokerClient.cancelOrder(trade.broker);
         }
         const nowIso = new Date().toISOString();
         trade.broker.status = cancelled ? 'cancelled' : 'timeout';
@@ -137,7 +150,7 @@ class ConfirmationPoller {
         return;
       }
 
-      const orderStatus = await this.kiteClient.getOrderStatus(trade.broker.orderId);
+      const orderStatus = await this.brokerClient.getOrderStatus(trade.broker.orderId, trade.broker.exchange);
       trade.broker.confirmationAttempts++;
       trade.broker.lastBrokerStatus = orderStatus.status;
       trade.broker.lastBrokerStatusMessage = orderStatus.statusMessage || orderStatus.status;
@@ -191,7 +204,7 @@ class ConfirmationPoller {
     } catch (err) {
       if (err.message === 'AUTH_FAILED_REFRESH_NEEDED') {
         console.warn(`[confirmation-poller] Auth error on trade ${trade.id}, will retry`);
-        // Kite client will handle token refresh
+        // Broker client will handle token refresh
         return;
       }
       console.error(`[confirmation-poller] Error checking trade ${trade.id}:`, err.message);

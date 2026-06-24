@@ -117,7 +117,9 @@ class KiteClient {
   }
 
   // Cancel order
-  async cancelOrder(orderId) {
+  async cancelOrder(orderLike) {
+    const orderId = typeof orderLike === 'string' ? orderLike : orderLike?.orderId;
+    if (!orderId) return false;
     try {
       await this.withAuthRetry(() => this.kc.cancelOrder('regular', orderId));
       return true;

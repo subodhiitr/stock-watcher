@@ -29,6 +29,7 @@ const SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;
 const SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;
 const BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;
 const ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;
+const SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;
 const REPLAY_FETCH_TIMEOUT_MS = 120000;
 const TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;
 const TRADE_SETTING_OVERRIDES_KEY = 'stock-watcher-trade-setting-overrides';
@@ -759,7 +760,9 @@ const SIMULATION_AUTO_MANUAL_EXITS = !!TRADE_RULE_DEFAULTS.SIMULATION_AUTO_MANUA
 const BROKER_MODE_KEY = 'stock-watcher-broker-mode';
 let simulationState = localStorage.getItem(SIMULATION_STATE_KEY) || 'off'; // off | running | settling
 let simulationBusy = false;
-let brokerMode = localStorage.getItem(BROKER_MODE_KEY) === 'zerodha_dry_run' ? 'zerodha_dry_run' : 'paper';
+let brokerMode = ['paper', 'zerodha_dry_run', 'zerodha_live', 'sharekhan_live'].includes(localStorage.getItem(BROKER_MODE_KEY))
+  ? localStorage.getItem(BROKER_MODE_KEY)
+  : 'paper';
 let brokerConnectionStatus = null; // { mode, zerodha: { credentialsLoaded, clientsInitialized, pollerRunning, failureCount, isDisabled } }
 let brokerRefreshState = { busy:false, ok:null, message:'' };
 let zerodhaPortfolioState = { loading:false, ok:false, data:null, error:'' };
@@ -2930,10 +2933,12 @@ function renderSettingsModal() {
   const maxOpenTradesValue = Number.isFinite(maxOpenTradesOverride)
     ? Math.round(maxOpenTradesOverride)
     : Math.round(Number(effective.SIMULATION_MAX_OPEN) || Number(defaults.SIMULATION_MAX_OPEN) || 0);
-  const autoRenewConfigured = !!brokerConnectionStatus?.zerodha?.autoRenewConfigured;
-  const lastRefreshAtTs = Number(brokerConnectionStatus?.zerodha?.lastTokenRefreshAt || 0);
+  const liveBroker = brokerMode === 'sharekhan_live' ? 'sharekhan' : 'zerodha';
+  const brokerStatus = liveBroker === 'sharekhan' ? brokerConnectionStatus?.sharekhan : brokerConnectionStatus?.zerodha;
+  const autoRenewConfigured = !!brokerStatus?.autoRenewConfigured;
+  const lastRefreshAtTs = Number(brokerStatus?.lastTokenRefreshAt || 0);
   const lastRefreshAt = lastRefreshAtTs ? toIST(lastRefreshAtTs) : '--';
-  const refreshHint = brokerRefreshState.message || (autoRenewConfigured ? 'Ready for manual refresh' : 'Add refresh token in credentials');
+  const refreshHint = brokerRefreshState.message || (autoRenewConfigured ? 'Ready for manual refresh' : `Add ${liveBroker} token credentials`);
   const rows = Object.keys(defaults).map(key => {
     const current = effective[key];
     const def = defaults[key];
@@ -2951,7 +2956,7 @@ function renderSettingsModal() {
       <div class="settings-card"><div class="label">Minimum net profit</div><div class="value">${formatSettingValue(effective.SIMULATION_MIN_NET_PROFIT_PCT, 'SIMULATION_MIN_NET_PROFIT_PCT')}</div></div>
       <div class="settings-card"><div class="label">Max open trades</div><div class="value ${Number.isFinite(maxOpenTradesOverride) ? 'up' : ''}">${maxOpenTradesValue}</div><div style="margin-top:8px"><input type="number" step="1" min="1" max="100" value="${maxOpenTradesValue}" onchange="setMaxOpenTradesOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(maxOpenTradesOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(maxOpenTradesOverride) ? ` <button class="btn" type="button" onclick="clearMaxOpenTradesOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
       <div class="settings-card"><div class="label">Daily max trades</div><div class="value ${Number.isFinite(dailyMaxTradesOverride) ? 'up' : ''}">${dailyMaxTradesValue}</div><div style="margin-top:8px"><input type="number" step="1" min="1" max="200" value="${dailyMaxTradesValue}" onchange="setDailyMaxTradesOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(dailyMaxTradesOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(dailyMaxTradesOverride) ? ` <button class="btn" type="button" onclick="clearDailyMaxTradesOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
-      <div class="settings-card"><div class="label">Zerodha token</div><div class="value ${brokerRefreshState.ok === false ? 'down' : (brokerRefreshState.ok ? 'up' : '')}">${autoRenewConfigured ? 'Auto-renew ready' : 'Refresh token missing'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="refreshZerodhaTokenFromSettings()" ${brokerRefreshState.busy || !autoRenewConfigured ? 'disabled' : ''}>${brokerRefreshState.busy ? 'Refreshing...' : 'Refresh token now'}</button><span style="margin-left:8px; font-size:11px">Last refresh: ${escapeHTML(lastRefreshAt)}</span></div><div style="margin-top:6px; font-size:11px; color:${brokerRefreshState.ok === false ? 'var(--red)' : 'var(--muted)'}">${escapeHTML(refreshHint)}</div></div>
+      <div class="settings-card"><div class="label">${liveBroker === 'sharekhan' ? 'Sharekhan token' : 'Zerodha token'}</div><div class="value ${brokerRefreshState.ok === false ? 'down' : (brokerRefreshState.ok ? 'up' : '')}">${autoRenewConfigured ? 'Auto-renew ready' : 'Refresh token missing'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="refreshZerodhaTokenFromSettings()" ${brokerRefreshState.busy || !autoRenewConfigured ? 'disabled' : ''}>${brokerRefreshState.busy ? 'Refreshing...' : 'Refresh token now'}</button><span style="margin-left:8px; font-size:11px">Last refresh: ${escapeHTML(lastRefreshAt)}</span></div><div style="margin-top:6px; font-size:11px; color:${brokerRefreshState.ok === false ? 'var(--red)' : 'var(--muted)'}">${escapeHTML(refreshHint)}</div></div>
       <div class="settings-card"><div class="label">Stop guard override</div><div class="value ${stopGuardOverride ? 'up' : ''}">${stopGuardOverride ? 'Enabled' : 'Disabled'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="toggleSimulationStopGuardOverride()">${stopGuardOverride ? 'Disable override' : 'Enable override'}</button></div></div>
       <div class="settings-card"><div class="label">Auto-exit manual trades</div><div class="value ${manualAutoExitEnabled ? 'up' : ''}">${manualAutoExitEnabled ? 'Enabled' : 'Disabled'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="toggleManualTradeAutoExitOverride()">${manualAutoExitEnabled ? 'Disable auto exits' : 'Enable auto exits'}</button></div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Uses same simulation exit rules (target, SL, trailing, time-stop, EOD).</div></div>
       <div class="settings-card"><div class="label">Nifty regime threshold</div><div class="value ${Number.isFinite(niftyRegimeOverride) ? 'up' : ''}">${niftyRegimeValue.toFixed(3)}</div><div style="margin-top:8px"><input type="number" step="0.001" min="-1" max="1" value="${niftyRegimeValue.toFixed(3)}" onchange="setNiftyRegimeOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(niftyRegimeOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(niftyRegimeOverride) ? ` <button class="btn" type="button" onclick="clearNiftyRegimeOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Blocks longs below -threshold, blocks shorts above +threshold.</div></div>
@@ -2987,7 +2992,7 @@ async function refreshZerodhaTokenFromSettings() {
     const res = await fetch(BROKER_REFRESH_TOKEN_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ manual:true }),
+      body: JSON.stringify({ manual:true, broker: brokerMode === 'sharekhan_live' ? 'sharekhan' : 'zerodha' }),
     });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok || payload.ok === false) {
@@ -3008,6 +3013,8 @@ function isZerodhaDryRun() {
 function getBrokerLabel(trade) {
   const broker = trade?.broker;
   if (broker?.name === 'zerodha' && broker?.mode === 'dry-run') return 'Zerodha Dry';
+  if (broker?.name === 'zerodha' && broker?.mode === 'live') return 'Zerodha Live';
+  if (broker?.name === 'sharekhan' && broker?.mode === 'live') return 'Sharekhan Live';
   return 'Paper';
 }
 
@@ -3034,18 +3041,19 @@ function formatZerodhaPillMoney(v) {
 function updateZerodhaPortfolioPill() {
   const pill = document.getElementById('zerodha-portfolio-pill');
   if (!pill) return;
+  const brokerName = brokerMode === 'sharekhan_live' ? 'Sharekhan' : 'Zerodha';
   pill.classList.remove('live', 'warn', 'down');
 
   if (zerodhaPortfolioState.loading) {
-    pill.textContent = 'Zerodha ...';
-    pill.title = 'Fetching Zerodha portfolio state... Click for positions';
+    pill.textContent = `${brokerName} ...`;
+    pill.title = `Fetching ${brokerName} portfolio state... Click for positions`;
     pill.classList.add('warn');
     return;
   }
 
   if (!zerodhaPortfolioState.ok || !zerodhaPortfolioState.data?.portfolio) {
-    pill.textContent = 'Zerodha N/A';
-    pill.title = zerodhaPortfolioState.error || 'Zerodha portfolio is unavailable.';
+    pill.textContent = `${brokerName} N/A`;
+    pill.title = zerodhaPortfolioState.error || `${brokerName} portfolio is unavailable.`;
     pill.classList.add('down');
     return;
   }
@@ -3057,7 +3065,7 @@ function updateZerodhaPortfolioPill() {
   const holdingsCount = Number(p?.holdings?.count || 0);
   const asOf = Number(p?.asOf || 0);
 
-  pill.textContent = `Zerodha ${formatZerodhaPillMoney(cash)} | P&L ${formatZerodhaPillMoney(dayPnl)}`;
+  pill.textContent = `${brokerName} ${formatZerodhaPillMoney(cash)} | P&L ${formatZerodhaPillMoney(dayPnl)}`;
   pill.title = [
     `Available cash: ${moneyINR(cash)}`,
     `Day P&L: ${moneyINR(dayPnl)}`,
@@ -3244,6 +3252,13 @@ function updateBrokerModeButton() {
     const status = brokerConnectionStatus?.zerodha?.clientsInitialized ? '🟡' : '🔴';
     btn.textContent = `${status} Zerodha Dry`;
     btn.title = 'Dry-run mode: trades remain virtual and Zerodha order payloads are saved for validation.';
+  } else if (brokerMode === 'sharekhan_live') {
+    btn.classList.add('broker-live');
+    const status = brokerConnectionStatus?.sharekhan?.isDisabled ? '🔴' : '🟢';
+    btn.textContent = `${status} Sharekhan Live`;
+    btn.title = brokerConnectionStatus?.sharekhan?.isDisabled
+      ? 'Sharekhan Live is disabled due to repeated failures. Switch mode to reset.'
+      : 'Live mode: trades are executed against real Sharekhan account.';
   } else {
     btn.textContent = '📄 Paper';
     btn.title = 'Paper mode: trades are virtual only.';
@@ -3251,12 +3266,14 @@ function updateBrokerModeButton() {
 }
 
 function toggleBrokerMode() {
-  // Cycle through: paper → zerodha_dry_run → zerodha_live → paper
+  // Cycle through: paper → zerodha_dry_run → zerodha_live → sharekhan_live → paper
   if (brokerMode === 'paper') {
     brokerMode = 'zerodha_dry_run';
   } else if (brokerMode === 'zerodha_dry_run') {
     brokerMode = 'zerodha_live';
   } else if (brokerMode === 'zerodha_live') {
+    brokerMode = 'sharekhan_live';
+  } else if (brokerMode === 'sharekhan_live') {
     brokerMode = 'paper';
   } else {
     brokerMode = 'paper';
@@ -5309,7 +5326,9 @@ function renderPaperTradeControls(row, t) {
   if (open) {
     const pnl = getPaperTradePnl(open, price);
     const cls = pnl && pnl.pnl >= 0 ? 'up' : 'down';
-    const brokerBadge = open.broker?.name === 'zerodha' ? '<span class="broker-badge">Zerodha dry</span>' : '';
+    const brokerBadge = open.broker?.name === 'zerodha'
+      ? `<span class="broker-badge">${open.broker?.mode === 'live' ? 'Zerodha live' : 'Zerodha dry'}</span>`
+      : (open.broker?.name === 'sharekhan' ? '<span class="broker-badge">Sharekhan live</span>' : '');
     return `<div class="paper-trade-box">
       <span class="paper-trade-head">${open.source === 'simulation' ? 'SIM ' : ''}${escapeHTML(open.side)} ${Number(open.qty || 0).toLocaleString('en-IN')}</span>
       ${brokerBadge}
@@ -5325,7 +5344,11 @@ function renderPaperTradeControls(row, t) {
   const sellQty = t && price ? getSuggestedPaperQty(t, 'sell', price, cash).qty : 0;
   const defaultQty = buyQty || sellQty || '';
   const qtyId = paperQtyInputId(row.sym);
-  const modeHint = isZerodhaDryRun() ? 'Zerodha dry-run order will be saved; no live order is placed.' : 'Paper trade only.';
+  const modeHint = brokerMode === 'zerodha_dry_run'
+    ? 'Zerodha dry-run order will be saved; no live order is placed.'
+    : (brokerMode === 'zerodha_live'
+      ? 'Live order will be sent to Zerodha.'
+      : (brokerMode === 'sharekhan_live' ? 'Live order will be sent to Sharekhan.' : 'Paper trade only.'));
   return `<div class="paper-actions">
     <input id="${escapeHTML(qtyId)}" class="paper-qty-input"${disabled} type="number" min="1" step="1" value="${defaultQty}" title="Override quantity. Suggested buy ${buyQty || 0}, sell ${sellQty || 0}. Max Rs 1L exposure." onclick="event.stopPropagation()" />
     <button class="paper-btn buy"${disabled} title="${escapeHTML(modeHint)} Uses Qty box. Suggested buy qty ${buyQty || 0}." onclick="event.stopPropagation();openPaperTrade('${escapeHTML(row.sym)}','buy')">Buy</button>
@@ -6823,7 +6846,9 @@ function openFundModal(sym){
     : 'No open paper trade';
   const brokerTradeText = openTrade?.broker?.name === 'zerodha'
     ? `Entry ${formatZerodhaOrder(openTrade.broker.entryOrder)} | Exit ${formatZerodhaOrder(openTrade.broker.exitOrder)}`
-    : 'Paper only';
+    : (openTrade?.broker?.name === 'sharekhan'
+      ? `Sharekhan order ${openTrade.broker.orderId || '--'} | Status ${openTrade.broker.status || '--'}`
+      : 'Paper only');
   const etfSafety = isETF && t ? getETFTradeSafety(asset, t) : null;
   const detailRow = (label, value, raw = false) => `<tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${escapeHTML(label)}</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${raw ? value : escapeHTML(value)}</td></tr>`;
   const nav = e.nav ?? data.nav ?? null;
@@ -7386,7 +7411,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Run periodic simulation exits so EOD settlement does not depend only on feed refresh callbacks.
   startSimulationCycleTimer();
   
-  // Start polling broker + live Zerodha portfolio status
+  // Start polling broker + live portfolio status
   await pollBrokerStatus();
   await pollZerodhaPortfolioState();
   setInterval(async () => {
@@ -7411,9 +7436,10 @@ async function pollBrokerStatus() {
 }
 
 async function pollZerodhaPortfolioState() {
-  const canFetch = !!brokerConnectionStatus?.zerodha?.clientsInitialized;
+  const useSharekhan = brokerMode === 'sharekhan_live';
+  const canFetch = useSharekhan ? !!brokerConnectionStatus?.sharekhan?.clientsInitialized : !!brokerConnectionStatus?.zerodha?.clientsInitialized;
   if (!canFetch) {
-    zerodhaPortfolioState = { loading:false, ok:false, data:null, error:'Zerodha client is not initialized' };
+    zerodhaPortfolioState = { loading:false, ok:false, data:null, error: `${useSharekhan ? 'Sharekhan' : 'Zerodha'} client is not initialized` };
     updateZerodhaPortfolioPill();
     return;
   }
@@ -7421,14 +7447,15 @@ async function pollZerodhaPortfolioState() {
   zerodhaPortfolioState = { ...zerodhaPortfolioState, loading:true, error:'' };
   updateZerodhaPortfolioPill();
   try {
-    const res = await fetch(ZERODHA_PORTFOLIO_ENDPOINT, { signal: AbortSignal.timeout(10000) });
+    const endpoint = useSharekhan ? SHAREKHAN_PORTFOLIO_ENDPOINT : ZERODHA_PORTFOLIO_ENDPOINT;
+    const res = await fetch(endpoint, { signal: AbortSignal.timeout(10000) });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok || payload.ok === false) {
       throw new Error(payload.error || payload.hint || `HTTP ${res.status}`);
     }
     zerodhaPortfolioState = { loading:false, ok:true, data:payload, error:'' };
   } catch (e) {
-    zerodhaPortfolioState = { loading:false, ok:false, data:null, error:e.message || 'Could not fetch Zerodha portfolio' };
+    zerodhaPortfolioState = { loading:false, ok:false, data:null, error:e.message || `Could not fetch ${useSharekhan ? 'Sharekhan' : 'Zerodha'} portfolio` };
   }
   updateZerodhaPortfolioPill();
   if (zerodhaPositionsPanelOpen) {

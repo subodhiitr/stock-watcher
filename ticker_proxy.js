@@ -42,7 +42,9 @@ const { fork } = require('child_process');
 const Backtest = require('./backtest_simulation');
 const SimulationEngine = require('./simulation_engine');
 const { loadCredentials, saveCredentialsTokens } = require('./zerodha-credentials');
+const { loadSharekhanCredentials, saveSharekhanAccessToken } = require('./sharekhan-credentials');
 const KiteClient = require('./zerodha-kite-client');
+const SharekhanClient = require('./sharekhan-client');
 const ConfirmationPoller = require('./zerodha-confirmation-poller');
 const PORT  = 3001;
 const USER_OPENAI_PROPERTIES = path.join(os.homedir(), 'openai.properties');
@@ -68,6 +70,7 @@ const FRESH_NEWS_CACHE_FILE = path.join(APP_CACHE_DIR, 'fresh_stock_news.json');
 const FRESH_NEWS_CACHE_DIR  = path.join(APP_CACHE_DIR, 'fresh_news');
 const FRESH_NEWS_CACHE_INDEX_FILE = path.join(FRESH_NEWS_CACHE_DIR, 'index.json');
 const TRADE_SETTINGS_FILE  = path.join(__dirname, 'trade_settings.json');
+const BROKER_PREFS_FILE    = path.join(__dirname, 'broker_preferences.json');
 const SIM_SNAPSHOT_DIR     = path.join(__dirname, 'snapshots');
 const SIM_SNAPSHOT_FILE    = path.join(SIM_SNAPSHOT_DIR, 'simulation_snapshots.json');
 const SIM_SNAPSHOT_LEGACY_FILE = path.join(__dirname, 'simulation_snapshots.json');
@@ -122,13 +125,52 @@ const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || openaiProps.OLLAMA_BASE_U
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || openaiProps.OLLAMA_MODEL || openaiProps.ollama_model || '';
 const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || openaiProps.OLLAMA_TIMEOUT_MS || openaiProps.ollama_timeout_ms || 180000);
 
-// Zerodha Live integration
-let brokerMode = 'paper'; // paper, zerodha_dry_run, zerodha_live
+const VALID_BROKER_MODES = new Set(['paper', 'zerodha_dry_run', 'zerodha_live', 'sharekhan_live']);
+
+function loadBrokerModePreference() {
+  try {
+    if (!fs.existsSync(BROKER_PREFS_FILE)) return 'paper';
+    const parsed = JSON.parse(fs.readFileSync(BROKER_PREFS_FILE, 'utf8') || '{}');
+    const mode = String(parsed?.mode || '').toLowerCase();
+    return VALID_BROKER_MODES.has(mode) ? mode : 'paper';
+  } catch (e) {
+    console.warn('[broker-prefs] Could not load broker preferences:', e.message);
+    return 'paper';
+  }
+}
+
+function saveBrokerModePreference(mode) {
+  try {
+    if (!VALID_BROKER_MODES.has(mode)) return false;
+    fs.writeFileSync(BROKER_PREFS_FILE, JSON.stringify({ mode, updatedAt: Date.now() }, null, 2), 'utf8');
+    return true;
+  } catch (e) {
+    console.warn('[broker-prefs] Could not save broker preferences:', e.message);
+    return false;
+  }
+}
+
+function setBrokerMode(mode) {
+  const next = String(mode || '').toLowerCase();
+  if (!VALID_BROKER_MODES.has(next)) return false;
+  brokerMode = next;
+  if (next === 'zerodha_live') zerodhaLiveFailureCount = 0;
+  if (next === 'sharekhan_live') sharekhanLiveFailureCount = 0;
+  saveBrokerModePreference(next);
+  return true;
+}
+
+// Broker integrations
+let brokerMode = loadBrokerModePreference(); // paper, zerodha_dry_run, zerodha_live, sharekhan_live
 let zerodhaCredentials = null;
 let kiteClientLive = null;
 let kiteClientDry = null;
-let confirmationPoller = null;
+let zerodhaConfirmationPoller = null;
 let zerodhaLiveFailureCount = 0;
+let sharekhanCredentials = null;
+let sharekhanClientLive = null;
+let sharekhanConfirmationPoller = null;
+let sharekhanLiveFailureCount = 0;
 
 function parseVolumeField(item) {
   const raw = item.totalTradedVolume ?? item.tradedVolume ?? item.volume ?? item.totalTradedQty ?? item.quantityTraded ?? item.qtyTraded ?? 0;
@@ -1368,6 +1410,37 @@ function buildZerodhaDryRunOrder(payload, trade, phase = 'entry') {
     validity: 'DAY',
     variety: 'regular',
     tag: 'stockdash-dry',
+  };
+}
+
+function getActiveLiveBrokerKey() {
+  if (brokerMode === 'sharekhan_live') return 'sharekhan';
+  if (brokerMode === 'zerodha_live') return 'zerodha';
+  return null;
+}
+
+function buildSharekhanLiveOrder(payload, trade, phase = 'entry', scripCode = 0) {
+  const side = String(payload?.side || trade?.side || 'buy').toLowerCase();
+  const isExit = phase === 'exit';
+  const qty = Math.floor(Number(payload?.qty ?? trade?.qty));
+  const price = Number(isExit ? payload?.exitPrice : payload?.entryPrice ?? trade?.entryPrice);
+  const symbol = cleanTradingSymbol(payload?.symbol || trade?.symbol);
+  const resolvedScripCode = Number(payload?.scripCode || trade?.broker?.scripCode || scripCode || 0);
+  if (!symbol || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(price) || price <= 0 || !Number.isFinite(resolvedScripCode) || resolvedScripCode <= 0) return null;
+  const transactionType = isExit
+    ? (side === 'sell' ? 'B' : 'S')
+    : (side === 'sell' ? 'S' : 'B');
+  return {
+    exchange: 'NC',
+    scripCode: resolvedScripCode,
+    tradingSymbol: symbol,
+    transactionType,
+    quantity: qty,
+    price:+price.toFixed(2),
+    requestType: 'NEW',
+    productType: 'INTRADAY',
+    validity: 'GFD',
+    orderType: 'NORMAL',
   };
 }
 
@@ -5294,7 +5367,7 @@ async function proxyRequestHandler(req, res) {
     return;
   }
 
-  // /broker-mode -- Switch between paper, zerodha_dry_run, zerodha_live
+  // /broker-mode -- Switch between paper, zerodha_dry_run, zerodha_live, sharekhan_live
   if (pathname === '/broker-mode') {
     if (req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -5305,15 +5378,12 @@ async function proxyRequestHandler(req, res) {
       try {
         const payload = await readJsonBody(req);
         const newMode = String(payload.mode || '').toLowerCase();
-        if (!['paper', 'zerodha_dry_run', 'zerodha_live'].includes(newMode)) {
+        if (!VALID_BROKER_MODES.has(newMode)) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid mode. Valid modes: paper, zerodha_dry_run, zerodha_live' }));
+          res.end(JSON.stringify({ error: 'Invalid mode. Valid modes: paper, zerodha_dry_run, zerodha_live, sharekhan_live' }));
           return;
         }
-        brokerMode = newMode;
-        if (newMode === 'zerodha_live') {
-          zerodhaLiveFailureCount = 0; // Reset failure counter when switching to live
-        }
+        setBrokerMode(newMode);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, mode: brokerMode }));
         return;
@@ -5330,14 +5400,24 @@ async function proxyRequestHandler(req, res) {
     if (req.method === 'GET') {
       const status = {
         mode: brokerMode,
+        activeLiveBroker: getActiveLiveBrokerKey(),
         zerodha: {
           credentialsLoaded: !!zerodhaCredentials,
           clientsInitialized: !!kiteClientLive && !!kiteClientDry,
           autoRenewConfigured: !!zerodhaCredentials?.refreshToken,
           lastTokenRefreshAt: kiteClientLive?.lastTokenRefreshAt || null,
-          pollerRunning: confirmationPoller !== null,
+          pollerRunning: zerodhaConfirmationPoller !== null,
           failureCount: zerodhaLiveFailureCount,
           isDisabled: zerodhaLiveFailureCount >= 3,
+        },
+        sharekhan: {
+          credentialsLoaded: !!sharekhanCredentials,
+          clientsInitialized: !!sharekhanClientLive,
+          autoRenewConfigured: !!sharekhanCredentials?.requestToken && !!sharekhanCredentials?.secretKey,
+          lastTokenRefreshAt: sharekhanClientLive?.lastTokenRefreshAt || null,
+          pollerRunning: sharekhanConfirmationPoller !== null,
+          failureCount: sharekhanLiveFailureCount,
+          isDisabled: sharekhanLiveFailureCount >= 3,
         },
       };
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -5346,7 +5426,7 @@ async function proxyRequestHandler(req, res) {
     }
   }
 
-  // /broker-refresh-token -- Manually trigger access token renew using refresh token
+  // /broker-refresh-token -- Manually trigger access token renew
   if (pathname === '/broker-refresh-token') {
     if (req.method !== 'POST') {
       res.writeHead(405, { 'Content-Type': 'application/json' });
@@ -5354,6 +5434,49 @@ async function proxyRequestHandler(req, res) {
       return;
     }
     try {
+      const payload = await readJsonBody(req).catch(() => ({}));
+      const broker = String(payload.broker || getActiveLiveBrokerKey() || 'zerodha').toLowerCase();
+      if (broker === 'sharekhan') {
+        if (!sharekhanCredentials || !sharekhanClientLive) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Sharekhan integration is not initialized' }));
+          return;
+        }
+        if (!sharekhanCredentials.requestToken || !sharekhanCredentials.secretKey) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            error: 'Request token and secret key are not configured',
+            hint: 'Set SHAREKHAN_REQUEST_TOKEN and SHAREKHAN_SECRET_KEY in sharekhan credentials file and restart proxy',
+          }));
+          return;
+        }
+        const refreshed = await sharekhanClientLive.refreshAccessToken();
+        if (!refreshed) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            ok: false,
+            renewed: false,
+            mode: brokerMode,
+            broker: 'sharekhan',
+            autoRenewConfigured: !!sharekhanCredentials.requestToken && !!sharekhanCredentials.secretKey,
+            lastTokenRefreshAt: sharekhanClientLive.lastTokenRefreshAt || null,
+          }));
+          return;
+        }
+        if (sharekhanClientLive.accessToken) sharekhanCredentials.accessToken = sharekhanClientLive.accessToken;
+        saveSharekhanAccessToken(sharekhanClientLive.accessToken);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          ok: true,
+          renewed: true,
+          mode: brokerMode,
+          broker: 'sharekhan',
+          autoRenewConfigured: !!sharekhanCredentials.requestToken && !!sharekhanCredentials.secretKey,
+          lastTokenRefreshAt: sharekhanClientLive.lastTokenRefreshAt || null,
+        }));
+        return;
+      }
+
       if (!zerodhaCredentials || !kiteClientLive || !kiteClientDry) {
         res.writeHead(503, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Zerodha integration is not initialized' }));
@@ -5375,6 +5498,7 @@ async function proxyRequestHandler(req, res) {
           ok: false,
           renewed: false,
           mode: brokerMode,
+          broker: 'zerodha',
           autoRenewConfigured: !!zerodhaCredentials.refreshToken,
           lastTokenRefreshAt: kiteClientLive.lastTokenRefreshAt || null,
         }));
@@ -5393,6 +5517,7 @@ async function proxyRequestHandler(req, res) {
         ok: true,
         renewed: true,
         mode: brokerMode,
+        broker: 'zerodha',
         autoRenewConfigured: !!zerodhaCredentials.refreshToken,
         lastTokenRefreshAt: kiteClientLive.lastTokenRefreshAt || null,
       }));
@@ -5410,6 +5535,39 @@ async function proxyRequestHandler(req, res) {
       res.writeHead(405, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Method not allowed. Use GET.' }));
       return;
+    }
+
+    // /sharekhan-portfolio -- Live Sharekhan portfolio snapshot
+    if (pathname === '/sharekhan-portfolio') {
+      if (req.method !== 'GET') {
+        res.writeHead(405, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Method not allowed. Use GET.' }));
+        return;
+      }
+      try {
+        if (!sharekhanCredentials || !sharekhanClientLive) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Sharekhan integration is not initialized' }));
+          return;
+        }
+        const portfolio = await sharekhanClientLive.getPortfolioState();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          ok: true,
+          mode: brokerMode,
+          broker: 'sharekhan',
+          portfolio,
+        }));
+        return;
+      } catch (e) {
+        const isAuth = /AUTH_FAILED_REFRESH_NEEDED|token|permission/i.test(String(e?.message || ''));
+        res.writeHead(isAuth ? 401 : 500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: e.message,
+          hint: isAuth ? 'Token expired. Use Refresh token now in Settings.' : undefined,
+        }));
+        return;
+      }
     }
     try {
       if (!zerodhaCredentials || !kiteClientLive) {
@@ -5488,8 +5646,8 @@ async function proxyRequestHandler(req, res) {
             res.end(JSON.stringify({ error: 'Open paper trade already exists for this symbol', trade: existing }));
             return;
           }
-          const brokerMode = String(payload.brokerMode || payload.executionMode || '').toLowerCase();
-          const dryRunEntryOrder = brokerMode === 'zerodha_dry_run'
+          const executionMode = String(payload.brokerMode || payload.executionMode || '').toLowerCase();
+          const dryRunEntryOrder = executionMode === 'zerodha_dry_run'
             ? buildZerodhaDryRunOrder({ ...payload, symbol, side, qty, entryPrice, assetType: payload.assetType === 'etf' ? 'etf' : 'stock' }, null, 'entry')
             : null;
           const trade = {
@@ -5528,7 +5686,7 @@ async function proxyRequestHandler(req, res) {
               },
               audit: [{ at: trade.openedAt, event: 'entry_dry_run_created', order: dryRunEntryOrder }],
             };
-          } else if (brokerMode === 'zerodha_live' && kiteClientLive && zerodhaCredentials) {
+          } else if (executionMode === 'zerodha_live' && kiteClientLive && zerodhaCredentials) {
             // Attempt to place live order via Kite API
             const liveEntryOrder = buildZerodhaDryRunOrder({ ...payload, symbol, side, qty, entryPrice, assetType: payload.assetType === 'etf' ? 'etf' : 'stock' }, null, 'entry');
             try {
@@ -5557,10 +5715,54 @@ async function proxyRequestHandler(req, res) {
               // Fallback to paper mode if too many failures
               if (zerodhaLiveFailureCount >= 3) {
                 console.warn('[zerodha-live] Too many failures. Disabling zerodha_live mode, falling back to paper mode.');
-                brokerMode = 'paper';
+                setBrokerMode('paper');
               }
               trade.broker = {
                 name: 'zerodha',
+                mode: 'live',
+                status: 'failed',
+                error: e.message,
+                createdAt: trade.openedAt,
+                audit: [{ at: trade.openedAt, event: 'live_order_failed', error: e.message }],
+              };
+            }
+          } else if (executionMode === 'sharekhan_live' && sharekhanClientLive && sharekhanCredentials) {
+            try {
+              const scripCode = await sharekhanClientLive.resolveScripCode(symbol, 'NC');
+              const sharekhanEntryOrder = buildSharekhanLiveOrder({ ...payload, symbol, side, qty, entryPrice }, null, 'entry', scripCode);
+              if (!sharekhanEntryOrder) {
+                throw new Error(`Unable to build Sharekhan order for ${symbol}. Ensure scrip code is available.`);
+              }
+              const orderId = await sharekhanClientLive.placeOrder(sharekhanEntryOrder);
+              trade.broker = {
+                name: 'sharekhan',
+                mode: 'live',
+                orderId,
+                exchange: sharekhanEntryOrder.exchange,
+                scripCode,
+                status: 'pending',
+                createdAt: trade.openedAt,
+                confirmedAt: null,
+                confirmationAttempts: 0,
+                confirmationError: null,
+                exitPlan: {
+                  target: trade.target,
+                  stop: trade.stop,
+                  squareOff: 'intraday dashboard managed exit',
+                },
+                audit: [{ at: trade.openedAt, event: 'live_order_placed', orderId, elapsed: 0, attempts: 1 }],
+              };
+              sharekhanLiveFailureCount = 0;
+              console.log(`[sharekhan-live] Order placed: ${orderId} for ${symbol}`);
+            } catch (e) {
+              sharekhanLiveFailureCount++;
+              console.error(`[sharekhan-live] Order placement failed (${sharekhanLiveFailureCount}):`, e.message);
+              if (sharekhanLiveFailureCount >= 3) {
+                console.warn('[sharekhan-live] Too many failures. Disabling sharekhan_live mode, falling back to paper mode.');
+                setBrokerMode('paper');
+              }
+              trade.broker = {
+                name: 'sharekhan',
                 mode: 'live',
                 status: 'failed',
                 error: e.message,
@@ -5629,7 +5831,34 @@ async function proxyRequestHandler(req, res) {
               console.error(`[zerodha-live] Exit failed (${zerodhaLiveFailureCount}):`, e.message);
               if (zerodhaLiveFailureCount >= 3) {
                 console.warn('[zerodha-live] Too many failures. Disabling zerodha_live mode, falling back to paper mode.');
-                brokerMode = 'paper';
+                setBrokerMode('paper');
+              }
+              trade.broker.status = 'exit_failed';
+              trade.broker.error = e.message;
+            }
+          } else if (trade.broker?.name === 'sharekhan' && trade.broker?.mode === 'live' && trade.broker?.orderId && sharekhanClientLive) {
+            try {
+              const orderId = trade.broker.orderId;
+              if (trade.broker.status === 'pending') {
+                await sharekhanClientLive.cancelOrder(trade.broker);
+                trade.broker.status = 'cancelled';
+              } else if (trade.broker.status === 'confirmed') {
+                const exitOrder = buildSharekhanLiveOrder({ ...trade, exitPrice }, trade, 'exit', trade.broker.scripCode);
+                if (!exitOrder) throw new Error('Unable to build Sharekhan exit order');
+                const exitOrderId = await sharekhanClientLive.placeOrder(exitOrder);
+                trade.broker.exitOrderId = exitOrderId;
+                trade.broker.status = 'exit_placed';
+              }
+              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+              trade.broker.audit.push({ at: closedAt, event: 'live_exit_processed', reason: trade.closeReason, orderId: trade.broker.orderId });
+              sharekhanLiveFailureCount = 0;
+              console.log(`[sharekhan-live] Exit processed for order: ${orderId}`);
+            } catch (e) {
+              sharekhanLiveFailureCount++;
+              console.error(`[sharekhan-live] Exit failed (${sharekhanLiveFailureCount}):`, e.message);
+              if (sharekhanLiveFailureCount >= 3) {
+                console.warn('[sharekhan-live] Too many failures. Disabling sharekhan_live mode, falling back to paper mode.');
+                setBrokerMode('paper');
               }
               trade.broker.status = 'exit_failed';
               trade.broker.error = e.message;
@@ -5695,6 +5924,21 @@ async function proxyRequestHandler(req, res) {
             partialTrade.broker.exitOrder = exitOrder;
             trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
             trade.broker.audit.push({ at: closedAt, event: 'partial_exit_dry_run_created', reason: partialTrade.closeReason, order: exitOrder });
+          } else if (trade.broker?.name === 'sharekhan' && trade.broker?.mode === 'live' && sharekhanClientLive) {
+            try {
+              const exitOrder = buildSharekhanLiveOrder({ ...partialTrade, exitPrice, qty: requestedQty }, partialTrade, 'exit', trade.broker?.scripCode);
+              if (!exitOrder) throw new Error('Unable to build Sharekhan partial exit order');
+              const exitOrderId = await sharekhanClientLive.placeOrder(exitOrder);
+              partialTrade.broker = partialTrade.broker || {};
+              partialTrade.broker.exitOrderId = exitOrderId;
+              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+              trade.broker.audit.push({ at: closedAt, event: 'partial_exit_live_placed', reason: partialTrade.closeReason, orderId: exitOrderId });
+              sharekhanLiveFailureCount = 0;
+            } catch (e) {
+              sharekhanLiveFailureCount++;
+              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+              trade.broker.audit.push({ at: closedAt, event: 'partial_exit_live_failed', reason: partialTrade.closeReason, error: e.message });
+            }
           }
           trades.unshift(partialTrade);
           savePaperTradesFile(trades);
@@ -6054,7 +6298,7 @@ async function initializeProxy() {
   await Promise.all([warmNSESession(), refreshYahooCrumb()]);
   
   // Initialize Zerodha integration
-  await initializeZerodha();
+  await Promise.all([initializeZerodha(), initializeSharekhan()]);
   
   startFreshNewsCron();
   startReplayDeepSweepScheduler();
@@ -6101,21 +6345,94 @@ async function initializeZerodha() {
     }
     
     // Initialize confirmation poller with reference to paper trades
-    confirmationPoller = new ConfirmationPoller(
+    zerodhaConfirmationPoller = new ConfirmationPoller(
       kiteClientLive,
       {
         loadTrades: () => loadPaperTradesFile(),
         saveTrades: (trades) => savePaperTradesFile(trades),
         broadcast: (reason = 'broker-update') => broadcastPaperTradeState(reason),
       },
-      () => brokerMode
+      () => brokerMode,
+      {
+        brokerName: 'zerodha',
+        liveMode: 'zerodha_live',
+        dryMode: 'zerodha_dry_run',
+        liveTradeMode: 'live',
+        dryTradeMode: 'dry-run',
+      }
     );
     
     // Start the poller
-    confirmationPoller.start();
+    zerodhaConfirmationPoller.start();
     console.log('[zerodha] Initialization complete. Confirmation poller started.');
   } catch (e) {
     console.error('[zerodha] Initialization failed:', e.message);
+  }
+}
+
+async function initializeSharekhan() {
+  try {
+    sharekhanCredentials = loadSharekhanCredentials();
+    if (!sharekhanCredentials) {
+      console.log('[sharekhan] Credentials not loaded. Sharekhan integration disabled.');
+      return;
+    }
+    const { apiKey, customerId, accessToken, requestToken, secretKey, versionId, vendorKey } = sharekhanCredentials;
+    console.log(`[sharekhan] Credentials loaded. accessToken=${accessToken ? 'yes' : 'no'} sessionBootstrap=${requestToken && secretKey ? 'yes' : 'no'}`);
+    sharekhanClientLive = new SharekhanClient({
+      apiKey,
+      customerId,
+      accessToken,
+      requestToken,
+      secretKey,
+      versionId,
+      vendorKey,
+      onTokenUpdate: ({ accessToken: nextAccessToken }) => {
+        if (nextAccessToken) {
+          sharekhanCredentials.accessToken = nextAccessToken;
+          saveSharekhanAccessToken(nextAccessToken);
+        }
+      },
+    });
+
+    if (!accessToken && requestToken && secretKey) {
+      const bootstrapped = await sharekhanClientLive.refreshAccessToken();
+      if (bootstrapped && sharekhanClientLive.accessToken) {
+        sharekhanCredentials.accessToken = sharekhanClientLive.accessToken;
+        saveSharekhanAccessToken(sharekhanClientLive.accessToken);
+        console.log('[sharekhan] Bootstrap session generation successful.');
+      } else {
+        console.warn('[sharekhan] Bootstrap session generation failed. Manual token refresh may be required.');
+      }
+    }
+
+    sharekhanConfirmationPoller = new ConfirmationPoller(
+      sharekhanClientLive,
+      {
+        loadTrades: () => loadPaperTradesFile(),
+        saveTrades: (trades) => savePaperTradesFile(trades),
+        broadcast: (reason = 'broker-update') => broadcastPaperTradeState(reason),
+      },
+      () => brokerMode,
+      {
+        brokerName: 'sharekhan',
+        liveMode: 'sharekhan_live',
+        dryMode: null,
+        liveTradeMode: 'live',
+        classifyOrderStatus: (status) => {
+          const normalized = String(status || '').trim().toUpperCase().replace(/\s+/g, '_');
+          if (['COMPLETE', 'EXECUTED', 'TRADED', 'SUCCESS'].includes(normalized)) return 'confirmed';
+          if (['REJECTED', 'FAILED', 'FAIL'].includes(normalized)) return 'rejected';
+          if (['CANCELLED', 'CANCELED'].includes(normalized)) return 'cancelled';
+          if (['OPEN', 'PENDING', 'VALIDATION_PENDING', 'TRIGGER_PENDING', 'AMO_REQ_RECEIVED'].includes(normalized)) return 'pending';
+          return 'unknown';
+        },
+      }
+    );
+    sharekhanConfirmationPoller.start();
+    console.log('[sharekhan] Initialization complete. Confirmation poller started.');
+  } catch (e) {
+    console.error('[sharekhan] Initialization failed:', e.message);
   }
 }
 
