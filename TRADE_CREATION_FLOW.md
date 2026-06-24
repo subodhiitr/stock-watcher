@@ -134,7 +134,8 @@ function getSimulationCandidates() {
 
 ### Trade Creation Entry Point
 **File**: [ticker_proxy.js](ticker_proxy.js#L4805)
-**Endpoint**: `POST /paper-trades` with action `'open'`
+**Endpoint**: `POST /trade-execution` with action `'open'`  
+**Compatibility alias (one release window)**: `POST /paper-trades`
 
 When a client sends a POST request to create a new trade, this is where the trade object is constructed:
 
@@ -516,5 +517,13 @@ Every trade creation path (live simulation, backtest, replay, manual) assigns `o
 1. `new Date().toISOString()` on the server (for live trades)
 2. `snapshot.at` from the snapshot timestamp (for backtests/replays)
 
-The `closedAt` timestamp is deliberately omitted at creation and only assigned when the trade is closed via the `/paper-trades` endpoint with action `'close'`.
+The `closedAt` timestamp is deliberately omitted at creation and only assigned when the trade is closed via the `/trade-execution` endpoint with action `'close'` (`/paper-trades` remains a one-release compatibility alias).
 
+## Runtime Control Behavior (Server-Side Simulation)
+
+Runtime controls govern whether server-side simulation can create and manage trades:
+
+- `POST /simulation/start`: transitions `off -> running` and enables scheduler-driven simulation entries/exits.
+- `POST /simulation/stop` (default `mode: "settle"`): transitions `running -> settling`; new simulation entries are blocked while exits continue.
+- `POST /simulation/stop` with `mode: "immediate"`: transitions `running|settling -> off` and halts scheduler activity immediately.
+- `GET /simulation/status`: reports authoritative runtime state (`state`, `schedulerActive`, `lockActive`, timestamps), and stream payloads include `simulationRuntime` so clients stay aligned with server state.

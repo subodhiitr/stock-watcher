@@ -71,11 +71,18 @@ GET /dashboard-market     Yahoo indices + stock quote batch for first load
   - `POST /openai` for OpenAI-backed AI mode and fundamentals chat
   - `GET /etf-prefs` to persist custom ETF symbol preferences
   - `GET /stock-prefs` to persist custom stock symbol preferences
+  - `GET|POST /trade-execution` as the canonical paper-trade execution API
+  - `GET|POST /paper-trades` as a one-release compatibility alias to `/trade-execution`
+  - `GET /trade-execution/stream` (and `/paper-trades/stream` alias) for SSE trade-state updates
+  - `POST /simulation/start`, `POST /simulation/stop`, and `GET /simulation/status` for server-side simulation runtime control
 - The dashboard fetches live prices and renders a midcap stock watch table, sector heatmap, and ETF tracker.
 
 ## Notes
 
 - Yahoo and NSE modes run through the integrated proxy when using Remix at `http://localhost:44100`.
+- Trade API migration: use `/trade-execution` for all new integrations. `/paper-trades` remains as a compatibility alias for one release window and returns identical responses.
+- Simulation runtime is server-authoritative: `POST /simulation/start` transitions `off -> running`, `POST /simulation/stop` defaults to `settling` (entry creation blocked while exits continue), and `mode=immediate` transitions `running|settling -> off`.
+- `GET /simulation/status` reports current runtime state (`state`, `schedulerActive`, `lockActive`, `lastTickAt`, `updatedAt`) and should be treated as source of truth for UI/runtime coordination.
 - AI mode requires `OPENAI_API_KEY` in `C:\Users\<your-user>\openai.properties` or on the proxy process and may be slower.
 - Custom ETF symbols are saved to `saved_etfs.json` on the proxy and also cached in browser localStorage for refresh persistence.
 - Custom stock symbols are saved to `saved_stocks.json` on the proxy and also cached in browser localStorage for refresh persistence.
