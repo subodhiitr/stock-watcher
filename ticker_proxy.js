@@ -516,10 +516,20 @@ function writeSseEvent(res, data) {
   }
 }
 
+function buildPaperTradeStreamPayload(reason = 'update') {
+  const state = loadPaperStateFile();
+  return {
+    ok: true,
+    reason,
+    ...state,
+    simulationRuntime: getSimulationRuntimeStatus(),
+    sentAt: Date.now(),
+  };
+}
+
 function broadcastPaperTradeState(reason = 'update') {
   if (!paperTradeStreamClients.size) return;
-  const state = loadPaperStateFile();
-  const payload = { ok: true, reason, trades: state.trades, portfolio: state.portfolio, sentAt: Date.now() };
+  const payload = buildPaperTradeStreamPayload(reason);
   for (const client of [...paperTradeStreamClients]) {
     const ok = writeSseEvent(client.res, payload);
     if (!ok) {
@@ -5717,7 +5727,7 @@ async function proxyRequestHandler(req, res) {
       }, 25000),
     };
     paperTradeStreamClients.add(client);
-    writeSseEvent(res, { ok: true, reason: 'init', ...loadPaperStateFile(), sentAt: Date.now() });
+    writeSseEvent(res, buildPaperTradeStreamPayload('init'));
 
     req.on('close', () => {
       if (client.keepAlive) clearInterval(client.keepAlive);

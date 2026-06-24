@@ -2089,6 +2089,19 @@ function applyPaperTradesState(payload, { trackNewTrades = false } = {}) {
   if (document.getElementById('open-trades-modal')?.style.display === 'flex') renderOpenTradesModal();
 }
 
+function getSimulationRuntimePayload(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  if (payload.simulationRuntime && typeof payload.simulationRuntime === 'object') return payload.simulationRuntime;
+  const legacyKeys = ['state', 'autoResume', 'tickIntervalSec', 'lastTickAt', 'updatedAt', 'lastError', 'lockActive', 'schedulerActive'];
+  if (!legacyKeys.some(key => key in payload)) return null;
+  const runtime = {};
+  for (const key of legacyKeys) {
+    if (key in payload) runtime[key] = payload[key];
+  }
+  runtime.ok = payload.ok !== false;
+  return runtime;
+}
+
 function subscribePaperTradesStream() {
   if (paperTradesStream) return;
 
@@ -2110,9 +2123,8 @@ function subscribePaperTradesStream() {
     paperTradesStream.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data || '{}');
-        if (payload?.simulationRuntime && typeof payload.simulationRuntime === 'object') {
-          applySimulationRuntimeStatus(payload.simulationRuntime);
-        }
+        const runtimePayload = getSimulationRuntimePayload(payload);
+        if (runtimePayload) applySimulationRuntimeStatus(runtimePayload);
         if (Array.isArray(payload?.trades)) {
           applyPaperTradesState(payload, { trackNewTrades: payload.reason !== 'init' });
         }
@@ -2584,7 +2596,7 @@ function formatEntryJournal(trade) {
   const ctx = trade?.entryContext || {};
   const bits = [
     ctx.reason || (trade?.source === 'simulation' ? 'simulation selected' : 'manual entry'),
-    trade?.setupType || '',
+    trade?.setupType || trade?.setup || '',
     ctx.indicators?.entryTrigger || '',
     ctx.indicators?.relVolume != null ? `Vol ${Number(ctx.indicators.relVolume).toFixed(2)}x` : '',
   ].filter(Boolean);
@@ -5648,11 +5660,6 @@ function renderTradeCell(row) {
 }
 
 function renderShortTargetCell(row) {
-  const t = intradayData[row.sym];
-  if (!t) {
-    console.debug(`[renderShortTargetCell] ${row.sym}: no intradayData, keys present:`, Object.keys(intradayData).slice(0, 5));
-    return '<span style="color:var(--muted);font-size:12px">--</span>';
-  }
   const open = getOpenPaperTrade(row.sym);
   if (open) {
     const price = getCurrentTradePrice(row.sym);
@@ -5666,6 +5673,11 @@ function renderShortTargetCell(row) {
       <span class="stop">Net P&L ${pnl ? moneyINR(pnl.pnl) + ' (' + pnl.pnlPct + '%)' : '--'}</span>
       <span class="stop">Cost ${pnl ? moneyINR(pnl.charges) : '--'}</span>
     </div>`;
+  }
+  const t = intradayData[row.sym];
+  if (!t) {
+    console.debug(`[renderShortTargetCell] ${row.sym}: no intradayData, keys present:`, Object.keys(intradayData).slice(0, 5));
+    return '<span style="color:var(--muted);font-size:12px">--</span>';
   }
   if (t.target == null) {
     console.debug(`[renderShortTargetCell] ${row.sym}: no target, data keys:`, Object.keys(t).slice(0, 8));

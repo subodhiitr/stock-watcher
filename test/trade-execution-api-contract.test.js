@@ -93,6 +93,15 @@ function normalizeTradeResponse(json) {
   return copy;
 }
 
+function parseSsePayloads(bodyText) {
+  return String(bodyText || '')
+    .split(/\r?\n/)
+    .filter(line => line.startsWith('data: '))
+    .map(line => line.slice(6).trim())
+    .filter(Boolean)
+    .map(raw => JSON.parse(raw));
+}
+
 test.beforeEach(() => {
   resetFixtureRoot();
 });
@@ -136,6 +145,47 @@ test('GET /trade-execution aliases /paper-trades and stream routes keep parity',
   assert.equal(aliasStream.headers['content-type'], 'text/event-stream');
   assert.match(canonicalStream.body, /"reason":"init"/);
   assert.match(aliasStream.body, /"reason":"init"/);
+});
+
+test('stream init payload includes additive simulationRuntime and keeps legacy keys with alias parity', async () => {
+  const proxy = loadProxyWithFixture('stream-simulation-runtime-additive');
+
+  const opened = await request(proxy, {
+    method: 'POST',
+    path: '/paper-trades',
+    body: { action: 'open', symbol: 'INFY', side: 'buy', qty: 1, entryPrice: 1500 }
+  });
+  assert.equal(opened.statusCode, 200);
+
+  const canonicalStream = await request(proxy, { method: 'GET', path: '/trade-execution/stream' });
+  const aliasStream = await request(proxy, { method: 'GET', path: '/paper-trades/stream' });
+  assert.equal(canonicalStream.statusCode, 200);
+  assert.equal(aliasStream.statusCode, 200);
+
+  const canonicalPayloads = parseSsePayloads(canonicalStream.body);
+  const aliasPayloads = parseSsePayloads(aliasStream.body);
+  assert.ok(canonicalPayloads.length >= 1);
+  assert.ok(aliasPayloads.length >= 1);
+  const canonicalInit = canonicalPayloads[0];
+  const aliasInit = aliasPayloads[0];
+
+  assert.equal(canonicalInit.reason, 'init');
+  assert.equal(aliasInit.reason, 'init');
+  assert.ok(Array.isArray(canonicalInit.trades));
+  assert.ok(Array.isArray(aliasInit.trades));
+  assert.equal(typeof canonicalInit.portfolio, 'object');
+  assert.equal(typeof aliasInit.portfolio, 'object');
+  assert.ok('savedAt' in canonicalInit);
+  assert.ok('savedAt' in aliasInit);
+  assert.equal(typeof canonicalInit.simulationRuntime, 'object');
+  assert.equal(typeof aliasInit.simulationRuntime, 'object');
+  assert.ok(canonicalInit.simulationRuntime && canonicalInit.simulationRuntime.ok === true);
+  assert.ok(aliasInit.simulationRuntime && aliasInit.simulationRuntime.ok === true);
+  assert.deepEqual(Object.keys(canonicalInit).sort(), Object.keys(aliasInit).sort());
+  assert.deepEqual(
+    Object.keys(canonicalInit.simulationRuntime || {}).sort(),
+    Object.keys(aliasInit.simulationRuntime || {}).sort()
+  );
 });
 
 test('POST action parity across /trade-execution and /paper-trades', async () => {
