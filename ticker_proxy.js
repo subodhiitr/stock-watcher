@@ -41,6 +41,13 @@ const crypto = require('crypto');
 const { fork } = require('child_process');
 const Backtest = require('./backtest_simulation');
 const SimulationEngine = require('./simulation_engine');
+const { runSimulationDomainCycle } = require('./server/simulation-domain');
+const {
+  loadRuntimeState,
+  saveRuntimeState,
+  transitionRuntimeState,
+  RuntimeStateTransitionError,
+} = require('./server/simulation-runtime-store');
 const { loadCredentials, saveCredentialsTokens } = require('./zerodha-credentials');
 const { loadSharekhanCredentials, saveSharekhanAccessToken } = require('./sharekhan-credentials');
 const KiteClient = require('./zerodha-kite-client');
@@ -62,7 +69,8 @@ const ETF_SUM_CACHE_VERSION = 3;                          // v3: 1M-return-only 
 const NSE_IDX_CACHE_FILE   = path.join(__dirname, 'nse_index_cache.json');
 const NSE_IDX_CACHE_TTL    = 24 * 60 * 60 * 1000;        // 24 hours
 const SAVED_STOCK_FAV_FILE = path.join(__dirname, 'saved_stock_favs.json');
-const PAPER_TRADES_FILE    = path.join(__dirname, 'paper_trades.json');
+const PAPER_TRADES_FILE    = process.env.PAPER_TRADES_FILE || path.join(__dirname, 'paper_trades.json');
+const SIMULATION_RUNTIME_FILE = process.env.SIMULATION_RUNTIME_FILE || path.join(__dirname, 'simulation_runtime.json');
 const REPLAY_WORKER_FILE   = path.join(__dirname, 'replay_worker.js');
 const APP_CACHE_DIR        = path.join(__dirname, 'cache');
 const REPLAY_CACHE_FILE    = path.join(APP_CACHE_DIR, 'replay_results.json');
@@ -93,6 +101,18 @@ let freshNewsDayCache      = null;
 const freshNewsBuildJobs   = new Map();
 let freshNewsCronTimer     = null;
 let replayDeepSweepTimer   = null;
+const DEFAULT_SIMULATION_TICK_INTERVAL_SEC = 15;
+const DEFAULT_SIMULATION_STOP_TIMEOUT_SEC = 900;
+let simulationTickIntervalSec = DEFAULT_SIMULATION_TICK_INTERVAL_SEC;
+let simulationStopTimeoutSec = DEFAULT_SIMULATION_STOP_TIMEOUT_SEC;
+let simulationSchedulerTimer = null;
+let simulationSettlingStartedAt = 0;
+let simulationRuntimeInitialized = false;
+let simulationRuntimeAutoResumeArmed = false;
+let simulationTickInFlight = false;
+let mutationLockActive = false;
+let mutationLockQueue = Promise.resolve();
+let simulationSchedulerTestInputs = null;
 
 function loadPropertiesFile(filePath) {
   try {
@@ -432,6 +452,260 @@ function broadcastPaperTradeState(reason = 'update') {
       paperTradeStreamClients.delete(client);
     }
   }
+}
+
+function runWithMutationLock(work) {
+  const execution = mutationLockQueue.then(async () => {
+    mutationLockActive = true;
+    try {
+      return await work();
+    } finally {
+      mutationLockActive = false;
+    }
+  });
+  mutationLockQueue = execution.catch(() => {});
+  return execution;
+}
+
+function loadSimulationRuntime() {
+  return loadRuntimeState(SIMULATION_RUNTIME_FILE);
+}
+
+function saveSimulationRuntime(update) {
+  return saveRuntimeState(SIMULATION_RUNTIME_FILE, update);
+}
+
+function transitionAndSaveSimulationRuntime(action, extras = {}) {
+  const current = loadSimulationRuntime();
+  const transitioned = transitionRuntimeState(current, action);
+  return saveSimulationRuntime({ ...transitioned, ...extras });
+}
+
+function countOpenTradeOwnership(trades) {
+  const openTrades = (Array.isArray(trades) ? trades : []).filter(trade => trade?.status === 'open');
+  const openSimulationManagedCount = openTrades.filter(trade => String(trade?.source || '').toLowerCase() === 'simulation').length;
+  return {
+    openSimulationManagedCount,
+    openManualManagedCount: Math.max(0, openTrades.length - openSimulationManagedCount),
+  };
+}
+
+function closeTradeFromExitIntent(trade, intent, atIso) {
+  const exitPrice = Number(intent?.exitPrice);
+  if (!Number.isFinite(exitPrice) || exitPrice <= 0) return false;
+  const pnl = computePaperTradePnl(trade, exitPrice);
+  Object.assign(trade, {
+    status: 'closed',
+    exitPrice: +exitPrice.toFixed(2),
+    closedAt: atIso,
+    closeReason: intent?.reason || 'Simulation exit',
+    pnl: pnl.pnl,
+    pnlPct: pnl.pnlPct,
+    grossPnl: pnl.grossPnl,
+    charges: pnl.charges,
+    chargeBreakup: pnl.chargeBreakup,
+  });
+  return true;
+}
+
+function openTradeFromEntryIntent(trades, intent, atIso) {
+  const symbol = String(intent?.symbol || '').trim().toUpperCase();
+  const side = String(intent?.side || 'buy').toLowerCase();
+  const qty = Math.floor(Number(intent?.qty || 1));
+  const entryPrice = Number(intent?.price ?? intent?.entryPrice);
+  if (!symbol || !['buy', 'sell'].includes(side) || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(entryPrice) || entryPrice <= 0) return false;
+  if (trades.some(trade => trade?.status === 'open' && String(trade?.symbol || '').toUpperCase() === symbol)) return false;
+  trades.unshift({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    status: 'open',
+    symbol,
+    name: String(intent?.name || symbol),
+    side,
+    qty,
+    entryPrice: +entryPrice.toFixed(2),
+    target: Number.isFinite(Number(intent?.target)) ? +Number(intent.target).toFixed(2) : null,
+    stop: Number.isFinite(Number(intent?.stop)) ? +Number(intent.stop).toFixed(2) : null,
+    signal: intent?.signal || null,
+    score: Number.isFinite(Number(intent?.score)) ? Number(intent.score) : null,
+    rr: Number.isFinite(Number(intent?.rr)) ? Number(intent.rr) : null,
+    reservedCapital: +(entryPrice * qty).toFixed(2),
+    portfolioInitial: null,
+    source: 'simulation',
+    assetType: intent?.assetType === 'etf' ? 'etf' : 'stock',
+    setupType: intent?.setupType || null,
+    setup: intent?.setup || null,
+    entryContext: intent?.entryContext && typeof intent.entryContext === 'object' ? intent.entryContext : null,
+    notes: intent?.notes || '',
+    openedAt: atIso,
+  });
+  return true;
+}
+
+function readSchedulerTickInput() {
+  if (simulationSchedulerTestInputs && typeof simulationSchedulerTestInputs === 'object') {
+    return simulationSchedulerTestInputs;
+  }
+  const loaded = loadSimulationSnapshotsFromAllFiles();
+  const snapshots = Array.isArray(loaded?.snapshots) ? loaded.snapshots : [];
+  const latest = snapshots.slice().sort((a, b) => new Date(b?.at || 0) - new Date(a?.at || 0))[0] || null;
+  return {
+    at: latest?.at || new Date().toISOString(),
+    candidates: Array.isArray(latest?.candidates) ? latest.candidates : [],
+    market: latest?.market || {},
+  };
+}
+
+async function runSimulationSchedulerTick() {
+  if (simulationTickInFlight) return { ok: false, skipped: true, reason: 'tick-in-flight' };
+  simulationTickInFlight = true;
+  try {
+    return await runWithMutationLock(async () => {
+      const runtime = loadSimulationRuntime();
+      if (runtime.state !== 'running' && runtime.state !== 'settling') {
+        return { ok: true, skipped: true, state: runtime.state };
+      }
+
+      const tickInput = readSchedulerTickInput();
+      const atIso = String(tickInput?.at || new Date().toISOString());
+      const state = loadPaperStateFile();
+      const trades = state.trades;
+      const settings = loadTradeSettingsFile().overrides || {};
+      const openTrades = trades.filter(trade => trade?.status === 'open');
+      const candidateBySymbol = new Map((Array.isArray(tickInput?.candidates) ? tickInput.candidates : [])
+        .map(candidate => [String(candidate?.symbol || '').toUpperCase(), candidate]));
+      const runtimeEngine = simulationSchedulerTestInputs?.exitBySymbol
+        ? {
+            getSimulationExitIntent(trade) {
+              return simulationSchedulerTestInputs?.exitBySymbol?.[String(trade?.symbol || '').toUpperCase()] || null;
+            },
+            getSimulationEntryIntents(candidates) {
+              return candidates.map(candidate => ({
+                symbol: candidate.symbol,
+                side: candidate.side || 'buy',
+                price: candidate.price,
+                entryPrice: candidate.price,
+              }));
+            },
+          }
+        : SimulationEngine;
+
+      const { exitIntents, entryIntents } = runSimulationDomainCycle(
+        {
+          openTrades,
+          candidates: Array.isArray(tickInput?.candidates) ? tickInput.candidates : [],
+          at: atIso,
+          settings,
+          context: {
+            candidateBySymbol,
+            market: tickInput?.market || {},
+            lastKnownBySymbol: new Map(),
+          },
+        },
+        { engine: runtimeEngine }
+      );
+
+      const exitBySymbol = new Map();
+      for (const intent of exitIntents || []) {
+        exitBySymbol.set(String(intent?.symbol || '').toUpperCase(), intent);
+      }
+
+      let changed = false;
+      for (const trade of openTrades) {
+        const key = String(trade?.symbol || '').toUpperCase();
+        const intent = exitBySymbol.get(key);
+        if (!intent) continue;
+        if (String(intent?.action || 'close').toLowerCase() !== 'close') continue;
+        changed = closeTradeFromExitIntent(trade, intent, atIso) || changed;
+      }
+
+      if (runtime.state !== 'settling') {
+        for (const intent of entryIntents || []) {
+          changed = openTradeFromEntryIntent(trades, intent, atIso) || changed;
+        }
+      }
+
+      if (changed) {
+        savePaperStateFile(state);
+        broadcastPaperTradeState('simulation-tick');
+      }
+
+      const counts = countOpenTradeOwnership(trades);
+      const nextRuntimeUpdate = { lastTickAt: Date.now(), lastError: '' };
+
+      if (runtime.state === 'settling') {
+        if (!simulationSettlingStartedAt) simulationSettlingStartedAt = Date.now();
+        const elapsedMs = Date.now() - simulationSettlingStartedAt;
+        if (counts.openSimulationManagedCount === 0) {
+          const next = transitionAndSaveSimulationRuntime({ type: 'settled' }, nextRuntimeUpdate);
+          stopSimulationScheduler('settled');
+          return { ok: true, state: next.state, settled: true };
+        }
+        if (elapsedMs >= simulationStopTimeoutSec * 1000) {
+          const forced = saveSimulationRuntime({
+            state: 'off',
+            lastTickAt: Date.now(),
+            lastError: `Settling timeout after ${simulationStopTimeoutSec}s`,
+          });
+          stopSimulationScheduler('settle-timeout');
+          return { ok: true, state: forced.state, timedOut: true };
+        }
+      }
+
+      const updated = saveSimulationRuntime(nextRuntimeUpdate);
+      return { ok: true, state: updated.state };
+    });
+  } catch (error) {
+    saveSimulationRuntime({ lastError: error?.message || String(error) });
+    return { ok: false, error: error?.message || String(error) };
+  } finally {
+    simulationTickInFlight = false;
+  }
+}
+
+function startSimulationScheduler(reason = 'manual-start') {
+  if (simulationSchedulerTimer) return;
+  simulationSchedulerTimer = setInterval(() => {
+    runSimulationSchedulerTick().catch(() => {});
+  }, Math.max(1, simulationTickIntervalSec) * 1000);
+  console.log(`[simulation-runtime] Scheduler started (${reason}) at ${simulationTickIntervalSec}s cadence`);
+}
+
+function stopSimulationScheduler(reason = 'manual-stop') {
+  if (simulationSchedulerTimer) {
+    clearInterval(simulationSchedulerTimer);
+    simulationSchedulerTimer = null;
+  }
+  simulationSettlingStartedAt = 0;
+  console.log(`[simulation-runtime] Scheduler stopped (${reason})`);
+}
+
+function getSimulationRuntimeStatus() {
+  const runtime = loadSimulationRuntime();
+  const tradeState = loadPaperStateFile();
+  const counts = countOpenTradeOwnership(tradeState.trades);
+  return {
+    ok: true,
+    state: runtime.state,
+    autoResume: runtime.autoResume,
+    tickIntervalSec: simulationTickIntervalSec,
+    lastTickAt: runtime.lastTickAt,
+    updatedAt: runtime.updatedAt,
+    lastError: runtime.lastError || '',
+    lockActive: mutationLockActive || simulationTickInFlight,
+    schedulerActive: !!simulationSchedulerTimer,
+    ...counts,
+  };
+}
+
+async function initializeSimulationRuntime() {
+  if (simulationRuntimeInitialized) return getSimulationRuntimeStatus();
+  simulationRuntimeInitialized = true;
+  const runtime = loadSimulationRuntime();
+  simulationRuntimeAutoResumeArmed = runtime.state === 'running' && runtime.autoResume === true;
+  if (simulationRuntimeAutoResumeArmed || runtime.state === 'settling') {
+    startSimulationScheduler('auto-resume');
+  }
+  return getSimulationRuntimeStatus();
 }
 
 function ensureDir(dir) {
@@ -5392,6 +5666,7 @@ async function proxyRequestHandler(req, res) {
         res.end(JSON.stringify({ error: e.message }));
         return;
       }
+      return;
     }
   }
 
@@ -5594,6 +5869,103 @@ async function proxyRequestHandler(req, res) {
     }
   }
 
+  // /simulation/start
+  if (pathname === '/simulation/start') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed. Use POST.' }));
+      return;
+    }
+    try {
+      const payload = await readJsonBody(req);
+      const requestedInterval = Number(payload.tickIntervalSec);
+      const tickIntervalSec = Number.isFinite(requestedInterval) && requestedInterval > 0
+        ? Math.max(1, Math.floor(requestedInterval))
+        : DEFAULT_SIMULATION_TICK_INTERVAL_SEC;
+      const autoResume = typeof payload.autoResume === 'boolean' ? payload.autoResume : true;
+      const nextRuntime = await runWithMutationLock(async () => {
+        simulationTickIntervalSec = tickIntervalSec;
+        const next = transitionAndSaveSimulationRuntime({ type: 'start', autoResume });
+        startSimulationScheduler('api-start');
+        return next;
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        ok: true,
+        state: nextRuntime.state,
+        autoResume: nextRuntime.autoResume,
+        tickIntervalSec: simulationTickIntervalSec,
+        updatedAt: nextRuntime.updatedAt,
+      }));
+    } catch (e) {
+      if (e instanceof RuntimeStateTransitionError) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: e.message, code: e.code, state: e.currentState }));
+        return;
+      }
+      saveSimulationRuntime({ lastError: e?.message || String(e) });
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: e.message || 'Invalid request' }));
+    }
+    return;
+  }
+
+  // /simulation/stop
+  if (pathname === '/simulation/stop') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed. Use POST.' }));
+      return;
+    }
+    try {
+      const payload = await readJsonBody(req);
+      const mode = String(payload.mode || 'settle').toLowerCase() === 'immediate' ? 'immediate' : 'settle';
+      const timeoutCandidate = Number(payload.timeoutSec);
+      const timeoutSec = Number.isFinite(timeoutCandidate) && timeoutCandidate > 0
+        ? Math.max(1, Math.floor(timeoutCandidate))
+        : DEFAULT_SIMULATION_STOP_TIMEOUT_SEC;
+      const nextRuntime = await runWithMutationLock(async () => {
+        if (mode === 'settle') {
+          simulationStopTimeoutSec = timeoutSec;
+          simulationSettlingStartedAt = Date.now();
+        }
+        const next = transitionAndSaveSimulationRuntime({ type: 'stop', mode });
+        if (next.state === 'off') stopSimulationScheduler('api-stop');
+        else startSimulationScheduler('api-settle');
+        return next;
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        ok: true,
+        state: nextRuntime.state,
+        timeoutSec: mode === 'settle' ? simulationStopTimeoutSec : timeoutSec,
+        updatedAt: nextRuntime.updatedAt,
+      }));
+    } catch (e) {
+      if (e instanceof RuntimeStateTransitionError) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: e.message, code: e.code, state: e.currentState }));
+        return;
+      }
+      saveSimulationRuntime({ lastError: e?.message || String(e) });
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: e.message || 'Invalid request' }));
+    }
+    return;
+  }
+
+  // /simulation/status
+  if (pathname === '/simulation/status') {
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed. Use GET.' }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(getSimulationRuntimeStatus()));
+    return;
+  }
+
   // /paper-trades -- local paper trading journal for locked intraday entries
   if (pathname === '/paper-trades') {
     if (req.method === 'GET') {
@@ -5603,7 +5975,8 @@ async function proxyRequestHandler(req, res) {
       return;
     }
     if (req.method === 'POST') {
-      try {
+      await runWithMutationLock(async () => {
+        try {
         const payload = await readJsonBody(req);
         const action = String(payload.action || '').toLowerCase();
         const state = loadPaperStateFile();
@@ -5960,10 +6333,11 @@ async function proxyRequestHandler(req, res) {
 
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Unknown action' }));
-      } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid JSON' }));
-      }
+        } catch (e) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid JSON' }));
+        }
+      });
       return;
     }
     res.writeHead(405, { 'Content-Type': 'application/json' });
@@ -6295,6 +6669,7 @@ let proxyInitialized = false;
 async function initializeProxy() {
   if (proxyInitialized) return;
   proxyInitialized = true;
+  await initializeSimulationRuntime();
   await Promise.all([warmNSESession(), refreshYahooCrumb()]);
   
   // Initialize Zerodha integration
@@ -6479,4 +6854,33 @@ module.exports = {
   initializeProxy,
   proxyRequestHandler,
   startProxyServer,
+  __test__: {
+    initializeSimulationRuntime,
+    runSchedulerTick: runSimulationSchedulerTick,
+    setSchedulerTickInputs(inputs) {
+      simulationSchedulerTestInputs = inputs && typeof inputs === 'object' ? inputs : null;
+    },
+    setPaperTradesForRuntime(trades) {
+      savePaperStateFile({
+        savedAt: Date.now(),
+        portfolio: defaultPaperPortfolio(),
+        trades: Array.isArray(trades) ? trades : [],
+      });
+    },
+    getPaperTradesForRuntime() {
+      return loadPaperStateFile().trades;
+    },
+    getSimulationRuntimeSnapshot() {
+      const runtime = loadSimulationRuntime();
+      return {
+        ...runtime,
+        schedulerActive: !!simulationSchedulerTimer,
+        tickIntervalSec: simulationTickIntervalSec,
+        lockActive: mutationLockActive || simulationTickInFlight,
+      };
+    },
+    stopSimulationSchedulerForTests() {
+      stopSimulationScheduler('test-stop');
+    },
+  },
 };
