@@ -81,7 +81,7 @@ const REPLAY_CACHE_FILE    = path.join(APP_CACHE_DIR, 'replay_results.json');
 const FRESH_NEWS_CACHE_FILE = path.join(APP_CACHE_DIR, 'fresh_stock_news.json'); // legacy combined cache
 const FRESH_NEWS_CACHE_DIR  = path.join(APP_CACHE_DIR, 'fresh_news');
 const FRESH_NEWS_CACHE_INDEX_FILE = path.join(FRESH_NEWS_CACHE_DIR, 'index.json');
-const TRADE_SETTINGS_FILE  = path.join(__dirname, 'trade_settings.json');
+const TRADE_SETTINGS_FILE  = process.env.TRADE_SETTINGS_FILE || path.join(__dirname, 'trade_settings.json');
 const BROKER_PREFS_FILE    = path.join(__dirname, 'broker_preferences.json');
 const SIM_SNAPSHOT_DIR     = path.join(__dirname, 'snapshots');
 const SIM_SNAPSHOT_FILE    = path.join(SIM_SNAPSHOT_DIR, 'simulation_snapshots.json');
@@ -384,8 +384,74 @@ function defaultPaperPortfolio() {
   return { initialCapital: 500000, capitalAdds: [] };
 }
 
+const TRADE_ENTRY_OWNERS = new Set(['manual', 'simulation']);
+const TRADE_EXIT_OWNERS = new Set(['manual', 'simulation']);
+const TRADE_MANAGEMENT_STATES = new Set(['manual_only', 'simulation_managed', 'settling_managed']);
+
+function getTradeOwnershipContext(runtimeState = null, settingsOverride = null) {
+  const runtime = runtimeState || loadSimulationRuntime().state || 'off';
+  const settings = settingsOverride && typeof settingsOverride === 'object'
+    ? settingsOverride
+    : (loadTradeSettingsFile().overrides || {});
+  const manualAutoExits = !!settings.SIMULATION_AUTO_MANUAL_EXITS;
+  return {
+    runtimeState: runtime,
+    manualAutoExits,
+    runtimeActive: runtime === 'running' || runtime === 'settling',
+  };
+}
+
+function normalizeTradeOwnership(trade, context = {}, options = {}) {
+  if (!trade || typeof trade !== 'object') return trade;
+  const applyTransitions = options.applyTransitions !== false;
+  const status = String(trade.status || '').toLowerCase();
+  const source = String(trade.source || '').toLowerCase();
+  const inferredEntryOwner = source === 'simulation' ? 'simulation' : 'manual';
+  const normalized = {
+    ...trade,
+    entryOwner: TRADE_ENTRY_OWNERS.has(trade.entryOwner) ? trade.entryOwner : inferredEntryOwner,
+    exitOwner: TRADE_EXIT_OWNERS.has(trade.exitOwner) ? trade.exitOwner : inferredEntryOwner,
+    managedBySimulation: typeof trade.managedBySimulation === 'boolean' ? trade.managedBySimulation : inferredEntryOwner === 'simulation',
+    managementState: TRADE_MANAGEMENT_STATES.has(trade.managementState)
+      ? trade.managementState
+      : (inferredEntryOwner === 'simulation' ? 'simulation_managed' : 'manual_only'),
+  };
+
+  if (!applyTransitions || status !== 'open') return normalized;
+
+  const runtimeState = context.runtimeState || 'off';
+  const runtimeActive = context.runtimeActive === true || runtimeState === 'running' || runtimeState === 'settling';
+  const manualAutoExits = !!context.manualAutoExits;
+  const isManualOrigin = normalized.entryOwner === 'manual';
+
+  if (isManualOrigin) {
+    if (manualAutoExits && runtimeActive) {
+      normalized.exitOwner = 'simulation';
+      normalized.managedBySimulation = true;
+      normalized.managementState = runtimeState === 'settling' ? 'settling_managed' : 'simulation_managed';
+    } else {
+      normalized.exitOwner = 'manual';
+      normalized.managedBySimulation = false;
+      normalized.managementState = 'manual_only';
+    }
+    return normalized;
+  }
+
+  normalized.exitOwner = 'simulation';
+  normalized.managedBySimulation = true;
+  normalized.managementState = runtimeState === 'settling' ? 'settling_managed' : 'simulation_managed';
+  return normalized;
+}
+
+function normalizeTradeCollectionOwnership(trades, context = {}, options = {}) {
+  const source = Array.isArray(trades) ? trades : [];
+  return source.map(trade => normalizeTradeOwnership(trade, context, options));
+}
+
 function normalizePaperState(raw) {
-  const trades = Array.isArray(raw) ? raw : (Array.isArray(raw?.trades) ? raw.trades : []);
+  const sourceTrades = Array.isArray(raw) ? raw : (Array.isArray(raw?.trades) ? raw.trades : []);
+  const ownershipContext = getTradeOwnershipContext();
+  const trades = normalizeTradeCollectionOwnership(sourceTrades, ownershipContext);
   const portfolioRaw = raw && !Array.isArray(raw) && raw.portfolio && typeof raw.portfolio === 'object' ? raw.portfolio : {};
   const initialCapital = Number.isFinite(Number(portfolioRaw.initialCapital)) && Number(portfolioRaw.initialCapital) > 0
     ? +Number(portfolioRaw.initialCapital).toFixed(2)
@@ -406,7 +472,12 @@ function loadPaperStateFile() {
       fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: defaultPaperPortfolio(), trades: [] }, null, 2), 'utf8');
     }
     const raw = JSON.parse(fs.readFileSync(PAPER_TRADES_FILE, 'utf8') || '{}');
-    return normalizePaperState(raw);
+    const sourceTrades = Array.isArray(raw) ? raw : (Array.isArray(raw?.trades) ? raw.trades : []);
+    const normalized = normalizePaperState(raw);
+    if (JSON.stringify(sourceTrades) !== JSON.stringify(normalized.trades)) {
+      fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: normalized.portfolio, trades: normalized.trades }, null, 2), 'utf8');
+    }
+    return normalized;
   } catch (e) {
     console.warn('[paper-trades] Load error:', e.message);
     return { savedAt: Date.now(), portfolio: defaultPaperPortfolio(), trades: [] };
@@ -487,7 +558,7 @@ function transitionAndSaveSimulationRuntime(action, extras = {}) {
 
 function countOpenTradeOwnership(trades) {
   const openTrades = (Array.isArray(trades) ? trades : []).filter(trade => trade?.status === 'open');
-  const openSimulationManagedCount = openTrades.filter(trade => String(trade?.source || '').toLowerCase() === 'simulation').length;
+  const openSimulationManagedCount = openTrades.filter(trade => trade?.managedBySimulation === true).length;
   return {
     openSimulationManagedCount,
     openManualManagedCount: Math.max(0, openTrades.length - openSimulationManagedCount),
@@ -508,6 +579,9 @@ function closeTradeFromExitIntent(trade, intent, atIso) {
     grossPnl: pnl.grossPnl,
     charges: pnl.charges,
     chargeBreakup: pnl.chargeBreakup,
+    exitOwner: 'simulation',
+    managedBySimulation: true,
+    managementState: trade?.managementState === 'settling_managed' ? 'settling_managed' : 'simulation_managed',
   });
   return true;
 }
@@ -535,6 +609,10 @@ function openTradeFromEntryIntent(trades, intent, atIso) {
     reservedCapital: +(entryPrice * qty).toFixed(2),
     portfolioInitial: null,
     source: 'simulation',
+    entryOwner: 'simulation',
+    exitOwner: 'simulation',
+    managedBySimulation: true,
+    managementState: 'simulation_managed',
     assetType: intent?.assetType === 'etf' ? 'etf' : 'stock',
     setupType: intent?.setupType || null,
     setup: intent?.setup || null,
@@ -572,9 +650,13 @@ async function runSimulationSchedulerTick() {
       const tickInput = readSchedulerTickInput();
       const atIso = String(tickInput?.at || new Date().toISOString());
       const state = loadPaperStateFile();
-      const trades = state.trades;
       const settings = loadTradeSettingsFile().overrides || {};
-      const openTrades = trades.filter(trade => trade?.status === 'open');
+      const ownershipContext = getTradeOwnershipContext(runtime.state, settings);
+      const normalizedTrades = normalizeTradeCollectionOwnership(state.trades, ownershipContext);
+      let changed = JSON.stringify(state.trades) !== JSON.stringify(normalizedTrades);
+      state.trades = normalizedTrades;
+      const trades = state.trades;
+      const openTrades = trades.filter(trade => trade?.status === 'open' && trade?.managedBySimulation === true);
       const candidateBySymbol = new Map((Array.isArray(tickInput?.candidates) ? tickInput.candidates : [])
         .map(candidate => [String(candidate?.symbol || '').toUpperCase(), candidate]));
       const runtimeEngine = simulationSchedulerTestInputs?.exitBySymbol
@@ -613,7 +695,6 @@ async function runSimulationSchedulerTick() {
         exitBySymbol.set(String(intent?.symbol || '').toUpperCase(), intent);
       }
 
-      let changed = false;
       for (const trade of openTrades) {
         const key = String(trade?.symbol || '').toUpperCase();
         const intent = exitBySymbol.get(key);
@@ -5934,6 +6015,15 @@ async function proxyRequestHandler(req, res) {
           simulationSettlingStartedAt = Date.now();
         }
         const next = transitionAndSaveSimulationRuntime({ type: 'stop', mode });
+        const settings = loadTradeSettingsFile().overrides || {};
+        const ownershipContext = getTradeOwnershipContext(next.state, settings);
+        const tradeState = loadPaperStateFile();
+        const normalizedTrades = normalizeTradeCollectionOwnership(tradeState.trades, ownershipContext);
+        if (JSON.stringify(tradeState.trades) !== JSON.stringify(normalizedTrades)) {
+          tradeState.trades = normalizedTrades;
+          savePaperStateFile(tradeState);
+          broadcastPaperTradeState(mode === 'immediate' ? 'simulation-stop-immediate' : 'simulation-stop-settle');
+        }
         if (next.state === 'off') stopSimulationScheduler('api-stop');
         else startSimulationScheduler('api-settle');
         return next;
@@ -6050,6 +6140,14 @@ async function proxyRequestHandler(req, res) {
             notes: payload.notes || '',
             openedAt: String(payload.transactionTime || '').match(/\d{4}-\d{2}-\d{2}T/) ? payload.transactionTime : new Date().toISOString(),
           };
+          Object.assign(
+            trade,
+            normalizeTradeOwnership(
+              trade,
+              getTradeOwnershipContext('off', loadTradeSettingsFile().overrides || {}),
+              { applyTransitions: false }
+            )
+          );
           if (dryRunEntryOrder) {
             trade.broker = {
               name: 'zerodha',
@@ -6182,6 +6280,9 @@ async function proxyRequestHandler(req, res) {
             grossPnl: pnl.grossPnl,
             charges: pnl.charges,
             chargeBreakup: pnl.chargeBreakup,
+            exitOwner: 'manual',
+            managedBySimulation: false,
+            managementState: 'manual_only',
           });
           if (trade.broker?.name === 'zerodha' && trade.broker?.mode === 'dry-run') {
             const exitOrder = buildZerodhaDryRunOrder({ ...trade, exitPrice }, trade, 'exit');
@@ -6285,6 +6386,10 @@ async function proxyRequestHandler(req, res) {
             exitPrice:+exitPrice.toFixed(2),
             closedAt,
             closeReason: payload.reason || 'Partial exit',
+            entryOwner: trade.entryOwner,
+            exitOwner: 'manual',
+            managedBySimulation: false,
+            managementState: 'manual_only',
           };
           const pnl = computePaperTradePnl(partialTrade, exitPrice);
           Object.assign(partialTrade, {
