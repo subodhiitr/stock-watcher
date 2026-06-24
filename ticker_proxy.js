@@ -74,6 +74,7 @@ const TRADE_EXECUTION_PATH = '/trade-execution';
 const PAPER_TRADES_ALIAS_PATH = '/paper-trades';
 const TRADE_EXECUTION_STREAM_PATH = `${TRADE_EXECUTION_PATH}/stream`;
 const PAPER_TRADES_ALIAS_STREAM_PATH = `${PAPER_TRADES_ALIAS_PATH}/stream`;
+const PAPER_TRADES_DEPRECATION_WARNING = '/paper-trades will be removed next minor release';
 const SIMULATION_RUNTIME_FILE = process.env.SIMULATION_RUNTIME_FILE || path.join(__dirname, 'simulation_runtime.json');
 const REPLAY_WORKER_FILE   = path.join(__dirname, 'replay_worker.js');
 const APP_CACHE_DIR        = path.join(__dirname, 'cache');
@@ -4621,6 +4622,9 @@ async function proxyRequestHandler(req, res) {
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
   const { pathname, searchParams } = new URL(req.url, `http://localhost:${PORT}`);
+  if (pathname === PAPER_TRADES_ALIAS_PATH || pathname === PAPER_TRADES_ALIAS_STREAM_PATH) {
+    res.setHeader('X-Deprecated-Route', PAPER_TRADES_DEPRECATION_WARNING);
+  }
   // Log incoming requests for debugging client 404s
   try { console.log('[proxy] >>', req.method, pathname, req.socket && req.socket.remoteAddress); } catch (e) {}
 

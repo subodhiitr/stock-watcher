@@ -135,6 +135,8 @@ test('GET /trade-execution aliases /paper-trades and stream routes keep parity',
   const aliasGet = await request(proxy, { method: 'GET', path: '/paper-trades' });
   assert.equal(canonicalGet.statusCode, 200);
   assert.equal(aliasGet.statusCode, 200);
+  assert.equal(canonicalGet.headers['x-deprecated-route'], undefined);
+  assert.equal(aliasGet.headers['x-deprecated-route'], '/paper-trades will be removed next minor release');
   assert.deepEqual(normalizeTradeResponse(canonicalGet.json), normalizeTradeResponse(aliasGet.json));
 
   const canonicalStream = await request(proxy, { method: 'GET', path: '/trade-execution/stream' });
@@ -143,6 +145,8 @@ test('GET /trade-execution aliases /paper-trades and stream routes keep parity',
   assert.equal(aliasStream.statusCode, 200);
   assert.equal(canonicalStream.headers['content-type'], 'text/event-stream');
   assert.equal(aliasStream.headers['content-type'], 'text/event-stream');
+  assert.equal(canonicalStream.headers['x-deprecated-route'], undefined);
+  assert.equal(aliasStream.headers['x-deprecated-route'], '/paper-trades will be removed next minor release');
   assert.match(canonicalStream.body, /"reason":"init"/);
   assert.match(aliasStream.body, /"reason":"init"/);
 });
