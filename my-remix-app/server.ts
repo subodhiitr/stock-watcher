@@ -13,6 +13,9 @@ const { initializeProxy, proxyRequestHandler } = require('../ticker_proxy.js') a
 
 const proxyPathPrefixes = ['/nse', '/ollama', '/openai', '/paper-trades', '/simulation-replay', '/stream', '/yahoo']
 const proxyPaths = new Set([
+  '/broker-mode',
+  '/broker-refresh-token',
+  '/broker-status',
   '/dashboard-bootstrap',
   '/dashboard-market',
   '/etf-favs',
@@ -30,6 +33,7 @@ const proxyPaths = new Set([
   '/stock-news',
   '/stock-prefs',
   '/trade-settings',
+  '/zerodha-portfolio',
 ])
 
 function shouldProxy(request: http.IncomingMessage) {

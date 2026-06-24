@@ -147,6 +147,11 @@
       <button class="tab-btn active" id="tab-stocks" onclick="setView('stocks', this)">Stocks</button>
       <button class="tab-btn" id="tab-etfs" onclick="setView('etfs', this)">ETFs</button>
       <button class="tab-btn portfolio-tab" type="button" onclick="openPortfolioModal()">Portfolio</button>
+      <button class="tab-btn zerodha-portfolio-tab" type="button" onclick="openZerodhaPortfolioModal()">Zerodha Portfolio</button>
+      <div style="position:relative;display:inline-block">
+        <button class="tab-btn zerodha-portfolio-pill" id="zerodha-portfolio-pill" type="button" onclick="toggleZerodhaPositionsPanel()" title="Zerodha live portfolio snapshot">Zerodha --</button>
+        <div id="zerodha-positions-panel" class="zerodha-positions-dropdown" style="display:none"></div>
+      </div>
       <button class="tab-btn replay-tab" type="button" onclick="runReplayToday()">Replay</button>
       <button class="tab-btn settings-tab" type="button" onclick="openSettingsModal()">Settings</button>
     </div>
@@ -163,13 +168,13 @@
         <button class="filter-btn" onclick="setFilter('strong',this)">💚 Strong</button>
         <button class="filter-btn" onclick="setFilter('fair',this)">🟡 Fair</button>
         <button class="filter-btn" onclick="setFilter('weak',this)">🔴 Weak</button>
-        <button class="filter-btn" onclick="setFilter('gainers',this)">Top Gainers</button>
-        <button class="filter-btn" onclick="setFilter('losers',this)">Top Losers</button>
-        <button class="filter-btn" onclick="setFilter('tradeable',this)">Tradeable</button>
-        <button class="filter-btn" onclick="setFilter('opentrade',this)">Open Trades</button>
-        <button class="filter-btn" onclick="setFilter('hideavoid',this)">Hide avoid</button>
         <button class="filter-btn" onclick="setFilter('triggered',this)">Triggered</button>
         <button class="filter-btn" onclick="setFilter('neartrigger',this)">Near trigger</button>
+        <button class="filter-btn" onclick="setFilter('hideavoid',this)">Hide avoid</button>
+        <button class="filter-btn" onclick="setFilter('tradeable',this)">Tradeable</button>
+        <button class="filter-btn" onclick="setFilter('opentrade',this)">Open Trades</button>
+        <button class="filter-btn" onclick="setFilter('gainers',this)">Top Gainers</button>
+        <button class="filter-btn" onclick="setFilter('losers',this)">Top Losers</button>
         <input id="stock-symbol-input" class="text-input" style="width:180px" placeholder="Add stock symbol" />
         <button class="btn" onclick="addCustomStockSymbol()">＋ Add Stock</button>
         <select id="column-preset-select" class="column-preset-select" onchange="setColumnPreset(this.value)" title="Column preset">
@@ -218,7 +223,7 @@
             <th onclick="sortBy('sector')">Sector ↕</th>
             <th onclick="sortBy('change')">Price / Chg% ↕</th>
             <th class="hide-mobile" onclick="sortBy('volume')">Volume ↕</th>
-            <th onclick="sortBy('trade')">Trade</th>
+            <th onclick="sortBy('trade')">Trade ↕</th>
             <th onclick="sortBy('sttarget')">ST Target Net% ↕</th>
             <th onclick="sortBy('health')" style="cursor:pointer">Health ↕</th>
             <th>Trend</th>
@@ -238,12 +243,12 @@
 		<button class="filter-btn" onclick="setETFFilter('all', this)">All</button>
 		<button class="filter-btn" onclick="setETFFilter('buy',this)">🟢 Buy</button>
 		<button class="filter-btn" onclick="setETFFilter('sell', this)">🔴 Sell</button>
-        <button class="filter-btn" onclick="setETFFilter('gainers', this)">Top Gainers</button>
-        <button class="filter-btn" onclick="setETFFilter('losers', this)">Top Losers</button>
-        <button class="filter-btn" onclick="setETFFilter('tradeable', this)">Tradeable</button>
-        <button class="filter-btn" onclick="setETFFilter('hideavoid', this)">Hide avoid</button>
         <button class="filter-btn" onclick="setETFFilter('triggered', this)">Triggered</button>
         <button class="filter-btn" onclick="setETFFilter('neartrigger', this)">Near trigger</button>
+        <button class="filter-btn" onclick="setETFFilter('hideavoid', this)">Hide avoid</button>
+        <button class="filter-btn" onclick="setETFFilter('tradeable', this)">Tradeable</button>
+        <button class="filter-btn" onclick="setETFFilter('gainers', this)">Top Gainers</button>
+        <button class="filter-btn" onclick="setETFFilter('losers', this)">Top Losers</button>
         <button class="filter-btn" onclick="setETFFilter('favorite', this)">★ Favorites</button>
         <button class="filter-btn" onclick="setETFFilter('custom', this)">Custom</button>
         <select id="etf-sector-select" style="margin-left:6px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;cursor:pointer;" onchange="setETFSectorFilter(this.value)">
@@ -337,6 +342,21 @@
       </div>
       <div class="modal-actions">
         <button class="btn" onclick="closePortfolioModal(event)">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="zerodha-portfolio-modal" class="modal-overlay" style="display:none;" onclick="closeZerodhaPortfolioModal(event)">
+    <div class="modal-card zerodha-portfolio" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Zerodha Portfolio</h3>
+        <button class="btn" style="padding:6px 10px;font-size:12px;" onclick="closeZerodhaPortfolioModal(event)">x</button>
+      </div>
+      <div id="zerodha-portfolio-modal-body">
+        <!-- populated dynamically -->
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeZerodhaPortfolioModal(event)">Close</button>
       </div>
     </div>
   </div>
@@ -448,4 +468,3 @@
   <script defer src="dashboard-app.js?v=20260620-35"></script>
 </body>
 </html>
-

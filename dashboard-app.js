@@ -27,6 +27,8 @@ const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;
 const SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;
 const SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;
 const SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;
+const BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;
+const ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;
 const REPLAY_FETCH_TIMEOUT_MS = 120000;
 const TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;
 const TRADE_SETTING_OVERRIDES_KEY = 'stock-watcher-trade-setting-overrides';
@@ -753,11 +755,15 @@ const SIMULATION_MARKET_REGIME_NIFTY_PCT = TRADE_RULE_DEFAULTS.SIMULATION_MARKET
 const SIMULATION_MARKET_REGIME_SECTOR_PCT = TRADE_RULE_DEFAULTS.SIMULATION_MARKET_REGIME_SECTOR_PCT;
 const SIMULATION_MARKET_REGIME_RS_PCT = TRADE_RULE_DEFAULTS.SIMULATION_MARKET_REGIME_RS_PCT;
 const SIMULATION_AUTO_SHORTS = TRADE_RULE_DEFAULTS.SIMULATION_AUTO_SHORTS;
+const SIMULATION_AUTO_MANUAL_EXITS = !!TRADE_RULE_DEFAULTS.SIMULATION_AUTO_MANUAL_EXITS;
 const BROKER_MODE_KEY = 'stock-watcher-broker-mode';
 let simulationState = localStorage.getItem(SIMULATION_STATE_KEY) || 'off'; // off | running | settling
 let simulationBusy = false;
 let brokerMode = localStorage.getItem(BROKER_MODE_KEY) === 'zerodha_dry_run' ? 'zerodha_dry_run' : 'paper';
 let brokerConnectionStatus = null; // { mode, zerodha: { credentialsLoaded, clientsInitialized, pollerRunning, failureCount, isDisabled } }
+let brokerRefreshState = { busy:false, ok:null, message:'' };
+let zerodhaPortfolioState = { loading:false, ok:false, data:null, error:'' };
+let zerodhaPositionsPanelOpen = false;
 const COLUMN_PRESET_KEY = 'stock-watcher-column-preset';
 let columnPreset = localStorage.getItem(COLUMN_PRESET_KEY) || 'trading';
 let notificationsOpen = false;
@@ -777,6 +783,7 @@ let tableRenderScheduled = false;
 let tableRenderPending = false;
 let dashboardRenderScheduled = false;
 let simulationCycleTimer = null;
+let openTradesModalSort = { col:'time', dir:-1 }; // time desc by default
 
 function yieldToBrowser() {
   return new Promise(resolve => requestAnimationFrame(() => resolve()));
@@ -968,6 +975,7 @@ function applyYahooQuotes(quotes) {
 
 async function fetchYahooStocks(firstLoad = false) {
   const symbols = MIDCAP_STOCKS.map(s=>s.sym);
+  const totalRefreshUniverse = MIDCAP_STOCKS.length + STOCK_ASSETS.length;
   if (firstLoad) {
     document.getElementById('loading-msg').textContent = 'Fetching Yahoo Finance data…';
     document.getElementById('loading-sub').textContent = 'Source: query1.finance.yahoo.com/v8/finance/chart (crumb-free)';
@@ -1007,7 +1015,8 @@ async function fetchYahooStocks(firstLoad = false) {
         `Fetching Yahoo Finance… (${i+1}–${Math.min(i+batchSize, symbols.length)} of ${symbols.length})`;
       setProgress(15 + ((i / symbols.length) * 75));
     } else {
-      showBgRefreshing(`Refreshing ${i+1}–${Math.min(i+batchSize, symbols.length)} of ${symbols.length}…`);
+      const total = Math.max(totalRefreshUniverse, symbols.length);
+      showBgRefreshing(`Refreshing ${i+1}–${Math.min(i+batchSize, symbols.length)} of ${total}…`);
       setBgProgress(20 + (i / symbols.length) * 75);
     }
 
@@ -1299,7 +1308,13 @@ async function fetchAll() {
     // Only fetch ETF prices when the ETF tab is active. Metadata/NAV details load
     // in the secondary queue so the stock table becomes usable first.
     const etfSymsToFetch = currentView === 'etfs' ? ETF_ASSETS.map(e=>e.sym) : [];
-    await fetchAdditionalSymbols(STOCK_ASSETS.map(e=>e.sym), { force: true });
+    const baseCount = MIDCAP_STOCKS.length;
+    const totalStockProgress = baseCount + STOCK_ASSETS.length;
+    await fetchAdditionalSymbols(STOCK_ASSETS.map(e=>e.sym), {
+      force: true,
+      progressOffset: baseCount,
+      progressTotal: totalStockProgress,
+    });
     await yieldToBrowser();
     if (etfSymsToFetch.length) {
       await fetchAdditionalSymbols(etfSymsToFetch, { force: true });
@@ -1555,7 +1570,13 @@ async function fetchIntradaySignalBatch(batch, attempt = 1) {
       if (setup && typeof setup === 'object') {
         // Accept any setup object, even if it doesn't have signal (partial data is ok)
         rememberPreviousSimulationSignal(sym);
-        intradayData[sym] = { ...setup, fetchedAt:now, stale:false, fetchFailed:false, retryAttempt:attempt };
+        intradayData[sym] = {
+          ...setup,
+          fetchedAt: now,
+          stale: !!setup.stale,
+          fetchFailed: !!setup.fetchFailed,
+          retryAttempt: attempt,
+        };
         intradayDataUpdateCount++;
         updated++;
         console.debug(`[batch] ${sym}: stored (update #${intradayDataUpdateCount}), keys: ${Object.keys(setup).slice(0,4).join(',')}`);
@@ -1597,7 +1618,12 @@ async function fetchIntradaySignals(symbols) {
       // Accept any msg.data, even if it doesn't have signal yet (allow partial updates)
       const fetchedAt = Date.now();
       rememberPreviousSimulationSignal(msg.sym);
-      intradayData[msg.sym] = { ...msg.data, fetchedAt, stale: false, fetchFailed: false };
+      intradayData[msg.sym] = {
+        ...msg.data,
+        fetchedAt,
+        stale: !!msg.data.stale,
+        fetchFailed: !!msg.data.fetchFailed,
+      };
       intradayDataUpdateCount++;
       anyUpdated = true;
       sseCount++;
@@ -2105,11 +2131,12 @@ function subscribePaperTradesStream() {
   connect();
 }
 
-function renderOpenTradeRows(openTrades, newKeys) {
+function renderOpenTradeRows(openTrades, newKeys, mode = 'all') {
+  const manualAutoExitEnabled = !!getSimulationEngineSettings().SIMULATION_AUTO_MANUAL_EXITS;
   return openTrades.length ? openTrades.map(trade => {
     const isOpen = isOpenTrade(trade);
-    const eventType = isOpen ? 'Entry' : 'Exit';
-    const transactionTime = isOpen ? trade.openedAt : (trade.closedAt || trade.openedAt);
+    const eventType = getTradeEventType(trade);
+    const transactionTime = getTradeTransactionTime(trade);
     const current = isOpen ? getCurrentTradePrice(trade.symbol) : Number(trade.exitPrice);
     const pnl = isOpen
       ? getPaperTradePnl(trade, current)
@@ -2135,6 +2162,8 @@ function renderOpenTradeRows(openTrades, newKeys) {
     // Broker status indicator
     let statusHTML = '--';
     if (trade.broker?.name === 'zerodha') {
+      const closeReason = String(trade.closeReason || '').toLowerCase();
+      const isTimeoutAutoCancel = closeReason.includes('auto-cancelled') && closeReason.includes('timeout');
       if (trade.broker.status === 'pending') {
         statusHTML = '⏳ Pending';
       } else if (trade.broker.status === 'confirmed') {
@@ -2148,7 +2177,7 @@ function renderOpenTradeRows(openTrades, newKeys) {
       } else if (trade.broker.status === 'exit_placed') {
         statusHTML = '🚪 Exiting';
       } else if (trade.broker.status === 'cancelled') {
-        statusHTML = '✗ Cancelled';
+        statusHTML = isTimeoutAutoCancel ? '✗ Auto-cancelled (timeout)' : '✗ Cancelled';
       } else if (trade.broker.status === 'entry_dry_run') {
         statusHTML = '🔄 Dry Entry';
       } else if (trade.broker.status === 'exit_dry_run') {
@@ -2156,10 +2185,21 @@ function renderOpenTradeRows(openTrades, newKeys) {
       }
     }
     
+    // In new events modal, show exit reason for closed trades, entry reason for open trades
+    const reasonDisplay = mode === 'new' && !isOpen
+      ? escapeHTML(trade.closeReason || '--')
+      : escapeHTML(formatEntryJournal(trade));
+    const reasonTitle = mode === 'new' && !isOpen
+      ? escapeHTML(trade.closeReason || '--')
+      : escapeHTML(formatEntryJournal(trade));
+    const modeCell = trade.source === 'simulation'
+      ? 'Sim'
+      : `Manual <span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;font-size:10px;font-weight:700;line-height:1.5;background:${manualAutoExitEnabled ? 'rgba(16,185,129,.15)' : 'rgba(148,163,184,.18)'};color:${manualAutoExitEnabled ? 'var(--green)' : 'var(--muted)'};border:1px solid ${manualAutoExitEnabled ? 'rgba(16,185,129,.35)' : 'rgba(148,163,184,.35)'}">Auto-exit ${manualAutoExitEnabled ? 'On' : 'Off'}</span>`;
+    
     return `<tr class="${isNew ? 'new-trade-highlight' : ''}">
       <td>${eventType}</td>
       <td>${escapeHTML(formatTradeDateTime(transactionTime))}</td>
-      <td>${escapeHTML(trade.source === 'simulation' ? 'Sim' : 'Manual')}</td>
+      <td>${modeCell}</td>
       <td>${escapeHTML(trade.symbol || '--')}</td>
       <td>${escapeHTML(String(trade.side || '--').toUpperCase())}</td>
       <td>${escapeHTML(qtyDisplay)}</td>
@@ -2169,15 +2209,48 @@ function renderOpenTradeRows(openTrades, newKeys) {
       <td>${moneyINR(trade.target)}</td>
       <td>${moneyINR(trade.stop)}</td>
       <td class="portfolio-pnl ${cls}">${pnl ? `${moneyINR(pnl.pnl)} (${pnl.pnlPct}% net)` : '--'}</td>
-      <td class="portfolio-journal-cell" title="${escapeHTML(formatEntryJournal(trade))}">${escapeHTML(formatEntryJournal(trade))}</td>
+      <td class="portfolio-journal-cell" title="${reasonTitle}">${reasonDisplay}</td>
       <td>${action}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="14" style="color:var(--muted);text-align:center;padding:16px">No trades</td></tr>`;
 }
 
+function getTradeEventType(trade) {
+  const isOpen = isOpenTrade(trade);
+  if (isOpen) return 'Entry';
+  const brokerStatus = String(trade?.broker?.status || '').toLowerCase();
+  if (brokerStatus === 'cancelled') return 'Cancelled';
+  if (brokerStatus === 'rejected') return 'Rejected';
+  if (brokerStatus === 'timeout') return 'Timeout';
+  return 'Exit';
+}
+
+function getTradeTransactionTime(trade) {
+  const isOpen = isOpenTrade(trade);
+  return isOpen ? trade.openedAt : (trade.closedAt || trade.openedAt);
+}
+
+function openTradesSortIndicator(col) {
+  if (openTradesModalSort.col !== col) return '↕';
+  return openTradesModalSort.dir === -1 ? '↓' : '↑';
+}
+
+function setOpenTradesModalSort(col) {
+  if (!['event', 'time'].includes(col)) return;
+  if (openTradesModalSort.col === col) {
+    openTradesModalSort.dir *= -1;
+  } else {
+    openTradesModalSort.col = col;
+    openTradesModalSort.dir = col === 'time' ? -1 : 1;
+  }
+  renderOpenTradesModal();
+}
+
 function renderOpenTradesModal() {
   const body = document.getElementById('open-trades-modal-body');
   if (!body) return;
+  const title = document.querySelector('#open-trades-modal .modal-header h3');
+  if (title) title.textContent = openTradesModalMode === 'new' ? 'New Events' : 'Open Trades';
   pruneNewSimulationTradeKeys();
   const allOpenTrades = paperTrades
     .filter(isOpenTrade)
@@ -2191,14 +2264,24 @@ function renderOpenTradesModal() {
   const newEventTrades = paperTrades
     .filter(t => newSimulationTradeKeys.has(simulationTradeKey(t)))
     .slice()
-    .sort((a, b) => new Date(b.closedAt || b.openedAt || 0) - new Date(a.closedAt || a.openedAt || 0));
+    .sort((a, b) => {
+      const col = openTradesModalSort.col;
+      const dir = openTradesModalSort.dir;
+      if (col === 'event') {
+        const cmp = getTradeEventType(a).localeCompare(getTradeEventType(b));
+        if (cmp !== 0) return cmp * dir;
+      }
+      const at = new Date(getTradeTransactionTime(a) || 0).getTime() || 0;
+      const bt = new Date(getTradeTransactionTime(b) || 0).getTime() || 0;
+      return (at - bt) * dir;
+    });
   const newCount = allOpenTrades.filter(t => newSimulationTradeKeys.has(simulationTradeKey(t))).length;
   const visibleTrades = openTradesModalMode === 'new'
     ? newEventTrades
     : allOpenTrades;
   const visibleOpenTrades = visibleTrades.filter(isOpenTrade);
   const pnlBaseTrades = openTradesModalMode === 'new' ? visibleTrades : visibleOpenTrades;
-  const rows = renderOpenTradeRows(visibleTrades, newSimulationTradeKeys);
+  const rows = renderOpenTradeRows(visibleTrades, newSimulationTradeKeys, openTradesModalMode);
   body.innerHTML = `
     <div class="portfolio-grid">
       <div class="portfolio-card"><div class="label">Open trades</div><div class="value">${allOpenTrades.length}</div></div>
@@ -2209,7 +2292,7 @@ function renderOpenTradesModal() {
     <div class="portfolio-section-title">${openTradesModalMode === 'new' ? 'New Trade Events' : 'All Open Trades'}</div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table open-trades-table">
-        <thead><tr><th>Event</th><th>Txn Time</th><th>Mode</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Live</th><th>Status</th><th>Target</th><th>SL</th><th>Net P&L</th><th>Entry Why</th><th>Action</th></tr></thead>
+        <thead><tr><th${openTradesModalMode === 'new' ? ` onclick="setOpenTradesModalSort('event')" style="cursor:pointer"` : ''}>Event ${openTradesModalMode === 'new' ? openTradesSortIndicator('event') : ''}</th><th${openTradesModalMode === 'new' ? ` onclick="setOpenTradesModalSort('time')" style="cursor:pointer"` : ''}>Txn Time ${openTradesModalMode === 'new' ? openTradesSortIndicator('time') : ''}</th><th>Mode</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Live</th><th>Status</th><th>Target</th><th>SL</th><th>Net P&L</th><th>${openTradesModalMode === 'new' ? 'Reason' : 'Entry Why'}</th><th>Action</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -2261,7 +2344,7 @@ function getDashboardHealthItems() {
   const intradayValues = Object.values(intradayData || {});
   const stale = intradayValues.filter(t => getIntradayFreshness(t).stale).length;
   if (stale) items.push(`${stale} intraday signals stale`);
-  const missingOhlc = intradayValues.filter(t => !t?.ohlc?.latestBar && !t?.ohlc?.bars?.length).length;
+  const missingOhlc = intradayValues.filter(t => !getIntradayFreshness(t).stale && !t?.ohlc?.latestBar && !t?.ohlc?.bars?.length).length;
   if (missingOhlc && intradayValues.length) items.push(`${missingOhlc} signals missing OHLC`);
   if (simulationState === 'running' && !isMarketHoursNow()) items.push('Simulation is on outside market hours');
   if (marketOpen === false) items.push('Market is closed');
@@ -2434,11 +2517,19 @@ function computeClosedPaperPnl(trade) {
 }
 
 function isOpenTrade(trade) {
-  return String(trade?.status || '').toLowerCase() === 'open';
+  const status = String(trade?.status || '').toLowerCase();
+  if (status !== 'open') return false;
+  const brokerStatus = String(trade?.broker?.status || '').toLowerCase();
+  if (['cancelled', 'rejected', 'timeout', 'failed'].includes(brokerStatus)) return false;
+  return true;
 }
 
 function isClosedTrade(trade) {
-  return String(trade?.status || '').toLowerCase() === 'closed';
+  const status = String(trade?.status || '').toLowerCase();
+  if (status === 'closed') return true;
+  if (status !== 'open') return false;
+  const brokerStatus = String(trade?.broker?.status || '').toLowerCase();
+  return ['cancelled', 'rejected', 'timeout', 'failed'].includes(brokerStatus);
 }
 
 function portfolioValueClass(v) {
@@ -2588,6 +2679,8 @@ function renderPortfolioModal() {
       <div class="portfolio-card"><div class="label">Poller</div><div class="value">${brokerConnectionStatus?.zerodha?.pollerRunning ? '🟢 Running' : '⚫ Stopped'}</div></div>
       <div class="portfolio-card"><div class="label">Failures</div><div class="value">${brokerConnectionStatus?.zerodha?.failureCount || 0} / 3 (threshold)</div></div>
       <div class="portfolio-card"><div class="label">Live Status</div><div class="value">${brokerConnectionStatus?.zerodha?.isDisabled ? '🔴 Disabled' : '🟢 Enabled'}</div></div>
+      <div class="portfolio-card"><div class="label">Zerodha cash</div><div class="value">${zerodhaPortfolioState?.ok ? moneyINR(zerodhaPortfolioState?.data?.portfolio?.funds?.availableCash || 0) : '--'}</div></div>
+      <div class="portfolio-card"><div class="label">Zerodha day P&L</div><div class="value ${Number(zerodhaPortfolioState?.data?.portfolio?.positions?.dayPnl || 0) < 0 ? 'down' : ''}">${zerodhaPortfolioState?.ok ? moneyINR(zerodhaPortfolioState?.data?.portfolio?.positions?.dayPnl || 0) : '--'}</div></div>
     </div>
     <div class="portfolio-section-title">Recent Trade Confirmations</div>
     <div class="portfolio-table-wrap" id="zerodha-confirmations-table">
@@ -2710,6 +2803,14 @@ async function toggleSimulationStopGuardOverride() {
   if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
 }
 
+async function toggleManualTradeAutoExitOverride() {
+  const current = loadTradeSettingOverrides();
+  const enabledNow = !!(current?.SIMULATION_AUTO_MANUAL_EXITS ?? SIMULATION_AUTO_MANUAL_EXITS);
+  const next = { ...current, SIMULATION_AUTO_MANUAL_EXITS: !enabledNow };
+  await saveTradeSettingOverrides(next);
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+}
+
 async function setNiftyRegimeOverride(valueStr) {
   const current = loadTradeSettingOverrides();
   const value = parseFloat(valueStr);
@@ -2720,10 +2821,64 @@ async function setNiftyRegimeOverride(valueStr) {
   }
 }
 
+async function setSectorRegimeOverride(valueStr) {
+  const current = loadTradeSettingOverrides();
+  const value = parseFloat(valueStr);
+  if (Number.isFinite(value) && value >= -1 && value <= 1) {
+    const next = { ...current, SIMULATION_MARKET_REGIME_SECTOR_PCT: value };
+    await saveTradeSettingOverrides(next);
+    if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+  }
+}
+
+async function setDailyMaxTradesOverride(valueStr) {
+  const current = loadTradeSettingOverrides();
+  const value = Math.round(Number(valueStr));
+  if (Number.isFinite(value) && value >= 1 && value <= 200) {
+    const next = { ...current, SIMULATION_DAILY_MAX_TRADES: value };
+    await saveTradeSettingOverrides(next);
+    if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+  }
+}
+
+async function setMaxOpenTradesOverride(valueStr) {
+  const current = loadTradeSettingOverrides();
+  const value = Math.round(Number(valueStr));
+  if (Number.isFinite(value) && value >= 1 && value <= 100) {
+    const next = { ...current, SIMULATION_MAX_OPEN: value };
+    await saveTradeSettingOverrides(next);
+    if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+  }
+}
+
+function clearMaxOpenTradesOverride() {
+  const current = loadTradeSettingOverrides();
+  const next = { ...current };
+  delete next.SIMULATION_MAX_OPEN;
+  saveTradeSettingOverrides(next);
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+}
+
+function clearDailyMaxTradesOverride() {
+  const current = loadTradeSettingOverrides();
+  const next = { ...current };
+  delete next.SIMULATION_DAILY_MAX_TRADES;
+  saveTradeSettingOverrides(next);
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+}
+
 function clearNiftyRegimeOverride() {
   const current = loadTradeSettingOverrides();
   const next = { ...current };
   delete next.SIMULATION_MARKET_REGIME_NIFTY_PCT;
+  saveTradeSettingOverrides(next);
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+}
+
+function clearSectorRegimeOverride() {
+  const current = loadTradeSettingOverrides();
+  const next = { ...current };
+  delete next.SIMULATION_MARKET_REGIME_SECTOR_PCT;
   saveTradeSettingOverrides(next);
   if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
 }
@@ -2760,8 +2915,25 @@ function renderSettingsModal() {
   const effective = TradeRules.withDefaults ? TradeRules.withDefaults(getSimulationEngineSettings()) : { ...defaults, ...getSimulationEngineSettings() };
   const summary = getPortfolioSummary();
   const stopGuardOverride = !!effective.SIMULATION_OVERRIDE_STOP_GUARD;
+  const manualAutoExitEnabled = !!effective.SIMULATION_AUTO_MANUAL_EXITS;
   const niftyRegimeOverride = overrides.SIMULATION_MARKET_REGIME_NIFTY_PCT;
   const niftyRegimeValue = Number.isFinite(niftyRegimeOverride) ? niftyRegimeOverride : effective.SIMULATION_MARKET_REGIME_NIFTY_PCT;
+  const sectorRegimeOverride = overrides.SIMULATION_MARKET_REGIME_SECTOR_PCT;
+  const sectorRegimeValue = Number.isFinite(sectorRegimeOverride) ? sectorRegimeOverride : effective.SIMULATION_MARKET_REGIME_SECTOR_PCT;
+  const dailyMaxTradesOverrideRaw = overrides.SIMULATION_DAILY_MAX_TRADES;
+  const dailyMaxTradesOverride = Number.isFinite(Number(dailyMaxTradesOverrideRaw)) ? Number(dailyMaxTradesOverrideRaw) : null;
+  const dailyMaxTradesValue = Number.isFinite(dailyMaxTradesOverride)
+    ? Math.round(dailyMaxTradesOverride)
+    : Math.round(Number(effective.SIMULATION_DAILY_MAX_TRADES) || Number(defaults.SIMULATION_DAILY_MAX_TRADES) || 0);
+  const maxOpenTradesOverrideRaw = overrides.SIMULATION_MAX_OPEN;
+  const maxOpenTradesOverride = Number.isFinite(Number(maxOpenTradesOverrideRaw)) ? Number(maxOpenTradesOverrideRaw) : null;
+  const maxOpenTradesValue = Number.isFinite(maxOpenTradesOverride)
+    ? Math.round(maxOpenTradesOverride)
+    : Math.round(Number(effective.SIMULATION_MAX_OPEN) || Number(defaults.SIMULATION_MAX_OPEN) || 0);
+  const autoRenewConfigured = !!brokerConnectionStatus?.zerodha?.autoRenewConfigured;
+  const lastRefreshAtTs = Number(brokerConnectionStatus?.zerodha?.lastTokenRefreshAt || 0);
+  const lastRefreshAt = lastRefreshAtTs ? toIST(lastRefreshAtTs) : '--';
+  const refreshHint = brokerRefreshState.message || (autoRenewConfigured ? 'Ready for manual refresh' : 'Add refresh token in credentials');
   const rows = Object.keys(defaults).map(key => {
     const current = effective[key];
     const def = defaults[key];
@@ -2777,8 +2949,13 @@ function renderSettingsModal() {
       <div class="settings-card"><div class="label">Portfolio capital</div><div class="value">${moneyINR(effective.PORTFOLIO_INITIAL_CAPITAL)}</div></div>
       <div class="settings-card"><div class="label">Per position cap</div><div class="value">${moneyINR(effective.MAX_POSITION_EXPOSURE)}</div></div>
       <div class="settings-card"><div class="label">Minimum net profit</div><div class="value">${formatSettingValue(effective.SIMULATION_MIN_NET_PROFIT_PCT, 'SIMULATION_MIN_NET_PROFIT_PCT')}</div></div>
+      <div class="settings-card"><div class="label">Max open trades</div><div class="value ${Number.isFinite(maxOpenTradesOverride) ? 'up' : ''}">${maxOpenTradesValue}</div><div style="margin-top:8px"><input type="number" step="1" min="1" max="100" value="${maxOpenTradesValue}" onchange="setMaxOpenTradesOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(maxOpenTradesOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(maxOpenTradesOverride) ? ` <button class="btn" type="button" onclick="clearMaxOpenTradesOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
+      <div class="settings-card"><div class="label">Daily max trades</div><div class="value ${Number.isFinite(dailyMaxTradesOverride) ? 'up' : ''}">${dailyMaxTradesValue}</div><div style="margin-top:8px"><input type="number" step="1" min="1" max="200" value="${dailyMaxTradesValue}" onchange="setDailyMaxTradesOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(dailyMaxTradesOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(dailyMaxTradesOverride) ? ` <button class="btn" type="button" onclick="clearDailyMaxTradesOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
+      <div class="settings-card"><div class="label">Zerodha token</div><div class="value ${brokerRefreshState.ok === false ? 'down' : (brokerRefreshState.ok ? 'up' : '')}">${autoRenewConfigured ? 'Auto-renew ready' : 'Refresh token missing'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="refreshZerodhaTokenFromSettings()" ${brokerRefreshState.busy || !autoRenewConfigured ? 'disabled' : ''}>${brokerRefreshState.busy ? 'Refreshing...' : 'Refresh token now'}</button><span style="margin-left:8px; font-size:11px">Last refresh: ${escapeHTML(lastRefreshAt)}</span></div><div style="margin-top:6px; font-size:11px; color:${brokerRefreshState.ok === false ? 'var(--red)' : 'var(--muted)'}">${escapeHTML(refreshHint)}</div></div>
       <div class="settings-card"><div class="label">Stop guard override</div><div class="value ${stopGuardOverride ? 'up' : ''}">${stopGuardOverride ? 'Enabled' : 'Disabled'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="toggleSimulationStopGuardOverride()">${stopGuardOverride ? 'Disable override' : 'Enable override'}</button></div></div>
-      <div class="settings-card"><div class="label">Nifty regime threshold</div><div class="value ${Number.isFinite(niftyRegimeOverride) ? 'up' : ''}">${niftyRegimeValue.toFixed(3)}</div><div style="margin-top:8px"><input type="number" step="0.001" min="-1" max="1" value="${niftyRegimeValue.toFixed(3)}" onchange="setNiftyRegimeOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(niftyRegimeOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(niftyRegimeOverride) ? ` <button class="btn" type="button" onclick="clearNiftyRegimeOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
+      <div class="settings-card"><div class="label">Auto-exit manual trades</div><div class="value ${manualAutoExitEnabled ? 'up' : ''}">${manualAutoExitEnabled ? 'Enabled' : 'Disabled'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="toggleManualTradeAutoExitOverride()">${manualAutoExitEnabled ? 'Disable auto exits' : 'Enable auto exits'}</button></div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Uses same simulation exit rules (target, SL, trailing, time-stop, EOD).</div></div>
+      <div class="settings-card"><div class="label">Nifty regime threshold</div><div class="value ${Number.isFinite(niftyRegimeOverride) ? 'up' : ''}">${niftyRegimeValue.toFixed(3)}</div><div style="margin-top:8px"><input type="number" step="0.001" min="-1" max="1" value="${niftyRegimeValue.toFixed(3)}" onchange="setNiftyRegimeOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(niftyRegimeOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(niftyRegimeOverride) ? ` <button class="btn" type="button" onclick="clearNiftyRegimeOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Blocks longs below -threshold, blocks shorts above +threshold.</div></div>
+      <div class="settings-card"><div class="label">Sector regime threshold</div><div class="value ${Number.isFinite(sectorRegimeOverride) ? 'up' : ''}">${sectorRegimeValue.toFixed(3)}</div><div style="margin-top:8px"><input type="number" step="0.001" min="-1" max="1" value="${sectorRegimeValue.toFixed(3)}" onchange="setSectorRegimeOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(sectorRegimeOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(sectorRegimeOverride) ? ` <button class="btn" type="button" onclick="clearSectorRegimeOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Uses sector average move with the same long/short threshold logic.</div></div>
     </div>
     <div class="portfolio-section-title">Effective Trade Rule Settings</div>
     <div class="settings-table-wrap">
@@ -2802,6 +2979,28 @@ function closeSettingsModal(e) {
   if (modal) modal.style.display = 'none';
 }
 
+async function refreshZerodhaTokenFromSettings() {
+  if (brokerRefreshState.busy) return;
+  brokerRefreshState = { busy:true, ok:null, message:'Refreshing token...' };
+  renderSettingsModal();
+  try {
+    const res = await fetch(BROKER_REFRESH_TOKEN_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ manual:true }),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.ok === false) {
+      throw new Error(payload.error || payload.hint || `HTTP ${res.status}`);
+    }
+    brokerRefreshState = { busy:false, ok:true, message:'Token refreshed successfully' };
+    await pollBrokerStatus();
+  } catch (e) {
+    brokerRefreshState = { busy:false, ok:false, message: e.message || 'Token refresh failed' };
+  }
+  renderSettingsModal();
+}
+
 function isZerodhaDryRun() {
   return brokerMode === 'zerodha_dry_run';
 }
@@ -2823,6 +3022,209 @@ function formatZerodhaOrder(order) {
     order.order_type,
     moneyINR(order.price),
   ].filter(v => v != null && v !== '').join(' ');
+}
+
+function formatZerodhaPillMoney(v) {
+  const n = Number(v || 0);
+  const abs = Math.abs(n);
+  const compact = abs >= 10000000 ? `${(n / 10000000).toFixed(2)}Cr` : abs >= 100000 ? `${(n / 100000).toFixed(2)}L` : `${Math.round(n).toLocaleString('en-IN')}`;
+  return `${n < 0 ? '-' : ''}₹${compact.replace('-', '')}`;
+}
+
+function updateZerodhaPortfolioPill() {
+  const pill = document.getElementById('zerodha-portfolio-pill');
+  if (!pill) return;
+  pill.classList.remove('live', 'warn', 'down');
+
+  if (zerodhaPortfolioState.loading) {
+    pill.textContent = 'Zerodha ...';
+    pill.title = 'Fetching Zerodha portfolio state... Click for positions';
+    pill.classList.add('warn');
+    return;
+  }
+
+  if (!zerodhaPortfolioState.ok || !zerodhaPortfolioState.data?.portfolio) {
+    pill.textContent = 'Zerodha N/A';
+    pill.title = zerodhaPortfolioState.error || 'Zerodha portfolio is unavailable.';
+    pill.classList.add('down');
+    return;
+  }
+
+  const p = zerodhaPortfolioState.data.portfolio;
+  const cash = Number(p?.funds?.availableCash || 0);
+  const dayPnl = Number(p?.positions?.dayPnl || 0);
+  const openCount = Number(p?.positions?.openCount || 0);
+  const holdingsCount = Number(p?.holdings?.count || 0);
+  const asOf = Number(p?.asOf || 0);
+
+  pill.textContent = `Zerodha ${formatZerodhaPillMoney(cash)} | P&L ${formatZerodhaPillMoney(dayPnl)}`;
+  pill.title = [
+    `Available cash: ${moneyINR(cash)}`,
+    `Day P&L: ${moneyINR(dayPnl)}`,
+    `Open positions: ${openCount}`,
+    `Holdings: ${holdingsCount}`,
+    `As of: ${asOf ? toIST(asOf) : '--'}`,
+    'Click to view positions',
+  ].join(' | ');
+  pill.classList.add(dayPnl >= 0 ? 'live' : 'warn');
+}
+
+function toggleZerodhaPositionsPanel() {
+  const panel = document.getElementById('zerodha-positions-panel');
+  if (!panel) return;
+  zerodhaPositionsPanelOpen = !zerodhaPositionsPanelOpen;
+  if (zerodhaPositionsPanelOpen) {
+    renderZerodhaPositionsPanel();
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+function closeZerodhaPositionsPanel() {
+  const panel = document.getElementById('zerodha-positions-panel');
+  if (panel) panel.style.display = 'none';
+  zerodhaPositionsPanelOpen = false;
+}
+
+function renderZerodhaPortfolioModal() {
+  const body = document.getElementById('zerodha-portfolio-modal-body');
+  if (!body) return;
+
+  if (zerodhaPortfolioState.loading) {
+    body.innerHTML = `<div style="color:var(--muted);padding:16px">Loading Zerodha portfolio...</div>`;
+    return;
+  }
+
+  if (!zerodhaPortfolioState.ok || !zerodhaPortfolioState.data?.portfolio) {
+    body.innerHTML = `<div style="color:var(--red);padding:16px">${escapeHTML(zerodhaPortfolioState.error || 'Portfolio data not available')}</div>`;
+    return;
+  }
+
+  const p = zerodhaPortfolioState.data.portfolio;
+  const funds = p?.funds || {};
+  const holdings = Array.isArray(p?.holdings?.list) ? p.holdings.list : [];
+  const positions = Array.isArray(p?.positions?.list) ? p.positions.list : [];
+
+  const holdingRows = holdings.length
+    ? holdings.map(h => {
+      const pnl = Number(h.pnl || 0);
+      const dayChangePct = Number(h.dayChangePct || 0);
+      const dayClass = dayChangePct < 0 ? 'down' : 'up';
+      return `<tr>
+        <td>${escapeHTML(h.symbol || '--')}</td>
+        <td>${Number(h.qty || 0).toLocaleString('en-IN')}</td>
+        <td>${moneyINR(h.avgPrice)}</td>
+        <td>${moneyINR(h.ltp)}</td>
+        <td>${moneyINR(h.investedValue)}</td>
+        <td>${moneyINR(h.marketValue)}</td>
+        <td class="portfolio-pnl ${portfolioValueClass(pnl)}">${moneyINR(pnl)}</td>
+        <td class="portfolio-pnl ${dayClass}">${Number.isFinite(dayChangePct) ? `${dayChangePct.toFixed(2)}%` : '--'}</td>
+      </tr>`;
+    }).join('')
+    : `<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:16px">No holdings</td></tr>`;
+
+  const positionRows = positions.length
+    ? positions.map(pos => {
+      const pnl = Number(pos.pnl || 0);
+      return `<tr>
+        <td>${escapeHTML(pos.symbol || '--')}</td>
+        <td>${Number(pos.qty || 0).toLocaleString('en-IN')}</td>
+        <td>${moneyINR(pos.avgPrice)}</td>
+        <td>${moneyINR(pos.ltp)}</td>
+        <td>${moneyINR(pos.investedValue)}</td>
+        <td class="portfolio-pnl ${portfolioValueClass(pnl)}">${moneyINR(pnl)}</td>
+      </tr>`;
+    }).join('')
+    : `<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:16px">No open positions</td></tr>`;
+
+  body.innerHTML = `
+    <div class="portfolio-grid">
+      <div class="portfolio-card"><div class="label">Available cash</div><div class="value">${moneyINR(funds.availableCash)}</div></div>
+      <div class="portfolio-card"><div class="label">Utilized margin</div><div class="value">${moneyINR(funds.utilizedMargin)}</div></div>
+      <div class="portfolio-card"><div class="label">Net equity</div><div class="value">${moneyINR(funds.netEquity)}</div></div>
+      <div class="portfolio-card"><div class="label">Holdings</div><div class="value">${Number(p?.holdings?.count || 0).toLocaleString('en-IN')}</div></div>
+      <div class="portfolio-card"><div class="label">Holdings value</div><div class="value">${moneyINR(p?.holdings?.marketValue || 0)}</div></div>
+      <div class="portfolio-card"><div class="label">Open positions</div><div class="value">${Number(p?.positions?.openCount || 0).toLocaleString('en-IN')}</div></div>
+      <div class="portfolio-card"><div class="label">Day P&L</div><div class="value ${portfolioValueClass(p?.positions?.dayPnl || 0)}">${moneyINR(p?.positions?.dayPnl || 0)}</div></div>
+      <div class="portfolio-card"><div class="label">Total P&L</div><div class="value ${portfolioValueClass(p?.positions?.totalPnl || 0)}">${moneyINR(p?.positions?.totalPnl || 0)}</div></div>
+    </div>
+    <div class="portfolio-section-title">Holdings (${holdings.length})</div>
+    <div class="portfolio-table-wrap">
+      <table class="portfolio-table" style="min-width:980px">
+        <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>Invested</th><th>Market Value</th><th>P&L</th><th>Day %</th></tr></thead>
+        <tbody>${holdingRows}</tbody>
+      </table>
+    </div>
+    <div class="portfolio-section-title">Open Positions (${positions.length})</div>
+    <div class="portfolio-table-wrap">
+      <table class="portfolio-table" style="min-width:820px">
+        <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>Invested</th><th>P&L</th></tr></thead>
+        <tbody>${positionRows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function openZerodhaPortfolioModal() {
+  const modal = document.getElementById('zerodha-portfolio-modal');
+  if (modal) modal.style.display = 'flex';
+  renderZerodhaPortfolioModal();
+  if (!zerodhaPortfolioState.ok && !zerodhaPortfolioState.loading) {
+    await pollZerodhaPortfolioState();
+  }
+}
+
+function closeZerodhaPortfolioModal(e) {
+  if (e) e.stopPropagation();
+  const modal = document.getElementById('zerodha-portfolio-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function renderZerodhaPositionsPanel() {
+  const panel = document.getElementById('zerodha-positions-panel');
+  if (!panel) return;
+
+  if (!zerodhaPortfolioState.ok || !zerodhaPortfolioState.data) {
+    panel.innerHTML = `<div class="empty">Portfolio data not available</div>`;
+    panel.style.display = 'block';
+    return;
+  }
+
+  const p = zerodhaPortfolioState.data.portfolio;
+  const positions = p?.positions || {};
+  const openCount = Number(positions.openCount || 0);
+  const posList = positions.list || [];
+
+  if (openCount === 0) {
+    panel.innerHTML = `<div class="empty">No open positions</div>`;
+    panel.style.display = 'block';
+    return;
+  }
+
+  const header = `<div class="header"><span>Open Positions (${openCount})</span><button class="header-close" onclick="closeZerodhaPositionsPanel()">×</button></div>`;
+  let rows = '';
+  for (const pos of posList.slice(0, 10)) {
+    const pnlColor = pos.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+    const pnlSign = pos.pnl >= 0 ? '+' : '';
+    rows += `<div class="pos-row">
+      <div class="pos-symbol">${pos.symbol}</div>
+      <div class="pos-qty">${Math.round(pos.qty)}</div>
+      <div class="pos-pnl" style="color:${pnlColor}">${pnlSign}${moneyINR(pos.pnl)}</div>
+    </div>`;
+  }
+  panel.innerHTML = header + rows;
+  panel.style.display = 'block';
+}
+
+function setupZerodhaPositionsPanelClickAway() {
+  document.addEventListener('click', (e) => {
+    if (!zerodhaPositionsPanelOpen) return;
+    const panel = document.getElementById('zerodha-positions-panel');
+    const pill = document.getElementById('zerodha-portfolio-pill');
+    if (panel && pill && !panel.contains(e.target) && !pill.contains(e.target)) {
+      closeZerodhaPositionsPanel();
+    }
+  });
 }
 
 function updateBrokerModeButton() {
@@ -2993,6 +3395,7 @@ function getSimulationEngineSettings() {
     SIMULATION_MARKET_REGIME_SECTOR_PCT,
     SIMULATION_MARKET_REGIME_RS_PCT,
     SIMULATION_AUTO_SHORTS,
+    SIMULATION_AUTO_MANUAL_EXITS,
   };
   return TradeRules.withDefaults ? TradeRules.withDefaults({ ...settings, ...loadTradeSettingOverrides() }) : { ...settings, ...loadTradeSettingOverrides() };
 }
@@ -4561,14 +4964,55 @@ async function partialClosePaperTradeAtPrice(trade, exitPrice, qty, reason, runn
 
 async function runSimulationCycle({ allowEntries = true } = {}) {
   if (simulationBusy) return;
+  const isEodSettlement = isSimulationEodSettlementTime();
+  const simSettings = getSimulationEngineSettings();
+  const manualAutoExitEnabled = !!simSettings.SIMULATION_AUTO_MANUAL_EXITS;
+  const allOpenTrades = paperTrades.filter(isOpenTrade);
   const simOpen = getSimulationOpenTrades();
-  if (simulationState === 'off' && !simOpen.length) return;
+  const manualOpenAll = allOpenTrades.filter(t => t.source !== 'simulation');
+  const manualManagedOpen = manualAutoExitEnabled ? manualOpenAll : [];
+  if (simulationState === 'off' && !simOpen.length && !(isEodSettlement && manualOpenAll.length)) return;
   simulationBusy = true;
   try {
+    // Always square-off manual paper trades during EOD settlement, even if simulation mode is OFF.
+    if (isEodSettlement && manualOpenAll.length) {
+      for (const trade of [...manualOpenAll]) {
+        const price = getCurrentTradePrice(trade.symbol);
+        const fallbackPrice = Number(price)
+          || Number(trade.entryPrice)
+          || Number(trade.stop)
+          || Number(trade.target);
+        if (Number.isFinite(fallbackPrice) && fallbackPrice > 0) {
+          await closePaperTradeAtPrice(
+            trade,
+            fallbackPrice,
+            Number.isFinite(Number(price)) ? 'Manual EOD square-off' : 'Manual EOD square-off (fallback price)',
+            true
+          );
+        }
+      }
+    }
+
+    // Optional: auto-manage manual exits with the same logic simulation uses (non-EOD only).
+    if (!isEodSettlement && manualManagedOpen.length) {
+      for (const trade of [...manualManagedOpen]) {
+        const price = getCurrentTradePrice(trade.symbol);
+        let exit = getSimulationExit(trade, price);
+        if (exit?.action === 'partial') {
+          const qty = Math.max(1, Math.floor(Number(trade.qty || 0) * Number(exit.qtyPct || 50) / 100));
+          if (qty > 0 && qty < Number(trade.qty || 0)) {
+            await partialClosePaperTradeAtPrice(trade, exit.exitPrice, qty, String(exit.reason || 'Manual auto partial exit').replace(/^Simulation\b/i, 'Manual'), exit.runner, true);
+          }
+        } else if (exit) {
+          await closePaperTradeAtPrice(trade, exit.exitPrice, String(exit.reason || 'Manual auto exit').replace(/^Simulation\b/i, 'Manual'), true);
+        }
+      }
+    }
+
     for (const trade of [...simOpen]) {
       const price = getCurrentTradePrice(trade.symbol);
       let exit = getSimulationExit(trade, price);
-      if (!exit && isSimulationEodSettlementTime()) {
+      if (!exit && isEodSettlement) {
         const fallbackPrice = Number(price)
           || Number(trade.entryPrice)
           || Number(trade.stop)
@@ -4597,12 +5041,12 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
       if (!openAfterExits.length) setSimulationState('off');
       return;
     }
-    if (simulationState !== 'running' || !allowEntries || !isSimulationEntryWindow() || isSimulationEodSettlementTime()) {
+    if (simulationState !== 'running' || !allowEntries || !isSimulationEntryWindow() || isEodSettlement) {
       const blockReasons = [];
       if (simulationState !== 'running') blockReasons.push(`state=${simulationState}`);
       if (!allowEntries) blockReasons.push('allowEntries=false');
       if (!isSimulationEntryWindow()) blockReasons.push('outside entry window');
-      if (isSimulationEodSettlementTime()) blockReasons.push('EOD settlement time');
+      if (isEodSettlement) blockReasons.push('EOD settlement time');
       if (DEBUG_SIM_LOGS && blockReasons.length) console.warn('[SimCycle] Entry blocked:', blockReasons.join(', '));
       return;
     }
@@ -4915,6 +5359,14 @@ function getRiskGuard(row, t, score = null) {
     (signal === 'sell' && Number.isFinite(target) && price <= target);
   if (invalidated) return { label:'Invalidated', level:'invalid', reason:'Price already crossed stop or target zone' };
 
+  const bandChase = (signal === 'buy' && bandPos === 'above-upper') || (signal === 'sell' && bandPos === 'below-lower');
+  if (bandChase || (extensionPct != null && extensionPct > 1.2 && t.entryStatus === 'Triggered')) {
+    const reason = bandChase
+      ? `Price is outside ${signal === 'buy' ? 'upper' : 'lower'} VWAP band`
+      : `Price is ${extensionPct.toFixed(1)}% away from VWAP`;
+    return { label:'Chasing', level:'chasing', reason };
+  }
+
   const superTrendConflict = (signal === 'buy' && stDir === 'bearish') || (signal === 'sell' && stDir === 'bullish');
   if ((t.rr != null && t.rr < 1.3) || liq.level === 'thin' || (riskPct != null && riskPct > 1.6) || (cost && !cost.ok) || superTrendConflict) {
     const why = [];
@@ -4928,14 +5380,6 @@ function getRiskGuard(row, t, score = null) {
 
   if (t.volumeShock?.isShock && extensionPct != null && extensionPct <= 3.2) {
     return { label:'Shock', level:'small', reason:`Volume shock ${t.volumeShock.change3m ?? '--'}%/3m, ${t.volumeShock.volumeRatio3m ?? '--'}x volume` };
-  }
-
-  const bandChase = (signal === 'buy' && bandPos === 'above-upper') || (signal === 'sell' && bandPos === 'below-lower');
-  if (bandChase || (extensionPct != null && extensionPct > 1.2 && t.entryStatus === 'Triggered')) {
-    const reason = bandChase
-      ? `Price is outside ${signal === 'buy' ? 'upper' : 'lower'} VWAP band`
-      : `Price is ${extensionPct.toFixed(1)}% away from VWAP`;
-    return { label:'Chasing', level:'chasing', reason };
   }
 
   if (flag?.danger || liq.level === 'fair' || time.level === 'warn' || (size && size.qty <= 0)) {
@@ -5150,6 +5594,14 @@ function getHealthScore(sym){
   return computeHealthScore(asset);
 }
 
+const SETUP_FILTER_KEYS = new Set(['setup_pullback', 'setup_runner', 'setup_short']);
+const SETUP_CARD_FILTERS = {
+  pullbacks: ['tradeable', 'setup_pullback'],
+  runners: ['triggered', 'setup_runner'],
+  shorts: ['sell', 'setup_short'],
+  neartrigger: ['neartrigger', 'hideavoid'],
+};
+
 function selectSetupCard(kind, ...filterModes) {
   if (activeSetupCard === kind) {
     // Second click — deselect and reset
@@ -5161,10 +5613,21 @@ function selectSetupCard(kind, ...filterModes) {
     renderTable();
     return false; // signal: don't apply filters
   }
-  // First click — select and apply filters
+  // Preserve non-card filters while dropping previous card's preset filters.
+  const prevCard = activeSetupCard;
+  const prevPreset = new Set(SETUP_CARD_FILTERS[prevCard] || []);
+  const preserved = new Set([...stockFilters].filter(f => !prevPreset.has(f) && !SETUP_FILTER_KEYS.has(f) && !filterModes.includes(f)));
   activeSetupCard = kind;
   stockFilters.clear();
   for (const mode of filterModes) stockFilters.add(mode);
+  for (const mode of preserved) stockFilters.add(mode);
+  if (kind === 'pullbacks') stockFilters.add('tradeable');
+  // Force sort by score: shorts ascending (most negative first), all others descending
+  if (kind === 'shorts') {
+    currentSort = { col: 'trade', dir: 1 };
+  } else if (kind) {
+    currentSort = { col: 'trade', dir: -1 };
+  }
   renderTable();
   return true;
 }
@@ -5186,8 +5649,8 @@ function setFilter(mode, el) {
       stockFilters.add(mode);
       if (el) el.classList.add('active');
     }
-    // A manual filter-bar click clears any setup card selection
-    if (el) activeSetupCard = null;
+    // Keep setup card selection active so users can layer additional filters (AND across groups).
+    // Selection resets on card toggle/off or when "All" is chosen.
     // "All" button is active only when nothing else is selected
     const allBtn = document.getElementById('filter-all');
     if (allBtn) allBtn.classList.toggle('active', stockFilters.size === 0);
@@ -5534,17 +5997,17 @@ function renderSetupCards(rows = getAllStockRows()) {
   if (!target) return;
   // Counts run through the exact same grouped filter engine as table clicks.
   const counts = {
-    pullbacks: countRowsForStockFilters(rows, 'tradeable', 'triggered', 'setup_pullback'),
+    pullbacks: countRowsForStockFilters(rows, 'tradeable', 'setup_pullback'),
     runners:   countRowsForStockFilters(rows, 'triggered', 'setup_runner'),
     shorts:    countRowsForStockFilters(rows, 'sell', 'setup_short'),
-    risk:      countRowsForStockFilters(rows, 'risk'),
+    neartrigger: countRowsForStockFilters(rows, 'neartrigger', 'hideavoid'),
     news:      freshNewsSummary.loading ? '...' : (freshNewsSummary.symbolCount || 0),
   };
   const cards = [
-    ['pullbacks', 'Best Pullbacks',    counts.pullbacks, 'Triggered VWAP pullback/hold',   "selectSetupCard('pullbacks','tradeable','triggered','setup_pullback')"],
+    ['pullbacks', 'Best Pullbacks',    counts.pullbacks, 'Tradable VWAP pullback/hold',   "selectSetupCard('pullbacks','tradeable','setup_pullback')"],
     ['runners',   'Momentum Runners',  counts.runners,   'Triggered breakout/momentum',    "selectSetupCard('runners','triggered','setup_runner')"],
     ['shorts',    'Short Setups',      counts.shorts,    'Sell-side breakdown/rejection',  "selectSetupCard('shorts','sell','setup_short')"],
-    ['risk',      'High Risk',         counts.risk,      'Avoid / invalid / chasing',     "selectSetupCard('risk','risk')"],
+    ['neartrigger', 'Near Trigger',    counts.neartrigger, 'Fresh near-entry on both sides', "selectSetupCard('neartrigger','neartrigger','hideavoid')"],
     ['news',      'Fresh News',        counts.news,      freshNewsSummary.date ? `Server scan ${freshNewsSummary.date}` : 'Today / last business day', "selectSetupCard(null);openFreshNewsModal()"],
   ];
   target.innerHTML = cards.map(([kind, label, value, hint, action]) => `
@@ -5624,7 +6087,13 @@ function renderTableNow(){
   } else {
     if(pillEl) pillEl.style.display='none';
   }
-  const{col,dir}=currentSort;
+  // When a setup card is active, always sort by score (highest first for runners/pullbacks, lowest first for shorts)
+  const sortOverride = activeSetupCard === 'pullbacks'
+    ? { col: 'trade', dir: -1 }
+    : activeSetupCard
+      ? { col: 'trade', dir: activeSetupCard === 'shorts' ? 1 : -1 }
+      : null;
+  const{col,dir} = sortOverride || currentSort;
   rows.sort((a,b)=>{
     let av,bv;
     if(col==='symbol'){av=a.sym;bv=b.sym;}else if(col==='sector'){av=a.sector;bv=b.sector;}
@@ -5741,14 +6210,24 @@ async function fetchAdditionalSymbols(symbols, opts = {}){
   // Default: fetch only missing/failed symbols. With force=true, refresh supplied
   // symbols even when we already have a valid price.
   const force = !!opts.force;
+  const progressOffset = Number(opts.progressOffset) || 0;
+  const progressTotal = Number(opts.progressTotal) || 0;
+  const progressEnabled = progressTotal > 0;
   const toFetch = symbols.filter(sym => sym && (force || !stockData[sym] || !(stockData[sym].price > 0)));
   if(!toFetch.length) return;
   if(dataSource==='yahoo'){
     const BATCH = 25, PARALLEL = 3;
     const batches = [];
     for(let i = 0; i < toFetch.length; i += BATCH) batches.push(toFetch.slice(i, i + BATCH));
+    let processed = 0;
     for(let i = 0; i < batches.length; i += PARALLEL){
-      await Promise.allSettled(batches.slice(i, i + PARALLEL).map(async batch => {
+      const chunk = batches.slice(i, i + PARALLEL);
+      if (progressEnabled) {
+        const start = Math.min(progressTotal, progressOffset + processed + 1);
+        const end = Math.min(progressTotal, progressOffset + processed + chunk.reduce((sum, b) => sum + b.length, 0));
+        showBgRefreshing(`Refreshing ${start}–${end} of ${progressTotal}…`);
+      }
+      await Promise.allSettled(chunk.map(async batch => {
         try {
           const r = await fetch(`${PROXY}/yahoo?symbols=${encodeURIComponent(batch.join(','))}`);
           const raw = await r.json().catch(()=>({}));
@@ -5770,10 +6249,16 @@ async function fetchAdditionalSymbols(symbols, opts = {}){
           }
         } catch(e) { console.warn('fetchAdditionalSymbols yahoo batch failed', e.message); }
       }));
+      processed += chunk.reduce((sum, b) => sum + b.length, 0);
     }
   } else if(dataSource==='nse'){
     // NSE rate-limits aggressively — keep sequential with a small delay
-    for(const sym of toFetch){
+    for(let i = 0; i < toFetch.length; i++){
+      const sym = toFetch[i];
+      if (progressEnabled) {
+        const pos = Math.min(progressTotal, progressOffset + i + 1);
+        showBgRefreshing(`Refreshing ${pos} of ${progressTotal}…`);
+      }
       try{
         const q = await nseGet(`/api/quote-equity?symbol=${encodeURIComponent(sym)}`);
         const pd = q.priceInfo||{};
@@ -6872,6 +7357,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyColumnPreset();
   updateSimulationButton();
   updateBrokerModeButton();
+  setupZerodhaPositionsPanelClickAway();
   document.querySelectorAll('.source-card').forEach(card => {
     const src = card.dataset.source;
     card.addEventListener('keydown', e => {
@@ -6900,9 +7386,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Run periodic simulation exits so EOD settlement does not depend only on feed refresh callbacks.
   startSimulationCycleTimer();
   
-  // Start polling broker status
-  pollBrokerStatus();
-  setInterval(pollBrokerStatus, 30000); // Poll every 30 seconds
+  // Start polling broker + live Zerodha portfolio status
+  await pollBrokerStatus();
+  await pollZerodhaPortfolioState();
+  setInterval(async () => {
+    await pollBrokerStatus();
+    await pollZerodhaPortfolioState();
+  }, 30000);
 });
 
 // ═══════════════════════════════════
@@ -6917,6 +7407,38 @@ async function pollBrokerStatus() {
     }
   } catch (e) {
     console.warn('[broker] Status poll failed:', e.message);
+  }
+}
+
+async function pollZerodhaPortfolioState() {
+  const canFetch = !!brokerConnectionStatus?.zerodha?.clientsInitialized;
+  if (!canFetch) {
+    zerodhaPortfolioState = { loading:false, ok:false, data:null, error:'Zerodha client is not initialized' };
+    updateZerodhaPortfolioPill();
+    return;
+  }
+
+  zerodhaPortfolioState = { ...zerodhaPortfolioState, loading:true, error:'' };
+  updateZerodhaPortfolioPill();
+  try {
+    const res = await fetch(ZERODHA_PORTFOLIO_ENDPOINT, { signal: AbortSignal.timeout(10000) });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.ok === false) {
+      throw new Error(payload.error || payload.hint || `HTTP ${res.status}`);
+    }
+    zerodhaPortfolioState = { loading:false, ok:true, data:payload, error:'' };
+  } catch (e) {
+    zerodhaPortfolioState = { loading:false, ok:false, data:null, error:e.message || 'Could not fetch Zerodha portfolio' };
+  }
+  updateZerodhaPortfolioPill();
+  if (zerodhaPositionsPanelOpen) {
+    renderZerodhaPositionsPanel();
+  }
+  if (document.getElementById('portfolio-modal')?.style.display === 'flex') {
+    renderPortfolioModal();
+  }
+  if (document.getElementById('zerodha-portfolio-modal')?.style.display === 'flex') {
+    renderZerodhaPortfolioModal();
   }
 }
 
@@ -7339,4 +7861,3 @@ async function sendChatMessage(){
     input.focus();
   }
 }
-

@@ -41,7 +41,7 @@ const crypto = require('crypto');
 const { fork } = require('child_process');
 const Backtest = require('./backtest_simulation');
 const SimulationEngine = require('./simulation_engine');
-const { loadCredentials } = require('./zerodha-credentials');
+const { loadCredentials, saveCredentialsTokens } = require('./zerodha-credentials');
 const KiteClient = require('./zerodha-kite-client');
 const ConfirmationPoller = require('./zerodha-confirmation-poller');
 const PORT  = 3001;
@@ -3315,12 +3315,48 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     const volumes = compactFinite(quote.volume);
     
     if (closes.length < 6) {
-      // Insufficient data - return stale marker
+      // Insufficient data - return stale marker with minimal OHLC/setup context.
       const price = Number(meta.regularMarketPrice) || (closes.length > 0 ? closes[closes.length - 1] : null);
       if (!price) return null;
+      let lastBarIdx = -1;
+      for (let i = rawCloses.length - 1; i >= 0; i--) {
+        if (Number.isFinite(Number(rawCloses[i]))) { lastBarIdx = i; break; }
+      }
+      const round2 = v => Number.isFinite(Number(v)) ? +Number(v).toFixed(2) : null;
+      const latestBar = lastBarIdx >= 0 ? {
+        time: Number.isFinite(Number(timestamps[lastBarIdx])) ? new Date(Number(timestamps[lastBarIdx]) * 1000).toISOString() : null,
+        open: round2(rawOpens[lastBarIdx]),
+        high: round2(rawHighs[lastBarIdx]),
+        low: round2(rawLows[lastBarIdx]),
+        close: round2(rawCloses[lastBarIdx]),
+        volume: Number.isFinite(Number(rawVolumes[lastBarIdx])) ? Number(rawVolumes[lastBarIdx]) : null,
+      } : null;
+      const sessionVolume = compactFinite(rawVolumes).reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
+      const ohlc = {
+        latestBar,
+        session: {
+          open: round2(Number(meta.regularMarketOpen) || rawOpens.find(v => Number.isFinite(Number(v))) || price),
+          high: rawHighs.some(v => Number.isFinite(Number(v))) ? round2(Math.max(...compactFinite(rawHighs))) : round2(price),
+          low: rawLows.some(v => Number.isFinite(Number(v))) ? round2(Math.min(...compactFinite(rawLows))) : round2(price),
+          close: round2(price),
+          volume: sessionVolume || null,
+        },
+        previousClose: round2(Number(meta.previousClose) || null),
+      };
       return {
         symbol: sym,
         price: +price.toFixed(2),
+        signal: 'hold',
+        score: 0,
+        target: null,
+        stop: null,
+        entryStatus: 'Wait',
+        entryTrigger: 'Waiting for sufficient intraday candles',
+        invalidation: 'Not enough intraday candles yet',
+        setupType: 'NO_SIGNAL',
+        setup: 'Insufficient intraday candles',
+        reasons: ['Insufficient intraday candles'],
+        ohlc,
         stale: true,
         fetchFailed: true,
         staleReason: `Insufficient intraday data (${closes.length} candles, need 6+)`,
@@ -3551,6 +3587,16 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
       return {
         symbol: sym,
         price: +price.toFixed(2),
+        signal: 'hold',
+        score: 0,
+        target: null,
+        stop: null,
+        entryStatus: 'Wait',
+        entryTrigger: 'Signal unavailable',
+        invalidation: 'Signal build error',
+        setupType: 'NO_SIGNAL',
+        setup: 'Signal build error',
+        reasons: ['Signal build error'],
         stale: true,
         error: true,
         errorReason: err.message,
@@ -4772,12 +4818,40 @@ async function proxyRequestHandler(req, res) {
               if (v) {
                 send({ sym, data: v });
               } else {
-                send({ sym, data: { stale: true, fetchFailed: true, staleReason: 'Insufficient intraday data (less than 6 5m candles)' } });
+                send({ sym, data: {
+                  symbol: sym,
+                  signal: 'hold',
+                  score: 0,
+                  target: null,
+                  stop: null,
+                  entryStatus: 'Wait',
+                  entryTrigger: 'Signal unavailable',
+                  setupType: 'NO_SIGNAL',
+                  setup: 'Signal unavailable',
+                  reasons: ['Signal unavailable'],
+                  stale: true,
+                  fetchFailed: true,
+                  staleReason: 'Insufficient intraday data (less than 6 5m candles)',
+                } });
               }
             })
             .catch(e => {
               console.warn(`[stream/intraday] ${sym}:`, e.message);
-              send({ sym, data: { stale: true, fetchFailed: true, staleReason: e.message } });
+              send({ sym, data: {
+                symbol: sym,
+                signal: 'hold',
+                score: 0,
+                target: null,
+                stop: null,
+                entryStatus: 'Wait',
+                entryTrigger: 'Signal unavailable',
+                setupType: 'NO_SIGNAL',
+                setup: 'Signal unavailable',
+                reasons: ['Signal unavailable'],
+                stale: true,
+                fetchFailed: true,
+                staleReason: e.message,
+              } });
             })
         ));
       }
@@ -4911,8 +4985,36 @@ async function proxyRequestHandler(req, res) {
         const chunk = symbols.slice(i, i + CONCURRENCY);
         const settled = await Promise.allSettled(chunk.map(sym => 
           fetchIntradaySignal(sym)
-            .then(v => ({ sym, v: v || { stale: true, fetchFailed: true, staleReason: 'Insufficient intraday data' } }))
-            .catch(e => ({ sym, v: { stale: true, fetchFailed: true, staleReason: e.message } }))
+            .then(v => ({ sym, v: v || {
+              symbol: sym,
+              signal: 'hold',
+              score: 0,
+              target: null,
+              stop: null,
+              entryStatus: 'Wait',
+              entryTrigger: 'Signal unavailable',
+              setupType: 'NO_SIGNAL',
+              setup: 'Signal unavailable',
+              reasons: ['Signal unavailable'],
+              stale: true,
+              fetchFailed: true,
+              staleReason: 'Insufficient intraday data',
+            } }))
+            .catch(e => ({ sym, v: {
+              symbol: sym,
+              signal: 'hold',
+              score: 0,
+              target: null,
+              stop: null,
+              entryStatus: 'Wait',
+              entryTrigger: 'Signal unavailable',
+              setupType: 'NO_SIGNAL',
+              setup: 'Signal unavailable',
+              reasons: ['Signal unavailable'],
+              stale: true,
+              fetchFailed: true,
+              staleReason: e.message,
+            } }))
         ));
         for (const r of settled) {
           if (r.status === 'fulfilled' && r.value?.v) results[r.value.sym] = r.value.v;
@@ -5231,6 +5333,8 @@ async function proxyRequestHandler(req, res) {
         zerodha: {
           credentialsLoaded: !!zerodhaCredentials,
           clientsInitialized: !!kiteClientLive && !!kiteClientDry,
+          autoRenewConfigured: !!zerodhaCredentials?.refreshToken,
+          lastTokenRefreshAt: kiteClientLive?.lastTokenRefreshAt || null,
           pollerRunning: confirmationPoller !== null,
           failureCount: zerodhaLiveFailureCount,
           isDisabled: zerodhaLiveFailureCount >= 3,
@@ -5238,6 +5342,96 @@ async function proxyRequestHandler(req, res) {
       };
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, ...status }));
+      return;
+    }
+  }
+
+  // /broker-refresh-token -- Manually trigger access token renew using refresh token
+  if (pathname === '/broker-refresh-token') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed. Use POST.' }));
+      return;
+    }
+    try {
+      if (!zerodhaCredentials || !kiteClientLive || !kiteClientDry) {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Zerodha integration is not initialized' }));
+        return;
+      }
+      if (!zerodhaCredentials.refreshToken) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'Refresh token is not configured',
+          hint: 'Set ZERODHA_REFRESH_TOKEN in zerodha credentials file and restart proxy'
+        }));
+        return;
+      }
+
+      const refreshed = await kiteClientLive.refreshAccessToken();
+      if (!refreshed) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          ok: false,
+          renewed: false,
+          mode: brokerMode,
+          autoRenewConfigured: !!zerodhaCredentials.refreshToken,
+          lastTokenRefreshAt: kiteClientLive.lastTokenRefreshAt || null,
+        }));
+        return;
+      }
+
+      kiteClientDry.setTokens({
+        accessToken: kiteClientLive.accessToken,
+        refreshToken: kiteClientLive.refreshToken,
+      });
+      if (kiteClientLive.refreshToken) zerodhaCredentials.refreshToken = kiteClientLive.refreshToken;
+      if (kiteClientLive.accessToken) zerodhaCredentials.accessToken = kiteClientLive.accessToken;
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        ok: true,
+        renewed: true,
+        mode: brokerMode,
+        autoRenewConfigured: !!zerodhaCredentials.refreshToken,
+        lastTokenRefreshAt: kiteClientLive.lastTokenRefreshAt || null,
+      }));
+      return;
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+      return;
+    }
+  }
+
+  // /zerodha-portfolio -- Live Zerodha portfolio snapshot
+  if (pathname === '/zerodha-portfolio') {
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed. Use GET.' }));
+      return;
+    }
+    try {
+      if (!zerodhaCredentials || !kiteClientLive) {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Zerodha integration is not initialized' }));
+        return;
+      }
+      const portfolio = await kiteClientLive.getPortfolioState();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        ok: true,
+        mode: brokerMode,
+        portfolio,
+      }));
+      return;
+    } catch (e) {
+      const isAuth = /AUTH_FAILED_REFRESH_NEEDED|token|permission/i.test(String(e?.message || ''));
+      res.writeHead(isAuth ? 401 : 500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: e.message,
+        hint: isAuth ? 'Token expired. Use Refresh token now in Settings.' : undefined,
+      }));
       return;
     }
   }
@@ -5860,13 +6054,13 @@ async function initializeProxy() {
   await Promise.all([warmNSESession(), refreshYahooCrumb()]);
   
   // Initialize Zerodha integration
-  initializeZerodha();
+  await initializeZerodha();
   
   startFreshNewsCron();
   startReplayDeepSweepScheduler();
 }
 
-function initializeZerodha() {
+async function initializeZerodha() {
   try {
     zerodhaCredentials = loadCredentials();
     if (!zerodhaCredentials) {
@@ -5874,16 +6068,46 @@ function initializeZerodha() {
       return;
     }
     
-    const { apiKey, apiSecret, accessToken } = zerodhaCredentials;
+    const { apiKey, apiSecret, accessToken, refreshToken } = zerodhaCredentials;
+    console.log(`[zerodha] Credentials loaded. accessToken=${accessToken ? 'yes' : 'no'} refreshToken=${refreshToken ? 'yes' : 'no'}`);
+    if (!refreshToken) {
+      console.warn('[zerodha] Refresh token not configured. Auto-renew is disabled until ZERODHA_REFRESH_TOKEN is set.');
+    }
     
     // Create clients for live and dry modes
-    kiteClientLive = new KiteClient(apiKey, apiSecret, accessToken, false);
-    kiteClientDry = new KiteClient(apiKey, apiSecret, accessToken, true);
+    const tokenUpdate = ({ accessToken: nextAccessToken, refreshToken: nextRefreshToken }) => {
+      if (nextAccessToken) zerodhaCredentials.accessToken = nextAccessToken;
+      if (nextRefreshToken) zerodhaCredentials.refreshToken = nextRefreshToken;
+      saveCredentialsTokens({ accessToken: nextAccessToken, refreshToken: nextRefreshToken });
+    };
+    kiteClientLive = new KiteClient(apiKey, apiSecret, accessToken, false, { refreshToken, onTokenUpdate: tokenUpdate });
+    kiteClientDry = new KiteClient(apiKey, apiSecret, accessToken, true, { refreshToken, onTokenUpdate: tokenUpdate });
+
+    // Allow startup when only refresh token is configured by fetching a fresh access token.
+    if (!accessToken && refreshToken) {
+      console.log('[zerodha] ACCESS_TOKEN missing; attempting refresh-token bootstrap...');
+      const bootstrapped = await kiteClientLive.refreshAccessToken();
+      if (bootstrapped) {
+        kiteClientDry.setTokens({
+          accessToken: kiteClientLive.accessToken,
+          refreshToken: kiteClientLive.refreshToken,
+        });
+        if (kiteClientLive.accessToken) zerodhaCredentials.accessToken = kiteClientLive.accessToken;
+        if (kiteClientLive.refreshToken) zerodhaCredentials.refreshToken = kiteClientLive.refreshToken;
+        console.log('[zerodha] Bootstrap token refresh successful.');
+      } else {
+        console.warn('[zerodha] Bootstrap token refresh failed. Manual token refresh/login may be required.');
+      }
+    }
     
     // Initialize confirmation poller with reference to paper trades
     confirmationPoller = new ConfirmationPoller(
       kiteClientLive,
-      loadPaperStateFile().trades,
+      {
+        loadTrades: () => loadPaperTradesFile(),
+        saveTrades: (trades) => savePaperTradesFile(trades),
+        broadcast: (reason = 'broker-update') => broadcastPaperTradeState(reason),
+      },
       () => brokerMode
     );
     
