@@ -3,44 +3,13 @@ import { createRequire } from 'node:module'
 import { createRequestListener } from 'remix/node-fetch-server'
 
 import { router } from './app/router.ts'
+import { shouldProxy } from './proxy-routes.ts'
 
 const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 44100
 const require = createRequire(import.meta.url)
 const { initializeProxy, proxyRequestHandler } = require('../ticker_proxy.js') as {
   initializeProxy: () => Promise<void>
   proxyRequestHandler: http.RequestListener
-}
-
-const proxyPathPrefixes = ['/nse', '/ollama', '/openai', '/paper-trades', '/simulation-replay', '/stream', '/yahoo']
-const proxyPaths = new Set([
-  '/broker-mode',
-  '/broker-refresh-token',
-  '/broker-status',
-  '/dashboard-bootstrap',
-  '/dashboard-market',
-  '/etf-favs',
-  '/etf-list',
-  '/etf-nav',
-  '/etf-prefs',
-  '/etf-summary',
-  '/fresh-stock-news',
-  '/health',
-  '/intraday-signals',
-  '/paper-trades',
-  '/simulation-snapshots',
-  '/sparklines',
-  '/stock-favs',
-  '/stock-news',
-  '/stock-prefs',
-  '/trade-settings',
-  '/zerodha-portfolio',
-])
-
-function shouldProxy(request: http.IncomingMessage) {
-  const pathname = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`)
-    .pathname
-
-  return proxyPaths.has(pathname) || proxyPathPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
 }
 
 const remixRequestListener = createRequestListener(async (request) => {

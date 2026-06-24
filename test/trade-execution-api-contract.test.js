@@ -237,12 +237,26 @@ test('action validation matrix enforces 400/409 requirements', async () => {
   });
   assert.equal(invalidPartialQty.statusCode, 400);
 
+  const invalidCloseTrade = await request(proxy, {
+    method: 'POST',
+    path: '/trade-execution',
+    body: { action: 'close', id: 'missing-trade', exitPrice: 810 }
+  });
+  assert.equal(invalidCloseTrade.statusCode, 400);
+
+  const invalidPartialTrade = await request(proxy, {
+    method: 'POST',
+    path: '/trade-execution',
+    body: { action: 'partial-close', id: 'missing-trade', qty: 1, exitPrice: 810 }
+  });
+  assert.equal(invalidPartialTrade.statusCode, 400);
+
   const deleteOpenTrade = await request(proxy, {
     method: 'POST',
     path: '/paper-trades',
     body: { action: 'delete', id: opened.json.trade.id }
   });
-  assert.equal(deleteOpenTrade.statusCode, 409);
+  assert.equal(deleteOpenTrade.statusCode, 400);
 
   const closeOpenTrade = await request(proxy, {
     method: 'POST',

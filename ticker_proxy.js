@@ -6161,7 +6161,7 @@ async function proxyRequestHandler(req, res) {
           const exitPrice = Number(payload.exitPrice);
           const trade = trades.find(t => t.id === id && t.status === 'open');
           if (!trade) {
-            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Open trade id is required', code: 'OPEN_TRADE_REQUIRED' }));
             return;
           }
@@ -6260,7 +6260,7 @@ async function proxyRequestHandler(req, res) {
           const trade = trades.find(t => t.id === id && t.status === 'open');
           const openQty = Math.floor(Number(trade?.qty || 0));
           if (!trade) {
-            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Open trade id is required', code: 'OPEN_TRADE_REQUIRED' }));
             return;
           }
@@ -6344,7 +6344,7 @@ async function proxyRequestHandler(req, res) {
           const id = String(payload.id || '');
           const trade = trades.find(t => t.id === id);
           if (trade && trade.status !== 'closed') {
-            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Only closed trades can be deleted', code: 'TRADE_NOT_CLOSED' }));
             return;
           }
