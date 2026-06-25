@@ -4,6 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
+const TradeRules = require('../trade_rules.js');
+const SimulationEngine = require('../simulation_engine.js');
+
 const DASHBOARD_APP_PATH = path.join(__dirname, '..', 'dashboard-app.js');
 
 function extractFunctionSource(source, functionName) {
@@ -36,89 +39,157 @@ function extractFunctionSource(source, functionName) {
   return null;
 }
 
-function loadDashboardFunction(candidates, context = {}) {
-  const source = fs.readFileSync(DASHBOARD_APP_PATH, 'utf8');
-  for (const functionName of candidates) {
-    const fnSource = extractFunctionSource(source, functionName);
-    if (fnSource) return vm.runInNewContext(`(${fnSource})`, context);
-  }
-  throw new Error(`None of these functions were found: ${candidates.join(', ')}`);
-}
-
-function createPillStub() {
-  const classes = new Set();
+function makeElement() {
   return {
+    style: {},
+    className: '',
     textContent: '',
+    innerHTML: '',
     title: '',
+    value: '',
+    disabled: false,
     classList: {
-      add: (...names) => names.forEach((name) => classes.add(name)),
-      remove: (...names) => names.forEach((name) => classes.delete(name)),
-      contains: (name) => classes.has(name),
-      snapshot: () => [...classes].sort(),
+      add() {},
+      remove() {},
+      toggle() {},
+      contains() { return false; },
     },
+    appendChild() {},
+    removeChild() {},
+    addEventListener() {},
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    contains() { return false; },
+    scrollIntoView() {},
+    setAttribute() {},
   };
 }
 
-function renderCombinedContext(stateOverrides = {}) {
-  const pill = createPillStub();
-  const context = {
-    brokerMode: 'paper',
-    brokerPortfolioState: {
-      loading: false,
-      ok: true,
-      data: {
-        combinedOpenCount: 7,
-        combinedDayPnl: 4320,
-        zerodha: {
-          ok: true,
-          portfolio: {
-            positions: { openCount: 3, dayPnl: 1820 },
-            funds: { availableCash: 125000 },
-            holdings: { count: 4 },
-          },
-        },
-        sharekhan: {
-          ok: true,
-          portfolio: {
-            positions: { openCount: 4, dayPnl: 2500 },
-            funds: { availableCash: 98000 },
-            holdings: { count: 2 },
-          },
-        },
-      },
-      ...stateOverrides,
+function createSandbox() {
+  const elementCache = new Map();
+  const document = {
+    getElementById(id) {
+      if (!elementCache.has(id)) elementCache.set(id, makeElement());
+      return elementCache.get(id);
     },
-    zerodhaPortfolioState: stateOverrides.zerodhaPortfolioState || {
-      loading: false,
-      ok: true,
-      data: {
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    addEventListener: () => {},
+    body: makeElement(),
+  };
+  const window = {
+    __DASHBOARD_ROUTE__: {},
+    document,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  window.window = window;
+  return {
+    window,
+    document,
+    localStorage: {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    },
+    location: { protocol: 'file:', origin: 'http://localhost:3001' },
+    fetch: async () => ({ ok: true, json: async () => ({ ok: true }) }),
+    AbortSignal: { timeout: () => ({}) },
+    console: { log() {}, warn() {}, error() {}, info() {}, debug() {} },
+    setTimeout: () => 0,
+    setInterval: () => 0,
+    clearTimeout() {},
+    clearInterval() {},
+    Promise,
+    Date,
+    Math,
+    JSON,
+    Number,
+    String,
+    Boolean,
+    RegExp,
+    Array,
+    Set,
+    Map,
+    WeakMap,
+    WeakSet,
+    Object,
+    Error,
+    TypeError,
+    EventSource: function EventSource() {},
+    alert: () => {},
+    TradeRules,
+    SimulationEngine,
+  };
+}
+
+function loadDashboardApp() {
+  const source = fs.readFileSync(DASHBOARD_APP_PATH, 'utf8');
+  const context = createSandbox();
+  vm.runInNewContext(source, context, { timeout: 1500 });
+  return { source, context };
+}
+
+function findFunctionByContracts(source, requiredSnippets) {
+  const candidates = [];
+  const seen = new Set();
+  const pattern = /(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/g;
+  let match;
+  while ((match = pattern.exec(source))) {
+    const name = match[1];
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const fnSource = extractFunctionSource(source, name);
+    if (fnSource && requiredSnippets.every((snippet) => fnSource.includes(snippet))) {
+      candidates.push({ name, fnSource });
+    }
+  }
+  return candidates[0] || null;
+}
+
+test('renders combined broker pill from source contract', () => {
+  const { source, context } = loadDashboardApp();
+  const contract = findFunctionByContracts(source, [
+    'broker-portfolio-pill',
+    'combinedOpenCount',
+    'combinedDayPnl',
+  ]);
+
+  assert.ok(
+    contract,
+    'dashboard-app.js is missing the combined broker pill contract'
+  );
+
+  const updateBrokerPortfolioPill = context[contract.name];
+  assert.equal(typeof updateBrokerPortfolioPill, 'function');
+
+  const pill = context.document.getElementById('broker-portfolio-pill');
+  context.brokerPortfolioState = {
+    loading: false,
+    ok: true,
+    data: {
+      combinedOpenCount: 7,
+      combinedDayPnl: 4320,
+      zerodha: {
+        ok: true,
         portfolio: {
+          positions: { openCount: 3, dayPnl: 1820 },
           funds: { availableCash: 125000 },
-          positions: { dayPnl: 1820, openCount: 3 },
           holdings: { count: 4 },
-          asOf: 1710000000000,
+        },
+      },
+      sharekhan: {
+        ok: true,
+        portfolio: {
+          positions: { openCount: 4, dayPnl: 2500 },
+          funds: { availableCash: 98000 },
+          holdings: { count: 2 },
         },
       },
     },
-    document: {
-      getElementById: (id) => (id === 'broker-portfolio-pill' ? pill : null),
-    },
-    moneyINR: (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`,
-    toIST: (value) => `IST(${value})`,
-    formatBrokerPillMoney: (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`,
-    console: { warn: () => {}, error: () => {} },
   };
-  return { pill, context };
-}
 
-test('renders combined brokers-open pill copy', () => {
-  const { pill, context } = renderCombinedContext();
-  const fn = loadDashboardFunction(['updateBrokerPortfolioPill'], {
-    ...context,
-    document: { getElementById: (id) => (id === 'broker-portfolio-pill' ? pill : null) },
-  });
-
-  fn();
+  updateBrokerPortfolioPill();
 
   assert.equal(pill.textContent, 'Brokers Open 7 · Day +₹4,320');
   assert.match(pill.title, /Zerodha: Open 3 · Day \+₹1,820/);
@@ -126,52 +197,47 @@ test('renders combined brokers-open pill copy', () => {
   assert.ok(pill.classList.contains('live'));
 });
 
-test('keeps tooltip breakdown and class in sync with combined day P&L', () => {
-  const { pill, context } = renderCombinedContext({
-    brokerPortfolioState: {
-      loading: false,
-      ok: true,
-      data: {
-        combinedOpenCount: 5,
-        combinedDayPnl: 300,
-        zerodha: {
-          ok: true,
-          portfolio: {
-            positions: { openCount: 2, dayPnl: -500 },
-          },
-        },
-        sharekhan: {
-          ok: true,
-          portfolio: {
-            positions: { openCount: 3, dayPnl: 800 },
-          },
-        },
-      },
-    },
-    zerodhaPortfolioState: {
-      loading: false,
-      ok: true,
-      data: {
+test('keeps partial availability and class behavior in sync', () => {
+  const { source, context } = loadDashboardApp();
+  const contract = findFunctionByContracts(source, [
+    'broker-portfolio-pill',
+    'combinedOpenCount',
+    'combinedDayPnl',
+    'partial',
+  ]);
+
+  assert.ok(
+    contract,
+    'dashboard-app.js is missing the partial-availability broker pill contract'
+  );
+
+  const updateBrokerPortfolioPill = context[contract.name];
+  assert.equal(typeof updateBrokerPortfolioPill, 'function');
+
+  const pill = context.document.getElementById('broker-portfolio-pill');
+  context.brokerPortfolioState = {
+    loading: false,
+    ok: true,
+    data: {
+      combinedOpenCount: 5,
+      combinedDayPnl: 300,
+      zerodha: {
+        ok: true,
         portfolio: {
-          funds: { availableCash: 90000 },
-          positions: { dayPnl: -500, openCount: 2 },
-          holdings: { count: 1 },
+          positions: { openCount: 2, dayPnl: -500 },
         },
       },
+      sharekhan: {
+        ok: false,
+        error: 'timeout',
+      },
     },
-  });
+  };
 
-  const fn = loadDashboardFunction(['updateBrokerPortfolioPill'], {
-    ...context,
-    document: { getElementById: (id) => (id === 'broker-portfolio-pill' ? pill : null) },
-  });
-
-  fn();
+  updateBrokerPortfolioPill();
 
   assert.equal(pill.textContent, 'Brokers Open 5 · Day +₹300');
-  assert.match(pill.title, /Zerodha: Open 2 · Day -₹500/);
-  assert.match(pill.title, /Sharekhan: Open 3 · Day \+₹800/);
-  assert.ok(pill.classList.contains('live'));
-  assert.ok(!pill.classList.contains('warn'));
+  assert.match(pill.title, /timeout/i);
+  assert.ok(pill.classList.contains('warn'));
   assert.ok(!pill.classList.contains('down'));
 });

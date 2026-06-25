@@ -4,6 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
+const TradeRules = require('../trade_rules.js');
+const SimulationEngine = require('../simulation_engine.js');
+
 const DASHBOARD_APP_PATH = path.join(__dirname, '..', 'dashboard-app.js');
 
 function extractFunctionSource(source, functionName) {
@@ -36,19 +39,128 @@ function extractFunctionSource(source, functionName) {
   return null;
 }
 
-function loadAggregateFunction(candidates, context = {}) {
-  const source = fs.readFileSync(DASHBOARD_APP_PATH, 'utf8');
-  for (const functionName of candidates) {
-    const fnSource = extractFunctionSource(source, functionName);
-    if (fnSource) return vm.runInNewContext(`(${fnSource})`, context);
-  }
-  throw new Error(`None of these functions were found: ${candidates.join(', ')}`);
+function makeElement() {
+  return {
+    style: {},
+    className: '',
+    textContent: '',
+    innerHTML: '',
+    title: '',
+    value: '',
+    disabled: false,
+    classList: {
+      add() {},
+      remove() {},
+      toggle() {},
+      contains() { return false; },
+    },
+    appendChild() {},
+    removeChild() {},
+    addEventListener() {},
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    contains() { return false; },
+    scrollIntoView() {},
+    setAttribute() {},
+  };
 }
 
-test('aggregates combined open count and day P&L across brokers', () => {
-  const aggregateBrokerPortfolioState = loadAggregateFunction([
-    'aggregateBrokerPortfolioState',
+function createSandbox() {
+  const elementCache = new Map();
+  const document = {
+    getElementById(id) {
+      if (!elementCache.has(id)) elementCache.set(id, makeElement());
+      return elementCache.get(id);
+    },
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    addEventListener: () => {},
+    body: makeElement(),
+  };
+  const window = {
+    __DASHBOARD_ROUTE__: {},
+    document,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+  window.window = window;
+  return {
+    window,
+    document,
+    localStorage: {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    },
+    location: { protocol: 'file:', origin: 'http://localhost:3001' },
+    fetch: async () => ({ ok: true, json: async () => ({ ok: true }) }),
+    AbortSignal: { timeout: () => ({}) },
+    console: { log() {}, warn() {}, error() {}, info() {}, debug() {} },
+    setTimeout: () => 0,
+    setInterval: () => 0,
+    clearTimeout() {},
+    clearInterval() {},
+    Promise,
+    Date,
+    Math,
+    JSON,
+    Number,
+    String,
+    Boolean,
+    RegExp,
+    Array,
+    Set,
+    Map,
+    WeakMap,
+    WeakSet,
+    Object,
+    Error,
+    TypeError,
+    EventSource: function EventSource() {},
+    alert: () => {},
+    TradeRules,
+    SimulationEngine,
+  };
+}
+
+function loadDashboardApp() {
+  const source = fs.readFileSync(DASHBOARD_APP_PATH, 'utf8');
+  const context = createSandbox();
+  vm.runInNewContext(source, context, { timeout: 1500 });
+  return { source, context };
+}
+
+function findFunctionByContracts(source, requiredSnippets) {
+  const candidates = [];
+  const seen = new Set();
+  const pattern = /(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/g;
+  let match;
+  while ((match = pattern.exec(source))) {
+    const name = match[1];
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const fnSource = extractFunctionSource(source, name);
+    if (fnSource && requiredSnippets.every((snippet) => fnSource.includes(snippet))) {
+      candidates.push({ name, fnSource });
+    }
+  }
+  return candidates[0] || null;
+}
+
+test('aggregates broker state without exact helper names', () => {
+  const { source, context } = loadDashboardApp();
+  const aggregate = findFunctionByContracts(source, [
+    'combinedOpenCount',
+    'combinedDayPnl',
   ]);
+
+  assert.ok(
+    aggregate,
+    'dashboard-app.js is missing the combined broker aggregate contract'
+  );
+
+  const aggregateBrokerPortfolioState = context[aggregate.name];
+  assert.equal(typeof aggregateBrokerPortfolioState, 'function');
 
   const result = aggregateBrokerPortfolioState({
     zerodha: {
@@ -68,9 +180,20 @@ test('aggregates combined open count and day P&L across brokers', () => {
 });
 
 test('preserves partial availability when one broker fails', () => {
-  const aggregateBrokerPortfolioState = loadAggregateFunction([
-    'aggregateBrokerPortfolioState',
+  const { source, context } = loadDashboardApp();
+  const aggregate = findFunctionByContracts(source, [
+    'combinedOpenCount',
+    'combinedDayPnl',
+    'partial',
   ]);
+
+  assert.ok(
+    aggregate,
+    'dashboard-app.js is missing the partial-availability aggregate contract'
+  );
+
+  const aggregateBrokerPortfolioState = context[aggregate.name];
+  assert.equal(typeof aggregateBrokerPortfolioState, 'function');
 
   const result = aggregateBrokerPortfolioState({
     zerodha: {
