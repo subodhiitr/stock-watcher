@@ -69,13 +69,16 @@
   .tab-btn:hover,.tab-btn.active{background:var(--accent);color:#000;border-color:var(--accent);}
   .tab-btn.portfolio-tab{margin-left:auto;background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.36);color:var(--yellow);font-weight:800;}
   .tab-btn.portfolio-tab:hover{background:var(--yellow);border-color:var(--yellow);color:#111827;}
-  .tab-btn.zerodha-portfolio-tab{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.34);color:#93c5fd;font-weight:800;}
-  .tab-btn.zerodha-portfolio-tab:hover{background:#60a5fa;border-color:#60a5fa;color:#031126;}
-  .tab-btn.zerodha-portfolio-pill{background:rgba(14,165,233,.12);border-color:rgba(14,165,233,.34);color:var(--accent2);font-weight:800;min-width:220px;text-align:left;}
-  .tab-btn.zerodha-portfolio-pill.live{background:rgba(16,185,129,.14);border-color:rgba(16,185,129,.34);color:var(--green);}
-  .tab-btn.zerodha-portfolio-pill.warn{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.34);color:var(--yellow);}
-  .tab-btn.zerodha-portfolio-pill.down{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.34);color:var(--red);}
-  .tab-btn.zerodha-portfolio-pill:hover{filter:brightness(1.04);}
+  .tab-btn.broker-portfolio-tab{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.34);color:#93c5fd;font-weight:800;}
+  .tab-btn.broker-portfolio-tab:hover{background:#60a5fa;border-color:#60a5fa;color:#031126;}
+  .tab-btn.broker-portfolio-pill{background:rgba(14,165,233,.12);border-color:rgba(14,165,233,.34);color:var(--accent2);font-weight:800;min-width:220px;text-align:left;}
+  .tab-btn.broker-portfolio-pill.live{background:rgba(16,185,129,.14);border-color:rgba(16,185,129,.34);color:var(--green);}
+  .tab-btn.broker-portfolio-pill.warn{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.34);color:var(--yellow);}
+  .tab-btn.broker-portfolio-pill.down{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.34);color:var(--red);}
+  .tab-btn.broker-portfolio-pill:hover{filter:brightness(1.04);}
+  .broker-modal-tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap;}
+  .broker-modal-tab{border:1px solid var(--border);border-radius:999px;padding:8px 14px;background:var(--card);color:var(--muted);cursor:pointer;font-size:12px;font-weight:700;}
+  .broker-modal-tab.active{background:rgba(59,130,246,.18);border-color:rgba(59,130,246,.45);color:#93c5fd;}
   .zerodha-positions-dropdown{position:absolute;top:calc(100% + 8px);left:0;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.3);padding:0;min-width:320px;max-height:400px;overflow-y:auto;z-index:1000;}
   .zerodha-positions-dropdown .header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--dim);font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
   .zerodha-positions-dropdown .header-close{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0;width:24px;height:24px;display:flex;align-items:center;justify-content:center;}
@@ -311,7 +314,7 @@
   #fund-modal{justify-content:flex-end;padding:0 0 0 18px;background:rgba(3,12,26,.48);}
   #fund-modal .modal-card.stock-detail{width:min(760px,calc(100vw - 28px));height:100vh;max-height:100vh;border-radius:14px 0 0 14px;border-right:0;overflow:auto;}
 .modal-card.portfolio{max-width:min(1180px,calc(100vw - 36px));max-height:88vh;overflow:auto;}
-.modal-card.zerodha-portfolio{max-width:min(1180px,calc(100vw - 36px));max-height:88vh;overflow:auto;}
+.modal-card.broker-portfolio{max-width:min(1180px,calc(100vw - 36px));max-height:88vh;overflow:auto;}
 .modal-card.open-trades{max-width:min(1120px,calc(100vw - 36px));max-height:86vh;overflow:auto;}
 .modal-card.fresh-news{max-width:min(1120px,calc(100vw - 36px));max-height:86vh;overflow:auto;}
 .modal-card.settings{max-width:min(1040px,calc(100vw - 36px));max-height:88vh;overflow:auto;}
@@ -405,7 +408,7 @@
   .settings-key{font-family:'Space Mono',monospace;font-weight:700;color:var(--accent2);white-space:normal;overflow-wrap:anywhere;}
   .settings-value{font-family:'Space Mono',monospace;font-weight:700;white-space:normal;overflow-wrap:anywhere;}
   .settings-desc{color:var(--muted);line-height:1.45;white-space:normal;overflow-wrap:anywhere;}
-  @media(max-width:820px){.portfolio-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.modal-card.portfolio{max-width:calc(100vw - 24px);}.modal-card.zerodha-portfolio{max-width:calc(100vw - 24px);}}
+  @media(max-width:820px){.portfolio-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.modal-card.portfolio{max-width:calc(100vw - 24px);}.modal-card.broker-portfolio{max-width:calc(100vw - 24px);}}
   @media(max-width:820px){.settings-summary{grid-template-columns:1fr;}.modal-card.settings{max-width:calc(100vw - 24px);}.tab-btn.portfolio-tab{margin-left:0;}}
   .stock-detail-title{font-weight:700;margin-bottom:10px;font-size:15px;}
   .stock-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
@@ -470,7 +473,7 @@
   .chat-suggestions{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 10px;}
   .chat-sug{padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:11px;cursor:pointer;transition:all .15s;}
   .chat-sug:hover{border-color:var(--accent);color:var(--accent);}
-  @media(max-width:900px){#setup-card-row{grid-template-columns:repeat(2,minmax(0,1fr));}.action-metric{flex:1 1 140px;}#search-box{margin-left:0;}.tab-btn.portfolio-tab{margin-left:0;}.tab-btn.zerodha-portfolio-pill{min-width:170px;}}
+  @media(max-width:900px){#setup-card-row{grid-template-columns:repeat(2,minmax(0,1fr));}.action-metric{flex:1 1 140px;}#search-box{margin-left:0;}.tab-btn.portfolio-tab{margin-left:0;}.tab-btn.broker-portfolio-pill{min-width:170px;}}
   @media(max-width:760px){#fund-chat-panel{width:calc(100vw - 24px);right:12px;bottom:80px;}#scroll-top-fab{right:6px;width:32px;height:46px;font-size:18px;}#fund-modal .modal-card.stock-detail{width:calc(100vw - 12px);border-radius:12px 0 0 12px;}#setup-card-row{grid-template-columns:1fr;}#top-action-bar{position:relative;top:auto}.chat-msg table{font-size:11px}.chat-msg th,.chat-msg td{padding:4px 5px;}}
   @media(max-width:640px){#table-wrap{border:0;background:transparent;overflow:visible;}#table-wrap table{min-width:0;}#table-wrap thead{display:none;}#stock-tbody{display:block;}#stock-tbody tr{display:block;margin-bottom:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden;}#stock-tbody td{display:flex;justify-content:space-between;gap:12px;white-space:normal;border-bottom:1px solid rgba(30,45,66,.45);padding:9px 10px;}#stock-tbody td:last-child{border-bottom:0;}#stock-tbody td::before{content:attr(data-label);color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px;min-width:72px;}#stock-tbody td:first-child::before{content:'';}#table-wrap th:nth-child(2),#table-wrap td:nth-child(2),#table-wrap th:nth-child(6),#table-wrap td:nth-child(6){position:static;box-shadow:none;background:transparent;}.table-scroll-tools{display:none;}}
 

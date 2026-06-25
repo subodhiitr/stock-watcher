@@ -769,8 +769,12 @@ let brokerMode = ['paper', 'zerodha_dry_run', 'zerodha_live', 'sharekhan_live'].
   : 'paper';
 let brokerConnectionStatus = null; // { mode, zerodha: { credentialsLoaded, clientsInitialized, pollerRunning, failureCount, isDisabled } }
 let brokerRefreshState = { busy:false, ok:null, message:'' };
-let zerodhaPortfolioState = { loading:false, ok:false, data:null, error:'' };
-let zerodhaPositionsPanelOpen = false;
+let brokerPortfolioState = {
+  activeTab: 'zerodha',
+  zerodha: { loading:false, ok:false, data:null, error:'' },
+  sharekhan: { loading:false, ok:false, data:null, error:'' },
+};
+let brokerPositionsPanelOpen = false;
 const COLUMN_PRESET_KEY = 'stock-watcher-column-preset';
 let columnPreset = localStorage.getItem(COLUMN_PRESET_KEY) || 'trading';
 let notificationsOpen = false;
@@ -2696,8 +2700,8 @@ function renderPortfolioModal() {
       <div class="portfolio-card"><div class="label">Poller</div><div class="value">${brokerConnectionStatus?.zerodha?.pollerRunning ? '🟢 Running' : '⚫ Stopped'}</div></div>
       <div class="portfolio-card"><div class="label">Failures</div><div class="value">${brokerConnectionStatus?.zerodha?.failureCount || 0} / 3 (threshold)</div></div>
       <div class="portfolio-card"><div class="label">Live Status</div><div class="value">${brokerConnectionStatus?.zerodha?.isDisabled ? '🔴 Disabled' : '🟢 Enabled'}</div></div>
-      <div class="portfolio-card"><div class="label">Zerodha cash</div><div class="value">${zerodhaPortfolioState?.ok ? moneyINR(zerodhaPortfolioState?.data?.portfolio?.funds?.availableCash || 0) : '--'}</div></div>
-      <div class="portfolio-card"><div class="label">Zerodha day P&L</div><div class="value ${Number(zerodhaPortfolioState?.data?.portfolio?.positions?.dayPnl || 0) < 0 ? 'down' : ''}">${zerodhaPortfolioState?.ok ? moneyINR(zerodhaPortfolioState?.data?.portfolio?.positions?.dayPnl || 0) : '--'}</div></div>
+      <div class="portfolio-card"><div class="label">Broker open positions</div><div class="value">${Number(aggregateBrokerPortfolioState(brokerPortfolioState)?.combinedOpenCount || 0).toLocaleString('en-IN')}</div></div>
+      <div class="portfolio-card"><div class="label">Broker day P&L</div><div class="value ${Number(aggregateBrokerPortfolioState(brokerPortfolioState)?.combinedDayPnl || 0) < 0 ? 'down' : ''}">${moneyINR(aggregateBrokerPortfolioState(brokerPortfolioState)?.combinedDayPnl || 0)}</div></div>
     </div>
     <div class="portfolio-section-title">Recent Trade Confirmations</div>
     <div class="portfolio-table-wrap" id="zerodha-confirmations-table">
@@ -3045,84 +3049,162 @@ function formatZerodhaOrder(order) {
   ].filter(v => v != null && v !== '').join(' ');
 }
 
-function formatZerodhaPillMoney(v) {
+function formatBrokerPillMoney(v) {
   const n = Number(v || 0);
   const abs = Math.abs(n);
   const compact = abs >= 10000000 ? `${(n / 10000000).toFixed(2)}Cr` : abs >= 100000 ? `${(n / 100000).toFixed(2)}L` : `${Math.round(n).toLocaleString('en-IN')}`;
   return `${n < 0 ? '-' : ''}₹${compact.replace('-', '')}`;
 }
 
-function updateZerodhaPortfolioPill() {
-  const pill = document.getElementById('zerodha-portfolio-pill');
-  if (!pill) return;
-  const brokerName = brokerMode === 'sharekhan_live' ? 'Sharekhan' : 'Zerodha';
-  pill.classList.remove('live', 'warn', 'down');
+function normalizeBrokerPortfolioSlice(slice) {
+  if (!slice || typeof slice !== 'object') return { ok:false, error:'', portfolio:null };
+  const portfolio = slice?.data?.portfolio || slice?.portfolio || null;
+  return {
+    ok: !!(slice.ok && portfolio),
+    error: String(slice.error || ''),
+    portfolio,
+  };
+}
 
-  if (zerodhaPortfolioState.loading) {
-    pill.textContent = `${brokerName} ...`;
-    pill.title = `Fetching ${brokerName} portfolio state... Click for positions`;
+function aggregateBrokerPortfolioState(rawState = null) {
+  const source = rawState || brokerPortfolioState || {};
+  const normalizedSource = source?.data && (source?.data?.zerodha || source?.data?.sharekhan)
+    ? source.data
+    : source;
+  const zerodha = normalizeBrokerPortfolioSlice(normalizedSource?.zerodha);
+  const sharekhan = normalizeBrokerPortfolioSlice(normalizedSource?.sharekhan);
+  const brokers = [
+    { key:'zerodha', label:'Zerodha', ...zerodha },
+    { key:'sharekhan', label:'Sharekhan', ...sharekhan },
+  ];
+  const available = brokers.filter(b => b.ok && b.portfolio);
+  const combinedOpenCount = available.reduce((sum, broker) => sum + Number(broker.portfolio?.positions?.openCount || 0), 0);
+  const combinedDayPnl = available.reduce((sum, broker) => sum + Number(broker.portfolio?.positions?.dayPnl || 0), 0);
+  const partialAvailability = available.length > 0 && available.length < brokers.length;
+  const hasAnyData = available.length > 0;
+  const missing = brokers.filter(b => !b.ok).map(b => `${b.label}${b.error ? ` (${b.error})` : ''}`);
+  return {
+    combinedOpenCount,
+    combinedDayPnl,
+    partialAvailability,
+    hasAnyData,
+    missing,
+    zerodha,
+    sharekhan,
+  };
+}
+
+function getBrokerPortfolioStateForRender() {
+  const externalState = globalThis?.brokerPortfolioState;
+  if (externalState && typeof externalState === 'object' && externalState !== brokerPortfolioState) {
+    return externalState;
+  }
+  return brokerPortfolioState;
+}
+
+function updateBrokerPortfolioPill() {
+  const pill = document.getElementById('broker-portfolio-pill');
+  if (!pill) return;
+  pill.classList.remove('live', 'warn', 'down');
+  const state = getBrokerPortfolioStateForRender();
+  const aggregate = aggregateBrokerPortfolioState(state);
+  const loading = !!(state?.zerodha?.loading || state?.sharekhan?.loading || state?.loading);
+
+  if (loading && !aggregate.hasAnyData) {
+    pill.textContent = 'Brokers ...';
+    pill.title = 'Fetching broker portfolio state... Click for positions';
     pill.classList.add('warn');
     return;
   }
 
-  if (!zerodhaPortfolioState.ok || !zerodhaPortfolioState.data?.portfolio) {
-    pill.textContent = `${brokerName} N/A`;
-    pill.title = zerodhaPortfolioState.error || `${brokerName} portfolio is unavailable.`;
+  if (!aggregate.hasAnyData) {
+    pill.textContent = 'Brokers N/A';
+    pill.title = aggregate.missing.join(' | ') || 'Broker portfolio is unavailable.';
     pill.classList.add('down');
     return;
   }
 
-  const p = zerodhaPortfolioState.data.portfolio;
-  const cash = Number(p?.funds?.availableCash || 0);
-  const dayPnl = Number(p?.positions?.dayPnl || 0);
-  const openCount = Number(p?.positions?.openCount || 0);
-  const holdingsCount = Number(p?.holdings?.count || 0);
-  const asOf = Number(p?.asOf || 0);
+  const dayText = `${aggregate.combinedDayPnl >= 0 ? '+' : ''}${formatBrokerPillMoney(aggregate.combinedDayPnl)}`;
+  const zerodhaDay = Number(aggregate.zerodha?.portfolio?.positions?.dayPnl || 0);
+  const sharekhanDay = Number(aggregate.sharekhan?.portfolio?.positions?.dayPnl || 0);
+  const zerodhaOpen = Number(aggregate.zerodha?.portfolio?.positions?.openCount || 0);
+  const sharekhanOpen = Number(aggregate.sharekhan?.portfolio?.positions?.openCount || 0);
+  const zerodhaDayText = `${zerodhaDay >= 0 ? '+' : ''}${formatBrokerPillMoney(zerodhaDay)}`;
+  const sharekhanDayText = `${sharekhanDay >= 0 ? '+' : ''}${formatBrokerPillMoney(sharekhanDay)}`;
 
-  pill.textContent = `${brokerName} ${formatZerodhaPillMoney(cash)} | P&L ${formatZerodhaPillMoney(dayPnl)}`;
+  pill.textContent = `Brokers Open ${aggregate.combinedOpenCount} · Day ${dayText}`;
   pill.title = [
-    `Available cash: ${moneyINR(cash)}`,
-    `Day P&L: ${moneyINR(dayPnl)}`,
-    `Open positions: ${openCount}`,
-    `Holdings: ${holdingsCount}`,
-    `As of: ${asOf ? toIST(asOf) : '--'}`,
+    `Zerodha: Open ${zerodhaOpen} · Day ${zerodhaDayText}`,
+    `Sharekhan: Open ${sharekhanOpen} · Day ${sharekhanDayText}`,
+    aggregate.partialAvailability
+      ? `Partial availability: ${aggregate.missing.join(', ')}`
+      : 'Both brokers available',
     'Click to view positions',
   ].join(' | ');
-  pill.classList.add(dayPnl >= 0 ? 'live' : 'warn');
+
+  if (!aggregate.hasAnyData) pill.classList.add('down');
+  else if (aggregate.partialAvailability || aggregate.combinedDayPnl < 0) pill.classList.add('warn');
+  else pill.classList.add('live');
 }
 
-function toggleZerodhaPositionsPanel() {
-  const panel = document.getElementById('zerodha-positions-panel');
+function toggleBrokerPositionsPanel() {
+  const panel = document.getElementById('broker-positions-panel');
   if (!panel) return;
-  zerodhaPositionsPanelOpen = !zerodhaPositionsPanelOpen;
-  if (zerodhaPositionsPanelOpen) {
-    renderZerodhaPositionsPanel();
+  brokerPositionsPanelOpen = !brokerPositionsPanelOpen;
+  if (brokerPositionsPanelOpen) {
+    renderBrokerPositionsPanel();
   } else {
     panel.style.display = 'none';
   }
 }
 
-function closeZerodhaPositionsPanel() {
-  const panel = document.getElementById('zerodha-positions-panel');
+function closeBrokerPositionsPanel() {
+  const panel = document.getElementById('broker-positions-panel');
   if (panel) panel.style.display = 'none';
-  zerodhaPositionsPanelOpen = false;
+  brokerPositionsPanelOpen = false;
 }
 
-function renderZerodhaPortfolioModal() {
-  const body = document.getElementById('zerodha-portfolio-modal-body');
+function getActiveBrokerPortfolioSlice(state = brokerPortfolioState) {
+  const activeTab = state?.activeTab === 'sharekhan' ? 'sharekhan' : 'zerodha';
+  const source = state?.data && (state?.data?.zerodha || state?.data?.sharekhan) ? state.data : state;
+  const slice = normalizeBrokerPortfolioSlice(source?.[activeTab]);
+  return { activeTab, slice };
+}
+
+function setBrokerPortfolioTab(tab) {
+  brokerPortfolioState.activeTab = tab === 'sharekhan' ? 'sharekhan' : 'zerodha';
+  renderBrokerPortfolioModal();
+}
+
+function renderBrokerPortfolioModal() {
+  const body = document.getElementById('broker-portfolio-modal-body');
   if (!body) return;
+  const state = getBrokerPortfolioStateForRender();
+  const activeTab = state?.activeTab === 'sharekhan' ? 'sharekhan' : 'zerodha';
+  const aggregate = aggregateBrokerPortfolioState(state);
+  const active = getActiveBrokerPortfolioSlice({ ...state, activeTab });
+  const activeLabel = active.activeTab === 'sharekhan' ? 'Sharekhan' : 'Zerodha';
+  const activeLoading = !!state?.[active.activeTab]?.loading;
 
-  if (zerodhaPortfolioState.loading) {
-    body.innerHTML = `<div style="color:var(--muted);padding:16px">Loading Zerodha portfolio...</div>`;
+  if (activeLoading && !active.slice.ok) {
+    body.innerHTML = `<div class="broker-modal-tabs">
+      <button class="broker-modal-tab ${activeTab === 'zerodha' ? 'active' : ''}" onclick="setBrokerPortfolioTab('zerodha')">Zerodha</button>
+      <button class="broker-modal-tab ${activeTab === 'sharekhan' ? 'active' : ''}" onclick="setBrokerPortfolioTab('sharekhan')">Sharekhan</button>
+    </div>
+    <div style="color:var(--muted);padding:16px">Loading ${activeLabel} portfolio...</div>`;
     return;
   }
 
-  if (!zerodhaPortfolioState.ok || !zerodhaPortfolioState.data?.portfolio) {
-    body.innerHTML = `<div style="color:var(--red);padding:16px">${escapeHTML(zerodhaPortfolioState.error || 'Portfolio data not available')}</div>`;
+  if (!active.slice.ok || !active.slice.portfolio) {
+    body.innerHTML = `<div class="broker-modal-tabs">
+      <button class="broker-modal-tab ${activeTab === 'zerodha' ? 'active' : ''}" onclick="setBrokerPortfolioTab('zerodha')">Zerodha</button>
+      <button class="broker-modal-tab ${activeTab === 'sharekhan' ? 'active' : ''}" onclick="setBrokerPortfolioTab('sharekhan')">Sharekhan</button>
+    </div>
+    <div style="color:var(--red);padding:16px">${escapeHTML(active.slice.error || `${activeLabel} portfolio data not available`)}</div>`;
     return;
   }
 
-  const p = zerodhaPortfolioState.data.portfolio;
+  const p = active.slice.portfolio;
   const funds = p?.funds || {};
   const holdings = Array.isArray(p?.holdings?.list) ? p.holdings.list : [];
   const positions = Array.isArray(p?.positions?.list) ? p.positions.list : [];
@@ -3148,7 +3230,9 @@ function renderZerodhaPortfolioModal() {
   const positionRows = positions.length
     ? positions.map(pos => {
       const pnl = Number(pos.pnl || 0);
+      const brokerLabel = activeLabel;
       return `<tr>
+        <td>${escapeHTML(brokerLabel)}</td>
         <td>${escapeHTML(pos.symbol || '--')}</td>
         <td>${Number(pos.qty || 0).toLocaleString('en-IN')}</td>
         <td>${moneyINR(pos.avgPrice)}</td>
@@ -3157,10 +3241,18 @@ function renderZerodhaPortfolioModal() {
         <td class="portfolio-pnl ${portfolioValueClass(pnl)}">${moneyINR(pnl)}</td>
       </tr>`;
     }).join('')
-    : `<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:16px">No open positions</td></tr>`;
+    : `<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:16px">No open positions</td></tr>`;
+
+  const combinedDayText = `${aggregate.combinedDayPnl >= 0 ? '+' : ''}${moneyINR(aggregate.combinedDayPnl)}`;
 
   body.innerHTML = `
+    <div class="broker-modal-tabs">
+      <button class="broker-modal-tab ${activeTab === 'zerodha' ? 'active' : ''}" onclick="setBrokerPortfolioTab('zerodha')">Zerodha</button>
+      <button class="broker-modal-tab ${activeTab === 'sharekhan' ? 'active' : ''}" onclick="setBrokerPortfolioTab('sharekhan')">Sharekhan</button>
+    </div>
     <div class="portfolio-grid">
+      <div class="portfolio-card"><div class="label">Combined open positions</div><div class="value">${Number(aggregate.combinedOpenCount || 0).toLocaleString('en-IN')}</div></div>
+      <div class="portfolio-card"><div class="label">Combined day P&L</div><div class="value ${portfolioValueClass(aggregate.combinedDayPnl || 0)}">${combinedDayText}</div></div>
       <div class="portfolio-card"><div class="label">Available cash</div><div class="value">${moneyINR(funds.availableCash)}</div></div>
       <div class="portfolio-card"><div class="label">Utilized margin</div><div class="value">${moneyINR(funds.utilizedMargin)}</div></div>
       <div class="portfolio-card"><div class="label">Net equity</div><div class="value">${moneyINR(funds.netEquity)}</div></div>
@@ -3179,43 +3271,49 @@ function renderZerodhaPortfolioModal() {
     </div>
     <div class="portfolio-section-title">Open Positions (${positions.length})</div>
     <div class="portfolio-table-wrap">
-      <table class="portfolio-table" style="min-width:820px">
-        <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>Invested</th><th>P&L</th></tr></thead>
+      <table class="portfolio-table" style="min-width:920px">
+        <thead><tr><th>Broker</th><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>Invested</th><th>P&L</th></tr></thead>
         <tbody>${positionRows}</tbody>
       </table>
     </div>
   `;
 }
 
-async function openZerodhaPortfolioModal() {
-  const modal = document.getElementById('zerodha-portfolio-modal');
+async function openBrokerPortfolioModal() {
+  const modal = document.getElementById('broker-portfolio-modal');
   if (modal) modal.style.display = 'flex';
-  renderZerodhaPortfolioModal();
-  if (!zerodhaPortfolioState.ok && !zerodhaPortfolioState.loading) {
-    await pollZerodhaPortfolioState();
+  renderBrokerPortfolioModal();
+  const aggregate = aggregateBrokerPortfolioState(brokerPortfolioState);
+  if (!aggregate.hasAnyData) {
+    await pollBrokerPortfolioState();
   }
 }
 
-function closeZerodhaPortfolioModal(e) {
+function closeBrokerPortfolioModal(e) {
   if (e) e.stopPropagation();
-  const modal = document.getElementById('zerodha-portfolio-modal');
+  const modal = document.getElementById('broker-portfolio-modal');
   if (modal) modal.style.display = 'none';
 }
 
-function renderZerodhaPositionsPanel() {
-  const panel = document.getElementById('zerodha-positions-panel');
+function renderBrokerPositionsPanel() {
+  const panel = document.getElementById('broker-positions-panel');
   if (!panel) return;
+  const aggregate = aggregateBrokerPortfolioState(brokerPortfolioState);
 
-  if (!zerodhaPortfolioState.ok || !zerodhaPortfolioState.data) {
+  if (!aggregate.hasAnyData) {
     panel.innerHTML = `<div class="empty">Portfolio data not available</div>`;
     panel.style.display = 'block';
     return;
   }
 
-  const p = zerodhaPortfolioState.data.portfolio;
-  const positions = p?.positions || {};
-  const openCount = Number(positions.openCount || 0);
-  const posList = positions.list || [];
+  const posList = [];
+  for (const broker of ['zerodha', 'sharekhan']) {
+    const slice = aggregate[broker];
+    if (!slice?.portfolio) continue;
+    const rows = Array.isArray(slice.portfolio?.positions?.list) ? slice.portfolio.positions.list : [];
+    rows.forEach((row) => posList.push({ ...row, brokerLabel: broker === 'sharekhan' ? 'Sharekhan' : 'Zerodha' }));
+  }
+  const openCount = posList.length;
 
   if (openCount === 0) {
     panel.innerHTML = `<div class="empty">No open positions</div>`;
@@ -3223,31 +3321,42 @@ function renderZerodhaPositionsPanel() {
     return;
   }
 
-  const header = `<div class="header"><span>Open Positions (${openCount})</span><button class="header-close" onclick="closeZerodhaPositionsPanel()">×</button></div>`;
+  const header = `<div class="header"><span>Open Positions (${openCount})</span><button class="header-close" onclick="closeBrokerPositionsPanel()">×</button></div>`;
   let rows = '';
   for (const pos of posList.slice(0, 10)) {
-    const pnlColor = pos.pnl >= 0 ? 'var(--green)' : 'var(--red)';
-    const pnlSign = pos.pnl >= 0 ? '+' : '';
+    const pnl = Number(pos.pnl || 0);
+    const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+    const pnlSign = pnl >= 0 ? '+' : '';
     rows += `<div class="pos-row">
-      <div class="pos-symbol">${pos.symbol}</div>
+      <div class="pos-symbol">${pos.brokerLabel} · ${pos.symbol}</div>
       <div class="pos-qty">${Math.round(pos.qty)}</div>
-      <div class="pos-pnl" style="color:${pnlColor}">${pnlSign}${moneyINR(pos.pnl)}</div>
+      <div class="pos-pnl" style="color:${pnlColor}">${pnlSign}${moneyINR(pnl)}</div>
     </div>`;
   }
   panel.innerHTML = header + rows;
   panel.style.display = 'block';
 }
 
-function setupZerodhaPositionsPanelClickAway() {
+function setupBrokerPositionsPanelClickAway() {
   document.addEventListener('click', (e) => {
-    if (!zerodhaPositionsPanelOpen) return;
-    const panel = document.getElementById('zerodha-positions-panel');
-    const pill = document.getElementById('zerodha-portfolio-pill');
+    if (!brokerPositionsPanelOpen) return;
+    const panel = document.getElementById('broker-positions-panel');
+    const pill = document.getElementById('broker-portfolio-pill');
     if (panel && pill && !panel.contains(e.target) && !pill.contains(e.target)) {
-      closeZerodhaPositionsPanel();
+      closeBrokerPositionsPanel();
     }
   });
 }
+
+// Backward-compatible aliases (legacy templates/tests)
+function updateZerodhaPortfolioPill() { updateBrokerPortfolioPill(); }
+function toggleZerodhaPositionsPanel() { toggleBrokerPositionsPanel(); }
+function closeZerodhaPositionsPanel() { closeBrokerPositionsPanel(); }
+function renderZerodhaPortfolioModal() { renderBrokerPortfolioModal(); }
+async function openZerodhaPortfolioModal() { return openBrokerPortfolioModal(); }
+function closeZerodhaPortfolioModal(e) { closeBrokerPortfolioModal(e); }
+function renderZerodhaPositionsPanel() { renderBrokerPositionsPanel(); }
+function setupZerodhaPositionsPanelClickAway() { setupBrokerPositionsPanelClickAway(); }
 
 function updateBrokerModeButton() {
   const btn = document.getElementById('broker-mode-btn');
@@ -7477,7 +7586,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   applyColumnPreset();
   updateSimulationButton();
   updateBrokerModeButton();
-  setupZerodhaPositionsPanelClickAway();
+  setupBrokerPositionsPanelClickAway();
   document.querySelectorAll('.source-card').forEach(card => {
     const src = card.dataset.source;
     card.addEventListener('keydown', e => {
@@ -7508,13 +7617,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Start polling broker + live portfolio status
   await Promise.all([
     pollBrokerStatus(),
-    pollZerodhaPortfolioState(),
+    pollBrokerPortfolioState(),
   ]);
   setInterval(async () => {
     await Promise.all([
       refreshSimulationStatusFromServer({ silent: true }),
       pollBrokerStatus(),
-      pollZerodhaPortfolioState(),
+      pollBrokerPortfolioState(),
     ]);
   }, 30000);
 });
@@ -7534,37 +7643,46 @@ async function pollBrokerStatus() {
   }
 }
 
-async function pollZerodhaPortfolioState() {
-  const useSharekhan = brokerMode === 'sharekhan_live';
-  const canFetch = useSharekhan ? !!brokerConnectionStatus?.sharekhan?.clientsInitialized : !!brokerConnectionStatus?.zerodha?.clientsInitialized;
-  if (!canFetch) {
-    zerodhaPortfolioState = { loading:false, ok:false, data:null, error: `${useSharekhan ? 'Sharekhan' : 'Zerodha'} client is not initialized` };
-    updateZerodhaPortfolioPill();
-    return;
-  }
+async function pollBrokerPortfolioState() {
+  const nextState = {
+    activeTab: brokerPortfolioState.activeTab === 'sharekhan' ? 'sharekhan' : 'zerodha',
+    zerodha: { ...brokerPortfolioState.zerodha, loading:true, error:'' },
+    sharekhan: { ...brokerPortfolioState.sharekhan, loading:true, error:'' },
+  };
+  brokerPortfolioState = nextState;
+  updateBrokerPortfolioPill();
 
-  zerodhaPortfolioState = { ...zerodhaPortfolioState, loading:true, error:'' };
-  updateZerodhaPortfolioPill();
-  try {
-    const endpoint = useSharekhan ? SHAREKHAN_PORTFOLIO_ENDPOINT : ZERODHA_PORTFOLIO_ENDPOINT;
-    const res = await fetch(endpoint, { signal: AbortSignal.timeout(10000) });
-    const payload = await res.json().catch(() => ({}));
-    if (!res.ok || payload.ok === false) {
-      throw new Error(payload.error || payload.hint || `HTTP ${res.status}`);
+  const brokers = [
+    { key:'zerodha', label:'Zerodha', endpoint: ZERODHA_PORTFOLIO_ENDPOINT, canFetch: !!brokerConnectionStatus?.zerodha?.clientsInitialized },
+    { key:'sharekhan', label:'Sharekhan', endpoint: SHAREKHAN_PORTFOLIO_ENDPOINT, canFetch: !!brokerConnectionStatus?.sharekhan?.clientsInitialized },
+  ];
+
+  await Promise.all(brokers.map(async (broker) => {
+    if (!broker.canFetch) {
+      brokerPortfolioState[broker.key] = { loading:false, ok:false, data:null, error:`${broker.label} client is not initialized` };
+      return;
     }
-    zerodhaPortfolioState = { loading:false, ok:true, data:payload, error:'' };
-  } catch (e) {
-    zerodhaPortfolioState = { loading:false, ok:false, data:null, error:e.message || `Could not fetch ${useSharekhan ? 'Sharekhan' : 'Zerodha'} portfolio` };
-  }
-  updateZerodhaPortfolioPill();
-  if (zerodhaPositionsPanelOpen) {
-    renderZerodhaPositionsPanel();
+    try {
+      const res = await fetch(broker.endpoint, { signal: AbortSignal.timeout(10000) });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || payload.ok === false) {
+        throw new Error(payload.error || payload.hint || `HTTP ${res.status}`);
+      }
+      brokerPortfolioState[broker.key] = { loading:false, ok:true, data:payload, error:'' };
+    } catch (e) {
+      brokerPortfolioState[broker.key] = { loading:false, ok:false, data:null, error:e.message || `Could not fetch ${broker.label} portfolio` };
+    }
+  }));
+
+  updateBrokerPortfolioPill();
+  if (brokerPositionsPanelOpen) {
+    renderBrokerPositionsPanel();
   }
   if (document.getElementById('portfolio-modal')?.style.display === 'flex') {
     renderPortfolioModal();
   }
-  if (document.getElementById('zerodha-portfolio-modal')?.style.display === 'flex') {
-    renderZerodhaPortfolioModal();
+  if (document.getElementById('broker-portfolio-modal')?.style.display === 'flex') {
+    renderBrokerPortfolioModal();
   }
 }
 

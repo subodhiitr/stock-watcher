@@ -147,10 +147,10 @@
       <button class="tab-btn active" id="tab-stocks" onclick="setView('stocks', this)">Stocks</button>
       <button class="tab-btn" id="tab-etfs" onclick="setView('etfs', this)">ETFs</button>
       <button class="tab-btn portfolio-tab" type="button" onclick="openPortfolioModal()">Portfolio</button>
-      <button class="tab-btn zerodha-portfolio-tab" type="button" onclick="openZerodhaPortfolioModal()">Zerodha Portfolio</button>
+      <button class="tab-btn broker-portfolio-tab" type="button" onclick="openBrokerPortfolioModal()">Broker Portfolio</button>
       <div style="position:relative;display:inline-block">
-        <button class="tab-btn zerodha-portfolio-pill" id="zerodha-portfolio-pill" type="button" onclick="toggleZerodhaPositionsPanel()" title="Zerodha live portfolio snapshot">Zerodha --</button>
-        <div id="zerodha-positions-panel" class="zerodha-positions-dropdown" style="display:none"></div>
+        <button class="tab-btn broker-portfolio-pill" id="broker-portfolio-pill" type="button" onclick="toggleBrokerPositionsPanel()" title="Live broker portfolio snapshot">Broker --</button>
+        <div id="broker-positions-panel" class="zerodha-positions-dropdown" style="display:none"></div>
       </div>
       <button class="tab-btn replay-tab" type="button" onclick="runReplayToday()">Replay</button>
       <button class="tab-btn settings-tab" type="button" onclick="openSettingsModal()">Settings</button>
@@ -346,17 +346,17 @@
     </div>
   </div>
 
-  <div id="zerodha-portfolio-modal" class="modal-overlay" style="display:none;" onclick="closeZerodhaPortfolioModal(event)">
-    <div class="modal-card zerodha-portfolio" onclick="event.stopPropagation()">
+  <div id="broker-portfolio-modal" class="modal-overlay" style="display:none;" onclick="closeBrokerPortfolioModal(event)">
+    <div class="modal-card broker-portfolio" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <h3>Zerodha Portfolio</h3>
-        <button class="btn" style="padding:6px 10px;font-size:12px;" onclick="closeZerodhaPortfolioModal(event)">x</button>
+        <h3>Broker Portfolio</h3>
+        <button class="btn" style="padding:6px 10px;font-size:12px;" onclick="closeBrokerPortfolioModal(event)">x</button>
       </div>
-      <div id="zerodha-portfolio-modal-body">
+      <div id="broker-portfolio-modal-body">
         <!-- populated dynamically -->
       </div>
       <div class="modal-actions">
-        <button class="btn" onclick="closeZerodhaPortfolioModal(event)">Close</button>
+        <button class="btn" onclick="closeBrokerPortfolioModal(event)">Close</button>
       </div>
     </div>
   </div>
