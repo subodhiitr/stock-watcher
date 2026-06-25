@@ -41,6 +41,7 @@ const crypto = require('crypto');
 const { fork } = require('child_process');
 const Backtest = require('./backtest_simulation');
 const SimulationEngine = require('./simulation_engine');
+const TradeRules = require('./trade_rules');
 const { runSimulationDomainCycle } = require('./server/simulation-domain');
 const {
   loadRuntimeState,
@@ -93,6 +94,8 @@ const SIM_SNAPSHOT_TTL     = SIM_SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000; 
 const SIMULATION_UNIVERSE_FILE = process.env.SIMULATION_UNIVERSE_FILE || path.join(__dirname, 'simulation_universe.json');
 const INTRADAY_LIVE_REFRESH_MARKET_SEC = 60;
 const INTRADAY_LIVE_REFRESH_OFF_HOURS_SEC = 15 * 60;
+const SIMULATION_MARKET_CACHE_TTL_MS = 60 * 1000;
+const SIMULATION_SYMBOL_META_CACHE_TTL_MS = 5 * 60 * 1000;
 const STOCK_NEWS_TTL       = 30 * 60 * 1000;             // 30 minutes
 const INTRADAY_SIGNAL_TTL  = 2 * 60 * 1000;              // 2 minutes
 const REPLAY_CACHE_MAX     = 30;
@@ -127,6 +130,8 @@ const intradayLiveCache = new Map();
 let intradayLiveRefreshTimer = null;
 let intradayLiveRefreshInFlight = false;
 let intradayLiveRefreshActive = false;
+let simulationMarketCache = { fetchedAt: 0, indices: {} };
+let simulationSymbolMetaCache = { builtAt: 0, bySymbol: new Map() };
 
 function loadPropertiesFile(filePath) {
   try {
@@ -831,10 +836,114 @@ function stopIntradayLiveRefresh(reason = 'manual-stop') {
   console.log(`[intraday-live] Refresh stopped (${reason})`);
 }
 
-function buildServerCandidateFromIntraday(sym, setup, settings) {
+function getSimulationSymbolMetaIndex() {
+  const now = Date.now();
+  if (simulationSymbolMetaCache.bySymbol instanceof Map && now - simulationSymbolMetaCache.builtAt < SIMULATION_SYMBOL_META_CACHE_TTL_MS) {
+    return simulationSymbolMetaCache.bySymbol;
+  }
+  const bySymbol = new Map();
+  const assignMeta = (symbol, name, sector, cap) => {
+    const sym = String(symbol || '').trim().toUpperCase();
+    if (!sym) return;
+    const existing = bySymbol.get(sym) || {};
+    bySymbol.set(sym, {
+      name: existing.name || (name ? String(name) : sym),
+      sector: existing.sector || (sector ? String(sector) : ''),
+      cap: existing.cap || (cap ? String(cap) : ''),
+    });
+  };
+
+  for (const item of loadSavedStocksFile()) {
+    if (item && typeof item === 'object') assignMeta(item.sym || item.symbol, item.name, item.sector, item.cap);
+  }
+
+  const snapshots = loadAllSimulationSnapshots();
+  for (let i = snapshots.length - 1; i >= 0; i -= 1) {
+    const candidates = Array.isArray(snapshots[i]?.candidates) ? snapshots[i].candidates : [];
+    for (const candidate of candidates) {
+      assignMeta(candidate?.symbol, candidate?.name, candidate?.sector, candidate?.cap);
+    }
+  }
+
+  simulationSymbolMetaCache = { builtAt: now, bySymbol };
+  return bySymbol;
+}
+
+function getIstClockParts(value = Date.now()) {
+  const d = new Date(new Date(value).getTime() + 5.5 * 3600 * 1000);
+  if (Number.isNaN(d.getTime())) return { day: null, mins: null };
+  return { day: d.getUTCDay(), mins: d.getUTCHours() * 60 + d.getUTCMinutes() };
+}
+
+function isSimulationEntryWindowTime(value = Date.now()) {
+  const { day, mins } = getIstClockParts(value);
+  return day >= 1 && day <= 5 && mins >= 9 * 60 + 30 && mins < 14 * 60 + 45;
+}
+
+function isSimulationEodSettlementTime(value = Date.now()) {
+  const { day, mins } = getIstClockParts(value);
+  return day === 0 || day === 6 || mins >= 15 * 60 + 15;
+}
+
+function shouldAutoStopSimulation(value = Date.now()) {
+  const { day, mins } = getIstClockParts(value);
+  return day >= 1 && day <= 5 && mins >= 15 * 60 + 30;
+}
+
+function toIstDayKey(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const ist = new Date(d.getTime() + 5.5 * 3600 * 1000);
+  return `${ist.getUTCFullYear()}-${String(ist.getUTCMonth() + 1).padStart(2, '0')}-${String(ist.getUTCDate()).padStart(2, '0')}`;
+}
+
+function sameIstDay(a, b) {
+  const left = toIstDayKey(a);
+  const right = toIstDayKey(b);
+  return !!left && !!right && left === right;
+}
+
+function buildSectorTrendFromCandidates(candidates = []) {
+  const changesBySector = {};
+  for (const candidate of candidates) {
+    const sector = String(candidate?.sector || '').trim();
+    if (!sector) continue;
+    const change = Number(candidate?.quote?.change ?? candidate?.change ?? candidate?.indicators?.dayChange);
+    if (!Number.isFinite(change)) continue;
+    if (!changesBySector[sector]) changesBySector[sector] = [];
+    changesBySector[sector].push(change);
+  }
+  const sectorTrend = {};
+  for (const [sector, changes] of Object.entries(changesBySector)) {
+    if (!changes.length) continue;
+    sectorTrend[sector] = +(changes.reduce((sum, value) => sum + value, 0) / changes.length).toFixed(3);
+  }
+  return sectorTrend;
+}
+
+async function getSimulationMarketContext() {
+  const now = Date.now();
+  if (simulationMarketCache.indices && now - simulationMarketCache.fetchedAt < SIMULATION_MARKET_CACHE_TTL_MS) {
+    return { indices: simulationMarketCache.indices };
+  }
+  try {
+    const indices = await yahooIndices();
+    if (indices && typeof indices === 'object') {
+      simulationMarketCache = { fetchedAt: now, indices };
+      return { indices };
+    }
+  } catch (_) {}
+  return { indices: simulationMarketCache.indices || {} };
+}
+
+function buildServerCandidateFromIntraday(sym, setup, settings, meta = null, asOf = null) {
   if (!setup || typeof setup !== 'object') return null;
   const signal = String(setup.signal || '').toLowerCase();
-  const side = signal === 'buy' || signal === 'sell' ? signal : null;
+  const defaultSide = signal === 'buy' || signal === 'sell' ? signal : null;
+  const asOfTime = asOf || setup?.savedAt || setup?.priceTime || Date.now();
+  const dayChangePct = Number(setup.dayChangePercent ?? setup.dayChangePct ?? setup.dayChange);
+  const highProfitShortTrigger = !defaultSide && TradeRules.checkHighProfitShortTrigger(dayChangePct, asOfTime, settings);
+  const side = highProfitShortTrigger ? 'sell' : defaultSide;
   const price = Number(setup.price);
   const target = Number(setup.target);
   const stop = Number(setup.stop);
@@ -845,17 +954,22 @@ function buildServerCandidateFromIntraday(sym, setup, settings) {
   const stopPct = Number.isFinite(price) && Number.isFinite(stop) && price > 0
     ? Math.abs(stop - price) / price * 100
     : Number(setup.stopPct);
+  const minShortScore = Number(settings.SIMULATION_SHORT_MIN_SCORE) || Number(settings.SIMULATION_MIN_SCORE) || 0;
+  const rawScore = Number(setup.score) || 0;
+  const score = highProfitShortTrigger && Math.abs(rawScore) < minShortScore
+    ? -minShortScore
+    : rawScore;
   const candidate = {
     symbol: sym,
-    name: sym,
+    name: meta?.name || sym,
     assetType: 'stock',
-    sector: '',
-    cap: '',
+    sector: meta?.sector || '',
+    cap: meta?.cap || '',
     price,
     priceAtSnapshot: price,
-    score: Number(setup.score) || 0,
-    rawScore: Number(setup.score) || 0,
-    signal,
+    score,
+    rawScore,
+    signal: side || signal,
     side,
     freshness: {
       stale: !!setup.stale || !!setup.fetchFailed,
@@ -865,8 +979,13 @@ function buildServerCandidateFromIntraday(sym, setup, settings) {
     indicators: {
       ...setup,
       price,
+      setupType: setup.setupType || (highProfitShortTrigger ? 'HIGH_PROFIT_SHORT_TRIGGER' : setup.setupType),
+      setup: setup.setup || (highProfitShortTrigger ? 'High Profit Short Trigger' : setup.setup),
+      entryStatus: setup.entryStatus || (highProfitShortTrigger ? 'Triggered' : setup.entryStatus),
       stopPct: Number.isFinite(stopPct) ? +stopPct.toFixed(3) : null,
-      reasons: Array.isArray(setup.reasons) ? setup.reasons : [],
+      reasons: Array.isArray(setup.reasons)
+        ? (highProfitShortTrigger ? [...setup.reasons, 'High-profit short trigger active'] : setup.reasons)
+        : (highProfitShortTrigger ? ['High-profit short trigger active'] : []),
     },
     quote: { price, change: Number(setup.dayChange) || null },
     cost: {
@@ -882,18 +1001,21 @@ function buildServerCandidateFromIntraday(sym, setup, settings) {
     },
   };
   candidate.derivedSetupType = SimulationEngine.deriveSetupType(candidate, settings);
+  if (!candidate.setupType && highProfitShortTrigger) candidate.setupType = 'HIGH_PROFIT_SHORT_TRIGGER';
+  if (highProfitShortTrigger) candidate.highProfitShortTrigger = true;
   return candidate;
 }
 
-function buildSchedulerCandidatesFromIntradayCache(settings) {
+function buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol = null, asOf = null) {
   const universe = getSimulationUniverseSymbols();
   const symbols = [...universe];
+  const metaBySymbol = symbolMetaBySymbol instanceof Map ? symbolMetaBySymbol : getSimulationSymbolMetaIndex();
   const candidates = [];
   if (!symbols.length) return candidates;
   for (const sym of symbols) {
     const setup = intradayLiveCache.get(sym);
     if (!setup || typeof setup !== 'object') continue;
-    const candidate = buildServerCandidateFromIntraday(sym, setup, settings);
+    const candidate = buildServerCandidateFromIntraday(sym, setup, settings, metaBySymbol.get(sym) || null, asOf);
     if (candidate) candidates.push(candidate);
   }
   return candidates;
@@ -903,21 +1025,101 @@ async function readSchedulerTickInputAsync(settings) {
   if (simulationSchedulerTestInputs && typeof simulationSchedulerTestInputs === 'object') {
     return simulationSchedulerTestInputs;
   }
-  const serverCandidates = buildSchedulerCandidatesFromIntradayCache(settings);
+  const symbolMetaBySymbol = getSimulationSymbolMetaIndex();
+  const asOf = new Date().toISOString();
+  const serverCandidates = buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol, asOf);
   if (serverCandidates.length) {
+    const market = await getSimulationMarketContext();
     return {
-      at: new Date().toISOString(),
+      at: asOf,
       candidates: serverCandidates,
-      market: {},
+      market,
+      sectorTrend: buildSectorTrendFromCandidates(serverCandidates),
     };
   }
-  const loaded = loadSimulationSnapshotsFromAllFiles();
-  const snapshots = Array.isArray(loaded?.snapshots) ? loaded.snapshots : [];
+  const snapshots = loadAllSimulationSnapshots();
   const latest = snapshots.slice().sort((a, b) => new Date(b?.at || 0) - new Date(a?.at || 0))[0] || null;
+  const fallbackCandidates = Array.isArray(latest?.candidates) ? latest.candidates : [];
+  const market = (latest?.market && typeof latest.market === 'object' && Object.keys(latest.market).length)
+    ? latest.market
+    : await getSimulationMarketContext();
   return {
     at: latest?.at || new Date().toISOString(),
-    candidates: Array.isArray(latest?.candidates) ? latest.candidates : [],
-    market: latest?.market || {},
+    candidates: fallbackCandidates,
+    market,
+    sectorTrend: latest?.sectorTrend && typeof latest.sectorTrend === 'object'
+      ? latest.sectorTrend
+      : buildSectorTrendFromCandidates(fallbackCandidates),
+  };
+}
+
+async function buildServerSimulationAnalysisPayload(source = 'server-analysis') {
+  const runtime = loadSimulationRuntime();
+  const overrideSettings = loadTradeSettingsFile().overrides || {};
+  const settings = SimulationEngine.withDefaults ? SimulationEngine.withDefaults(overrideSettings) : overrideSettings;
+  const tickInput = await readSchedulerTickInputAsync(settings);
+  const at = String(tickInput?.at || new Date().toISOString());
+  const candidates = Array.isArray(tickInput?.candidates) ? tickInput.candidates : [];
+  const market = tickInput?.market || {};
+  const sectorTrend = tickInput?.sectorTrend || {};
+  const trades = loadPaperStateFile().trades || [];
+  const openTrades = trades.filter(trade => trade?.status === 'open');
+  const openSymbols = new Set(openTrades.map(trade => String(trade?.symbol || '').toUpperCase()).filter(Boolean));
+  const dayStats = TradeRules.buildDayStats(trades, at, settings, { sameDay: sameIstDay });
+  const entryBlockReason = (sym, setupType = '', time = at) => TradeRules.getEntryBlockReason(sym, setupType, time, dayStats, settings);
+  const topN = Math.max(1, Math.floor(Number(settings.SIMULATION_TOP_N) || 10));
+  const selectedCandidates = SimulationEngine.selectSimulationEntryCandidates(candidates, at, settings, {
+    openSymbols,
+    entryBlockReason,
+    market,
+    sectorTrend,
+    indices: market.indices || {},
+    topN,
+  });
+  const selectedKeys = new Set(selectedCandidates.map(candidate => `${String(candidate?.symbol || '').toUpperCase()}|${String(candidate?.side || candidate?.signal || '').toLowerCase()}`));
+  const rankedCandidates = (Array.isArray(candidates) ? candidates : [])
+    .slice()
+    .sort(SimulationEngine.compareCandidates);
+  const analyzedCandidates = rankedCandidates.map((candidate, index) => {
+    const symbol = String(candidate?.symbol || '').toUpperCase();
+    const side = String(candidate?.side || candidate?.signal || '').toLowerCase();
+    const setupType = candidate?.derivedSetupType || candidate?.setupType || SimulationEngine.deriveSetupType(candidate, settings);
+    const explanation = SimulationEngine.explainCandidateEligibility(candidate, at, settings, {
+      market,
+      sectorTrend,
+      indices: market.indices || {},
+    });
+    let block = entryBlockReason(symbol, setupType, at);
+    if (/profit re-entry cooldown/i.test(String(block || '')) && SimulationEngine.isCandidateContinuationReentryAllowed(candidate, settings)) {
+      block = '';
+    }
+    const selected = selectedKeys.has(`${symbol}|${side}`);
+    return {
+      ...candidate,
+      setupType,
+      derivedSetupType: setupType,
+      selected,
+      selectionRank: selected ? index + 1 : null,
+      wouldEnter: selected,
+      blockReason: block || '',
+      eligibilityReasons: Array.isArray(explanation?.reasons) ? explanation.reasons : [],
+    };
+  });
+  return {
+    ok: true,
+    source,
+    dataSource: 'server',
+    at,
+    simulationState: runtime.state || 'off',
+    settings,
+    dayStats,
+    market,
+    sectorTrend,
+    entryWindowOpen: isSimulationEntryWindowTime(at),
+    eodSettlement: isSimulationEodSettlementTime(at),
+    candidateCount: analyzedCandidates.length,
+    selectedCount: analyzedCandidates.filter(candidate => candidate.selected).length,
+    candidates: analyzedCandidates,
   };
 }
 
@@ -934,7 +1136,11 @@ async function runSimulationSchedulerTick() {
       const state = loadPaperStateFile();
       const settings = loadTradeSettingsFile().overrides || {};
       const tickInput = await readSchedulerTickInputAsync(settings);
-      const atIso = String(tickInput?.at || new Date().toISOString());
+      const inputAtIso = String(tickInput?.at || new Date().toISOString());
+      const useInputClock = !!(simulationSchedulerTestInputs && typeof simulationSchedulerTestInputs === 'object');
+      const schedulerAtIso = useInputClock ? inputAtIso : new Date().toISOString();
+      const autoStopAfterMarket = runtime.state === 'running' && shouldAutoStopSimulation(schedulerAtIso);
+      const eodSettlement = isSimulationEodSettlementTime(schedulerAtIso);
       const ownershipContext = getTradeOwnershipContext(runtime.state, settings);
       const normalizedTrades = normalizeTradeCollectionOwnership(state.trades, ownershipContext);
       let changed = JSON.stringify(state.trades) !== JSON.stringify(normalizedTrades);
@@ -942,10 +1148,57 @@ async function runSimulationSchedulerTick() {
       const trades = state.trades;
       const openTrades = trades.filter(trade =>
         trade?.status === 'open' &&
-        (trade?.managedBySimulation === true || String(trade?.source || '').toLowerCase() === 'simulation')
+        (
+          eodSettlement ||
+          trade?.managedBySimulation === true ||
+          String(trade?.source || '').toLowerCase() === 'simulation'
+        )
       );
       const candidateBySymbol = new Map((Array.isArray(tickInput?.candidates) ? tickInput.candidates : [])
         .map(candidate => [String(candidate?.symbol || '').toUpperCase(), candidate]));
+      {
+        const openBySymbol = new Map(openTrades.map(trade => [String(trade?.symbol || '').toUpperCase(), trade]));
+        const missingSymbols = [...openBySymbol.keys()].filter(sym => sym && !candidateBySymbol.has(sym));
+        if (missingSymbols.length) {
+          let quotes = {};
+          try {
+            quotes = (await yahooQuote(missingSymbols))?.quotes || {};
+          } catch (_) {}
+          for (const sym of missingSymbols) {
+            const trade = openBySymbol.get(sym);
+            if (!trade) continue;
+            const quote = quotes[sym] || {};
+            const quotedPrice = Number(quote?.price);
+            const fallbackPrice = Number(trade?.entryPrice);
+            const price = Number.isFinite(quotedPrice) && quotedPrice > 0
+              ? quotedPrice
+              : (Number.isFinite(fallbackPrice) && fallbackPrice > 0 ? fallbackPrice : null);
+            if (!Number.isFinite(price) || price <= 0) continue;
+            const side = String(trade?.side || 'buy').toLowerCase() === 'sell' ? 'sell' : 'buy';
+            const score = Number.isFinite(Number(trade?.score))
+              ? Number(trade.score)
+              : (side === 'sell' ? -55 : 55);
+            candidateBySymbol.set(sym, {
+              symbol: sym,
+              side,
+              signal: side,
+              price,
+              priceAtSnapshot: price,
+              score,
+              quote: {
+                price,
+                change: Number.isFinite(Number(quote?.change)) ? Number(quote.change) : null,
+              },
+              freshness: { stale: false, reason: eodSettlement ? 'eod-fallback-quote' : 'runtime-fallback-quote' },
+              indicators: {
+                entryStatus: 'Triggered',
+                target: Number.isFinite(Number(trade?.target)) ? Number(trade.target) : null,
+                stop: Number.isFinite(Number(trade?.stop)) ? Number(trade.stop) : null,
+              },
+            });
+          }
+        }
+      }
       for (const trade of openTrades) {
         const sym = String(trade?.symbol || '').toUpperCase();
         if (!sym) continue;
@@ -1015,15 +1268,31 @@ async function runSimulationSchedulerTick() {
           }
         : SimulationEngine;
 
+      const dayStats = TradeRules.buildDayStats(trades, schedulerAtIso, settings, {
+        sameDay: sameIstDay,
+      });
+      const entryBlockReason = (sym, setupType = '', at = schedulerAtIso) => TradeRules.getEntryBlockReason(
+        sym,
+        setupType,
+        at,
+        dayStats,
+        settings
+      );
+
       const { exitIntents, entryIntents } = runSimulationDomainCycle(
         {
           openTrades,
           candidates: Array.isArray(tickInput?.candidates) ? tickInput.candidates : [],
-          at: atIso,
+          at: schedulerAtIso,
           settings,
+          isEodSettlement: eodSettlement,
           context: {
             candidateBySymbol,
             market: tickInput?.market || {},
+            sectorTrend: tickInput?.sectorTrend || {},
+            indices: tickInput?.market?.indices || {},
+            dayStats,
+            entryBlockReason,
             lastKnownBySymbol: new Map(),
           },
         },
@@ -1047,12 +1316,13 @@ async function runSimulationSchedulerTick() {
         const intent = exitBySymbol.get(key);
         if (!intent) continue;
         if (String(intent?.action || 'close').toLowerCase() !== 'close') continue;
-        changed = closeTradeFromExitIntent(trade, intent, atIso) || changed;
+        changed = closeTradeFromExitIntent(trade, intent, schedulerAtIso) || changed;
       }
 
-      if (runtime.state !== 'settling') {
+      const allowNewEntries = runtime.state !== 'settling' && isSimulationEntryWindowTime(schedulerAtIso);
+      if (allowNewEntries) {
         for (const intent of entryIntents || []) {
-          changed = openTradeFromEntryIntent(trades, intent, atIso) || changed;
+          changed = openTradeFromEntryIntent(trades, intent, schedulerAtIso) || changed;
         }
       }
 
@@ -1081,6 +1351,15 @@ async function runSimulationSchedulerTick() {
           stopSimulationScheduler('settle-timeout');
           return { ok: true, state: forced.state, timedOut: true };
         }
+      }
+
+      if (autoStopAfterMarket) {
+        const next = transitionAndSaveSimulationRuntime({ type: 'stop', mode: 'immediate' }, {
+          lastTickAt: Date.now(),
+          lastError: '',
+        });
+        stopSimulationScheduler('auto-stop-after-market');
+        return { ok: true, state: next.state, autoStopped: true };
       }
 
       const updated = saveSimulationRuntime(nextRuntimeUpdate);
@@ -2033,6 +2312,7 @@ function sanitizeSimulationSnapshot(payload) {
     caps: payload.caps && typeof payload.caps === 'object' ? payload.caps : {},
     dayStats: payload.dayStats && typeof payload.dayStats === 'object' ? payload.dayStats : {},
     market: payload.market && typeof payload.market === 'object' ? payload.market : {},
+    sectorTrend: payload.sectorTrend && typeof payload.sectorTrend === 'object' ? payload.sectorTrend : {},
     openSimulationTrades: Array.isArray(payload.openSimulationTrades) ? payload.openSimulationTrades.slice(0, 20) : [],
     outcomeSummary: payload.outcomeSummary && typeof payload.outcomeSummary === 'object' ? payload.outcomeSummary : {},
     candidates,
@@ -2056,8 +2336,12 @@ function appendSimulationSnapshot(payload) {
 function persistServerSimulationSnapshot(source = 'intraday-live-refresh', changedSymbols = []) {
   try {
     const runtime = loadSimulationRuntime();
-    const settings = loadTradeSettingsFile().overrides || {};
-    const candidates = buildSchedulerCandidatesFromIntradayCache(settings).slice(0, 100);
+    const overrideSettings = loadTradeSettingsFile().overrides || {};
+     const settings = SimulationEngine.withDefaults ? SimulationEngine.withDefaults(overrideSettings) : overrideSettings;
+    const symbolMetaBySymbol = getSimulationSymbolMetaIndex();
+    const candidates = buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol).slice(0, 100);
+    const market = { indices: simulationMarketCache.indices || {} };
+    const sectorTrend = buildSectorTrendFromCandidates(candidates);
     const trades = loadPaperStateFile().trades || [];
     const openSimulationTrades = trades
       .filter(trade => trade?.status === 'open' && String(trade?.source || '').toLowerCase() === 'simulation')
@@ -2084,7 +2368,8 @@ function persistServerSimulationSnapshot(source = 'intraday-live-refresh', chang
       simulationState: runtime.state,
       caps: settings,
       dayStats: {},
-      market: {},
+      market,
+      sectorTrend,
       openSimulationTrades,
       outcomeSummary: {
         changedSymbols: Array.isArray(changedSymbols) ? changedSymbols.slice(0, 100) : [],
@@ -6508,6 +6793,25 @@ async function proxyRequestHandler(req, res) {
     return;
   }
 
+  // /simulation/analysis
+  if (pathname === '/simulation/analysis') {
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed. Use GET.' }));
+      return;
+    }
+    try {
+      const source = String(searchParams.get('source') || 'server-analysis');
+      const payload = await buildServerSimulationAnalysisPayload(source);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(payload));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: e.message || 'Could not build simulation analysis' }));
+    }
+    return;
+  }
+
   // /trade-execution (/paper-trades alias) -- local paper trading journal for locked intraday entries
   if (pathname === TRADE_EXECUTION_PATH || pathname === PAPER_TRADES_ALIAS_PATH) {
     if (req.method === 'GET') {
@@ -7442,6 +7746,10 @@ module.exports = {
     },
     getPaperTradesForRuntime() {
       return loadPaperStateFile().trades;
+    },
+    buildServerCandidateFromIntradayForTests(sym, setup, settings = {}, meta = null, asOf = null) {
+      const effective = SimulationEngine.withDefaults ? SimulationEngine.withDefaults(settings || {}) : (settings || {});
+      return buildServerCandidateFromIntraday(sym, setup, effective, meta, asOf);
     },
     getSimulationRuntimeSnapshot() {
       const runtime = loadSimulationRuntime();

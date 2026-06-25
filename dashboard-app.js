@@ -25,6 +25,7 @@ const PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;
 const SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;
 const SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;
 const SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;
+const SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;
 const FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;
 const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;
 const SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;
@@ -3800,11 +3801,31 @@ function getETFTradeSafety(row, t) {
 }
 
 function getSimulationMarketRegime(row, t, side) {
-  return SimulationEngine.getMarketRegime(
+  const regime = SimulationEngine.getMarketRegime(
     buildSimulationEngineCandidate(row, t, adjustedTradeScore(row), side),
     side,
     { ...getSimulationEngineSettings(), indices:indexData, sectorTrend:sectorTrendCache }
   );
+  // Debug: log when sells are blocked by market regime
+  if (!regime.ok && side === 'sell') {
+    if (DEBUG_SIM_LOGS) {
+      console.log(
+        `[MARKET REGIME] SELL blocked: ${row.sym}`,
+        { reason: regime.reason, nifty: regime.nifty, threshold: Number(getSimulationEngineSettings().SIMULATION_MARKET_REGIME_NIFTY_PCT) }
+      );
+    }
+  }
+  // Also log first sell of each session to verify regime check is active
+  if (side === 'sell' && !window._firstSellCheckLogged) {
+    window._firstSellCheckLogged = true;
+    if (DEBUG_SIM_LOGS || !regime.ok) {
+      console.log(
+        `[MARKET REGIME] First SELL check for ${row.sym}:`,
+        { allowed: regime.ok, nifty: regime.nifty, threshold: Number(getSimulationEngineSettings().SIMULATION_MARKET_REGIME_NIFTY_PCT), reason: regime.reason }
+      );
+    }
+  }
+  return regime;
 }
 
 function isSimulationSetupAllowed(setupType) {
@@ -4165,90 +4186,86 @@ function buildSimulationSnapshotCandidates(limit = 30, lowestLimit = 30) {
   return selected;
 }
 
+function ensureIndexDataFresh() {
+  // Verify indexData has nifty value; if not, try to rebuild from latest stockData
+  if (!indexData?.nifty50?.change && stockData) {
+    // Rebuild indexData from the most recent intraday candles
+    // This ensures we have fresh market regime data even if NSE fetch hasn't run recently
+    const niftySymbol = 'NIFTY';
+    const niftyData = stockData[niftySymbol];
+    if (niftyData?.change != null) {
+      if (!indexData.nifty50) indexData.nifty50 = {};
+      indexData.nifty50.change = niftyData.change;
+      if (DEBUG_SIM_LOGS) console.log('[INDEXDATA] Refreshed NIFTY from stockData:', niftyData.change);
+    }
+  }
+  // Fallback: if we have candidates with marketContext, extract nifty from first one
+  if (!indexData?.nifty50?.change) {
+    if (DEBUG_SIM_LOGS) console.warn('[INDEXDATA] Warning: indexData.nifty50.change is empty - regime checks may not work correctly');
+  }
+}
+
+function ensureSectorTrendFresh() {
+  // Rebuild sectorTrendCache from current stockData to ensure fresh sector values for regime checks
+  // This mirrors ensureIndexDataFresh() for Nifty; fixes bug where sector regime is null during snapshots
+  if (!stockData) return;
+  
+  const sectorChanges = {};
+  for (const s of MIDCAP_STOCKS) {
+    if (!sectorChanges[s.sector]) sectorChanges[s.sector] = [];
+    const d = stockData[s.sym];
+    if (d && d.price > 0) sectorChanges[s.sector].push(d.change || 0);
+  }
+  
+  // Clear and rebuild sectorTrendCache
+  Object.keys(sectorTrendCache).forEach(k => delete sectorTrendCache[k]);
+  Object.keys(sectorChanges).forEach(sectorName => {
+    const changes = sectorChanges[sectorName];
+    sectorTrendCache[sectorName] = changes.length ? changes.reduce((a, b) => a + b, 0) / changes.length : 0;
+  });
+  
+  if (DEBUG_SIM_LOGS) console.log('[SECTOR_TREND] Refreshed sector cache:', Object.keys(sectorTrendCache).length, 'sectors populated');
+}
+
 async function saveSimulationSnapshot(source = 'intraday-refresh') {
-  const candidates = buildSimulationSnapshotCandidates(30, 30);
-  const outcomes = candidates.map(c => c.outcome).filter(Boolean);
-  const avg = (field) => outcomes.length
-    ? +(outcomes.reduce((sum, item) => sum + (Number(item[field]) || 0), 0) / outcomes.length).toFixed(3)
-    : null;
+  const analysisRes = await fetch(`${SIMULATION_ANALYSIS_ENDPOINT}?source=${encodeURIComponent(`ui-${source}`)}`, {
+    method: 'GET',
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!analysisRes.ok) {
+    const err = await analysisRes.json().catch(() => ({}));
+    throw new Error(err.error || `simulation-analysis HTTP ${analysisRes.status}`);
+  }
+  const analysis = await analysisRes.json();
   const payload = {
-    source,
-    dataSource,
+    source: analysis.source || `ui-${source}`,
+    dataSource: analysis.dataSource || 'server',
     currentView,
-    simulationState,
-    caps:{
-      snapshotTopRanked:30,
-      snapshotLowestScorers:30,
-      maxOpen:SIMULATION_MAX_OPEN,
-      maxActiveOpen:SIMULATION_MAX_ACTIVE_OPEN,
-      topN:SIMULATION_TOP_N,
-      dailyMaxTrades:SIMULATION_DAILY_MAX_TRADES,
-      dailyMaxStops:SIMULATION_DAILY_MAX_STOPS,
-      dailyMaxStopsWhenProfitBuffer:SIMULATION_DAILY_MAX_STOPS * SIMULATION_DAILY_MAX_STOPS_PROFIT_MULTIPLIER,
-      dailyStopProfitBufferPct:SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT,
-      dailyMaxNetLossPct:SIMULATION_DAILY_MAX_NET_LOSS_PCT,
-      maxNewPerCycle:SIMULATION_MAX_NEW_PER_CYCLE,
-      firstHourMaxEntries:SIMULATION_FIRST_HOUR_MAX_ENTRIES,
-      stopGraceMin:SIMULATION_STOP_GRACE_MIN,
-      stopConfirmBars:SIMULATION_STOP_CONFIRM_BARS,
-      emergencyStopPct:SIMULATION_EMERGENCY_STOP_PCT,
-      runnerMinScore:SIMULATION_RUNNER_MIN_SCORE,
-      runnerMinRelVol:SIMULATION_RUNNER_MIN_REL_VOL,
-      runnerMaxTriggerExtensionPct:SIMULATION_RUNNER_MAX_TRIGGER_EXTENSION_PCT,
-      runnerMaxVwapExtensionPct:SIMULATION_RUNNER_MAX_VWAP_EXTENSION_PCT,
-      runnerTrailPct:SIMULATION_RUNNER_TRAIL_PCT,
-      breakevenProtectPct:SIMULATION_BREAKEVEN_PROTECT_PCT,
-      trailStartPct:SIMULATION_TRAIL_START_PCT,
-      longTrailPct:SIMULATION_LONG_TRAIL_PCT,
-      timeStopMin:SIMULATION_TIME_STOP_MIN,
-      timeStopMinProfitPct:SIMULATION_TIME_STOP_MIN_PROFIT_PCT,
-      vwapContinuationMinScore:SIMULATION_VWAP_CONT_MIN_SCORE,
-      vwapContinuationMaxTriggerExtensionPct:SIMULATION_VWAP_CONT_MAX_TRIGGER_EXTENSION_PCT,
-      vwapContinuationMaxVwapExtensionPct:SIMULATION_VWAP_CONT_MAX_VWAP_EXTENSION_PCT,
-      minScore:SIMULATION_MIN_SCORE,
-      shortMinScore:SIMULATION_SHORT_MIN_SCORE,
-      shortMinRelVol:SIMULATION_SHORT_MIN_REL_VOL,
-      shortAllowAvoidGuard:SIMULATION_SHORT_ALLOW_AVOID_GUARD,
-      shortTriggerDistancePct:SIMULATION_SHORT_TRIGGER_DISTANCE_PCT,
-      shortConfirmBars:SIMULATION_SHORT_CONFIRM_BARS,
-      shortMaxStopPct:SIMULATION_SHORT_MAX_STOP_PCT,
-      shortTrailPct:SIMULATION_SHORT_TRAIL_PCT,
-      shortMinBearishConfirmations:SIMULATION_SHORT_MIN_BEARISH_CONFIRMATIONS,
-      marketBreadthPct:SIMULATION_MARKET_BREADTH_PCT,
-      marketRegimeNiftyPct:SIMULATION_MARKET_REGIME_NIFTY_PCT,
-      marketRegimeSectorPct:SIMULATION_MARKET_REGIME_SECTOR_PCT,
-      marketRegimeRsPct:SIMULATION_MARKET_REGIME_RS_PCT,
-      autoShorts:SIMULATION_AUTO_SHORTS,
-      minNetProfitPct:SIMULATION_MIN_NET_PROFIT_PCT,
-      symbolCooldownMin:SIMULATION_SYMBOL_COOLDOWN_MIN,
-      setupCooldownMin:SIMULATION_SETUP_COOLDOWN_MIN,
-      setupDailyLossGuardCount:SIMULATION_SETUP_DAILY_LOSS_GUARD_COUNT,
-      maxPositionExposure:MAX_POSITION_EXPOSURE,
-    },
-    dayStats:getSimulationDayStats(),
-    market:{ marketOpen, timeWarning:getTimeWarning(), indices:indexData },
-    openSimulationTrades:getSimulationOpenTrades().map(t => ({
-      symbol:t.symbol,
-      side:t.side,
-      qty:t.qty,
-      entryPrice:t.entryPrice,
-      priceAtSnapshot:getCurrentTradePrice(t.symbol),
-      ohlc:intradayData[t.symbol]?.ohlc || null,
-      setupType:t.setupType || null,
-      target:t.target,
-      stop:t.stop,
-      openedAt:t.openedAt,
-      pnl:getPaperTradePnl(t, getCurrentTradePrice(t.symbol)),
+    simulationState: analysis.simulationState || simulationState,
+    caps: analysis.settings || {},
+    dayStats: analysis.dayStats || {},
+    market: analysis.market || {},
+    sectorTrend: analysis.sectorTrend || {},
+    openSimulationTrades: getSimulationOpenTrades().map(t => ({
+      symbol: t.symbol,
+      side: t.side,
+      qty: t.qty,
+      entryPrice: t.entryPrice,
+      priceAtSnapshot: getCurrentTradePrice(t.symbol),
+      ohlc: intradayData[t.symbol]?.ohlc || null,
+      setupType: t.setupType || null,
+      target: t.target,
+      stop: t.stop,
+      openedAt: t.openedAt,
+      pnl: getPaperTradePnl(t, getCurrentTradePrice(t.symbol)),
     })),
-    outcomeSummary:{
-      tracked:outcomes.length,
-      hitTarget:outcomes.filter(o => o.hitTarget).length,
-      hitStop:outcomes.filter(o => o.hitStop).length,
-      avgMaxProfitPct:avg('maxProfitPct'),
-      avgMaxDrawdownPct:avg('maxDrawdownPct'),
+    outcomeSummary: {
+      selected: Number(analysis.selectedCount) || 0,
+      entryWindowOpen: !!analysis.entryWindowOpen,
+      eodSettlement: !!analysis.eodSettlement,
     },
-    candidateCount:candidates.length,
-    candidates,
+    candidateCount: Number(analysis.candidateCount) || 0,
+    candidates: Array.isArray(analysis.candidates) ? analysis.candidates : [],
   };
   const res = await fetch(SIM_SNAPSHOT_ENDPOINT, {
     method:'POST',

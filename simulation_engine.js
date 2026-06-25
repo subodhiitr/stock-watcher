@@ -856,7 +856,10 @@
         }
         return { reason: 'Simulation target', exitPrice: target };
       }
-      return getSimulationStopExit(trade, price, candidate, at, settings);
+      const stopExit = getSimulationStopExit(trade, price, candidate, at, settings);
+      if (stopExit) return stopExit;
+      if (opts.isEodSettlement) return { reason: 'Simulation EOD square-off', exitPrice: Number(price) };
+      return null;
     }
     if (!isMomentumRunnerTrade(trade) && Number.isFinite(target) && price >= target) {
       const runner = getTargetRunnerInfo(trade, candidate, price, settings);
