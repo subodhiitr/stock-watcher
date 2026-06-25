@@ -22,6 +22,10 @@
     return Number.isFinite(Number(n)) ? Math.round(Number(n) * 1000) / 1000 : 0;
   }
 
+  function hasFiniteNumber(value) {
+    return value != null && Number.isFinite(Number(value));
+  }
+
   function getCandidatePrice(candidate) {
     return Number(candidate?.price ?? candidate?.priceAtSnapshot ?? candidate?.quote?.price ?? candidate?.indicators?.price);
   }
@@ -882,13 +886,55 @@
   }
 
   function getSimulationEntryIntents(candidates, at, settings, context = {}) {
-    return selectSimulationEntryCandidates(candidates, at, settings, context)
-      .map(candidate => ({
-        symbol: candidate.symbol,
-        side: candidate.side || candidate.signal || 'buy',
-        price: getCandidatePrice(candidate),
-        candidate,
-      }));
+    const effectiveSettings = withDefaults(settings);
+    const availableCash = Number(context?.cashAvailable);
+    const maxExposure = Number(effectiveSettings.MAX_POSITION_EXPOSURE);
+    return selectSimulationEntryCandidates(candidates, at, effectiveSettings, context)
+      .map(candidate => {
+        const side = candidate.side || candidate.signal || 'buy';
+        const price = getCandidatePrice(candidate);
+        const plan = getPaperPlanForCandidate(candidate, side, price);
+        const explicitQtyRaw = Number(candidate?.qty ?? candidate?.entryContext?.qty);
+        const sizing = getSuggestedQty(
+          candidate,
+          side,
+          price,
+          Number.isFinite(availableCash) ? availableCash : null,
+          Number.isFinite(maxExposure) ? maxExposure : null,
+          effectiveSettings
+        );
+        const computedQty = Math.floor(Number(sizing?.qty));
+        const qty = Number.isFinite(explicitQtyRaw) && explicitQtyRaw > 0
+          ? Math.floor(explicitQtyRaw)
+          : (Number.isFinite(computedQty) && computedQty > 0 ? computedQty : 1);
+        const target = hasFiniteNumber(candidate?.target)
+          ? round2(Number(candidate.target))
+          : (hasFiniteNumber(plan?.target) ? round2(Number(plan.target)) : null);
+        const stop = hasFiniteNumber(candidate?.stop)
+          ? round2(Number(candidate.stop))
+          : (hasFiniteNumber(plan?.stop) ? round2(Number(plan.stop)) : null);
+        const risk = Number.isFinite(price) && Number.isFinite(stop) ? Math.abs(price - stop) : null;
+        const reward = Number.isFinite(price) && Number.isFinite(target) ? Math.abs(target - price) : null;
+        const rr = Number.isFinite(risk) && risk > 0 && Number.isFinite(reward) ? round2(reward / risk) : null;
+        return {
+          symbol: candidate.symbol,
+          side,
+          qty,
+          price,
+          entryPrice: price,
+          target,
+          stop,
+          signal: candidate.signal || side,
+          score: Number.isFinite(Number(candidate.score)) ? Number(candidate.score) : null,
+          rr,
+          setupType: candidate.derivedSetupType || candidate.setupType || null,
+          setup: candidate.setup || candidate.indicators?.setup || null,
+          entryContext: candidate.entryContext && typeof candidate.entryContext === 'object' ? candidate.entryContext : null,
+          notes: candidate.notes || '',
+          assetType: candidate.assetType || null,
+          candidate,
+        };
+      });
   }
 
   function exitBucket(reason) {

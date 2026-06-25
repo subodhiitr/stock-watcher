@@ -1,5 +1,5 @@
 {
-  "savedAt": 1782295714179,
+  "savedAt": 1782369489715,
   "portfolio": {
     "initialCapital": 500000,
     "capitalAdds": [
@@ -16,6 +16,1394 @@
     ]
   },
   "trades": [
+    {
+      "id": "1782369474723-j1njdj",
+      "status": "open",
+      "symbol": "MAZDOCK",
+      "name": "MAZDOCK",
+      "side": "sell",
+      "qty": 39,
+      "entryPrice": 2516.2,
+      "target": 2486.01,
+      "stop": 2526.26,
+      "signal": "sell",
+      "score": -61,
+      "rr": 3,
+      "reservedCapital": 98131.8,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "VWAP_REJECTION",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T06:37:54.711Z",
+      "_maxFavorablePct": 0,
+      "_bestPrice": 2516.2,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null
+    },
+    {
+      "id": "1782368276253-j8e034",
+      "status": "open",
+      "symbol": "INDIGO",
+      "name": "INDIGO",
+      "side": "buy",
+      "qty": 18,
+      "entryPrice": 5448.7,
+      "target": 5514.08,
+      "stop": 5426.91,
+      "signal": "buy",
+      "score": 71,
+      "rr": 3,
+      "reservedCapital": 98076.6,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "MOMENTUM_RUNNER",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T06:17:56.232Z",
+      "_maxFavorablePct": 0,
+      "_bestPrice": 5448.7,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null
+    },
+    {
+      "id": "1782368276252-zeuzyr",
+      "status": "open",
+      "symbol": "DALBHARAT",
+      "name": "DALBHARAT",
+      "side": "sell",
+      "qty": 57,
+      "entryPrice": 1733.9,
+      "target": 1713.09,
+      "stop": 1740.84,
+      "signal": "sell",
+      "score": -61,
+      "rr": 3,
+      "reservedCapital": 98832.3,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "VWAP_REJECTION",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T06:17:56.232Z",
+      "_maxFavorablePct": 0.08651017936443854,
+      "_bestPrice": 1732.4,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null
+    },
+    {
+      "id": "1782368276252-fyxz5n",
+      "status": "open",
+      "symbol": "SBICARD",
+      "name": "SBICARD",
+      "side": "buy",
+      "qty": 159,
+      "entryPrice": 627.05,
+      "target": 634.57,
+      "stop": 624.54,
+      "signal": "buy",
+      "score": 87,
+      "rr": 3,
+      "reservedCapital": 99700.95,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "VWAP_TREND_CONTINUATION",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T06:17:56.232Z",
+      "_maxFavorablePct": 0.10365999521570704,
+      "_bestPrice": 627.7,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null
+    },
+    {
+      "id": "1782368276252-uk80gm",
+      "status": "open",
+      "symbol": "TVSMOTOR",
+      "name": "TVSMOTOR",
+      "side": "buy",
+      "qty": 27,
+      "entryPrice": 3585,
+      "target": 3628.02,
+      "stop": 3570.66,
+      "signal": "buy",
+      "score": 91,
+      "rr": 3,
+      "reservedCapital": 96795,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "VWAP_TREND_CONTINUATION",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T06:17:56.232Z",
+      "_maxFavorablePct": 0.12831241283123876,
+      "_bestPrice": 3589.6,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null
+    },
+    {
+      "id": "1782367967752-3qovok",
+      "status": "open",
+      "symbol": "SUNDRMFAST",
+      "name": "SUNDRMFAST",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 931.3,
+      "target": 942.48,
+      "stop": 927.57,
+      "signal": "buy",
+      "score": 81,
+      "rr": 3,
+      "reservedCapital": 931.3,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "MOMENTUM_RUNNER",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T06:12:47.740Z",
+      "_maxFavorablePct": 0.026844196284763238,
+      "_bestPrice": 931.55,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null
+    },
+    {
+      "id": "1782367877970-04r219",
+      "status": "open",
+      "symbol": "HBLENGINE",
+      "name": "HBLENGINE",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 831.6,
+      "target": 821.62,
+      "stop": 834.93,
+      "signal": "sell",
+      "score": -61,
+      "rr": 3,
+      "reservedCapital": 831.6,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "VWAP_REJECTION",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T06:11:17.950Z",
+      "_maxFavorablePct": 0.132275132275135,
+      "_bestPrice": 830.5,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null
+    },
+    {
+      "id": "1782367877970-ar1lj0",
+      "status": "open",
+      "symbol": "ACC",
+      "name": "ACC",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 1346.6,
+      "target": 1330.44,
+      "stop": 1351.99,
+      "signal": "sell",
+      "score": -61,
+      "rr": 3,
+      "reservedCapital": 1346.6,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "VWAP_REJECTION",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T06:11:17.950Z",
+      "_maxFavorablePct": 0.11881776325559996,
+      "_bestPrice": 1345,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null
+    },
+    {
+      "id": "1782367722213-zemdm5",
+      "status": "closed",
+      "symbol": "INDHOTEL",
+      "name": "INDHOTEL",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 724.9,
+      "target": 716.25,
+      "stop": 727.85,
+      "signal": "sell",
+      "score": null,
+      "rr": null,
+      "reservedCapital": 724.9,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "VWAP_REJECTION",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T06:08:42.206Z",
+      "_maxFavorablePct": 0,
+      "_bestPrice": 724.9,
+      "_fadeBreachCount": 2,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null,
+      "exitPrice": 727.5,
+      "closedAt": "2026-06-25T06:29:21.464Z",
+      "closeReason": "Simulation VWAP reclaim",
+      "pnl": -3.37,
+      "pnlPct": -0.46,
+      "grossPnl": -2.6,
+      "charges": 0.77,
+      "chargeBreakup": {
+        "total": 0.77,
+        "totalPct": 0.106,
+        "brokerage": 0.44,
+        "stt": 0.18,
+        "transaction": 0.04,
+        "gst": 0.09,
+        "sebi": 0,
+        "stamp": 0.02,
+        "turnover": 1452.4
+      }
+    },
+    {
+      "id": "1782367407071-8wljh4",
+      "status": "closed",
+      "symbol": "SUNDRMFAST",
+      "name": "SUNDRMFAST",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 931.75,
+      "target": 948.11,
+      "stop": 924.36,
+      "signal": "buy",
+      "score": null,
+      "rr": null,
+      "reservedCapital": 931.75,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "MOMENTUM_RUNNER",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T06:03:27.060Z",
+      "_maxFavorablePct": 0.005366246310700781,
+      "_bestPrice": 931.8,
+      "_fadeBreachCount": 0,
+      "_runnerArmed": true,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null,
+      "exitPrice": 931.35,
+      "closedAt": "2026-06-25T06:11:17.950Z",
+      "closeReason": "Simulation momentum break",
+      "pnl": -1.39,
+      "pnlPct": -0.15,
+      "grossPnl": -0.4,
+      "charges": 0.99,
+      "chargeBreakup": {
+        "total": 0.99,
+        "totalPct": 0.106,
+        "brokerage": 0.56,
+        "stt": 0.23,
+        "transaction": 0.06,
+        "gst": 0.11,
+        "sebi": 0,
+        "stamp": 0.03,
+        "turnover": 1863.1
+      }
+    },
+    {
+      "id": "1782367306017-0zb2qd",
+      "status": "open",
+      "symbol": "GLAND",
+      "name": "GLAND",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 2338.2,
+      "target": 2313.4,
+      "stop": 2350.87,
+      "signal": "sell",
+      "score": null,
+      "rr": null,
+      "reservedCapital": 2338.2,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "VWAP_REJECTION",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T06:01:46.012Z",
+      "_maxFavorablePct": 0.3164827645197005,
+      "_bestPrice": 2330.8,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null
+    },
+    {
+      "id": "1782367035769-p0osja",
+      "status": "open",
+      "symbol": "MUTHOOTFIN",
+      "name": "MUTHOOTFIN",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 3085,
+      "target": 3047.98,
+      "stop": 3097.34,
+      "signal": "sell",
+      "score": null,
+      "rr": null,
+      "reservedCapital": 3085,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "VWAP_REJECTION",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:57:15.763Z",
+      "_maxFavorablePct": 0.3792544570502372,
+      "_bestPrice": 3073.3,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null
+    },
+    {
+      "id": "1782367035769-idzj8o",
+      "status": "open",
+      "symbol": "OFSS",
+      "name": "OFSS",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 10773.5,
+      "target": 10968.56,
+      "stop": 10795.15,
+      "signal": "buy",
+      "score": null,
+      "rr": null,
+      "reservedCapital": 10773.5,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "CHASING",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:57:15.763Z",
+      "_maxFavorablePct": 0.6636654754722235,
+      "_bestPrice": 10845,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null
+    },
+    {
+      "id": "1782366780619-ol0sq1",
+      "status": "closed",
+      "symbol": "TMPV",
+      "name": "TMPV",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 354.85,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 354.85,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:53:00.612Z",
+      "_maxFavorablePct": 0.3381710581936157,
+      "_bestPrice": 353.65,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 7,
+      "_stopFirstBreachedAt": "2026-06-25T05:57:15.763Z",
+      "exitPrice": 353.65,
+      "closedAt": "2026-06-25T06:08:42.206Z",
+      "closeReason": "Simulation confirmed stop",
+      "pnl": 0.82,
+      "pnlPct": 0.23,
+      "grossPnl": 1.2,
+      "charges": 0.38,
+      "chargeBreakup": {
+        "total": 0.38,
+        "totalPct": 0.106,
+        "brokerage": 0.21,
+        "stt": 0.09,
+        "transaction": 0.02,
+        "gst": 0.04,
+        "sebi": 0,
+        "stamp": 0.01,
+        "turnover": 708.5
+      }
+    },
+    {
+      "id": "1782366780619-4512fm",
+      "status": "closed",
+      "symbol": "PIRAMALFIN",
+      "name": "PIRAMALFIN",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 2150,
+      "target": 2165.48,
+      "stop": 2131.24,
+      "signal": "buy",
+      "score": null,
+      "rr": null,
+      "reservedCapital": 2150,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "CHASING",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:53:00.612Z",
+      "_maxFavorablePct": 0,
+      "_bestPrice": 2150,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null,
+      "exitPrice": 2146,
+      "closedAt": "2026-06-25T06:38:09.704Z",
+      "closeReason": "Simulation time stop cost guard",
+      "pnl": -6.28,
+      "pnlPct": -0.29,
+      "grossPnl": -4,
+      "charges": 2.28,
+      "chargeBreakup": {
+        "total": 2.28,
+        "totalPct": 0.106,
+        "brokerage": 1.29,
+        "stt": 0.54,
+        "transaction": 0.13,
+        "gst": 0.26,
+        "sebi": 0,
+        "stamp": 0.06,
+        "turnover": 4296
+      }
+    },
+    {
+      "id": "1782366525486-iy3ak8",
+      "status": "closed",
+      "symbol": "PAGEIND",
+      "name": "PAGEIND",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 41005,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 41005,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:48:45.483Z",
+      "_maxFavorablePct": 0,
+      "_bestPrice": 41005,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 5,
+      "_stopFirstBreachedAt": "2026-06-25T05:51:00.553Z",
+      "exitPrice": 41055,
+      "closedAt": "2026-06-25T05:58:45.797Z",
+      "closeReason": "Simulation confirmed stop",
+      "pnl": -93.6,
+      "pnlPct": -0.23,
+      "grossPnl": -50,
+      "charges": 43.6,
+      "chargeBreakup": {
+        "total": 43.6,
+        "totalPct": 0.106,
+        "brokerage": 24.62,
+        "stt": 10.25,
+        "transaction": 2.52,
+        "gst": 4.9,
+        "sebi": 0.08,
+        "stamp": 1.23,
+        "turnover": 82060
+      }
+    },
+    {
+      "id": "1782366525486-tpx9j4",
+      "status": "closed",
+      "symbol": "ACC",
+      "name": "ACC",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 1348.3,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 1348.3,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:48:45.483Z",
+      "_maxFavorablePct": 0.252169398501807,
+      "_bestPrice": 1344.9,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 9,
+      "_stopFirstBreachedAt": "2026-06-25T05:51:00.553Z",
+      "exitPrice": 1347.3,
+      "closedAt": "2026-06-25T06:06:27.147Z",
+      "closeReason": "Simulation confirmed stop",
+      "pnl": -0.43,
+      "pnlPct": -0.03,
+      "grossPnl": 1,
+      "charges": 1.43,
+      "chargeBreakup": {
+        "total": 1.43,
+        "totalPct": 0.106,
+        "brokerage": 0.81,
+        "stt": 0.34,
+        "transaction": 0.08,
+        "gst": 0.16,
+        "sebi": 0,
+        "stamp": 0.04,
+        "turnover": 2695.6
+      }
+    },
+    {
+      "id": "1782366390419-wrm0lf",
+      "status": "closed",
+      "symbol": "LICHSGFIN",
+      "name": "LICHSGFIN",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 552.2,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 552.2,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:46:30.408Z",
+      "_maxFavorablePct": 0.1267656646142784,
+      "_bestPrice": 551.5,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 10,
+      "_stopFirstBreachedAt": "2026-06-25T05:48:45.483Z",
+      "exitPrice": 551.8,
+      "closedAt": "2026-06-25T06:06:27.147Z",
+      "closeReason": "Simulation confirmed stop",
+      "pnl": -0.19,
+      "pnlPct": -0.03,
+      "grossPnl": 0.4,
+      "charges": 0.59,
+      "chargeBreakup": {
+        "total": 0.59,
+        "totalPct": 0.106,
+        "brokerage": 0.33,
+        "stt": 0.14,
+        "transaction": 0.03,
+        "gst": 0.07,
+        "sebi": 0,
+        "stamp": 0.02,
+        "turnover": 1104
+      }
+    },
+    {
+      "id": "1782366120285-r5kivo",
+      "status": "closed",
+      "symbol": "TMPV",
+      "name": "TMPV",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 354.6,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 354.6,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:42:00.278Z",
+      "_maxFavorablePct": 0,
+      "_bestPrice": 354.6,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 4,
+      "_stopFirstBreachedAt": "2026-06-25T05:46:30.408Z",
+      "exitPrice": 355.05,
+      "closedAt": "2026-06-25T05:52:00.589Z",
+      "closeReason": "Simulation confirmed stop",
+      "pnl": -0.83,
+      "pnlPct": -0.23,
+      "grossPnl": -0.45,
+      "charges": 0.38,
+      "chargeBreakup": {
+        "total": 0.38,
+        "totalPct": 0.106,
+        "brokerage": 0.21,
+        "stt": 0.09,
+        "transaction": 0.02,
+        "gst": 0.04,
+        "sebi": 0,
+        "stamp": 0.01,
+        "turnover": 709.65
+      }
+    },
+    {
+      "id": "1782365594988-wgazn3",
+      "status": "closed",
+      "symbol": "SONACOMS",
+      "name": "SONACOMS",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 628.85,
+      "target": 636.8,
+      "stop": 626.73,
+      "signal": "buy",
+      "score": null,
+      "rr": null,
+      "reservedCapital": 628.85,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "VWAP_TREND_CONTINUATION",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:33:14.977Z",
+      "_maxFavorablePct": 0.2226286077760956,
+      "_bestPrice": 630.25,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null,
+      "exitPrice": 628.3,
+      "closedAt": "2026-06-25T06:20:56.313Z",
+      "closeReason": "Simulation signal deterioration",
+      "pnl": -1.22,
+      "pnlPct": -0.19,
+      "grossPnl": -0.55,
+      "charges": 0.67,
+      "chargeBreakup": {
+        "total": 0.67,
+        "totalPct": 0.106,
+        "brokerage": 0.38,
+        "stt": 0.16,
+        "transaction": 0.04,
+        "gst": 0.08,
+        "sebi": 0,
+        "stamp": 0.02,
+        "turnover": 1257.15
+      }
+    },
+    {
+      "id": "1782365060117-87eqn8",
+      "status": "closed",
+      "symbol": "PINELABS",
+      "name": "PINELABS",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 160.97,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 160.97,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:24:20.113Z",
+      "_maxFavorablePct": 0.08697272783747677,
+      "_bestPrice": 160.83,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 4,
+      "_stopFirstBreachedAt": "2026-06-25T05:25:44.777Z",
+      "exitPrice": 160.92,
+      "closedAt": "2026-06-25T05:35:30.052Z",
+      "closeReason": "Simulation confirmed stop",
+      "pnl": -0.12,
+      "pnlPct": -0.07,
+      "grossPnl": 0.05,
+      "charges": 0.17,
+      "chargeBreakup": {
+        "total": 0.17,
+        "totalPct": 0.106,
+        "brokerage": 0.1,
+        "stt": 0.04,
+        "transaction": 0.01,
+        "gst": 0.02,
+        "sebi": 0,
+        "stamp": 0,
+        "turnover": 321.89
+      }
+    },
+    {
+      "id": "1782365060117-c5q15f",
+      "status": "closed",
+      "symbol": "SBICARD",
+      "name": "SBICARD",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 627.15,
+      "target": 633.87,
+      "stop": 623.84,
+      "signal": "buy",
+      "score": null,
+      "rr": null,
+      "reservedCapital": 627.15,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "FRESH_BREAKOUT",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:24:20.113Z",
+      "_maxFavorablePct": 0.06378059475404246,
+      "_bestPrice": 627.55,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null,
+      "exitPrice": 626.2,
+      "closedAt": "2026-06-25T06:12:47.740Z",
+      "closeReason": "Simulation time stop cost guard",
+      "pnl": -1.62,
+      "pnlPct": -0.26,
+      "grossPnl": -0.95,
+      "charges": 0.67,
+      "chargeBreakup": {
+        "total": 0.67,
+        "totalPct": 0.106,
+        "brokerage": 0.38,
+        "stt": 0.16,
+        "transaction": 0.04,
+        "gst": 0.07,
+        "sebi": 0,
+        "stamp": 0.02,
+        "turnover": 1253.35
+      }
+    },
+    {
+      "id": "1782364878668-m0z4kr",
+      "status": "closed",
+      "symbol": "MAZDOCK",
+      "name": "MAZDOCK",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 2521,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 2521,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:21:18.659Z",
+      "_maxFavorablePct": 0,
+      "_bestPrice": 2521,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 3,
+      "_stopFirstBreachedAt": "2026-06-25T05:24:20.113Z",
+      "exitPrice": 2522.9,
+      "closedAt": "2026-06-25T05:31:29.921Z",
+      "closeReason": "Simulation confirmed stop",
+      "pnl": -4.58,
+      "pnlPct": -0.18,
+      "grossPnl": -1.9,
+      "charges": 2.68,
+      "chargeBreakup": {
+        "total": 2.68,
+        "totalPct": 0.106,
+        "brokerage": 1.51,
+        "stt": 0.63,
+        "transaction": 0.15,
+        "gst": 0.3,
+        "sebi": 0.01,
+        "stamp": 0.08,
+        "turnover": 5043.9
+      }
+    },
+    {
+      "id": "1782364717213-qjs0gx",
+      "status": "closed",
+      "symbol": "INDIGO",
+      "name": "INDIGO",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 5434.5,
+      "target": 5505.28,
+      "stop": 5418.24,
+      "signal": "buy",
+      "score": null,
+      "rr": null,
+      "reservedCapital": 5434.5,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": "MOMENTUM_RUNNER",
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:18:37.200Z",
+      "_maxFavorablePct": 0.23001196062195237,
+      "_bestPrice": 5447,
+      "_fadeBreachCount": 0,
+      "_runnerArmed": true,
+      "_stopBreachCount": 0,
+      "_stopFirstBreachedAt": null,
+      "exitPrice": 5447,
+      "closedAt": "2026-06-25T06:15:47.828Z",
+      "closeReason": "Simulation momentum break",
+      "pnl": 6.72,
+      "pnlPct": 0.12,
+      "grossPnl": 12.5,
+      "charges": 5.78,
+      "chargeBreakup": {
+        "total": 5.78,
+        "totalPct": 0.106,
+        "brokerage": 3.26,
+        "stt": 1.36,
+        "transaction": 0.33,
+        "gst": 0.65,
+        "sebi": 0.01,
+        "stamp": 0.16,
+        "turnover": 10881.5
+      }
+    },
+    {
+      "id": "1782364717213-umtsdj",
+      "status": "closed",
+      "symbol": "HBLENGINE",
+      "name": "HBLENGINE",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 839.9,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 839.9,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:18:37.200Z",
+      "_maxFavorablePct": 0.25598285510179514,
+      "_bestPrice": 842.05,
+      "_fadeBreachCount": 0,
+      "exitPrice": 834.95,
+      "closedAt": "2026-06-25T06:03:42.066Z",
+      "closeReason": "Simulation signal deterioration",
+      "pnl": -5.84,
+      "pnlPct": -0.7,
+      "grossPnl": -4.95,
+      "charges": 0.89,
+      "chargeBreakup": {
+        "total": 0.89,
+        "totalPct": 0.106,
+        "brokerage": 0.5,
+        "stt": 0.21,
+        "transaction": 0.05,
+        "gst": 0.1,
+        "sebi": 0,
+        "stamp": 0.03,
+        "turnover": 1674.85
+      }
+    },
+    {
+      "id": "1782363817121-brs43b",
+      "status": "closed",
+      "symbol": "SUNDRMFAST",
+      "name": "SUNDRMFAST",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 931,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 931,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:03:37.117Z",
+      "_maxFavorablePct": 0.24167561761546724,
+      "_bestPrice": 933.25,
+      "_fadeBreachCount": 0,
+      "exitPrice": 929,
+      "closedAt": "2026-06-25T05:51:00.553Z",
+      "closeReason": "Simulation signal deterioration",
+      "pnl": -2.99,
+      "pnlPct": -0.32,
+      "grossPnl": -2,
+      "charges": 0.99,
+      "chargeBreakup": {
+        "total": 0.99,
+        "totalPct": 0.106,
+        "brokerage": 0.56,
+        "stt": 0.23,
+        "transaction": 0.06,
+        "gst": 0.11,
+        "sebi": 0,
+        "stamp": 0.03,
+        "turnover": 1860
+      }
+    },
+    {
+      "id": "1782363802115-rios75",
+      "status": "closed",
+      "symbol": "TMPV",
+      "name": "TMPV",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 354.75,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 354.75,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:03:22.109Z",
+      "_maxFavorablePct": 0,
+      "_bestPrice": 354.75,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 5,
+      "_stopFirstBreachedAt": "2026-06-25T05:03:37.117Z",
+      "exitPrice": 355.35,
+      "closedAt": "2026-06-25T05:25:44.777Z",
+      "closeReason": "Simulation confirmed stop",
+      "pnl": -0.98,
+      "pnlPct": -0.28,
+      "grossPnl": -0.6,
+      "charges": 0.38,
+      "chargeBreakup": {
+        "total": 0.38,
+        "totalPct": 0.106,
+        "brokerage": 0.21,
+        "stt": 0.09,
+        "transaction": 0.02,
+        "gst": 0.04,
+        "sebi": 0,
+        "stamp": 0.01,
+        "turnover": 710.1
+      }
+    },
+    {
+      "id": "1782363682032-e3vtj0",
+      "status": "closed",
+      "symbol": "CHOLAFIN",
+      "name": "CHOLAFIN",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 1800,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 1800,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T05:01:22.025Z",
+      "_maxFavorablePct": 0.050000000000005054,
+      "_bestPrice": 1799.1,
+      "_fadeBreachCount": 1,
+      "_stopBreachCount": 3,
+      "_stopFirstBreachedAt": "2026-06-25T05:03:22.109Z",
+      "exitPrice": 1810.5,
+      "closedAt": "2026-06-25T05:18:37.200Z",
+      "closeReason": "Simulation confirmed stop",
+      "pnl": -12.42,
+      "pnlPct": -0.69,
+      "grossPnl": -10.5,
+      "charges": 1.92,
+      "chargeBreakup": {
+        "total": 1.92,
+        "totalPct": 0.106,
+        "brokerage": 1.08,
+        "stt": 0.45,
+        "transaction": 0.11,
+        "gst": 0.22,
+        "sebi": 0,
+        "stamp": 0.05,
+        "turnover": 3610.5
+      }
+    },
+    {
+      "id": "1782362255573-7wfcva",
+      "status": "closed",
+      "symbol": "DRREDDY",
+      "name": "Dr Reddys Labs",
+      "side": "buy",
+      "qty": 73,
+      "entryPrice": 1357,
+      "target": 1373.28,
+      "stop": 1350.49,
+      "signal": "buy",
+      "score": 65,
+      "rr": 2.5,
+      "reservedCapital": 99061,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": "FRESH_BREAKOUT",
+      "setup": "Triggered | Buy above 1353.90 with VWAP hold | Above VWAP | SuperTrend bullish | Opening range breakout",
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T04:37:35.573Z",
+      "executionMode": "zerodha_dry_run",
+      "entryOwner": "manual",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "entry_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "DRREDDY",
+          "transaction_type": "BUY",
+          "quantity": 73,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 1357,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 1373.28,
+          "stop": 1350.49,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-25T04:37:35.573Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "DRREDDY",
+              "transaction_type": "BUY",
+              "quantity": 73,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 1357,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ]
+      },
+      "_maxFavorablePct": 0,
+      "_bestPrice": 1357,
+      "exitPrice": 1354,
+      "closedAt": "2026-06-25T06:29:06.477Z",
+      "closeReason": "Simulation signal deterioration",
+      "pnl": -301.29,
+      "pnlPct": -0.3,
+      "grossPnl": -219,
+      "charges": 82.29,
+      "chargeBreakup": {
+        "total": 82.29,
+        "totalPct": 0.083,
+        "brokerage": 40,
+        "stt": 24.71,
+        "transaction": 6.08,
+        "gst": 8.33,
+        "sebi": 0.2,
+        "stamp": 2.97,
+        "turnover": 197903
+      }
+    },
+    {
+      "id": "1782362195826-zoj6zn",
+      "status": "closed",
+      "symbol": "CHOLAFIN",
+      "name": "CHOLAFIN",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 1797.2,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 1797.2,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T04:36:35.819Z",
+      "_maxFavorablePct": 0,
+      "_bestPrice": 1797.2,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 2,
+      "_stopFirstBreachedAt": "2026-06-25T04:46:21.141Z",
+      "exitPrice": 1797.2,
+      "closedAt": "2026-06-25T04:46:36.141Z",
+      "closeReason": "Simulation confirmed stop",
+      "pnl": -1.91,
+      "pnlPct": -0.11,
+      "grossPnl": 0,
+      "charges": 1.91,
+      "chargeBreakup": {
+        "total": 1.91,
+        "totalPct": 0.106,
+        "brokerage": 1.08,
+        "stt": 0.45,
+        "transaction": 0.11,
+        "gst": 0.21,
+        "sebi": 0,
+        "stamp": 0.05,
+        "turnover": 3594.4
+      }
+    },
+    {
+      "id": "1782362180811-9tq111",
+      "status": "closed",
+      "symbol": "HEROMOTOCO",
+      "name": "HEROMOTOCO",
+      "side": "sell",
+      "qty": 1,
+      "entryPrice": 4998.1,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 4998.1,
+      "portfolioInitial": null,
+      "source": "simulation",
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-25T04:36:20.805Z",
+      "_maxFavorablePct": 0,
+      "_bestPrice": 4998.1,
+      "_fadeBreachCount": 0,
+      "_stopBreachCount": 2,
+      "_stopFirstBreachedAt": "2026-06-25T04:36:35.819Z",
+      "exitPrice": 5007.2,
+      "closedAt": "2026-06-25T04:46:21.141Z",
+      "closeReason": "Simulation confirmed stop",
+      "pnl": -14.42,
+      "pnlPct": -0.29,
+      "grossPnl": -9.1,
+      "charges": 5.32,
+      "chargeBreakup": {
+        "total": 5.32,
+        "totalPct": 0.106,
+        "brokerage": 3,
+        "stt": 1.25,
+        "transaction": 0.31,
+        "gst": 0.6,
+        "sebi": 0.01,
+        "stamp": 0.15,
+        "turnover": 10005.3
+      }
+    },
     {
       "id": "1782291652674-fkg4nk",
       "status": "closed",
@@ -154,7 +1542,11 @@
         "sebi": 0.1,
         "stamp": 1.49,
         "turnover": 100199
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782291235658-4w5oi8",
@@ -293,7 +1685,11 @@
         "sebi": 0.2,
         "stamp": 2.95,
         "turnover": 197020.5
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782291235188-q2aut5",
@@ -432,7 +1828,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199393.25
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782290483859-vrmod0",
@@ -601,7 +2001,11 @@
         "sebi": 0.1,
         "stamp": 1.5,
         "turnover": 101355.02
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782290483314-89kjxh",
@@ -740,7 +2144,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 198952
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782290482861-pmy8jp",
@@ -879,7 +2287,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 198662
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782289999585-6177gl",
@@ -1018,7 +2430,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199569.16
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782289153135-xd0n7l",
@@ -1158,7 +2574,11 @@
         "sebi": 0.1,
         "stamp": 1.48,
         "turnover": 99386.67
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782287767028-lluqx6",
@@ -1268,7 +2688,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 200449.9
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782287731367-jjx4ht",
@@ -1378,7 +2802,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199388.1
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782287294847-clv661",
@@ -1517,7 +2945,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 198539.1
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782286962422-mw1hue",
@@ -1627,7 +3059,11 @@
         "sebi": 0.2,
         "stamp": 2.95,
         "turnover": 197543.4
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782285867338-27vcqn",
@@ -1737,7 +3173,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 199152
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782285469415-a5ifts",
@@ -1877,7 +3317,11 @@
         "sebi": 0.09,
         "stamp": 1.36,
         "turnover": 91539.54
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782283278901-l2qo2v",
@@ -2016,7 +3460,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 198682.4
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782281522184-4rzo9o",
@@ -2185,7 +3633,11 @@
         "sebi": 0.1,
         "stamp": 1.51,
         "turnover": 101553.6
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782280878420-8cg75p",
@@ -2324,7 +3776,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 198352
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782280782473-m2jgpt",
@@ -2463,7 +3919,11 @@
         "sebi": 0.2,
         "stamp": 2.96,
         "turnover": 197452.8
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782280782101-q5hsac",
@@ -2602,7 +4062,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 201480
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782280781763-plzz4w",
@@ -2742,7 +4206,11 @@
         "sebi": 0.1,
         "stamp": 1.49,
         "turnover": 100173.6
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782280348863-h17c2i",
@@ -2881,7 +4349,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199954.04
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782280141014-ouvqxi",
@@ -2991,7 +4463,11 @@
         "sebi": 0.2,
         "stamp": 2.96,
         "turnover": 197346.2
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782280121547-utzpcr",
@@ -3101,7 +4577,11 @@
         "sebi": 0.19,
         "stamp": 2.91,
         "turnover": 194205.6
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782280061609-4yvowf",
@@ -3240,7 +4720,11 @@
         "sebi": 0.2,
         "stamp": 2.97,
         "turnover": 198432
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782279854203-svoif9",
@@ -3380,7 +4864,11 @@
         "sebi": 0.1,
         "stamp": 1.5,
         "turnover": 100867.1
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782279705692-0acf9m",
@@ -3519,7 +5007,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 200103.08
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782279594304-vbg509",
@@ -3629,7 +5121,11 @@
         "sebi": 0.2,
         "stamp": 3.01,
         "turnover": 200129
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782279006160-rgdmfm",
@@ -3768,7 +5264,11 @@
         "sebi": 0.16,
         "stamp": 2.36,
         "turnover": 156710
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782278472477-5qne2r",
@@ -3878,7 +5378,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 199128.8
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782278098563-fnnfy4",
@@ -4047,7 +5551,11 @@
         "sebi": 0.1,
         "stamp": 1.52,
         "turnover": 101802
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782277947131-jdvztg",
@@ -4216,7 +5724,11 @@
         "sebi": 0.1,
         "stamp": 1.5,
         "turnover": 101015.46
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782277586875-m11fpm",
@@ -4385,7 +5897,11 @@
         "sebi": 0.1,
         "stamp": 1.51,
         "turnover": 100950.3
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782275969349-5z30lm",
@@ -4495,7 +6011,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199488.55
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782275939402-kmdayz",
@@ -4605,7 +6125,11 @@
         "sebi": 0.2,
         "stamp": 3.03,
         "turnover": 201155.31
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782275654443-1o4irj",
@@ -4715,7 +6239,11 @@
         "sebi": 0.2,
         "stamp": 2.96,
         "turnover": 198430.8
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782217072160-1isne8",
@@ -4825,7 +6353,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199600.8
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782201915025-s1wr6y",
@@ -4965,7 +6497,11 @@
         "sebi": 0.1,
         "stamp": 1.48,
         "turnover": 99297.44
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782200958230-x6aqvd",
@@ -5105,7 +6641,11 @@
         "sebi": 0.1,
         "stamp": 1.48,
         "turnover": 99266.56
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782200669311-vplb5y",
@@ -5245,7 +6785,11 @@
         "sebi": 0.1,
         "stamp": 1.47,
         "turnover": 98887.25
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782197754502-p9xc61",
@@ -5385,7 +6929,11 @@
         "sebi": 0.1,
         "stamp": 1.47,
         "turnover": 98913.43
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782196488247-b98mc6",
@@ -5524,7 +7072,11 @@
         "sebi": 0.2,
         "stamp": 3.01,
         "turnover": 200308.6
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782196127321-ywg858",
@@ -5664,7 +7216,11 @@
         "sebi": 0.1,
         "stamp": 1.48,
         "turnover": 99257.27
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782196126891-qcxtsd",
@@ -5804,7 +7360,11 @@
         "sebi": 0.05,
         "stamp": 0.77,
         "turnover": 51489.2
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782195683224-5ptrw8",
@@ -5943,7 +7503,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 198748.8
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782195318888-f3mo30",
@@ -6083,7 +7647,11 @@
         "sebi": 0.1,
         "stamp": 1.45,
         "turnover": 97522.48
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782195173966-1afn6q",
@@ -6222,7 +7790,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199679.5
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782194483848-fea7lg",
@@ -6361,7 +7933,11 @@
         "sebi": 0.2,
         "stamp": 2.97,
         "turnover": 197533.6
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782194253800-9frqku",
@@ -6471,7 +8047,11 @@
         "sebi": 0.2,
         "stamp": 2.93,
         "turnover": 197443.25
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782193674351-21l5d0",
@@ -6640,7 +8220,11 @@
         "sebi": 0.1,
         "stamp": 1.53,
         "turnover": 102770
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782193667430-0amul5",
@@ -6809,7 +8393,11 @@
         "sebi": 0.1,
         "stamp": 1.48,
         "turnover": 99288.98
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782193666932-835unr",
@@ -6978,7 +8566,11 @@
         "sebi": 0.1,
         "stamp": 1.48,
         "turnover": 99360.8
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782193666510-1wvuxe",
@@ -7118,7 +8710,11 @@
         "sebi": 0.1,
         "stamp": 1.49,
         "turnover": 99956.25
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782192787066-br8kms",
@@ -7257,7 +8853,11 @@
         "sebi": 0.2,
         "stamp": 2.96,
         "turnover": 196900.8
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782192422449-qj5t60",
@@ -7426,7 +9026,11 @@
         "sebi": 0.1,
         "stamp": 1.47,
         "turnover": 98825.65
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782192421792-5ce6r5",
@@ -7595,7 +9199,11 @@
         "sebi": 0.1,
         "stamp": 1.48,
         "turnover": 99549
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782192293469-zfdvpu",
@@ -7764,7 +9372,11 @@
         "sebi": 0.1,
         "stamp": 1.48,
         "turnover": 99200
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782192252885-62c3po",
@@ -7903,7 +9515,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199361.7
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782192252389-cveejn",
@@ -8072,7 +9688,11 @@
         "sebi": 0.1,
         "stamp": 1.49,
         "turnover": 99736.2
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782192051222-j4u46s",
@@ -8211,7 +9831,11 @@
         "sebi": 0.2,
         "stamp": 2.97,
         "turnover": 198875.55
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782191987827-k2eilm",
@@ -8350,7 +9974,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199412.6
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782191987558-ozr6xs",
@@ -8489,7 +10117,11 @@
         "sebi": 0.2,
         "stamp": 2.97,
         "turnover": 197991.7
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782191359741-1wcn8x",
@@ -8628,7 +10260,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199127.1
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782190804504-t6zvgf",
@@ -8767,7 +10403,11 @@
         "sebi": 0.2,
         "stamp": 2.95,
         "turnover": 196592.4
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782190798126-ljfvkd",
@@ -8906,7 +10546,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199175.4
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782190792110-q9rk8g",
@@ -9075,7 +10719,11 @@
         "sebi": 0.1,
         "stamp": 1.49,
         "turnover": 100147.5
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782190671294-3e1jrm",
@@ -9214,7 +10862,11 @@
         "sebi": 0.2,
         "stamp": 2.95,
         "turnover": 196447.6
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782118645904-ttw1ya",
@@ -9353,7 +11005,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199503
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782118645630-c3juax",
@@ -9492,7 +11148,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199272.29
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782118645265-la9d7t",
@@ -9631,7 +11291,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199422.4
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782118644879-z6wo7a",
@@ -9770,7 +11434,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199752
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782117722375-y24xqr",
@@ -9909,7 +11577,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199521.3
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782117274580-8bw5hr",
@@ -10087,7 +11759,11 @@
         "sebi": 0.1,
         "stamp": 1.48,
         "turnover": 98990.4
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782116948299-5wg3ru",
@@ -10227,7 +11903,11 @@
         "sebi": 0.1,
         "stamp": 1.48,
         "turnover": 98990.4
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782111307231-6ucxxv",
@@ -10366,7 +12046,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 198976
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782111307155-zb98rs",
@@ -10544,7 +12228,11 @@
         "sebi": 0.1,
         "stamp": 1.49,
         "turnover": 100085.7
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782111280759-n8dce6",
@@ -10683,7 +12371,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199853.5
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782111280693-oxm3ww",
@@ -10822,7 +12514,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 198835
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782111278032-5o5czv",
@@ -10961,7 +12657,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 198419.85
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782111275416-mt12m2",
@@ -11101,7 +12801,11 @@
         "sebi": 0.1,
         "stamp": 1.49,
         "turnover": 100085.7
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782111273018-ek17dp",
@@ -11241,7 +12945,11 @@
         "sebi": 0.1,
         "stamp": 1.49,
         "turnover": 100536.76
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782110194499-yvks4u",
@@ -11381,7 +13089,11 @@
         "sebi": 0.1,
         "stamp": 1.47,
         "turnover": 98728.5
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782108373383-2hjwos",
@@ -11520,7 +13232,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 199495
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782108020028-pqbc06",
@@ -11689,7 +13405,11 @@
         "sebi": 0.1,
         "stamp": 1.49,
         "turnover": 101176.99
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782107456406-znv9vi",
@@ -11828,7 +13548,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 200091.2
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782107456249-44u3sv",
@@ -11997,7 +13721,11 @@
         "sebi": 0.1,
         "stamp": 1.47,
         "turnover": 99052.2
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782106815210-7p7eg6",
@@ -12107,7 +13835,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 198852.6
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782106308780-5e4ctj",
@@ -12246,7 +13978,11 @@
         "sebi": 0.2,
         "stamp": 2.97,
         "turnover": 197155.8
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782106308725-cwa9kj",
@@ -12385,7 +14121,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 198411.5
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782106197239-zzvj1b",
@@ -12495,7 +14235,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199633.5
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782106195328-5f8dpo",
@@ -12634,7 +14378,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199413.09
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782105893316-via31v",
@@ -12744,7 +14492,11 @@
         "sebi": 0.18,
         "stamp": 2.75,
         "turnover": 183213
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782105594068-jvjol8",
@@ -12883,7 +14635,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199083.4
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782105593997-tan04m",
@@ -13022,7 +14778,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 200056.7
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782105593927-3igds1",
@@ -13161,7 +14921,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199437.3
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782105591719-dvm2ld",
@@ -13300,7 +15064,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199849.65
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782105216191-8qlf2x",
@@ -13410,7 +15178,11 @@
         "sebi": 0.02,
         "stamp": 0.29,
         "turnover": 19434.8
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782104836501-crx9ls",
@@ -13520,7 +15292,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 200027.1
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782104004078-z4tupr",
@@ -13630,7 +15406,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199579.6
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782103900397-outig2",
@@ -13824,7 +15604,11 @@
         "sebi": 0,
         "stamp": 0.04,
         "turnover": 2475.9
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782103900256-6e7964",
@@ -14018,7 +15802,11 @@
         "sebi": 0,
         "stamp": 0.01,
         "turnover": 773.15
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1782008639354-bq8c1u",
@@ -14128,7 +15916,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199353.4
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1782008570519-cczkv0",
@@ -14238,7 +16030,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199353.4
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781855151292-gw32je",
@@ -14278,7 +16074,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199585.5
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781855081090-xv5mzs",
@@ -14318,7 +16118,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 198843.75
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781854843899-ik3qk6",
@@ -14358,7 +16162,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199459.8
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781854746215-32ommw",
@@ -14398,7 +16206,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 200207.7
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781854740152-a754zl",
@@ -14438,7 +16250,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 200550
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781761030081-td0pdx",
@@ -14478,7 +16294,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 197842.4
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781760883682-rquch3",
@@ -14518,7 +16338,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 198540
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781760730258-41wgnp",
@@ -14558,7 +16382,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 198286.2
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781760583123-z8xec2",
@@ -14598,7 +16426,11 @@
         "sebi": 0.2,
         "stamp": 2.95,
         "turnover": 196723.7
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781760583089-7ycsfz",
@@ -14638,7 +16470,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 199950.2
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781760582350-al8vga",
@@ -14678,7 +16514,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 200604.46
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781760435903-qgii6s",
@@ -14718,7 +16558,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199999.4
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781760435118-lyz9ch",
@@ -14758,7 +16602,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 198898.7
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781760281025-cel4dy",
@@ -14798,7 +16646,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 198399.5
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781760132589-gwg0r9",
@@ -14838,7 +16690,11 @@
         "sebi": 0.16,
         "stamp": 2.41,
         "turnover": 160710
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781759976863-k320tq",
@@ -14878,7 +16734,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 198118.2
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781759513277-s9okjk",
@@ -14918,7 +16778,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 201431.1
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781758740632-2e4bs1",
@@ -14958,7 +16822,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 200891.67
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781758739777-2hj6hl",
@@ -14998,7 +16866,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199491.5
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781758587744-hh2c4w",
@@ -15038,7 +16910,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199770
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781757971349-3lh8ba",
@@ -15078,7 +16954,11 @@
         "sebi": 0.2,
         "stamp": 2.94,
         "turnover": 195579
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781757051677-j8btyh",
@@ -15118,7 +16998,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 200442.52
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781756446255-t3sf1f",
@@ -15158,7 +17042,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 201392.9
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781679897425-1syfb0",
@@ -15198,7 +17086,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199939.5
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781672136406-bnoo62",
@@ -15238,7 +17130,11 @@
         "sebi": 0.2,
         "stamp": 2.96,
         "turnover": 196934.4
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781670407887-4l84l4",
@@ -15278,7 +17174,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199439.8
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781670258624-brkoo5",
@@ -15318,7 +17218,11 @@
         "sebi": 0.18,
         "stamp": 2.68,
         "turnover": 178745
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781669972392-gg8fnx",
@@ -15358,7 +17262,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199647.6
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781669385596-4pqvem",
@@ -15398,7 +17306,11 @@
         "sebi": 0.2,
         "stamp": 2.97,
         "turnover": 197741.94
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781599273726-mai9gm",
@@ -15437,7 +17349,11 @@
         "sebi": 0.2,
         "stamp": 2.97,
         "turnover": 197812.8
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781599273675-kb33lj",
@@ -15476,7 +17392,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199866.1
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781599273621-40kw65",
@@ -15515,7 +17435,11 @@
         "sebi": 0.17,
         "stamp": 2.53,
         "turnover": 169060
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781599023470-0ti6y7",
@@ -15554,7 +17478,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 198709.42
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781599023453-bp8t9k",
@@ -15593,7 +17521,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 198179.52
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781599023407-avqttd",
@@ -15632,7 +17564,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 198251.8
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781598887224-8omq93",
@@ -15671,7 +17607,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 200491.2
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781598886531-3ymngt",
@@ -15710,7 +17650,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199430.7
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781593055240-ohstt3",
@@ -15749,7 +17693,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 198756.8
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781593049214-xmsa5y",
@@ -15788,7 +17736,11 @@
         "sebi": 0.2,
         "stamp": 2.95,
         "turnover": 197164.8
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781593040552-0zjslj",
@@ -15827,7 +17779,11 @@
         "sebi": 0.19,
         "stamp": 2.89,
         "turnover": 192606.6
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781593038649-a7m1xe",
@@ -15866,7 +17822,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199522.2
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781593030733-e72n7f",
@@ -15905,7 +17865,11 @@
         "sebi": 0.2,
         "stamp": 2.97,
         "turnover": 195709.4
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781590175820-okwk03",
@@ -15944,7 +17908,11 @@
         "sebi": 0.19,
         "stamp": 2.94,
         "turnover": 194837
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781590144372-jw6ea0",
@@ -15983,7 +17951,11 @@
         "sebi": 0.2,
         "stamp": 2.96,
         "turnover": 198139.7
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781590118827-nwia7j",
@@ -16022,7 +17994,11 @@
         "sebi": 0.19,
         "stamp": 2.92,
         "turnover": 193714.5
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781588845366-vzj92q",
@@ -16061,7 +18037,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 198824
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781587972344-j4dcdz",
@@ -16100,7 +18080,11 @@
         "sebi": 0.19,
         "stamp": 2.9,
         "turnover": 193635
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781587913227-m6mrmg",
@@ -16139,7 +18123,11 @@
         "sebi": 0.19,
         "stamp": 2.9,
         "turnover": 193320
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781584061718-0e1xva",
@@ -16247,7 +18235,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 201142
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781583945037-bjeg98",
@@ -16355,7 +18347,11 @@
         "sebi": 0.2,
         "stamp": 2.97,
         "turnover": 200566.8
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781582965928-goxags",
@@ -16463,7 +18459,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 197834.5
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781582936782-cbg2gu",
@@ -16571,7 +18571,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 199840.6
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781582927811-9c1rf3",
@@ -16679,7 +18683,11 @@
         "sebi": 0.2,
         "stamp": 2.97,
         "turnover": 197653.8
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781582891245-ascftx",
@@ -16787,7 +18795,11 @@
         "sebi": 0.2,
         "stamp": 2.98,
         "turnover": 199682.4
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781582882388-132vy7",
@@ -16895,7 +18907,11 @@
         "sebi": 0.2,
         "stamp": 2.99,
         "turnover": 197558.5
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781510391852-vgzt5m",
@@ -17003,7 +19019,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 200168.28
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781503643648-xxlaw5",
@@ -17111,7 +19131,11 @@
         "sebi": 0.15,
         "stamp": 2.18,
         "turnover": 145224.97
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781503642814-20rj71",
@@ -17219,7 +19243,11 @@
         "sebi": 0.14,
         "stamp": 2.16,
         "turnover": 143799.39
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781499872341-po19uj",
@@ -17327,7 +19355,11 @@
         "sebi": 0.2,
         "stamp": 2.96,
         "turnover": 196616.2
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781498768422-klo5i6",
@@ -17435,7 +19467,11 @@
         "sebi": 0.04,
         "stamp": 0.53,
         "turnover": 35589.6
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781498512435-wo21r4",
@@ -17543,7 +19579,11 @@
         "sebi": 0.03,
         "stamp": 0.42,
         "turnover": 27646
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781498392432-kgstp1",
@@ -17651,7 +19691,11 @@
         "sebi": 0.1,
         "stamp": 1.46,
         "turnover": 97428.6
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781498391681-3p2zjt",
@@ -17759,7 +19803,11 @@
         "sebi": 0.1,
         "stamp": 1.47,
         "turnover": 97557.76
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781498266854-zhtovd",
@@ -17867,7 +19915,11 @@
         "sebi": 0.03,
         "stamp": 0.43,
         "turnover": 28357.56
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781498266789-zrd8x3",
@@ -17975,7 +20027,11 @@
         "sebi": 0.01,
         "stamp": 0.15,
         "turnover": 10076.3
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781498023495-79ukzd",
@@ -18083,7 +20139,11 @@
         "sebi": 0.03,
         "stamp": 0.49,
         "turnover": 32674.4
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497531637-dw1ihh",
@@ -18191,7 +20251,11 @@
         "sebi": 0.03,
         "stamp": 0.38,
         "turnover": 25038.9
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497285022-graywb",
@@ -18299,7 +20363,11 @@
         "sebi": 0,
         "stamp": 0.04,
         "turnover": 2675.84
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497285004-uh3hue",
@@ -18407,7 +20475,11 @@
         "sebi": 0,
         "stamp": 0.03,
         "turnover": 2102.2
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497284984-jbrb6y",
@@ -18515,7 +20587,11 @@
         "sebi": 0,
         "stamp": 0.03,
         "turnover": 2302.6
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497284969-qvnd0f",
@@ -18623,7 +20699,11 @@
         "sebi": 0,
         "stamp": 0.02,
         "turnover": 1468.6
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497284955-v2clpc",
@@ -18731,7 +20811,11 @@
         "sebi": 0,
         "stamp": 0.03,
         "turnover": 1871.05
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497284215-qy7dva",
@@ -18839,7 +20923,11 @@
         "sebi": 0,
         "stamp": 0.03,
         "turnover": 1789.98
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497169069-ixvev4",
@@ -18947,7 +21035,11 @@
         "sebi": 0.02,
         "stamp": 0.36,
         "turnover": 23874
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497168737-az3akz",
@@ -19055,7 +21147,11 @@
         "sebi": 0.04,
         "stamp": 0.54,
         "turnover": 36052.8
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497168367-1n2izx",
@@ -19163,7 +21259,11 @@
         "sebi": 0.04,
         "stamp": 0.53,
         "turnover": 35479.8
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497168351-2bwojg",
@@ -19271,7 +21371,11 @@
         "sebi": 0.04,
         "stamp": 0.53,
         "turnover": 35212.5
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497168330-ddp5gy",
@@ -19379,7 +21483,11 @@
         "sebi": 0.04,
         "stamp": 0.53,
         "turnover": 35542.6
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497168313-8j9w69",
@@ -19487,7 +21595,11 @@
         "sebi": 0.03,
         "stamp": 0.4,
         "turnover": 25764
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497168285-nsefmh",
@@ -19595,7 +21707,11 @@
         "sebi": 0.03,
         "stamp": 0.51,
         "turnover": 33927.95
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497168271-k0yth5",
@@ -19703,7 +21819,11 @@
         "sebi": 0.03,
         "stamp": 0.51,
         "turnover": 33871.5
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497168251-ufw3fm",
@@ -19811,7 +21931,11 @@
         "sebi": 0.03,
         "stamp": 0.51,
         "turnover": 33971.6
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781497168191-9525g1",
@@ -19919,7 +22043,11 @@
         "sebi": 0.03,
         "stamp": 0.45,
         "turnover": 30175
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781496429084-5ug67e",
@@ -20027,7 +22155,11 @@
         "sebi": 0.17,
         "stamp": 2.59,
         "turnover": 172292.05
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781496428444-c5yzhr",
@@ -20135,7 +22267,11 @@
         "sebi": 0.17,
         "stamp": 2.54,
         "turnover": 169150.8
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781496428037-ko4zf9",
@@ -20243,7 +22379,11 @@
         "sebi": 0.17,
         "stamp": 2.57,
         "turnover": 171784.2
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781496427999-q2ggwf",
@@ -20351,7 +22491,11 @@
         "sebi": 0.17,
         "stamp": 2.5,
         "turnover": 167518.8
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781496427970-bhpi33",
@@ -20459,7 +22603,11 @@
         "sebi": 0.17,
         "stamp": 2.55,
         "turnover": 169363.15
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781496426825-b7rq19",
@@ -20567,7 +22715,11 @@
         "sebi": 0.17,
         "stamp": 2.53,
         "turnover": 168364.8
-      }
+      },
+      "entryOwner": "simulation",
+      "exitOwner": "simulation",
+      "managedBySimulation": true,
+      "managementState": "simulation_managed"
     },
     {
       "id": "1781449364840-81x32q",
@@ -20675,7 +22827,11 @@
         "sebi": 0.16,
         "stamp": 2.34,
         "turnover": 156100
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781448184172-07jdkx",
@@ -20783,7 +22939,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199992.32
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781448140085-xxrimp",
@@ -20891,7 +23051,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199992.32
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781431013056-c1afwz",
@@ -20999,7 +23163,11 @@
         "sebi": 0.2,
         "stamp": 3,
         "turnover": 199833.6
-      }
+      },
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781428744860-pvltse",
@@ -21094,7 +23262,11 @@
       "closedAt": "2026-06-14T09:19:32.786Z",
       "closeReason": "Manual exit",
       "pnl": 0,
-      "pnlPct": 0
+      "pnlPct": 0,
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781428695838-2ylbnf",
@@ -21120,7 +23292,11 @@
       "closedAt": "2026-06-14T09:18:19.135Z",
       "closeReason": "Manual exit",
       "pnl": 0,
-      "pnlPct": 0
+      "pnlPct": 0,
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781428475255-j3730m",
@@ -21146,7 +23322,11 @@
       "closedAt": "2026-06-14T09:15:01.305Z",
       "closeReason": "Manual exit",
       "pnl": 0,
-      "pnlPct": 0
+      "pnlPct": 0,
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781428438289-nklepk",
@@ -21172,7 +23352,11 @@
       "closedAt": "2026-06-14T09:14:15.484Z",
       "closeReason": "Manual exit",
       "pnl": 0,
-      "pnlPct": 0
+      "pnlPct": 0,
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781416186055-pyzrkl",
@@ -21198,7 +23382,11 @@
       "closedAt": "2026-06-14T05:50:29.336Z",
       "closeReason": "Manual exit",
       "pnl": 0,
-      "pnlPct": 0
+      "pnlPct": 0,
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781411919030-hojkm8",
@@ -21224,7 +23412,11 @@
       "closedAt": "2026-06-14T04:38:48.157Z",
       "closeReason": "Manual exit",
       "pnl": 0,
-      "pnlPct": 0
+      "pnlPct": 0,
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     },
     {
       "id": "1781411798153-d5i724",
@@ -21250,7 +23442,11 @@
       "closedAt": "2026-06-14T04:37:49.549Z",
       "closeReason": "Manual exit",
       "pnl": 0,
-      "pnlPct": 0
+      "pnlPct": 0,
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only"
     }
   ]
 }

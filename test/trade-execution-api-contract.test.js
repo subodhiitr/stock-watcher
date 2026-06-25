@@ -326,3 +326,27 @@ test('action validation matrix enforces 400/409 requirements', async () => {
   });
   assert.equal(deleteClosedTrade.statusCode, 200);
 });
+
+test('open action captures requested broker mode and close uses per-trade broker details', async () => {
+  const proxy = loadProxyWithFixture('per-trade-broker-mode');
+  const opened = await request(proxy, {
+    method: 'POST',
+    path: '/trade-execution',
+    body: { action: 'open', symbol: 'INFY', side: 'buy', qty: 1, entryPrice: 1000, brokerMode: 'zerodha_dry_run', source: 'manual' }
+  });
+  assert.equal(opened.statusCode, 200);
+  assert.equal(opened.json?.trade?.executionMode, 'zerodha_dry_run');
+  assert.equal(opened.json?.trade?.broker?.name, 'zerodha');
+  assert.equal(opened.json?.trade?.broker?.mode, 'dry-run');
+  assert.equal(opened.json?.trade?.broker?.status, 'entry_dry_run');
+
+  const closed = await request(proxy, {
+    method: 'POST',
+    path: '/trade-execution',
+    body: { action: 'close', id: opened.json.trade.id, exitPrice: 1010, brokerMode: 'paper' }
+  });
+  assert.equal(closed.statusCode, 200);
+  assert.equal(closed.json?.trade?.executionMode, 'zerodha_dry_run');
+  assert.equal(closed.json?.trade?.broker?.status, 'exit_dry_run');
+  assert.equal(typeof closed.json?.trade?.broker?.exitOrder, 'object');
+});

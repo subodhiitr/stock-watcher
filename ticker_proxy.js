@@ -90,6 +90,9 @@ const SIM_SNAPSHOT_LEGACY_FILE = path.join(__dirname, 'simulation_snapshots.json
 const SIM_SNAPSHOT_PREFIX  = 'simulation_snapshots';
 const SIM_SNAPSHOT_RETENTION_DAYS = 30;
 const SIM_SNAPSHOT_TTL     = SIM_SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000; // keep strategy replay data
+const SIMULATION_UNIVERSE_FILE = process.env.SIMULATION_UNIVERSE_FILE || path.join(__dirname, 'simulation_universe.json');
+const INTRADAY_LIVE_REFRESH_MARKET_SEC = 60;
+const INTRADAY_LIVE_REFRESH_OFF_HOURS_SEC = 15 * 60;
 const STOCK_NEWS_TTL       = 30 * 60 * 1000;             // 30 minutes
 const INTRADAY_SIGNAL_TTL  = 2 * 60 * 1000;              // 2 minutes
 const REPLAY_CACHE_MAX     = 30;
@@ -102,6 +105,7 @@ const replayResultCache    = new Map();
 const replayJobs           = new Map();
 const activeReplayJobs     = new Map();
 const paperTradeStreamClients = new Set();
+const intradayLiveStreamClients = new Set();
 let freshNewsDayCache      = null;
 const freshNewsBuildJobs   = new Map();
 let freshNewsCronTimer     = null;
@@ -118,6 +122,11 @@ let simulationTickInFlight = false;
 let mutationLockActive = false;
 let mutationLockQueue = Promise.resolve();
 let simulationSchedulerTestInputs = null;
+let simulationUniverseSymbols = null;
+const intradayLiveCache = new Map();
+let intradayLiveRefreshTimer = null;
+let intradayLiveRefreshInFlight = false;
+let intradayLiveRefreshActive = false;
 
 function loadPropertiesFile(filePath) {
   try {
@@ -635,8 +644,272 @@ function openTradeFromEntryIntent(trades, intent, atIso) {
 }
 
 function readSchedulerTickInput() {
+  throw new Error('readSchedulerTickInput has been replaced by async readSchedulerTickInputAsync');
+}
+
+function loadSimulationUniverseState() {
+  try {
+    if (!fs.existsSync(SIMULATION_UNIVERSE_FILE)) return [];
+    const parsed = JSON.parse(fs.readFileSync(SIMULATION_UNIVERSE_FILE, 'utf8') || '{}');
+    return Array.isArray(parsed.symbols) ? parsed.symbols : [];
+  } catch (error) {
+    console.warn('[simulation-universe] Load error:', error.message);
+    return [];
+  }
+}
+
+function saveSimulationUniverseState(symbols) {
+  try {
+    const normalized = [...new Set((Array.isArray(symbols) ? symbols : [])
+      .map(sym => String(sym || '').trim().toUpperCase())
+      .filter(sym => /^[A-Z0-9_.-]+$/.test(sym)))];
+    fs.writeFileSync(SIMULATION_UNIVERSE_FILE, JSON.stringify({ savedAt: Date.now(), symbols: normalized }, null, 2), 'utf8');
+    return normalized;
+  } catch (error) {
+    console.warn('[simulation-universe] Save error:', error.message);
+    return [];
+  }
+}
+
+function getSimulationUniverseSymbols() {
+  if (!simulationUniverseSymbols) {
+    simulationUniverseSymbols = new Set(loadSimulationUniverseState());
+  }
+  return simulationUniverseSymbols;
+}
+
+function rememberSimulationUniverse(symbols = []) {
+  const universe = getSimulationUniverseSymbols();
+  let changed = false;
+  for (const raw of symbols) {
+    const sym = String(raw || '').trim().toUpperCase();
+    if (!sym || !/^[A-Z0-9_.-]+$/.test(sym)) continue;
+    if (!universe.has(sym)) {
+      universe.add(sym);
+      changed = true;
+    }
+  }
+  if (changed) {
+    saveSimulationUniverseState([...universe]);
+    startIntradayLiveRefresh('universe-update');
+    refreshIntradayLiveCache('universe-update').catch(() => {});
+  }
+}
+
+function buildDefaultIntradaySignal(sym, reason = 'Signal unavailable') {
+  return {
+    symbol: sym,
+    signal: 'hold',
+    score: 0,
+    target: null,
+    stop: null,
+    entryStatus: 'Wait',
+    entryTrigger: 'Signal unavailable',
+    setupType: 'NO_SIGNAL',
+    setup: 'Signal unavailable',
+    reasons: ['Signal unavailable'],
+    stale: true,
+    fetchFailed: true,
+    staleReason: reason,
+  };
+}
+
+function normalizeIntradayLiveSignal(sym, payload) {
+  if (payload && typeof payload === 'object') return payload;
+  return buildDefaultIntradaySignal(sym);
+}
+
+function isIstWeekend(now = Date.now()) {
+  const d = new Date(new Date(now).getTime() + 5.5 * 3600 * 1000);
+  if (Number.isNaN(d.getTime())) return false;
+  const day = d.getUTCDay();
+  return day === 0 || day === 6;
+}
+
+function getIntradayLiveRefreshIntervalSec(now = Date.now()) {
+  const d = new Date(new Date(now).getTime() + 5.5 * 3600 * 1000);
+  if (Number.isNaN(d.getTime())) return INTRADAY_LIVE_REFRESH_OFF_HOURS_SEC;
+  if (isIstWeekend(now)) return INTRADAY_LIVE_REFRESH_OFF_HOURS_SEC;
+  const hhmm = d.getUTCHours() * 100 + d.getUTCMinutes();
+  const marketOpen = hhmm >= 915 && hhmm < 1530;
+  return marketOpen ? INTRADAY_LIVE_REFRESH_MARKET_SEC : INTRADAY_LIVE_REFRESH_OFF_HOURS_SEC;
+}
+
+function buildIntradayLiveData(symbolList = null) {
+  const symbols = Array.isArray(symbolList)
+    ? new Set(symbolList.map(sym => String(sym || '').trim().toUpperCase()).filter(Boolean))
+    : null;
+  const data = {};
+  for (const [sym, setup] of intradayLiveCache.entries()) {
+    if (symbols && !symbols.has(sym)) continue;
+    data[sym] = setup;
+  }
+  return data;
+}
+
+function broadcastIntradayLive(reason = 'update', changedSymbols = null) {
+  if (!intradayLiveStreamClients.size) return;
+  for (const client of [...intradayLiveStreamClients]) {
+    const symbolFilter = client.symbols ? [...client.symbols] : null;
+    const payload = {
+      ok: true,
+      reason,
+      at: Date.now(),
+      data: buildIntradayLiveData(symbolFilter),
+      changedSymbols: Array.isArray(changedSymbols) ? changedSymbols : undefined,
+    };
+    const ok = writeSseEvent(client.res, payload);
+    if (!ok) {
+      if (client.keepAlive) clearInterval(client.keepAlive);
+      intradayLiveStreamClients.delete(client);
+    }
+  }
+}
+
+function scheduleIntradayLiveRefresh(reason = 'interval') {
+  if (!intradayLiveRefreshActive) return;
+  if (!getSimulationUniverseSymbols().size) return;
+  if (intradayLiveRefreshTimer) clearTimeout(intradayLiveRefreshTimer);
+  const delaySec = getIntradayLiveRefreshIntervalSec();
+  intradayLiveRefreshTimer = setTimeout(async () => {
+    intradayLiveRefreshTimer = null;
+    await refreshIntradayLiveCache(reason).catch(() => {});
+    scheduleIntradayLiveRefresh('interval');
+  }, Math.max(1, delaySec) * 1000);
+  if (typeof intradayLiveRefreshTimer.unref === 'function') intradayLiveRefreshTimer.unref();
+}
+
+async function refreshIntradayLiveCache(reason = 'interval') {
+  if (isIstWeekend()) {
+    return { ok: true, skipped: true, reason: 'weekend-cache-only' };
+  }
+  if (intradayLiveRefreshInFlight) return;
+  const symbols = [...getSimulationUniverseSymbols()];
+  if (!symbols.length) return;
+  intradayLiveRefreshInFlight = true;
+  try {
+    const changed = [];
+    for (let i = 0; i < symbols.length; i += CONCURRENCY) {
+      const chunk = symbols.slice(i, i + CONCURRENCY);
+      const settled = await Promise.allSettled(chunk.map(sym => fetchIntradaySignal(sym)));
+      for (let idx = 0; idx < settled.length; idx += 1) {
+        const sym = chunk[idx];
+        const nextValue = settled[idx].status === 'fulfilled'
+          ? normalizeIntradayLiveSignal(sym, settled[idx].value)
+          : buildDefaultIntradaySignal(sym, settled[idx].reason?.message || 'Intraday fetch failed');
+        const prev = intradayLiveCache.get(sym);
+        intradayLiveCache.set(sym, nextValue);
+        if (!prev || JSON.stringify(prev) !== JSON.stringify(nextValue)) {
+          changed.push(sym);
+        }
+      }
+    }
+    if (changed.length) {
+      persistServerSimulationSnapshot(reason, changed);
+      broadcastIntradayLive(reason, changed);
+    }
+    return { ok: true, changedCount: changed.length };
+  } finally {
+    intradayLiveRefreshInFlight = false;
+  }
+}
+
+function startIntradayLiveRefresh(reason = 'manual-start') {
+  if (intradayLiveRefreshActive) return;
+  if (!getSimulationUniverseSymbols().size) return;
+  intradayLiveRefreshActive = true;
+  scheduleIntradayLiveRefresh('interval');
+  console.log(`[intraday-live] Refresh started (${reason}); cadence=${INTRADAY_LIVE_REFRESH_MARKET_SEC}s market / ${INTRADAY_LIVE_REFRESH_OFF_HOURS_SEC}s off-hours`);
+}
+
+function stopIntradayLiveRefresh(reason = 'manual-stop') {
+  intradayLiveRefreshActive = false;
+  if (intradayLiveRefreshTimer) {
+    clearTimeout(intradayLiveRefreshTimer);
+    intradayLiveRefreshTimer = null;
+  }
+  console.log(`[intraday-live] Refresh stopped (${reason})`);
+}
+
+function buildServerCandidateFromIntraday(sym, setup, settings) {
+  if (!setup || typeof setup !== 'object') return null;
+  const signal = String(setup.signal || '').toLowerCase();
+  const side = signal === 'buy' || signal === 'sell' ? signal : null;
+  const price = Number(setup.price);
+  const target = Number(setup.target);
+  const stop = Number(setup.stop);
+  const targetPct = Number.isFinite(price) && Number.isFinite(target) && price > 0 ? Math.abs(target - price) / price * 100 : 0;
+  const charges = SimulationEngine.estimateZerodhaIntradayCharges(price, target, 1, side || 'buy');
+  const slippagePct = 0.06;
+  const netPct = targetPct - (Number(charges.totalPct) || 0) - slippagePct;
+  const stopPct = Number.isFinite(price) && Number.isFinite(stop) && price > 0
+    ? Math.abs(stop - price) / price * 100
+    : Number(setup.stopPct);
+  const candidate = {
+    symbol: sym,
+    name: sym,
+    assetType: 'stock',
+    sector: '',
+    cap: '',
+    price,
+    priceAtSnapshot: price,
+    score: Number(setup.score) || 0,
+    rawScore: Number(setup.score) || 0,
+    signal,
+    side,
+    freshness: {
+      stale: !!setup.stale || !!setup.fetchFailed,
+      reason: setup.staleReason || '',
+      ageMin: null,
+    },
+    indicators: {
+      ...setup,
+      price,
+      stopPct: Number.isFinite(stopPct) ? +stopPct.toFixed(3) : null,
+      reasons: Array.isArray(setup.reasons) ? setup.reasons : [],
+    },
+    quote: { price, change: Number(setup.dayChange) || null },
+    cost: {
+      side: side || 'buy',
+      targetPct: Number.isFinite(targetPct) ? +targetPct.toFixed(3) : 0,
+      costPct: Number(charges.totalPct) || 0,
+      charges,
+      slippagePct,
+      netPct: Number.isFinite(netPct) ? +netPct.toFixed(3) : 0,
+      requiredPct: Number(settings.SIMULATION_MIN_NET_PROFIT_PCT) || 0,
+      ok: Number.isFinite(netPct) ? netPct >= (Number(settings.SIMULATION_MIN_NET_PROFIT_PCT) || 0) : false,
+      minNetPct: Number(settings.SIMULATION_MIN_NET_PROFIT_PCT) || 0,
+    },
+  };
+  candidate.derivedSetupType = SimulationEngine.deriveSetupType(candidate, settings);
+  return candidate;
+}
+
+function buildSchedulerCandidatesFromIntradayCache(settings) {
+  const universe = getSimulationUniverseSymbols();
+  const symbols = [...universe];
+  const candidates = [];
+  if (!symbols.length) return candidates;
+  for (const sym of symbols) {
+    const setup = intradayLiveCache.get(sym);
+    if (!setup || typeof setup !== 'object') continue;
+    const candidate = buildServerCandidateFromIntraday(sym, setup, settings);
+    if (candidate) candidates.push(candidate);
+  }
+  return candidates;
+}
+
+async function readSchedulerTickInputAsync(settings) {
   if (simulationSchedulerTestInputs && typeof simulationSchedulerTestInputs === 'object') {
     return simulationSchedulerTestInputs;
+  }
+  const serverCandidates = buildSchedulerCandidatesFromIntradayCache(settings);
+  if (serverCandidates.length) {
+    return {
+      at: new Date().toISOString(),
+      candidates: serverCandidates,
+      market: {},
+    };
   }
   const loaded = loadSimulationSnapshotsFromAllFiles();
   const snapshots = Array.isArray(loaded?.snapshots) ? loaded.snapshots : [];
@@ -658,22 +931,68 @@ async function runSimulationSchedulerTick() {
         return { ok: true, skipped: true, state: runtime.state };
       }
 
-      const tickInput = readSchedulerTickInput();
-      const atIso = String(tickInput?.at || new Date().toISOString());
       const state = loadPaperStateFile();
       const settings = loadTradeSettingsFile().overrides || {};
+      const tickInput = await readSchedulerTickInputAsync(settings);
+      const atIso = String(tickInput?.at || new Date().toISOString());
       const ownershipContext = getTradeOwnershipContext(runtime.state, settings);
       const normalizedTrades = normalizeTradeCollectionOwnership(state.trades, ownershipContext);
       let changed = JSON.stringify(state.trades) !== JSON.stringify(normalizedTrades);
       state.trades = normalizedTrades;
       const trades = state.trades;
-      const openTrades = trades.filter(trade => trade?.status === 'open' && trade?.managedBySimulation === true);
+      const openTrades = trades.filter(trade =>
+        trade?.status === 'open' &&
+        (trade?.managedBySimulation === true || String(trade?.source || '').toLowerCase() === 'simulation')
+      );
       const candidateBySymbol = new Map((Array.isArray(tickInput?.candidates) ? tickInput.candidates : [])
         .map(candidate => [String(candidate?.symbol || '').toUpperCase(), candidate]));
-      const runtimeEngine = simulationSchedulerTestInputs?.exitBySymbol
+      for (const trade of openTrades) {
+        const sym = String(trade?.symbol || '').toUpperCase();
+        if (!sym) continue;
+        const candidate = candidateBySymbol.get(sym);
+        if (!candidate) continue;
+        const side = String(trade?.side || candidate?.side || candidate?.signal || 'buy').toLowerCase() === 'sell' ? 'sell' : 'buy';
+        const candidatePrice = Number(candidate?.price ?? candidate?.priceAtSnapshot ?? candidate?.quote?.price ?? candidate?.indicators?.price);
+        const basePrice = Number.isFinite(candidatePrice) && candidatePrice > 0 ? candidatePrice : Number(trade?.entryPrice);
+        const plan = SimulationEngine.getPaperPlanForCandidate?.(candidate, side, basePrice);
+        const hasTarget = trade?.target != null && Number.isFinite(Number(trade.target));
+        const hasStop = trade?.stop != null && Number.isFinite(Number(trade.stop));
+        if (!hasTarget && Number.isFinite(Number(plan?.target))) {
+          trade.target = +Number(plan.target).toFixed(2);
+          changed = true;
+        }
+        if (!hasStop && Number.isFinite(Number(plan?.stop))) {
+          trade.stop = +Number(plan.stop).toFixed(2);
+          changed = true;
+        }
+        if (!trade.setupType && (candidate?.derivedSetupType || candidate?.setupType)) {
+          trade.setupType = candidate.derivedSetupType || candidate.setupType;
+          changed = true;
+        }
+        if (!trade.signal && candidate?.signal) {
+          trade.signal = candidate.signal;
+          changed = true;
+        }
+        if (!Number.isFinite(Number(trade?.score)) && Number.isFinite(Number(candidate?.score))) {
+          trade.score = Number(candidate.score);
+          changed = true;
+        }
+        if (!Number.isFinite(Number(trade?.rr))) {
+          const entry = Number(trade?.entryPrice);
+          const target = Number(trade?.target);
+          const stop = Number(trade?.stop);
+          const risk = Number.isFinite(entry) && Number.isFinite(stop) ? Math.abs(entry - stop) : null;
+          const reward = Number.isFinite(entry) && Number.isFinite(target) ? Math.abs(target - entry) : null;
+          if (Number.isFinite(risk) && risk > 0 && Number.isFinite(reward)) {
+            trade.rr = +Number(reward / risk).toFixed(2);
+            changed = true;
+          }
+        }
+      }
+      const runtimeEngine = tickInput?.exitBySymbol
         ? {
             getSimulationExitIntent(trade) {
-              return simulationSchedulerTestInputs?.exitBySymbol?.[String(trade?.symbol || '').toUpperCase()] || null;
+              return tickInput?.exitBySymbol?.[String(trade?.symbol || '').toUpperCase()] || null;
             },
             getSimulationEntryIntents(candidates) {
               return candidates.map(candidate => ({
@@ -681,6 +1000,16 @@ async function runSimulationSchedulerTick() {
                 side: candidate.side || 'buy',
                 price: candidate.price,
                 entryPrice: candidate.price,
+                target: candidate.target,
+                stop: candidate.stop,
+                signal: candidate.signal,
+                score: candidate.score,
+                rr: candidate.rr,
+                setupType: candidate.setupType,
+                setup: candidate.setup,
+                entryContext: candidate.entryContext,
+                notes: candidate.notes,
+                assetType: candidate.assetType,
               }));
             },
           }
@@ -701,8 +1030,15 @@ async function runSimulationSchedulerTick() {
         { engine: runtimeEngine }
       );
 
+      const fallbackExitIntents = (!Array.isArray(exitIntents) || exitIntents.length === 0) && tickInput?.exitBySymbol
+        ? openTrades
+            .map(trade => tickInput.exitBySymbol[String(trade?.symbol || '').toUpperCase()] || null)
+            .filter(Boolean)
+        : [];
+      const effectiveExitIntents = Array.isArray(exitIntents) && exitIntents.length ? exitIntents : fallbackExitIntents;
+
       const exitBySymbol = new Map();
-      for (const intent of exitIntents || []) {
+      for (const intent of effectiveExitIntents) {
         exitBySymbol.set(String(intent?.symbol || '').toUpperCase(), intent);
       }
 
@@ -760,6 +1096,8 @@ async function runSimulationSchedulerTick() {
 
 function startSimulationScheduler(reason = 'manual-start') {
   if (simulationSchedulerTimer) return;
+  startIntradayLiveRefresh('scheduler-start');
+  refreshIntradayLiveCache('scheduler-start').catch(() => {});
   simulationSchedulerTimer = setInterval(() => {
     runSimulationSchedulerTick().catch(() => {});
   }, Math.max(1, simulationTickIntervalSec) * 1000);
@@ -797,6 +1135,10 @@ async function initializeSimulationRuntime() {
   if (simulationRuntimeInitialized) return getSimulationRuntimeStatus();
   simulationRuntimeInitialized = true;
   const runtime = loadSimulationRuntime();
+  if (getSimulationUniverseSymbols().size) {
+    startIntradayLiveRefresh('runtime-init');
+    refreshIntradayLiveCache('runtime-init').catch(() => {});
+  }
   simulationRuntimeAutoResumeArmed = runtime.state === 'running' && runtime.autoResume === true;
   if (simulationRuntimeAutoResumeArmed || runtime.state === 'settling') {
     startSimulationScheduler('auto-resume');
@@ -1696,6 +2038,63 @@ function sanitizeSimulationSnapshot(payload) {
     candidates,
     candidateCount: Number.isFinite(Number(payload.candidateCount)) ? Number(payload.candidateCount) : candidates.length,
   };
+}
+
+function appendSimulationSnapshot(payload) {
+  const snapshot = sanitizeSimulationSnapshot(payload || {});
+  const day = getIstDateKey(snapshot.at || Date.now());
+  const state = loadSimulationSnapshotsFile(day);
+  state.snapshots.push(snapshot);
+  const snapshots = saveSimulationSnapshotsFile(state, day);
+  if (!Array.isArray(snapshots)) throw new Error('Failed to persist snapshot file');
+  const verifyState = loadSimulationSnapshotsFile(day);
+  const persisted = Array.isArray(verifyState.snapshots) && verifyState.snapshots.some(s => s && s.id === snapshot.id);
+  if (!persisted) throw new Error('Snapshot write verification failed');
+  return { day, snapshots, snapshot };
+}
+
+function persistServerSimulationSnapshot(source = 'intraday-live-refresh', changedSymbols = []) {
+  try {
+    const runtime = loadSimulationRuntime();
+    const settings = loadTradeSettingsFile().overrides || {};
+    const candidates = buildSchedulerCandidatesFromIntradayCache(settings).slice(0, 100);
+    const trades = loadPaperStateFile().trades || [];
+    const openSimulationTrades = trades
+      .filter(trade => trade?.status === 'open' && String(trade?.source || '').toLowerCase() === 'simulation')
+      .slice(0, 20)
+      .map(trade => {
+        const setup = intradayLiveCache.get(String(trade?.symbol || '').toUpperCase()) || {};
+        return {
+          symbol: trade.symbol,
+          side: trade.side,
+          qty: trade.qty,
+          entryPrice: trade.entryPrice,
+          priceAtSnapshot: Number(setup?.price) || null,
+          ohlc: setup?.ohlc || null,
+          setupType: trade.setupType || null,
+          target: trade.target,
+          stop: trade.stop,
+          openedAt: trade.openedAt,
+        };
+      });
+    appendSimulationSnapshot({
+      source: `server-${source || 'intraday-live-refresh'}`,
+      dataSource: 'server',
+      currentView: 'server',
+      simulationState: runtime.state,
+      caps: settings,
+      dayStats: {},
+      market: {},
+      openSimulationTrades,
+      outcomeSummary: {
+        changedSymbols: Array.isArray(changedSymbols) ? changedSymbols.slice(0, 100) : [],
+      },
+      candidates,
+      candidateCount: candidates.length,
+    });
+  } catch (e) {
+    console.warn('[simulation-snapshots] Server snapshot persist failed:', e.message);
+  }
 }
 
 function computePaperTradePnl(trade, exitPrice) {
@@ -3774,6 +4173,10 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
         close: round2(rawCloses[lastBarIdx]),
         volume: Number.isFinite(Number(rawVolumes[lastBarIdx])) ? Number(rawVolumes[lastBarIdx]) : null,
       } : null;
+      const priceTimeMs = lastBarIdx >= 0 && Number.isFinite(Number(timestamps[lastBarIdx]))
+        ? Number(timestamps[lastBarIdx]) * 1000
+        : null;
+      const priceTime = priceTimeMs ? new Date(priceTimeMs).toISOString() : null;
       const sessionVolume = compactFinite(rawVolumes).reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
       const ohlc = {
         latestBar,
@@ -3800,6 +4203,8 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
         setup: 'Insufficient intraday candles',
         reasons: ['Insufficient intraday candles'],
         ohlc,
+        priceTime,
+        priceTimeMs,
         stale: true,
         fetchFailed: true,
         staleReason: `Insufficient intraday data (${closes.length} candles, need 6+)`,
@@ -3845,6 +4250,10 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     close: round2(rawCloses[lastBarIdx]),
     volume: Number.isFinite(Number(rawVolumes[lastBarIdx])) ? Number(rawVolumes[lastBarIdx]) : null,
   } : null;
+  const priceTimeMs = lastBarIdx >= 0 && Number.isFinite(Number(timestamps[lastBarIdx]))
+    ? Number(timestamps[lastBarIdx]) * 1000
+    : null;
+  const priceTime = priceTimeMs ? new Date(priceTimeMs).toISOString() : null;
   const ohlc = {
     latestBar,
     session: {
@@ -4016,6 +4425,8 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     entryStatus,
     entryTrigger,
     invalidation,
+    priceTime,
+    priceTimeMs,
     dayChange: prevClose ? +(((price - prevClose) / prevClose) * 100).toFixed(2) : null,
     reasons: reasons.slice(0, 6),
     savedAt: new Date().toISOString(),
@@ -4025,7 +4436,17 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     const quote = result?.indicators?.quote?.[0] || {};
     const meta = result?.meta || {};
     const closes = compactFinite(quote.close);
+    const timestamps = result?.timestamp || [];
+    const rawCloses = quote.close || [];
     const price = Number(meta.regularMarketPrice) || (closes.length > 0 ? closes[closes.length - 1] : null);
+    let lastBarIdx = -1;
+    for (let i = rawCloses.length - 1; i >= 0; i--) {
+      if (Number.isFinite(Number(rawCloses[i]))) { lastBarIdx = i; break; }
+    }
+    const priceTimeMs = lastBarIdx >= 0 && Number.isFinite(Number(timestamps[lastBarIdx]))
+      ? Number(timestamps[lastBarIdx]) * 1000
+      : null;
+    const priceTime = priceTimeMs ? new Date(priceTimeMs).toISOString() : null;
     if (price) {
       return {
         symbol: sym,
@@ -4040,6 +4461,8 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
         setupType: 'NO_SIGNAL',
         setup: 'Signal build error',
         reasons: ['Signal build error'],
+        priceTime,
+        priceTimeMs,
         stale: true,
         error: true,
         errorReason: err.message,
@@ -4670,6 +5093,7 @@ async function proxyRequestHandler(req, res) {
         .map(s => s.trim().toUpperCase())
         .filter(Boolean)
         .slice(0, 300);
+      rememberSimulationUniverse(symbols);
       const [indices, quotes] = await Promise.all([
         yahooIndices().catch(e => ({ ok:false, error:e.message })),
         symbols.length ? yahooQuote(symbols).catch(e => ({ ok:false, error:e.message, quotes:{} })) : Promise.resolve({ ok:true, quotes:{} }),
@@ -5235,6 +5659,7 @@ async function proxyRequestHandler(req, res) {
   if (pathname === '/stream/intraday-signals') {
     const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
     if (!symbols.length) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No symbols' })); return; }
+    rememberSimulationUniverse(symbols);
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -5260,44 +5685,11 @@ async function proxyRequestHandler(req, res) {
         await Promise.allSettled(chunk.map(sym =>
           fetchIntradaySignal(sym)
             .then(v => { 
-              // Always send a response, even if data is null (fallback to stale marker)
-              if (v) {
-                send({ sym, data: v });
-              } else {
-                send({ sym, data: {
-                  symbol: sym,
-                  signal: 'hold',
-                  score: 0,
-                  target: null,
-                  stop: null,
-                  entryStatus: 'Wait',
-                  entryTrigger: 'Signal unavailable',
-                  setupType: 'NO_SIGNAL',
-                  setup: 'Signal unavailable',
-                  reasons: ['Signal unavailable'],
-                  stale: true,
-                  fetchFailed: true,
-                  staleReason: 'Insufficient intraday data (less than 6 5m candles)',
-                } });
-              }
+              send({ sym, data: normalizeIntradayLiveSignal(sym, v) });
             })
             .catch(e => {
               console.warn(`[stream/intraday] ${sym}:`, e.message);
-              send({ sym, data: {
-                symbol: sym,
-                signal: 'hold',
-                score: 0,
-                target: null,
-                stop: null,
-                entryStatus: 'Wait',
-                entryTrigger: 'Signal unavailable',
-                setupType: 'NO_SIGNAL',
-                setup: 'Signal unavailable',
-                reasons: ['Signal unavailable'],
-                stale: true,
-                fetchFailed: true,
-                staleReason: e.message,
-              } });
+              send({ sym, data: buildDefaultIntradaySignal(sym, e.message) });
             })
         ));
       }
@@ -5306,6 +5698,47 @@ async function proxyRequestHandler(req, res) {
       send({ error: e.message }); 
     }
     if (!closed && !res.writableEnded) { res.write(`data: ${JSON.stringify({ done: true })}\n\n`); res.end(); }
+    return;
+  }
+
+  // /stream/intraday-live?symbols=A,B  -- SSE: server-owned intraday cache broadcast stream
+  if (pathname === '/stream/intraday-live') {
+    const requestedSymbols = (searchParams.get('symbols') || '')
+      .split(',')
+      .map(s => s.trim().toUpperCase())
+      .filter(Boolean);
+    if (requestedSymbols.length) {
+      rememberSimulationUniverse(requestedSymbols);
+    }
+    const symbolSet = requestedSymbols.length ? new Set(requestedSymbols) : null;
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    const client = {
+      res,
+      symbols: symbolSet,
+      keepAlive: setInterval(() => {
+        try {
+          if (!res.writableEnded) res.write(': keep-alive\n\n');
+        } catch (_) {}
+      }, 15000),
+    };
+    intradayLiveStreamClients.add(client);
+    writeSseEvent(res, {
+      ok: true,
+      reason: 'connected',
+      at: Date.now(),
+      data: buildIntradayLiveData(symbolSet ? [...symbolSet] : null),
+    });
+    startIntradayLiveRefresh('client-connected');
+    refreshIntradayLiveCache('client-connected').catch(() => {});
+    req.on('close', () => {
+      if (client.keepAlive) clearInterval(client.keepAlive);
+      intradayLiveStreamClients.delete(client);
+    });
     return;
   }
 
@@ -5425,6 +5858,7 @@ async function proxyRequestHandler(req, res) {
   if (pathname === '/intraday-signals') {
     const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
     if (!symbols.length) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No symbols' })); return; }
+    rememberSimulationUniverse(symbols);
     try {
       const results = {};
       for (let i = 0; i < symbols.length; i += CONCURRENCY) {
@@ -6127,7 +6561,8 @@ async function proxyRequestHandler(req, res) {
             res.end(JSON.stringify({ error: 'Open paper trade already exists for this symbol', trade: existing }));
             return;
           }
-          const executionMode = String(payload.brokerMode || payload.executionMode || '').toLowerCase();
+          const requestedMode = String(payload.brokerMode || payload.executionMode || '').toLowerCase();
+          const executionMode = VALID_BROKER_MODES.has(requestedMode) ? requestedMode : 'paper';
           const dryRunEntryOrder = executionMode === 'zerodha_dry_run'
             ? buildZerodhaDryRunOrder({ ...payload, symbol, side, qty, entryPrice, assetType: payload.assetType === 'etf' ? 'etf' : 'stock' }, null, 'entry')
             : null;
@@ -6153,6 +6588,7 @@ async function proxyRequestHandler(req, res) {
             entryContext: payload.entryContext && typeof payload.entryContext === 'object' ? payload.entryContext : null,
             notes: payload.notes || '',
             openedAt: String(payload.transactionTime || '').match(/\d{4}-\d{2}-\d{2}T/) ? payload.transactionTime : new Date().toISOString(),
+            executionMode,
           };
           Object.assign(
             trade,
@@ -6619,15 +7055,7 @@ async function proxyRequestHandler(req, res) {
     if (req.method === 'POST') {
       try {
         const payload = await readJsonBody(req);
-        const snapshot = sanitizeSimulationSnapshot(payload || {});
-        const day = getIstDateKey(snapshot.at || Date.now());
-        const state = loadSimulationSnapshotsFile(day);
-        state.snapshots.push(snapshot);
-        const snapshots = saveSimulationSnapshotsFile(state, day);
-        if (!Array.isArray(snapshots)) throw new Error('Failed to persist snapshot file');
-        const verifyState = loadSimulationSnapshotsFile(day);
-        const persisted = Array.isArray(verifyState.snapshots) && verifyState.snapshots.some(s => s && s.id === snapshot.id);
-        if (!persisted) throw new Error('Snapshot write verification failed');
+        const { day, snapshots, snapshot } = appendSimulationSnapshot(payload || {});
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: day, file: path.basename(getSimulationSnapshotFile(day)), count: snapshots.length, snapshot }));
       } catch(e) {
@@ -7026,6 +7454,9 @@ module.exports = {
     },
     stopSimulationSchedulerForTests() {
       stopSimulationScheduler('test-stop');
+    },
+    stopIntradayLiveRefreshForTests() {
+      stopIntradayLiveRefresh('test-stop');
     },
   },
 };

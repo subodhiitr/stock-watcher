@@ -1,14 +1,14 @@
 // ═══════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════
-// Adaptive refresh: 2 min during market hours (9:15–15:30 IST), 10 min outside
+// Adaptive refresh: 30s during market hours (9:15–15:30 IST), 2 min outside
 function getRefreshInterval() {
   const now = new Date();
   const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);
   const day = ist.getUTCDay(); // 0=Sun, 6=Sat
-  if (day === 0 || day === 6) return 600; // weekend
+  if (day === 0 || day === 6) return 120; // weekend
   const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();
-  return (hhmm >= 915 && hhmm < 1530) ? 120 : 600;
+  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;
 }
 const PROXY = location.protocol === 'file:' ? 'http://localhost:3001' : location.origin;
 const DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;
@@ -33,6 +33,7 @@ const SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;
 const BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;
 const ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;
 const SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;
+const INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;
 const REPLAY_FETCH_TIMEOUT_MS = 120000;
 const TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;
 const TRADE_SETTING_OVERRIDES_KEY = 'stock-watcher-trade-setting-overrides';
@@ -691,6 +692,11 @@ let paperTradesLoaded = false;
 let paperTradesLoading = null;
 let paperTradesStream = null;
 let paperTradesStreamReconnectTimer = null;
+let tradeSettingsSyncRetryTimer = null;
+let tradeSettingsSyncInFlight = false;
+let intradayLiveStream = null;
+let intradayLiveStreamReconnectTimer = null;
+let intradayLiveStreamKey = '';
 let etfSort        = { col:'change', dir:-1 };
 let etfSearch      = '';
 let targetFilter   = 'all';
@@ -769,11 +775,7 @@ let brokerMode = ['paper', 'zerodha_dry_run', 'zerodha_live', 'sharekhan_live'].
   : 'paper';
 let brokerConnectionStatus = null; // { mode, zerodha: { credentialsLoaded, clientsInitialized, pollerRunning, failureCount, isDisabled } }
 let brokerRefreshState = { busy:false, ok:null, message:'' };
-let brokerPortfolioState = {
-  activeTab: 'zerodha',
-  zerodha: { loading:false, ok:false, data:null, error:'' },
-  sharekhan: { loading:false, ok:false, data:null, error:'' },
-};
+let brokerPortfolioState = { loading:false, ok:false, data:null, error:'' };
 let brokerPositionsPanelOpen = false;
 const COLUMN_PRESET_KEY = 'stock-watcher-column-preset';
 let columnPreset = localStorage.getItem(COLUMN_PRESET_KEY) || 'trading';
@@ -1360,6 +1362,31 @@ async function fetchAll() {
   }
 }
 
+async function refreshDashboardUiOnly() {
+  if (!dataSource) return;
+  if (bgRefreshActive) return;
+  bgRefreshActive = true;
+  const refreshCard = document.getElementById('last-refresh-card');
+  if (refreshCard) refreshCard.disabled = true;
+  showBgRefreshing('Refreshing view…');
+  setBgProgress(20);
+  renderTopActionBar();
+  try {
+    await loadPaperTrades(true);
+    await refreshSimulationStatusFromServer({ silent: true });
+    renderDashboard({ immediate: true });
+    lastDashboardRefreshAt = Date.now();
+    setBgProgress(100);
+  } catch (e) {
+    console.warn('ui-only refresh failed', e.message);
+  } finally {
+    hideBgRefreshing();
+    if (refreshCard) refreshCard.disabled = false;
+    bgRefreshActive = false;
+    renderTopActionBar();
+  }
+}
+
 function queueSecondaryDashboardLoads(firstLoad = false) {
   if (secondaryLoadActive || !dataSource) return;
   secondaryLoadActive = true;
@@ -1426,7 +1453,7 @@ function startCountdown() {
     if(countdownSec<=0){
       interval=getRefreshInterval(); // re-evaluate each cycle (market open/close)
       countdownSec=interval;
-      fetchAll();
+      refreshDashboardUiOnly();
     }
   },1000);
 }
@@ -1617,84 +1644,85 @@ function markIntradayBatchStale(batch, reason) {
 }
 
 async function fetchIntradaySignals(symbols) {
-  if (!symbols || !symbols.length) return;
-  let anyUpdated = false;
-  let sseCount = 0, batchCount = 0;
+  const normalizedSymbols = Array.from(
+    new Set((Array.isArray(symbols) ? symbols : []).map(sym => String(sym || '').trim().toUpperCase()).filter(Boolean))
+  );
+  if (!normalizedSymbols.length) return;
+  const streamKey = normalizedSymbols.slice().sort().join(',');
+  if (intradayLiveStream && intradayLiveStreamKey === streamKey) return;
+  intradayLiveStreamKey = streamKey;
+  if (intradayLiveStreamReconnectTimer) {
+    clearTimeout(intradayLiveStreamReconnectTimer);
+    intradayLiveStreamReconnectTimer = null;
+  }
+  if (intradayLiveStream) {
+    try { intradayLiveStream.close(); } catch (_) {}
+    intradayLiveStream = null;
+  }
 
-  if (DEBUG_INTRADAY_LOGS) console.info(`[fetchIntradaySignals] starting for ${symbols.length} symbols, current intradayData has ${Object.keys(intradayData).length}`);
-  const url = `${PROXY}/stream/intraday-signals?symbols=${encodeURIComponent(symbols.join(','))}`;
-  // Increased timeout to 180s (3 min) since fetching intraday data from Yahoo can take time with retries
-  const result = await openSSEStream(url, (msg) => {
-    if (msg.sym && msg.data && typeof msg.data === 'object') {
-      // Accept any msg.data, even if it doesn't have signal yet (allow partial updates)
-      const fetchedAt = Date.now();
-      rememberPreviousSimulationSignal(msg.sym);
-      intradayData[msg.sym] = {
-        ...msg.data,
-        fetchedAt,
-        stale: !!msg.data.stale,
-        fetchFailed: !!msg.data.fetchFailed,
-      };
-      intradayDataUpdateCount++;
-      anyUpdated = true;
-      sseCount++;
-      if (DEBUG_INTRADAY_LOGS) console.debug(`[intraday] ${msg.sym}: stored (update #${intradayDataUpdateCount}), keys: target=${msg.data.target}, signal=${msg.data.signal}, stale=${msg.data.stale}`);
-      scheduleTableRender(); // debounced: coalesces per-symbol renders
-    } else if (msg.sym) {
-      if (DEBUG_INTRADAY_LOGS) console.warn('intraday SSE: invalid data for', msg.sym, 'data:', msg.data);
+  const connect = () => {
+    if (intradayLiveStream) return;
+    const url = `${INTRADAY_LIVE_STREAM_ENDPOINT}?symbols=${encodeURIComponent(normalizedSymbols.join(','))}`;
+    try {
+      intradayLiveStream = new EventSource(url);
+    } catch (e) {
+      console.warn('intraday live SSE init failed', e.message);
+      if (!intradayLiveStreamReconnectTimer) {
+        intradayLiveStreamReconnectTimer = setTimeout(() => {
+          intradayLiveStreamReconnectTimer = null;
+          connect();
+        }, 3000);
+      }
+      return;
     }
-  }, { timeoutMs: 180000 });
 
-  if (!result.ok) {
-    // SSE failed — fall back to parallel batches
-    if (DEBUG_INTRADAY_LOGS) console.warn('intraday SSE failed, falling back to batch:', result.error, `(received ${sseCount} items before failure)`);
-    const BATCH = 25, PARALLEL = 3;
-    const batches = [];
-    for (let i = 0; i < symbols.length; i += BATCH) batches.push(symbols.slice(i, i + BATCH));
-    for (let i = 0; i < batches.length; i += PARALLEL) {
-      await Promise.allSettled(batches.slice(i, i + PARALLEL).map(async batch => {
-        try {
-          const updated = await fetchIntradaySignalBatch(batch, 1);
-          if (updated) { anyUpdated = true; batchCount += batch.length; scheduleTableRender(); }
-        } catch(e) {
-          if (DEBUG_INTRADAY_LOGS) console.warn('fallback batch failed:', e.message);
-          markIntradayBatchStale(batch, e.message);
+    intradayLiveStream.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data || '{}');
+        const data = payload?.data && typeof payload.data === 'object' ? payload.data : null;
+        if (!data) return;
+        let anyUpdated = false;
+        for (const [sym, value] of Object.entries(data)) {
+          if (!value || typeof value !== 'object') continue;
+          rememberPreviousSimulationSignal(sym);
+          intradayData[sym] = {
+            ...value,
+            fetchedAt: Date.now(),
+            stale: !!value.stale,
+            fetchFailed: !!value.fetchFailed,
+          };
+          intradayDataUpdateCount++;
+          anyUpdated = true;
         }
-      }));
-    }
-    if (DEBUG_INTRADAY_LOGS) console.info(`intraday: SSE${sseCount > 0 ? ' partial' : ''} + batch fallback completed (${sseCount} SSE + ${batchCount} batch = ${sseCount + batchCount} items, total updates: ${intradayDataUpdateCount})`);
-  } else {
-    if (DEBUG_INTRADAY_LOGS) console.info(`intraday: SSE stream completed successfully (${sseCount} items, total updates: ${intradayDataUpdateCount})`);
-  }
+        if (anyUpdated) {
+          scheduleTableRender();
+        }
+      } catch (e) {
+        console.warn('intraday live SSE parse failed', e.message);
+      }
+    };
 
-  if (anyUpdated) {
-    if (DEBUG_INTRADAY_LOGS) console.info(`[fetchIntradaySignals] completed: intradayData now has ${Object.keys(intradayData).length} symbols, total updates: ${intradayDataUpdateCount}`);
-    saveSimulationSnapshot('intraday-refresh').catch(e => console.warn('simulation snapshot failed', e.message));
-  }
+    intradayLiveStream.onerror = () => {
+      try { intradayLiveStream?.close(); } catch (_) {}
+      intradayLiveStream = null;
+      if (!intradayLiveStreamReconnectTimer) {
+        intradayLiveStreamReconnectTimer = setTimeout(() => {
+          intradayLiveStreamReconnectTimer = null;
+          connect();
+        }, 3000);
+      }
+    };
+  };
+
+  connect();
 }
 
 function adjustedTradeScore(rowOrSym) {
   const sym = typeof rowOrSym === 'string' ? rowOrSym : rowOrSym?.sym;
-  const row = typeof rowOrSym === 'string' ? null : rowOrSym;
   const t = intradayData[sym];
   if (!t) return -999;
-  let score = Number.isFinite(Number(t.score)) ? Number(t.score) : 0;
-  const bullish = score >= 0;
-  const sectorAvg = row ? sectorTrendCache[row.sector] : null;
-  if (sectorAvg != null) {
-    if (bullish && sectorAvg > 0.25) score += 10;
-    else if (bullish && sectorAvg < -0.25) score -= 12;
-    else if (!bullish && sectorAvg < -0.25) score -= 10;
-    else if (!bullish && sectorAvg > 0.25) score += 12;
-  }
-  const flag = getEventFlag(sym);
-  if (flag?.danger) score += bullish ? -10 : 10;
-  const cost = getTradeCostContext(row || sym, t);
-  if (cost) {
-    if (!cost.ok) score += bullish ? -30 : 30;
-    else if (cost.netPct >= 0.75) score += bullish ? 4 : -4;
-  }
-  return Math.max(-100, Math.min(100, Math.round(score)));
+  const score = Number(t.score);
+  return Number.isFinite(score) ? Math.max(-100, Math.min(100, Math.round(score))) : 0;
 }
 
 function tradeScore(sym) {
@@ -1718,12 +1746,17 @@ function getLiquidityInfo(t) {
 
 function getIntradayFreshness(t) {
   if (!t) return { stale:true, ageMs:null, label:'No signal', reason:'Intraday signal not loaded' };
+  const priceTimeMs = Number(t.priceTimeMs);
+  const priceTimeFromIso = Date.parse(String(t.priceTime || t?.ohlc?.latestBar?.time || ''));
   const fetchedAt = Number(t.fetchedAt);
-  const ageMs = Number.isFinite(fetchedAt) ? Date.now() - fetchedAt : null;
+  const freshnessAt = Number.isFinite(priceTimeMs)
+    ? priceTimeMs
+    : (Number.isFinite(priceTimeFromIso) ? priceTimeFromIso : fetchedAt);
+  const ageMs = Number.isFinite(freshnessAt) ? Date.now() - freshnessAt : null;
   const stale = !!t.stale || !!t.fetchFailed || ageMs == null || ageMs > INTRADAY_STALE_MS;
   const ageMin = ageMs == null ? null : Math.max(0, Math.round(ageMs / 60000));
   const label = stale ? `Stale${ageMin != null ? ' ' + ageMin + 'm' : ''}` : `Fresh${ageMin != null ? ' ' + ageMin + 'm' : ''}`;
-  const reason = t.staleReason || (ageMs == null ? 'Signal freshness unknown' : `Signal age ${ageMin}m`);
+  const reason = t.staleReason || (ageMs == null ? 'Signal freshness unknown' : `Price age ${ageMin}m`);
   return { stale, ageMs, ageMin, label, reason };
 }
 
@@ -1850,6 +1883,33 @@ function paperQtyInputId(sym) {
   return `paper-qty-${String(sym || '').replace(/[^A-Za-z0-9_-]/g, '_')}`;
 }
 
+const manualTradeBrokerModesBySymbol = {};
+
+function paperBrokerSelectId(sym) {
+  return `paper-broker-${String(sym || '').replace(/[^A-Za-z0-9_-]/g, '_')}`;
+}
+
+function normalizeManualTradeBrokerMode(mode) {
+  const normalized = String(mode || '').toLowerCase();
+  return ['paper', 'zerodha_dry_run', 'zerodha_live', 'sharekhan_live'].includes(normalized) ? normalized : brokerMode;
+}
+
+function getManualTradeBrokerMode(sym) {
+  const key = String(sym || '').toUpperCase();
+  const input = document.getElementById(paperBrokerSelectId(sym));
+  if (input?.value) {
+    const normalized = normalizeManualTradeBrokerMode(input.value);
+    manualTradeBrokerModesBySymbol[key] = normalized;
+    return normalized;
+  }
+  return normalizeManualTradeBrokerMode(manualTradeBrokerModesBySymbol[key] || brokerMode);
+}
+
+function setManualTradeBrokerMode(sym, mode) {
+  const key = String(sym || '').toUpperCase();
+  manualTradeBrokerModesBySymbol[key] = normalizeManualTradeBrokerMode(mode);
+}
+
 function getManualPaperQty(sym, suggestion) {
   const input = document.getElementById(paperQtyInputId(sym));
   const raw = input?.value;
@@ -1888,6 +1948,22 @@ function formatTradeDateTime(value) {
     hour:'2-digit',
     minute:'2-digit',
     hour12:false,
+  });
+}
+
+function toIST(value) {
+  if (!value) return '--';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '--';
+  return d.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
   });
 }
 
@@ -2153,7 +2229,6 @@ function subscribePaperTradesStream() {
 }
 
 function renderOpenTradeRows(openTrades, newKeys, mode = 'all') {
-  const manualAutoExitEnabled = !!getSimulationEngineSettings().SIMULATION_AUTO_MANUAL_EXITS;
   return openTrades.length ? openTrades.map(trade => {
     const isOpen = isOpenTrade(trade);
     const eventType = getTradeEventType(trade);
@@ -2180,30 +2255,35 @@ function renderOpenTradeRows(openTrades, newKeys, mode = 'all') {
         : '<span style="color:var(--muted);font-size:11px">Auto managed</span>')
       : `<span style="color:var(--muted);font-size:11px">${escapeHTML(trade.closeReason || 'Exited')}</span>`;
     
-    // Broker status indicator
+    // Status indicator
     let statusHTML = '--';
-    if (trade.broker?.name === 'zerodha') {
-      const closeReason = String(trade.closeReason || '').toLowerCase();
-      const isTimeoutAutoCancel = closeReason.includes('auto-cancelled') && closeReason.includes('timeout');
-      if (trade.broker.status === 'pending') {
-        statusHTML = '⏳ Pending';
-      } else if (trade.broker.status === 'confirmed') {
-        statusHTML = '✅ Confirmed';
-      } else if (trade.broker.status === 'rejected') {
-        statusHTML = '❌ Rejected';
-      } else if (trade.broker.status === 'timeout') {
-        statusHTML = '⚠️ Timeout';
-      } else if (trade.broker.status === 'failed') {
-        statusHTML = '❌ Failed';
-      } else if (trade.broker.status === 'exit_placed') {
-        statusHTML = '🚪 Exiting';
-      } else if (trade.broker.status === 'cancelled') {
-        statusHTML = isTimeoutAutoCancel ? '✗ Auto-cancelled (timeout)' : '✗ Cancelled';
-      } else if (trade.broker.status === 'entry_dry_run') {
-        statusHTML = '🔄 Dry Entry';
-      } else if (trade.broker.status === 'exit_dry_run') {
-        statusHTML = '🔄 Dry Exit';
-      }
+    const brokerStatus = String(trade?.broker?.status || '').toLowerCase();
+    const closeReason = String(trade.closeReason || '').toLowerCase();
+    const isTimeoutAutoCancel = closeReason.includes('auto-cancelled') && closeReason.includes('timeout');
+    if (brokerStatus === 'pending') {
+      statusHTML = '⏳ Pending';
+    } else if (brokerStatus === 'confirmed') {
+      statusHTML = '✅ Confirmed';
+    } else if (brokerStatus === 'rejected') {
+      statusHTML = '❌ Rejected';
+    } else if (brokerStatus === 'timeout') {
+      statusHTML = '⚠️ Timeout';
+    } else if (brokerStatus === 'failed') {
+      statusHTML = '❌ Failed';
+    } else if (brokerStatus === 'exit_placed') {
+      statusHTML = '🚪 Exiting';
+    } else if (brokerStatus === 'cancelled') {
+      statusHTML = isTimeoutAutoCancel ? '✗ Auto-cancelled (timeout)' : '✗ Cancelled';
+    } else if (brokerStatus === 'entry_dry_run') {
+      statusHTML = '🔄 Dry Entry';
+    } else if (brokerStatus === 'exit_dry_run') {
+      statusHTML = '🔄 Dry Exit';
+    } else if (String(trade.source || '').toLowerCase() === 'simulation') {
+      statusHTML = isOpen
+        ? (trade.managementState === 'settling_managed' ? '🧮 Settling' : '🤖 Sim Managed')
+        : '✅ Closed';
+    } else if (isOpen) {
+      statusHTML = '📝 Paper';
     }
     
     // In new events modal, show exit reason for closed trades, entry reason for open trades
@@ -2213,20 +2293,27 @@ function renderOpenTradeRows(openTrades, newKeys, mode = 'all') {
     const reasonTitle = mode === 'new' && !isOpen
       ? escapeHTML(trade.closeReason || '--')
       : escapeHTML(formatEntryJournal(trade));
-    const modeCell = trade.source === 'simulation'
-      ? 'Sim'
-      : `Manual <span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;font-size:10px;font-weight:700;line-height:1.5;background:${manualAutoExitEnabled ? 'rgba(16,185,129,.15)' : 'rgba(148,163,184,.18)'};color:${manualAutoExitEnabled ? 'var(--green)' : 'var(--muted)'};border:1px solid ${manualAutoExitEnabled ? 'rgba(16,185,129,.35)' : 'rgba(148,163,184,.35)'}">Auto-exit ${manualAutoExitEnabled ? 'On' : 'Off'}</span>`;
+    const exitRoute = (() => {
+      const owner = String(trade?.exitOwner || '').toLowerCase();
+      const brokerName = String(trade?.broker?.name || '').toLowerCase();
+      const brokerMode = String(trade?.broker?.mode || '').toLowerCase();
+      if (owner === 'simulation') return 'Simulation';
+      if (brokerName === 'zerodha') return brokerMode === 'live' ? 'Zerodha Live' : 'Zerodha Dry';
+      if (brokerName === 'sharekhan') return 'Sharekhan Live';
+      if (owner === 'manual') return 'Manual / Paper';
+      return '--';
+    })();
     
     return `<tr class="${isNew ? 'new-trade-highlight' : ''}">
       <td>${eventType}</td>
       <td>${escapeHTML(formatTradeDateTime(transactionTime))}</td>
-      <td>${modeCell}</td>
       <td>${escapeHTML(trade.symbol || '--')}</td>
       <td>${escapeHTML(String(trade.side || '--').toUpperCase())}</td>
       <td>${escapeHTML(qtyDisplay)}</td>
       <td>${moneyINR(trade.entryPrice)}</td>
       <td>${moneyINR(current)}</td>
       <td>${statusHTML}</td>
+      <td>${escapeHTML(exitRoute)}</td>
       <td>${moneyINR(trade.target)}</td>
       <td>${moneyINR(trade.stop)}</td>
       <td class="portfolio-pnl ${cls}">${pnl ? `${moneyINR(pnl.pnl)} (${pnl.pnlPct}% net)` : '--'}</td>
@@ -2313,7 +2400,7 @@ function renderOpenTradesModal() {
     <div class="portfolio-section-title">${openTradesModalMode === 'new' ? 'New Trade Events' : 'All Open Trades'}</div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table open-trades-table">
-        <thead><tr><th${openTradesModalMode === 'new' ? ` onclick="setOpenTradesModalSort('event')" style="cursor:pointer"` : ''}>Event ${openTradesModalMode === 'new' ? openTradesSortIndicator('event') : ''}</th><th${openTradesModalMode === 'new' ? ` onclick="setOpenTradesModalSort('time')" style="cursor:pointer"` : ''}>Txn Time ${openTradesModalMode === 'new' ? openTradesSortIndicator('time') : ''}</th><th>Mode</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Live</th><th>Status</th><th>Target</th><th>SL</th><th>Net P&L</th><th>${openTradesModalMode === 'new' ? 'Reason' : 'Entry Why'}</th><th>Action</th></tr></thead>
+        <thead><tr><th${openTradesModalMode === 'new' ? ` onclick="setOpenTradesModalSort('event')" style="cursor:pointer"` : ''}>Event ${openTradesModalMode === 'new' ? openTradesSortIndicator('event') : ''}</th><th${openTradesModalMode === 'new' ? ` onclick="setOpenTradesModalSort('time')" style="cursor:pointer"` : ''}>Txn Time ${openTradesModalMode === 'new' ? openTradesSortIndicator('time') : ''}</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Live</th><th>Status</th><th>Exit Route</th><th>Target</th><th>SL</th><th>Net P&L</th><th>${openTradesModalMode === 'new' ? 'Reason' : 'Entry Why'}</th><th>Action</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -2700,8 +2787,8 @@ function renderPortfolioModal() {
       <div class="portfolio-card"><div class="label">Poller</div><div class="value">${brokerConnectionStatus?.zerodha?.pollerRunning ? '🟢 Running' : '⚫ Stopped'}</div></div>
       <div class="portfolio-card"><div class="label">Failures</div><div class="value">${brokerConnectionStatus?.zerodha?.failureCount || 0} / 3 (threshold)</div></div>
       <div class="portfolio-card"><div class="label">Live Status</div><div class="value">${brokerConnectionStatus?.zerodha?.isDisabled ? '🔴 Disabled' : '🟢 Enabled'}</div></div>
-      <div class="portfolio-card"><div class="label">Broker open positions</div><div class="value">${Number(aggregateBrokerPortfolioState(brokerPortfolioState)?.combinedOpenCount || 0).toLocaleString('en-IN')}</div></div>
-      <div class="portfolio-card"><div class="label">Broker day P&L</div><div class="value ${Number(aggregateBrokerPortfolioState(brokerPortfolioState)?.combinedDayPnl || 0) < 0 ? 'down' : ''}">${moneyINR(aggregateBrokerPortfolioState(brokerPortfolioState)?.combinedDayPnl || 0)}</div></div>
+      <div class="portfolio-card"><div class="label">Broker cash</div><div class="value">${brokerPortfolioState?.ok ? moneyINR(brokerPortfolioState?.data?.portfolio?.funds?.availableCash || 0) : '--'}</div></div>
+      <div class="portfolio-card"><div class="label">Broker day P&L</div><div class="value ${Number(brokerPortfolioState?.data?.portfolio?.positions?.dayPnl || 0) < 0 ? 'down' : ''}">${brokerPortfolioState?.ok ? moneyINR(brokerPortfolioState?.data?.portfolio?.positions?.dayPnl || 0) : '--'}</div></div>
     </div>
     <div class="portfolio-section-title">Recent Trade Confirmations</div>
     <div class="portfolio-table-wrap" id="zerodha-confirmations-table">
@@ -2792,25 +2879,48 @@ async function loadTradeSettingOverridesFromServer() {
     localStorage.setItem(TRADE_SETTING_OVERRIDES_KEY, JSON.stringify(tradeSettingOverrides));
   } catch (e) {
     tradeSettingOverrides = loadTradeSettingOverrides();
+    scheduleTradeSettingsSyncRetry(3000);
     console.warn('trade settings load failed', e.message);
   }
 }
 
-async function saveTradeSettingOverrides(overrides) {
+async function pushTradeSettingOverridesToServer(overrides) {
+  const res = await fetch(TRADE_SETTINGS_ENDPOINT, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body:JSON.stringify({ overrides }),
+    signal:AbortSignal.timeout(5000),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok || payload.ok === false) throw new Error(payload.error || 'trade-settings HTTP ' + res.status);
+  return payload.overrides || overrides;
+}
+
+function scheduleTradeSettingsSyncRetry(delayMs = 3000) {
+  if (tradeSettingsSyncRetryTimer) return;
+  tradeSettingsSyncRetryTimer = setTimeout(async () => {
+    tradeSettingsSyncRetryTimer = null;
+    const current = loadTradeSettingOverrides();
+    await saveTradeSettingOverrides(current, { retrying:true });
+  }, Math.max(1000, Number(delayMs) || 3000));
+}
+
+async function saveTradeSettingOverrides(overrides, options = {}) {
   tradeSettingOverrides = overrides || {};
   localStorage.setItem(TRADE_SETTING_OVERRIDES_KEY, JSON.stringify(tradeSettingOverrides));
+  if (tradeSettingsSyncInFlight) return;
+  tradeSettingsSyncInFlight = true;
   try {
-    const res = await fetch(TRADE_SETTINGS_ENDPOINT, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body:JSON.stringify({ overrides:tradeSettingOverrides }),
-      signal:AbortSignal.timeout(5000),
-    });
-    const payload = await res.json().catch(() => ({}));
-    if (!res.ok || payload.ok === false) throw new Error(payload.error || 'trade-settings HTTP ' + res.status);
-    tradeSettingOverrides = payload.overrides || tradeSettingOverrides;
+    tradeSettingOverrides = await pushTradeSettingOverridesToServer(tradeSettingOverrides);
+    if (tradeSettingsSyncRetryTimer) {
+      clearTimeout(tradeSettingsSyncRetryTimer);
+      tradeSettingsSyncRetryTimer = null;
+    }
   } catch(e) {
     console.warn('trade settings save failed', e.message);
+    scheduleTradeSettingsSyncRetry(options.retrying ? 5000 : 3000);
+  } finally {
+    tradeSettingsSyncInFlight = false;
   }
 }
 
@@ -2928,46 +3038,54 @@ async function applyReplaySettings(row) {
 }
 
 function renderSettingsModal() {
-  const body = document.getElementById('settings-modal-body');
+  const body = document.getElementById('settings-modal-body') || document.getElementById('settings-modal-content');
   if (!body) return;
-  const defaults = TradeRules.DEFAULT_SETTINGS || {};
-  const descriptions = TradeRules.SETTING_DESCRIPTIONS || {};
-  const overrides = loadTradeSettingOverrides();
-  const effective = TradeRules.withDefaults ? TradeRules.withDefaults(getSimulationEngineSettings()) : { ...defaults, ...getSimulationEngineSettings() };
-  const summary = getPortfolioSummary();
-  const stopGuardOverride = !!effective.SIMULATION_OVERRIDE_STOP_GUARD;
-  const manualAutoExitEnabled = !!effective.SIMULATION_AUTO_MANUAL_EXITS;
-  const niftyRegimeOverride = overrides.SIMULATION_MARKET_REGIME_NIFTY_PCT;
-  const niftyRegimeValue = Number.isFinite(niftyRegimeOverride) ? niftyRegimeOverride : effective.SIMULATION_MARKET_REGIME_NIFTY_PCT;
-  const sectorRegimeOverride = overrides.SIMULATION_MARKET_REGIME_SECTOR_PCT;
-  const sectorRegimeValue = Number.isFinite(sectorRegimeOverride) ? sectorRegimeOverride : effective.SIMULATION_MARKET_REGIME_SECTOR_PCT;
-  const dailyMaxTradesOverrideRaw = overrides.SIMULATION_DAILY_MAX_TRADES;
-  const dailyMaxTradesOverride = Number.isFinite(Number(dailyMaxTradesOverrideRaw)) ? Number(dailyMaxTradesOverrideRaw) : null;
-  const dailyMaxTradesValue = Number.isFinite(dailyMaxTradesOverride)
-    ? Math.round(dailyMaxTradesOverride)
-    : Math.round(Number(effective.SIMULATION_DAILY_MAX_TRADES) || Number(defaults.SIMULATION_DAILY_MAX_TRADES) || 0);
-  const maxOpenTradesOverrideRaw = overrides.SIMULATION_MAX_OPEN;
-  const maxOpenTradesOverride = Number.isFinite(Number(maxOpenTradesOverrideRaw)) ? Number(maxOpenTradesOverrideRaw) : null;
-  const maxOpenTradesValue = Number.isFinite(maxOpenTradesOverride)
-    ? Math.round(maxOpenTradesOverride)
-    : Math.round(Number(effective.SIMULATION_MAX_OPEN) || Number(defaults.SIMULATION_MAX_OPEN) || 0);
-  const liveBroker = brokerMode === 'sharekhan_live' ? 'sharekhan' : 'zerodha';
-  const brokerStatus = liveBroker === 'sharekhan' ? brokerConnectionStatus?.sharekhan : brokerConnectionStatus?.zerodha;
-  const autoRenewConfigured = !!brokerStatus?.autoRenewConfigured;
-  const lastRefreshAtTs = Number(brokerStatus?.lastTokenRefreshAt || 0);
-  const lastRefreshAt = lastRefreshAtTs ? toIST(lastRefreshAtTs) : '--';
-  const refreshHint = brokerRefreshState.message || (autoRenewConfigured ? 'Ready for manual refresh' : `Add ${liveBroker} token credentials`);
-  const rows = Object.keys(defaults).map(key => {
-    const current = effective[key];
-    const def = defaults[key];
-    return `<tr>
+  try {
+    const defaults = (TradeRules && TradeRules.DEFAULT_SETTINGS) ? TradeRules.DEFAULT_SETTINGS : {};
+    const descriptions = (TradeRules && TradeRules.SETTING_DESCRIPTIONS) ? TradeRules.SETTING_DESCRIPTIONS : {};
+    const overrides = loadTradeSettingOverrides();
+    const effective = (TradeRules && TradeRules.withDefaults)
+      ? TradeRules.withDefaults(getSimulationEngineSettings())
+      : { ...defaults, ...getSimulationEngineSettings() };
+    const stopGuardOverride = !!effective.SIMULATION_OVERRIDE_STOP_GUARD;
+    const manualAutoExitEnabled = !!effective.SIMULATION_AUTO_MANUAL_EXITS;
+    const niftyRegimeOverrideRaw = overrides.SIMULATION_MARKET_REGIME_NIFTY_PCT;
+    const niftyRegimeOverride = Number.isFinite(Number(niftyRegimeOverrideRaw)) ? Number(niftyRegimeOverrideRaw) : null;
+    const niftyRegimeValue = Number.isFinite(niftyRegimeOverride)
+      ? niftyRegimeOverride
+      : Number(effective.SIMULATION_MARKET_REGIME_NIFTY_PCT ?? defaults.SIMULATION_MARKET_REGIME_NIFTY_PCT ?? 0.25);
+    const sectorRegimeOverrideRaw = overrides.SIMULATION_MARKET_REGIME_SECTOR_PCT;
+    const sectorRegimeOverride = Number.isFinite(Number(sectorRegimeOverrideRaw)) ? Number(sectorRegimeOverrideRaw) : null;
+    const sectorRegimeValue = Number.isFinite(sectorRegimeOverride)
+      ? sectorRegimeOverride
+      : Number(effective.SIMULATION_MARKET_REGIME_SECTOR_PCT ?? defaults.SIMULATION_MARKET_REGIME_SECTOR_PCT ?? 0.25);
+    const dailyMaxTradesOverrideRaw = overrides.SIMULATION_DAILY_MAX_TRADES;
+    const dailyMaxTradesOverride = Number.isFinite(Number(dailyMaxTradesOverrideRaw)) ? Number(dailyMaxTradesOverrideRaw) : null;
+    const dailyMaxTradesValue = Number.isFinite(dailyMaxTradesOverride)
+      ? Math.round(dailyMaxTradesOverride)
+      : Math.round(Number(effective.SIMULATION_DAILY_MAX_TRADES) || Number(defaults.SIMULATION_DAILY_MAX_TRADES) || 0);
+    const maxOpenTradesOverrideRaw = overrides.SIMULATION_MAX_OPEN;
+    const maxOpenTradesOverride = Number.isFinite(Number(maxOpenTradesOverrideRaw)) ? Number(maxOpenTradesOverrideRaw) : null;
+    const maxOpenTradesValue = Number.isFinite(maxOpenTradesOverride)
+      ? Math.round(maxOpenTradesOverride)
+      : Math.round(Number(effective.SIMULATION_MAX_OPEN) || Number(defaults.SIMULATION_MAX_OPEN) || 0);
+    const liveBroker = brokerMode === 'sharekhan_live' ? 'sharekhan' : 'zerodha';
+    const brokerStatus = liveBroker === 'sharekhan' ? brokerConnectionStatus?.sharekhan : brokerConnectionStatus?.zerodha;
+    const autoRenewConfigured = !!brokerStatus?.autoRenewConfigured;
+    const lastRefreshAtTs = Number(brokerStatus?.lastTokenRefreshAt || 0);
+    const lastRefreshAt = lastRefreshAtTs ? toIST(lastRefreshAtTs) : '--';
+    const refreshHint = brokerRefreshState.message || (autoRenewConfigured ? 'Ready for manual refresh' : `Add ${liveBroker} token credentials`);
+    const rows = Object.keys(defaults).map(key => {
+      const current = effective[key];
+      const def = defaults[key];
+      return `<tr>
       <td class="settings-key">${escapeHTML(key)}</td>
       <td class="settings-desc">${escapeHTML(descriptions[key] || 'No description available.')}</td>
       <td class="settings-value">${overrides[key] != null ? '<span class="settings-override">override</span> ' : ''}${escapeHTML(formatSettingValue(current, key))}</td>
       <td class="settings-value">${escapeHTML(formatSettingValue(def, key))}</td>
     </tr>`;
-  }).join('');
-  body.innerHTML = `
+    }).join('');
+    body.innerHTML = `
     <div class="settings-summary">
       <div class="settings-card"><div class="label">Portfolio capital</div><div class="value">${moneyINR(effective.PORTFOLIO_INITIAL_CAPITAL)}</div></div>
       <div class="settings-card"><div class="label">Per position cap</div><div class="value">${moneyINR(effective.MAX_POSITION_EXPOSURE)}</div></div>
@@ -2988,12 +3106,29 @@ function renderSettingsModal() {
       </table>
     </div>
   `;
+  } catch (e) {
+    body.innerHTML = `
+      <div style="padding:14px">
+        <div class="settings-card">
+          <div class="label">Settings render error</div>
+          <div class="value down">Unable to render Trade Settings</div>
+          <div style="margin-top:8px;font-size:12px;color:var(--muted)">
+            ${escapeHTML(e && e.message ? e.message : 'Unknown error')}
+          </div>
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">
+            Endpoint: ${escapeHTML(TRADE_SETTINGS_ENDPOINT)}
+          </div>
+        </div>
+      </div>
+    `;
+    console.error('renderSettingsModal failed', e);
+  }
 }
 
 function openSettingsModal() {
-  renderSettingsModal();
   const modal = document.getElementById('settings-modal');
   if (modal) modal.style.display = 'flex';
+  renderSettingsModal();
 }
 
 function closeSettingsModal(e) {
@@ -3056,95 +3191,43 @@ function formatBrokerPillMoney(v) {
   return `${n < 0 ? '-' : ''}₹${compact.replace('-', '')}`;
 }
 
-function normalizeBrokerPortfolioSlice(slice) {
-  if (!slice || typeof slice !== 'object') return { ok:false, error:'', portfolio:null };
-  const portfolio = slice?.data?.portfolio || slice?.portfolio || null;
-  return {
-    ok: !!(slice.ok && portfolio),
-    error: String(slice.error || ''),
-    portfolio,
-  };
-}
-
-function aggregateBrokerPortfolioState(rawState = null) {
-  const source = rawState || brokerPortfolioState || {};
-  const normalizedSource = source?.data && (source?.data?.zerodha || source?.data?.sharekhan)
-    ? source.data
-    : source;
-  const zerodha = normalizeBrokerPortfolioSlice(normalizedSource?.zerodha);
-  const sharekhan = normalizeBrokerPortfolioSlice(normalizedSource?.sharekhan);
-  const brokers = [
-    { key:'zerodha', label:'Zerodha', ...zerodha },
-    { key:'sharekhan', label:'Sharekhan', ...sharekhan },
-  ];
-  const available = brokers.filter(b => b.ok && b.portfolio);
-  const combinedOpenCount = available.reduce((sum, broker) => sum + Number(broker.portfolio?.positions?.openCount || 0), 0);
-  const combinedDayPnl = available.reduce((sum, broker) => sum + Number(broker.portfolio?.positions?.dayPnl || 0), 0);
-  const partialAvailability = available.length > 0 && available.length < brokers.length;
-  const hasAnyData = available.length > 0;
-  const missing = brokers.filter(b => !b.ok).map(b => `${b.label}${b.error ? ` (${b.error})` : ''}`);
-  return {
-    combinedOpenCount,
-    combinedDayPnl,
-    partialAvailability,
-    hasAnyData,
-    missing,
-    zerodha,
-    sharekhan,
-  };
-}
-
-function getBrokerPortfolioStateForRender() {
-  const externalState = globalThis?.brokerPortfolioState;
-  if (externalState && typeof externalState === 'object' && externalState !== brokerPortfolioState) {
-    return externalState;
-  }
-  return brokerPortfolioState;
-}
-
 function updateBrokerPortfolioPill() {
   const pill = document.getElementById('broker-portfolio-pill');
   if (!pill) return;
+  const brokerName = brokerMode === 'sharekhan_live' ? 'Sharekhan' : 'Zerodha';
   pill.classList.remove('live', 'warn', 'down');
-  const state = getBrokerPortfolioStateForRender();
-  const aggregate = aggregateBrokerPortfolioState(state);
-  const loading = !!(state?.zerodha?.loading || state?.sharekhan?.loading || state?.loading);
 
-  if (loading && !aggregate.hasAnyData) {
-    pill.textContent = 'Brokers ...';
-    pill.title = 'Fetching broker portfolio state... Click for positions';
+  if (brokerPortfolioState.loading) {
+    pill.textContent = `${brokerName} ...`;
+    pill.title = `Fetching ${brokerName} portfolio state... Click for positions`;
     pill.classList.add('warn');
     return;
   }
 
-  if (!aggregate.hasAnyData) {
-    pill.textContent = 'Brokers N/A';
-    pill.title = aggregate.missing.join(' | ') || 'Broker portfolio is unavailable.';
+  if (!brokerPortfolioState.ok || !brokerPortfolioState.data?.portfolio) {
+    pill.textContent = `${brokerName} N/A`;
+    pill.title = brokerPortfolioState.error || `${brokerName} portfolio is unavailable.`;
     pill.classList.add('down');
     return;
   }
 
-  const dayText = `${aggregate.combinedDayPnl >= 0 ? '+' : ''}${formatBrokerPillMoney(aggregate.combinedDayPnl)}`;
-  const zerodhaDay = Number(aggregate.zerodha?.portfolio?.positions?.dayPnl || 0);
-  const sharekhanDay = Number(aggregate.sharekhan?.portfolio?.positions?.dayPnl || 0);
-  const zerodhaOpen = Number(aggregate.zerodha?.portfolio?.positions?.openCount || 0);
-  const sharekhanOpen = Number(aggregate.sharekhan?.portfolio?.positions?.openCount || 0);
-  const zerodhaDayText = `${zerodhaDay >= 0 ? '+' : ''}${formatBrokerPillMoney(zerodhaDay)}`;
-  const sharekhanDayText = `${sharekhanDay >= 0 ? '+' : ''}${formatBrokerPillMoney(sharekhanDay)}`;
+  const p = brokerPortfolioState.data.portfolio;
+  const cash = Number(p?.funds?.availableCash || 0);
+  const dayPnl = Number(p?.positions?.dayPnl || 0);
+  const openCount = Number(p?.positions?.openCount || 0);
+  const holdingsCount = Number(p?.holdings?.count || 0);
+  const asOf = Number(p?.asOf || 0);
 
-  pill.textContent = `Brokers Open ${aggregate.combinedOpenCount} · Day ${dayText}`;
+  pill.textContent = `${brokerName} ${formatBrokerPillMoney(cash)} | P&L ${formatBrokerPillMoney(dayPnl)}`;
   pill.title = [
-    `Zerodha: Open ${zerodhaOpen} · Day ${zerodhaDayText}`,
-    `Sharekhan: Open ${sharekhanOpen} · Day ${sharekhanDayText}`,
-    aggregate.partialAvailability
-      ? `Partial availability: ${aggregate.missing.join(', ')}`
-      : 'Both brokers available',
+    `Available cash: ${moneyINR(cash)}`,
+    `Day P&L: ${moneyINR(dayPnl)}`,
+    `Open positions: ${openCount}`,
+    `Holdings: ${holdingsCount}`,
+    `As of: ${asOf ? toIST(asOf) : '--'}`,
     'Click to view positions',
   ].join(' | ');
-
-  if (!aggregate.hasAnyData) pill.classList.add('down');
-  else if (aggregate.partialAvailability || aggregate.combinedDayPnl < 0) pill.classList.add('warn');
-  else pill.classList.add('live');
+  pill.classList.add(dayPnl >= 0 ? 'live' : 'warn');
 }
 
 function toggleBrokerPositionsPanel() {
@@ -3164,47 +3247,21 @@ function closeBrokerPositionsPanel() {
   brokerPositionsPanelOpen = false;
 }
 
-function getActiveBrokerPortfolioSlice(state = brokerPortfolioState) {
-  const activeTab = state?.activeTab === 'sharekhan' ? 'sharekhan' : 'zerodha';
-  const source = state?.data && (state?.data?.zerodha || state?.data?.sharekhan) ? state.data : state;
-  const slice = normalizeBrokerPortfolioSlice(source?.[activeTab]);
-  return { activeTab, slice };
-}
-
-function setBrokerPortfolioTab(tab) {
-  brokerPortfolioState.activeTab = tab === 'sharekhan' ? 'sharekhan' : 'zerodha';
-  renderBrokerPortfolioModal();
-}
-
 function renderBrokerPortfolioModal() {
   const body = document.getElementById('broker-portfolio-modal-body');
   if (!body) return;
-  const state = getBrokerPortfolioStateForRender();
-  const activeTab = state?.activeTab === 'sharekhan' ? 'sharekhan' : 'zerodha';
-  const aggregate = aggregateBrokerPortfolioState(state);
-  const active = getActiveBrokerPortfolioSlice({ ...state, activeTab });
-  const activeLabel = active.activeTab === 'sharekhan' ? 'Sharekhan' : 'Zerodha';
-  const activeLoading = !!state?.[active.activeTab]?.loading;
 
-  if (activeLoading && !active.slice.ok) {
-    body.innerHTML = `<div class="broker-modal-tabs">
-      <button class="broker-modal-tab ${activeTab === 'zerodha' ? 'active' : ''}" onclick="setBrokerPortfolioTab('zerodha')">Zerodha</button>
-      <button class="broker-modal-tab ${activeTab === 'sharekhan' ? 'active' : ''}" onclick="setBrokerPortfolioTab('sharekhan')">Sharekhan</button>
-    </div>
-    <div style="color:var(--muted);padding:16px">Loading ${activeLabel} portfolio...</div>`;
+  if (brokerPortfolioState.loading) {
+    body.innerHTML = `<div style="color:var(--muted);padding:16px">Loading broker portfolio...</div>`;
     return;
   }
 
-  if (!active.slice.ok || !active.slice.portfolio) {
-    body.innerHTML = `<div class="broker-modal-tabs">
-      <button class="broker-modal-tab ${activeTab === 'zerodha' ? 'active' : ''}" onclick="setBrokerPortfolioTab('zerodha')">Zerodha</button>
-      <button class="broker-modal-tab ${activeTab === 'sharekhan' ? 'active' : ''}" onclick="setBrokerPortfolioTab('sharekhan')">Sharekhan</button>
-    </div>
-    <div style="color:var(--red);padding:16px">${escapeHTML(active.slice.error || `${activeLabel} portfolio data not available`)}</div>`;
+  if (!brokerPortfolioState.ok || !brokerPortfolioState.data?.portfolio) {
+    body.innerHTML = `<div style="color:var(--red);padding:16px">${escapeHTML(brokerPortfolioState.error || 'Portfolio data not available')}</div>`;
     return;
   }
 
-  const p = active.slice.portfolio;
+  const p = brokerPortfolioState.data.portfolio;
   const funds = p?.funds || {};
   const holdings = Array.isArray(p?.holdings?.list) ? p.holdings.list : [];
   const positions = Array.isArray(p?.positions?.list) ? p.positions.list : [];
@@ -3230,9 +3287,7 @@ function renderBrokerPortfolioModal() {
   const positionRows = positions.length
     ? positions.map(pos => {
       const pnl = Number(pos.pnl || 0);
-      const brokerLabel = activeLabel;
       return `<tr>
-        <td>${escapeHTML(brokerLabel)}</td>
         <td>${escapeHTML(pos.symbol || '--')}</td>
         <td>${Number(pos.qty || 0).toLocaleString('en-IN')}</td>
         <td>${moneyINR(pos.avgPrice)}</td>
@@ -3241,18 +3296,10 @@ function renderBrokerPortfolioModal() {
         <td class="portfolio-pnl ${portfolioValueClass(pnl)}">${moneyINR(pnl)}</td>
       </tr>`;
     }).join('')
-    : `<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:16px">No open positions</td></tr>`;
-
-  const combinedDayText = `${aggregate.combinedDayPnl >= 0 ? '+' : ''}${moneyINR(aggregate.combinedDayPnl)}`;
+    : `<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:16px">No open positions</td></tr>`;
 
   body.innerHTML = `
-    <div class="broker-modal-tabs">
-      <button class="broker-modal-tab ${activeTab === 'zerodha' ? 'active' : ''}" onclick="setBrokerPortfolioTab('zerodha')">Zerodha</button>
-      <button class="broker-modal-tab ${activeTab === 'sharekhan' ? 'active' : ''}" onclick="setBrokerPortfolioTab('sharekhan')">Sharekhan</button>
-    </div>
     <div class="portfolio-grid">
-      <div class="portfolio-card"><div class="label">Combined open positions</div><div class="value">${Number(aggregate.combinedOpenCount || 0).toLocaleString('en-IN')}</div></div>
-      <div class="portfolio-card"><div class="label">Combined day P&L</div><div class="value ${portfolioValueClass(aggregate.combinedDayPnl || 0)}">${combinedDayText}</div></div>
       <div class="portfolio-card"><div class="label">Available cash</div><div class="value">${moneyINR(funds.availableCash)}</div></div>
       <div class="portfolio-card"><div class="label">Utilized margin</div><div class="value">${moneyINR(funds.utilizedMargin)}</div></div>
       <div class="portfolio-card"><div class="label">Net equity</div><div class="value">${moneyINR(funds.netEquity)}</div></div>
@@ -3271,8 +3318,8 @@ function renderBrokerPortfolioModal() {
     </div>
     <div class="portfolio-section-title">Open Positions (${positions.length})</div>
     <div class="portfolio-table-wrap">
-      <table class="portfolio-table" style="min-width:920px">
-        <thead><tr><th>Broker</th><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>Invested</th><th>P&L</th></tr></thead>
+      <table class="portfolio-table" style="min-width:820px">
+        <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>Invested</th><th>P&L</th></tr></thead>
         <tbody>${positionRows}</tbody>
       </table>
     </div>
@@ -3283,8 +3330,7 @@ async function openBrokerPortfolioModal() {
   const modal = document.getElementById('broker-portfolio-modal');
   if (modal) modal.style.display = 'flex';
   renderBrokerPortfolioModal();
-  const aggregate = aggregateBrokerPortfolioState(brokerPortfolioState);
-  if (!aggregate.hasAnyData) {
+  if (!brokerPortfolioState.ok && !brokerPortfolioState.loading) {
     await pollBrokerPortfolioState();
   }
 }
@@ -3298,22 +3344,17 @@ function closeBrokerPortfolioModal(e) {
 function renderBrokerPositionsPanel() {
   const panel = document.getElementById('broker-positions-panel');
   if (!panel) return;
-  const aggregate = aggregateBrokerPortfolioState(brokerPortfolioState);
 
-  if (!aggregate.hasAnyData) {
+  if (!brokerPortfolioState.ok || !brokerPortfolioState.data) {
     panel.innerHTML = `<div class="empty">Portfolio data not available</div>`;
     panel.style.display = 'block';
     return;
   }
 
-  const posList = [];
-  for (const broker of ['zerodha', 'sharekhan']) {
-    const slice = aggregate[broker];
-    if (!slice?.portfolio) continue;
-    const rows = Array.isArray(slice.portfolio?.positions?.list) ? slice.portfolio.positions.list : [];
-    rows.forEach((row) => posList.push({ ...row, brokerLabel: broker === 'sharekhan' ? 'Sharekhan' : 'Zerodha' }));
-  }
-  const openCount = posList.length;
+  const p = brokerPortfolioState.data.portfolio;
+  const positions = p?.positions || {};
+  const openCount = Number(positions.openCount || 0);
+  const posList = positions.list || [];
 
   if (openCount === 0) {
     panel.innerHTML = `<div class="empty">No open positions</div>`;
@@ -3324,13 +3365,12 @@ function renderBrokerPositionsPanel() {
   const header = `<div class="header"><span>Open Positions (${openCount})</span><button class="header-close" onclick="closeBrokerPositionsPanel()">×</button></div>`;
   let rows = '';
   for (const pos of posList.slice(0, 10)) {
-    const pnl = Number(pos.pnl || 0);
-    const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
-    const pnlSign = pnl >= 0 ? '+' : '';
+    const pnlColor = pos.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+    const pnlSign = pos.pnl >= 0 ? '+' : '';
     rows += `<div class="pos-row">
-      <div class="pos-symbol">${pos.brokerLabel} · ${pos.symbol}</div>
+      <div class="pos-symbol">${pos.symbol}</div>
       <div class="pos-qty">${Math.round(pos.qty)}</div>
-      <div class="pos-pnl" style="color:${pnlColor}">${pnlSign}${moneyINR(pnl)}</div>
+      <div class="pos-pnl" style="color:${pnlColor}">${pnlSign}${moneyINR(pos.pnl)}</div>
     </div>`;
   }
   panel.innerHTML = header + rows;
@@ -3347,16 +3387,6 @@ function setupBrokerPositionsPanelClickAway() {
     }
   });
 }
-
-// Backward-compatible aliases (legacy templates/tests)
-function updateZerodhaPortfolioPill() { updateBrokerPortfolioPill(); }
-function toggleZerodhaPositionsPanel() { toggleBrokerPositionsPanel(); }
-function closeZerodhaPositionsPanel() { closeBrokerPositionsPanel(); }
-function renderZerodhaPortfolioModal() { renderBrokerPortfolioModal(); }
-async function openZerodhaPortfolioModal() { return openBrokerPortfolioModal(); }
-function closeZerodhaPortfolioModal(e) { closeBrokerPortfolioModal(e); }
-function renderZerodhaPositionsPanel() { renderBrokerPositionsPanel(); }
-function setupZerodhaPositionsPanelClickAway() { setupBrokerPositionsPanelClickAway(); }
 
 function updateBrokerModeButton() {
   const btn = document.getElementById('broker-mode-btn');
@@ -3410,7 +3440,10 @@ function toggleBrokerMode() {
     body: JSON.stringify({ mode: brokerMode }),
   }).catch(e => console.warn('[broker] Mode change failed:', e.message));
   
+  brokerPortfolioState = { loading: true, ok: false, data: null, error: '' };
   updateBrokerModeButton();
+  updateBrokerPortfolioPill();
+  pollBrokerPortfolioState().catch(e => console.warn('[broker] Portfolio refresh failed:', e.message));
   renderTable();
   if (currentView === 'etfs') renderETFSection();
   if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
@@ -5490,6 +5523,7 @@ async function openPaperTrade(sym, side) {
   const score = adjustedTradeScore(asset);
   const sideScore = side === 'sell' ? -Math.abs(score) : Math.abs(score);
   const plan = suggestion.plan || getPaperPlanForSide(t, side, price);
+  const selectedBrokerMode = getManualTradeBrokerMode(sym);
   try {
     const openResult = await postPaperTrade('open', {
       symbol: sym,
@@ -5503,7 +5537,7 @@ async function openPaperTrade(sym, side) {
       score: sideScore,
       rr: t.rr,
       source: 'manual',
-      brokerMode,
+      brokerMode: selectedBrokerMode,
       assetType: isETFAsset(sym) ? 'etf' : 'stock',
       reservedCapital:+(qty * price).toFixed(2),
       portfolioInitial:getPortfolioCapital(),
@@ -5548,13 +5582,22 @@ function renderPaperTradeControls(row, t) {
   const sellQty = t && price ? getSuggestedPaperQty(t, 'sell', price, cash).qty : 0;
   const defaultQty = buyQty || sellQty || '';
   const qtyId = paperQtyInputId(row.sym);
-  const modeHint = brokerMode === 'zerodha_dry_run'
+  const brokerSelectId = paperBrokerSelectId(row.sym);
+  const selectedBrokerMode = getManualTradeBrokerMode(row.sym);
+  const brokerOptions = [
+    ['paper', 'Paper'],
+    ['zerodha_dry_run', 'Zerodha Dry'],
+    ['zerodha_live', 'Zerodha Live'],
+    ['sharekhan_live', 'Sharekhan Live'],
+  ].map(([value, label]) => `<option value="${value}"${selectedBrokerMode === value ? ' selected' : ''}>${label}</option>`).join('');
+  const modeHint = selectedBrokerMode === 'zerodha_dry_run'
     ? 'Zerodha dry-run order will be saved; no live order is placed.'
-    : (brokerMode === 'zerodha_live'
+    : (selectedBrokerMode === 'zerodha_live'
       ? 'Live order will be sent to Zerodha.'
-      : (brokerMode === 'sharekhan_live' ? 'Live order will be sent to Sharekhan.' : 'Paper trade only.'));
+      : (selectedBrokerMode === 'sharekhan_live' ? 'Live order will be sent to Sharekhan.' : 'Paper trade only.'));
   return `<div class="paper-actions">
     <input id="${escapeHTML(qtyId)}" class="paper-qty-input"${disabled} type="number" min="1" step="1" value="${defaultQty}" title="Override quantity. Suggested buy ${buyQty || 0}, sell ${sellQty || 0}. Max Rs 1L exposure." onclick="event.stopPropagation()" />
+    <select id="${escapeHTML(brokerSelectId)}" class="paper-broker-select"${disabled} title="Select broker for this manual trade" onclick="event.stopPropagation()" onchange="event.stopPropagation();setManualTradeBrokerMode('${escapeHTML(row.sym)}', this.value)">${brokerOptions}</select>
     <button class="paper-btn buy"${disabled} title="${escapeHTML(modeHint)} Uses Qty box. Suggested buy qty ${buyQty || 0}." onclick="event.stopPropagation();openPaperTrade('${escapeHTML(row.sym)}','buy')">Buy</button>
     <button class="paper-btn sell"${disabled} title="${escapeHTML(modeHint)} Uses Qty box. Suggested sell qty ${sellQty || 0}." onclick="event.stopPropagation();openPaperTrade('${escapeHTML(row.sym)}','sell')">Sell</button>
   </div>`;
@@ -7644,36 +7687,27 @@ async function pollBrokerStatus() {
 }
 
 async function pollBrokerPortfolioState() {
-  const nextState = {
-    activeTab: brokerPortfolioState.activeTab === 'sharekhan' ? 'sharekhan' : 'zerodha',
-    zerodha: { ...brokerPortfolioState.zerodha, loading:true, error:'' },
-    sharekhan: { ...brokerPortfolioState.sharekhan, loading:true, error:'' },
-  };
-  brokerPortfolioState = nextState;
+  const useSharekhan = brokerMode === 'sharekhan_live';
+  const canFetch = useSharekhan ? !!brokerConnectionStatus?.sharekhan?.clientsInitialized : !!brokerConnectionStatus?.zerodha?.clientsInitialized;
+  if (!canFetch) {
+    brokerPortfolioState = { loading:false, ok:false, data:null, error: `${useSharekhan ? 'Sharekhan' : 'Zerodha'} client is not initialized` };
+    updateBrokerPortfolioPill();
+    return;
+  }
+
+  brokerPortfolioState = { ...brokerPortfolioState, loading:true, error:'' };
   updateBrokerPortfolioPill();
-
-  const brokers = [
-    { key:'zerodha', label:'Zerodha', endpoint: ZERODHA_PORTFOLIO_ENDPOINT, canFetch: !!brokerConnectionStatus?.zerodha?.clientsInitialized },
-    { key:'sharekhan', label:'Sharekhan', endpoint: SHAREKHAN_PORTFOLIO_ENDPOINT, canFetch: !!brokerConnectionStatus?.sharekhan?.clientsInitialized },
-  ];
-
-  await Promise.all(brokers.map(async (broker) => {
-    if (!broker.canFetch) {
-      brokerPortfolioState[broker.key] = { loading:false, ok:false, data:null, error:`${broker.label} client is not initialized` };
-      return;
+  try {
+    const endpoint = useSharekhan ? SHAREKHAN_PORTFOLIO_ENDPOINT : ZERODHA_PORTFOLIO_ENDPOINT;
+    const res = await fetch(endpoint, { signal: AbortSignal.timeout(10000) });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.ok === false) {
+      throw new Error(payload.error || payload.hint || `HTTP ${res.status}`);
     }
-    try {
-      const res = await fetch(broker.endpoint, { signal: AbortSignal.timeout(10000) });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok || payload.ok === false) {
-        throw new Error(payload.error || payload.hint || `HTTP ${res.status}`);
-      }
-      brokerPortfolioState[broker.key] = { loading:false, ok:true, data:payload, error:'' };
-    } catch (e) {
-      brokerPortfolioState[broker.key] = { loading:false, ok:false, data:null, error:e.message || `Could not fetch ${broker.label} portfolio` };
-    }
-  }));
-
+    brokerPortfolioState = { loading:false, ok:true, data:payload, error:'' };
+  } catch (e) {
+    brokerPortfolioState = { loading:false, ok:false, data:null, error:e.message || `Could not fetch ${useSharekhan ? 'Sharekhan' : 'Zerodha'} portfolio` };
+  }
   updateBrokerPortfolioPill();
   if (brokerPositionsPanelOpen) {
     renderBrokerPositionsPanel();

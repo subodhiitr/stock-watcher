@@ -167,6 +167,119 @@ test('scheduler settling mode blocks entries but still processes exits', async (
   assert.equal(state.some(trade => trade.status === 'closed' && trade.symbol === 'INFY'), true);
 });
 
+test('scheduler-created simulation trades preserve target and stop from candidate intent', async () => {
+  const proxy = loadProxyWithFixture('scheduler-entry-target-stop');
+  await request(proxy, { method: 'POST', path: '/simulation/start', body: {} });
+
+  proxy.__test__.setPaperTradesForRuntime([]);
+  proxy.__test__.setSchedulerTickInputs({
+    at: '2026-06-24T10:45:00.000Z',
+    candidates: [
+      { symbol: 'TCS', side: 'buy', price: 3900, target: 3948.75, stop: 3871.2 }
+    ],
+    exitBySymbol: {}
+  });
+
+  await proxy.__test__.runSchedulerTick();
+  const opened = proxy.__test__.getPaperTradesForRuntime().find(trade => trade.status === 'open' && trade.symbol === 'TCS');
+
+  assert.ok(opened, 'scheduler should open a simulation trade for candidate');
+  assert.equal(opened.source, 'simulation');
+  assert.equal(opened.target, 3948.75);
+  assert.equal(opened.stop, 3871.2);
+});
+
+test('scheduler-created trades include target and stop when using SimulationEngine path', async () => {
+  const proxy = loadProxyWithFixture('scheduler-entry-engine-target-stop');
+  await request(proxy, { method: 'POST', path: '/simulation/start', body: {} });
+  proxy.__test__.setPaperTradesForRuntime([]);
+
+  proxy.__test__.setSchedulerTickInputs({
+    at: '2026-06-25T06:00:00.000Z',
+    candidates: [
+      {
+        symbol: 'TCS',
+        side: 'buy',
+        signal: 'buy',
+        price: 3900,
+        score: 62,
+        setupType: 'VWAP_PULLBACK_OR_HOLD',
+        freshness: { stale: false },
+        guard: { level: 'ok', label: 'OK' },
+        cost: { ok: true, netPct: 1.6 },
+        indicators: {
+          entryStatus: 'Triggered',
+          target: 3948.75,
+          stop: 3871.2,
+          stopPct: 0.74,
+        },
+      }
+    ],
+  });
+
+  await proxy.__test__.runSchedulerTick();
+  const opened = proxy.__test__.getPaperTradesForRuntime().find(trade => trade.status === 'open' && trade.symbol === 'TCS');
+  assert.ok(opened, 'scheduler should open a simulation trade');
+  assert.equal(opened.source, 'simulation');
+  assert.equal(opened.qty, 25);
+  assert.equal(opened.target, 3948.75);
+  assert.equal(opened.stop, 3871.2);
+  assert.equal(opened.setupType, 'VWAP_PULLBACK_OR_HOLD');
+  assert.equal(opened.signal, 'buy');
+});
+
+test('scheduler backfills target and stop for legacy open simulation trades', async () => {
+  const proxy = loadProxyWithFixture('scheduler-backfill-target-stop');
+  await request(proxy, { method: 'POST', path: '/simulation/start', body: {} });
+
+  proxy.__test__.setPaperTradesForRuntime([
+    {
+      id: 'legacy-open-1',
+      status: 'open',
+      symbol: 'TCS',
+      side: 'buy',
+      qty: 1,
+      entryPrice: 3900,
+      target: null,
+      stop: null,
+      source: 'simulation',
+      managedBySimulation: true,
+      openedAt: '2026-06-25T05:58:00.000Z',
+    }
+  ]);
+
+  proxy.__test__.setSchedulerTickInputs({
+    at: '2026-06-25T06:01:00.000Z',
+    candidates: [
+      {
+        symbol: 'TCS',
+        side: 'buy',
+        signal: 'buy',
+        price: 3900,
+        score: 58,
+        setupType: 'VWAP_PULLBACK_OR_HOLD',
+        freshness: { stale: false },
+        guard: { level: 'ok', label: 'OK' },
+        cost: { ok: true, netPct: 1.4 },
+        indicators: {
+          entryStatus: 'Triggered',
+          target: 3948.75,
+          stop: 3871.2,
+          stopPct: 0.74,
+        },
+      }
+    ],
+  });
+
+  await proxy.__test__.runSchedulerTick();
+  const legacyOpen = proxy.__test__.getPaperTradesForRuntime().find(trade => trade.status === 'open' && trade.symbol === 'TCS');
+  assert.ok(legacyOpen, 'legacy trade should remain open');
+  assert.equal(legacyOpen.target, 3948.75);
+  assert.equal(legacyOpen.stop, 3871.2);
+  assert.equal(legacyOpen.setupType, 'VWAP_PULLBACK_OR_HOLD');
+  assert.equal(legacyOpen.signal, 'buy');
+});
+
 test('startup auto-resume starts scheduler when persisted state is running and autoResume=true', async () => {
   const proxy = loadProxyWithFixture('startup-auto-resume');
   const runtimePath = process.env.SIMULATION_RUNTIME_FILE;
