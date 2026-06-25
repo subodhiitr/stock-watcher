@@ -101,11 +101,11 @@ function renderCombinedContext(stateOverrides = {}) {
       },
     },
     document: {
-      getElementById: (id) => (id === 'zerodha-portfolio-pill' ? pill : null),
+      getElementById: (id) => (id === 'broker-portfolio-pill' ? pill : null),
     },
     moneyINR: (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`,
     toIST: (value) => `IST(${value})`,
-    formatZerodhaPillMoney: (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`,
+    formatBrokerPillMoney: (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`,
     console: { warn: () => {}, error: () => {} },
   };
   return { pill, context };
@@ -113,10 +113,10 @@ function renderCombinedContext(stateOverrides = {}) {
 
 test('renders combined brokers-open pill copy', () => {
   const { pill, context } = renderCombinedContext();
-  const fn = loadDashboardFunction(
-    ['updateBrokerPortfolioPill', 'updateZerodhaPortfolioPill'],
-    { ...context, document: { getElementById: (id) => (id === 'zerodha-portfolio-pill' ? pill : null) } },
-  );
+  const fn = loadDashboardFunction(['updateBrokerPortfolioPill'], {
+    ...context,
+    document: { getElementById: (id) => (id === 'broker-portfolio-pill' ? pill : null) },
+  });
 
   fn();
 
@@ -161,13 +161,10 @@ test('keeps tooltip breakdown and class in sync with combined day P&L', () => {
     },
   });
 
-  const fn = loadDashboardFunction(
-    ['updateBrokerPortfolioPill', 'updateZerodhaPortfolioPill'],
-    {
-      ...context,
-      document: { getElementById: (id) => (id === 'zerodha-portfolio-pill' ? pill : null) },
-    },
-  );
+  const fn = loadDashboardFunction(['updateBrokerPortfolioPill'], {
+    ...context,
+    document: { getElementById: (id) => (id === 'broker-portfolio-pill' ? pill : null) },
+  });
 
   fn();
 

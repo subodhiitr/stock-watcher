@@ -48,18 +48,16 @@ function loadAggregateFunction(candidates, context = {}) {
 test('aggregates combined open count and day P&L across brokers', () => {
   const aggregateBrokerPortfolioState = loadAggregateFunction([
     'aggregateBrokerPortfolioState',
-    'aggregateBrokerPortfolioData',
-    'buildBrokerPortfolioAggregate',
   ]);
 
   const result = aggregateBrokerPortfolioState({
     zerodha: {
       ok: true,
-      portfolio: { positions: { openCount: 3, dayPnl: 1820 } },
+      data: { portfolio: { positions: { openCount: 3, dayPnl: 1820 } } },
     },
     sharekhan: {
       ok: true,
-      portfolio: { positions: { openCount: 4, dayPnl: 2500 } },
+      data: { portfolio: { positions: { openCount: 4, dayPnl: 2500 } } },
     },
   });
 
@@ -72,14 +70,12 @@ test('aggregates combined open count and day P&L across brokers', () => {
 test('preserves partial availability when one broker fails', () => {
   const aggregateBrokerPortfolioState = loadAggregateFunction([
     'aggregateBrokerPortfolioState',
-    'aggregateBrokerPortfolioData',
-    'buildBrokerPortfolioAggregate',
   ]);
 
   const result = aggregateBrokerPortfolioState({
     zerodha: {
       ok: true,
-      portfolio: { positions: { openCount: 2, dayPnl: -500 } },
+      data: { portfolio: { positions: { openCount: 2, dayPnl: -500 } } },
     },
     sharekhan: {
       ok: false,
