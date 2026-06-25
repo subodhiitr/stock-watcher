@@ -40,6 +40,7 @@ function extractFunctionSource(source, functionName) {
 }
 
 function makeElement() {
+  const classes = new Set();
   return {
     style: {},
     className: '',
@@ -49,10 +50,16 @@ function makeElement() {
     value: '',
     disabled: false,
     classList: {
-      add() {},
-      remove() {},
-      toggle() {},
-      contains() { return false; },
+      add(...items) { items.forEach(item => classes.add(item)); },
+      remove(...items) { items.forEach(item => classes.delete(item)); },
+      toggle(item, force) {
+        if (force === true) { classes.add(item); return true; }
+        if (force === false) { classes.delete(item); return false; }
+        if (classes.has(item)) { classes.delete(item); return false; }
+        classes.add(item);
+        return true;
+      },
+      contains(item) { return classes.has(item); },
     },
     appendChild() {},
     removeChild() {},
@@ -152,6 +159,7 @@ test('aggregates broker state without exact helper names', () => {
   const aggregate = findFunctionByContracts(source, [
     'combinedOpenCount',
     'combinedDayPnl',
+    'normalizeBrokerPortfolioSlice(',
   ]);
 
   assert.ok(

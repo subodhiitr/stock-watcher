@@ -40,6 +40,7 @@ function extractFunctionSource(source, functionName) {
 }
 
 function makeElement() {
+  const classes = new Set();
   return {
     style: {},
     className: '',
@@ -49,10 +50,16 @@ function makeElement() {
     value: '',
     disabled: false,
     classList: {
-      add() {},
-      remove() {},
-      toggle() {},
-      contains() { return false; },
+      add(...items) { items.forEach(item => classes.add(item)); },
+      remove(...items) { items.forEach(item => classes.delete(item)); },
+      toggle(item, force) {
+        if (force === true) { classes.add(item); return true; }
+        if (force === false) { classes.delete(item); return false; }
+        if (classes.has(item)) { classes.delete(item); return false; }
+        classes.add(item);
+        return true;
+      },
+      contains(item) { return classes.has(item); },
     },
     appendChild() {},
     removeChild() {},
@@ -219,8 +226,6 @@ test('keeps partial availability and class behavior in sync', () => {
     loading: false,
     ok: true,
     data: {
-      combinedOpenCount: 5,
-      combinedDayPnl: 300,
       zerodha: {
         ok: true,
         portfolio: {
@@ -236,8 +241,9 @@ test('keeps partial availability and class behavior in sync', () => {
 
   updateBrokerPortfolioPill();
 
-  assert.equal(pill.textContent, 'Brokers Open 5 · Day +₹300');
+  assert.equal(pill.textContent, 'Brokers Open 2 · Day -₹500');
   assert.match(pill.title, /timeout/i);
+  assert.match(pill.title, /partial/i);
   assert.ok(pill.classList.contains('warn'));
   assert.ok(!pill.classList.contains('down'));
 });
