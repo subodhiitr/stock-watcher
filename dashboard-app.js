@@ -738,7 +738,7 @@ function getAssetBySymbol(sym) {
 function rebuildOpenTradesMap() {
   openTradesBySym.clear();
   for (const t of paperTrades) {
-    if (String(t.status || '').toLowerCase() === 'open' && t.symbol) {
+    if (isOpenTrade(t) && t.symbol) {
       openTradesBySym.set(t.symbol, t);
     }
   }
