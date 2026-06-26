@@ -646,7 +646,7 @@ function scheduleETFRender() {
 }
 
 // ── Stock table pagination ────────────────────────────────────────────────
-const STOCK_PAGE_SIZE = 50;
+const STOCK_PAGE_SIZE = 25;
 let stockPage = 0; // 0-indexed current page
 
 function stockPagePrev() { if (stockPage > 0) { stockPage--; renderTable(); } }
