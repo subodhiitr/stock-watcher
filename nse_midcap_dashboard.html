@@ -362,6 +362,24 @@
     </div>
   </div>
 
+  <div id="manual-trade-modal" class="modal-overlay" style="display:none;"
+       onclick="if(event.target===this) closeManualTradeModal()">
+    <div class="modal-card" style="max-width:420px;width:100%;" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Manual Trade</h3>
+        <button class="btn" style="padding:6px 10px;font-size:12px;" onclick="closeManualTradeModal()">✕</button>
+      </div>
+      <div id="manual-trade-modal-body" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
+        <!-- populated dynamically by openManualTradeModal() -->
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="manual-trade-submit-btn" onclick="submitManualTrade()">Place Trade</button>
+        <button class="btn" onclick="closeManualTradeModal()">Cancel</button>
+      </div>
+      <div id="manual-trade-status" style="padding:8px 20px 12px;font-size:13px;min-height:20px;"></div>
+    </div>
+  </div>
+
   <div id="open-trades-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this) closeOpenTradesModal(event)" onpointerdown="if(event.target===this) closeOpenTradesModal(event)" ontouchstart="if(event.target===this) closeOpenTradesModal(event)">
     <div class="modal-card open-trades" onclick="event.stopPropagation()">
       <div class="modal-header">
