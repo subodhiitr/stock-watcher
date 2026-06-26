@@ -19,9 +19,9 @@ Add a **"Trade" button** to the top action bar (beside the existing Portfolio bu
 
 ## UI — Button
 
-- Location: top action bar, immediately after the Portfolio button
+- Location: `#main-tabs` tab row, immediately after the **Portfolio** button and before the **Broker Portfolio** button
 - Label: **Trade**
-- Style: same as existing action bar buttons (`tab-btn` class or equivalent)
+- Style: same `tab-btn` class as sibling buttons in `#main-tabs`
 - On click: opens the Manual Trade modal
 
 ---
@@ -36,11 +36,11 @@ Add a **"Trade" button** to the top action bar (beside the existing Portfolio bu
 |---|---|---|
 | Symbol | Searchable `<select>` or `<datalist>` | Options = all MIDCAP_STOCKS + STOCK_ASSETS + ETF_ASSETS symbols. Defaults to empty. |
 | Side | BUY / SELL toggle buttons | Defaults to BUY |
-| Broker | `<select>` | Options: Paper, Zerodha Dry, Zerodha Live, Sharekhan Live. Defaults to current global broker mode from server. |
+| Broker | `<select>` | Options: Paper, Zerodha Dry, Zerodha Live, Sharekhan Live. While symbol is empty, defaults to global client `brokerMode`. When symbol is selected/changed, reloads remembered choice via `getManualTradeBrokerMode(sym)`. Changing the broker persists immediately via `setManualTradeBrokerMode(sym, mode)`. |
 | Quantity | `<input type="number">` | Positive integer, no default |
-| Price | `<input type="number">` | Auto-filled from `stockData[sym].price` when symbol changes; user-editable |
-| Target | `<input type="number">` | Auto-filled from `intradayData[sym]?.target` if available; editable; optional |
-| Stop | `<input type="number">` | Auto-filled from `intradayData[sym]?.stop` if available; editable; optional |
+| Price | `<input type="number">` | Auto-filled via `getCurrentTradePrice(sym)` (`intradayData[sym]?.price ?? stockData[sym]?.price`) when symbol changes; user-editable. **Place Trade is blocked until a valid positive number is entered** (server rejects `entryPrice ≤ 0`). |
+| Target | `<input type="number">` | Auto-filled from `getPaperPlanForSide(intradayData[sym], side, price).target` when symbol or side changes; editable; optional. Recalculates when side toggles. |
+| Stop | `<input type="number">` | Auto-filled from `getPaperPlanForSide(intradayData[sym], side, price).stop` when symbol or side changes; editable; optional. Recalculates when side toggles. |
 
 **Actions:**
 - **Place Trade** (primary) — submits the trade
@@ -53,12 +53,18 @@ Add a **"Trade" button** to the top action bar (beside the existing Portfolio bu
 ## Data Flow
 
 1. User clicks "Trade" → modal opens
-2. User picks symbol → `stockData[sym].price` auto-fills Price; `intradayData[sym]` auto-fills Target/Stop if available
+2. User picks symbol → Price auto-fills via `getCurrentTradePrice(sym)` = `intradayData[sym]?.price ?? stockData[sym]?.price`; Target auto-fills from `intradayData[sym]?.target`; Stop auto-fills from `intradayData[sym]?.stop`; all editable
 3. User sets Qty, Side, Broker, adjusts Price/Target/Stop
 4. User clicks "Place Trade"
-5. Client calls existing `postPaperTrade('open', { symbol, side, qty, entryPrice, target, stop, brokerMode, source:'manual' })`
-6. On success: `applyOpenedTradeLocally(trade)` updates trade list; modal shows "Trade placed ✓"; closes after 1.5s
-7. On error: modal shows error message inline; stays open
+5. Client derives: `const asset = getAssetBySymbol(sym)` → `name = asset?.name ?? sym`, `assetType = asset?.cap === 'etf' ? 'etf' : 'stock'`
+6. Client-side validation before POSTing:
+   - **Block** if `entryPrice` is not a valid positive number — show inline error, keep modal open
+   - **Block** if duplicate open trade exists for symbol — show inline error, keep modal open
+   - **Block** if insufficient cash or max exposure exceeded — show inline error, keep modal open
+   - **Warn only** (non-blocking) if intraday data is stale or missing
+7. Client calls existing `postPaperTrade('open', { symbol, name, assetType, side, qty, entryPrice, target, stop, brokerMode, source:'manual' })`
+8. On success: `applyOpenedTradeLocally(trade)` updates trade list; `loadPaperTrades(true)` reconciles with server; modal shows "Trade placed ✓"; closes after 1.5s
+9. On error: modal shows error message inline; stays open
 
 ---
 
@@ -69,7 +75,8 @@ No new server endpoints. All of the following already exist and are reused as-is
 - `postPaperTrade(action, payload)` — POST to `/trade-execution`
 - `applyOpenedTradeLocally(trade)` — updates local `paperTrades` and re-renders
 - `getManualTradeBrokerMode(sym)` / `normalizeManualTradeBrokerMode(mode)` — broker mode helpers
-- Broker mode list: `paper`, `zerodha_dry_run`, `zerodha_live`, `sharekhan_live`
+- `getAssetBySymbol(sym)` — derives `name` and `assetType` for payload (required for ETF symbols)
+- `getCurrentTradePrice(sym)` — consistent price source (`intradayData[sym]?.price ?? stockData[sym]?.price`)
 - `stockData`, `intradayData` — live price and intraday signal data
 
 ---
