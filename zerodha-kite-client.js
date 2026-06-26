@@ -28,7 +28,10 @@ class KiteClient {
   isAuthError(err) {
     const status = Number(err?.statusCode || err?.response?.status || err?.status || 0);
     const type = String(err?.error_type || err?.name || '').toLowerCase();
-    return status === 401 || status === 403 || type.includes('token') || type.includes('permission');
+    // Only treat as auth error for genuine token/permission failures, not business rejections
+    // TokenException from Zerodha can mean expired token OR rejected order — check status code too
+    const isTokenType = type.includes('token') || type.includes('permission');
+    return status === 401 || status === 403 || (isTokenType && (status === 401 || status === 403 || status === 0));
   }
 
   // Refresh access token using apiKey + apiSecret
@@ -84,8 +87,10 @@ class KiteClient {
       if (orderId) return orderId;
       throw new Error('No order_id in response');
     } catch (err) {
+      // Re-throw with original Zerodha message preserved — avoids hiding business errors
       if (this.isAuthError(err)) {
-        throw new Error('AUTH_FAILED_REFRESH_NEEDED');
+        const origMsg = err?.message || String(err);
+        throw new Error(`AUTH_FAILED_REFRESH_NEEDED: ${origMsg}`);
       }
       throw err;
     }
