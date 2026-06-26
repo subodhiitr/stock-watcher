@@ -762,6 +762,7 @@ function broadcastIntradayLive(reason = 'update', changedSymbols = null) {
       at: Date.now(),
       data: buildIntradayLiveData(symbolFilter),
       changedSymbols: Array.isArray(changedSymbols) ? changedSymbols : undefined,
+      sectorTrend: buildSectorTrendFromCache(),
     };
     const ok = writeSseEvent(client.res, payload);
     if (!ok) {
@@ -919,6 +920,10 @@ function buildSectorTrendFromCandidates(candidates = []) {
     sectorTrend[sector] = +(changes.reduce((sum, value) => sum + value, 0) / changes.length).toFixed(3);
   }
   return sectorTrend;
+}
+
+function buildSectorTrendFromCache() {
+  return buildSectorTrendFromCandidates([...intradayLiveCache.values()]);
 }
 
 async function getSimulationMarketContext() {
@@ -6017,6 +6022,7 @@ async function proxyRequestHandler(req, res) {
       reason: 'connected',
       at: Date.now(),
       data: buildIntradayLiveData(symbolSet ? [...symbolSet] : null),
+      sectorTrend: buildSectorTrendFromCache(),
     });
     startIntradayLiveRefresh('client-connected');
     refreshIntradayLiveCache('client-connected').catch(() => {});

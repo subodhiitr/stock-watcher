@@ -15,3 +15,18 @@ test('proxy exposes server-owned live SSE endpoint for intraday updates', () => 
   const source = fs.readFileSync(TICKER_PROXY_PATH, 'utf8');
   assert.match(source, /pathname === '\/stream\/intraday-live'/);
 });
+
+test('SSE broadcast payload includes sectorTrend from server cache', () => {
+  const source = fs.readFileSync(TICKER_PROXY_PATH, 'utf8');
+  assert.match(source, /sectorTrend: buildSectorTrendFromCache\(\)/);
+});
+
+test('dashboard SSE handler updates serverSectorTrend from payload', () => {
+  const source = fs.readFileSync(DASHBOARD_APP_PATH, 'utf8');
+  assert.match(source, /serverSectorTrend\s*=\s*payload\.sectorTrend/);
+});
+
+test('renderSectors applies serverSectorTrend override to sectorTrendCache', () => {
+  const source = fs.readFileSync(DASHBOARD_APP_PATH, 'utf8');
+  assert.match(source, /Object\.assign\(sectorTrendCache,\s*serverSectorTrend\)/);
+});

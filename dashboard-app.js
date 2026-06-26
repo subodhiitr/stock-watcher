@@ -708,6 +708,7 @@ let etfListLoaded = false; // true when loaded from /etf-list (NSE batch)
 let STOCK_EXTRA_SYMBOLS = [];
 let STOCK_ASSETS = [];
 const sectorTrendCache = {};
+let serverSectorTrend = {}; // last sector trend received from server SSE
 const PORTFOLIO_FALLBACK_INITIAL_CAPITAL = 500000;
 const TRADE_RULE_DEFAULTS = TradeRules.DEFAULT_SETTINGS;
 const MAX_POSITION_EXPOSURE = TRADE_RULE_DEFAULTS.MAX_POSITION_EXPOSURE;
@@ -1508,6 +1509,10 @@ function renderSectors(){
     .sort((a,b)=>b.avg-a.avg);
   Object.keys(sectorTrendCache).forEach(k => delete sectorTrendCache[k]);
   avgs.forEach(s => { sectorTrendCache[s.name] = s.avg; });
+  // Override with server-computed values when available (keeps tile count/total from local data)
+  if (serverSectorTrend && Object.keys(serverSectorTrend).length) {
+    Object.assign(sectorTrendCache, serverSectorTrend);
+  }
   const grid=document.getElementById('sector-grid');grid.innerHTML='';
   for(const s of avgs){
     const hasData = s.count > 0;
@@ -1682,6 +1687,9 @@ async function fetchIntradaySignals(symbols) {
         const payload = JSON.parse(event.data || '{}');
         const data = payload?.data && typeof payload.data === 'object' ? payload.data : null;
         if (!data) return;
+        if (payload.sectorTrend && typeof payload.sectorTrend === 'object') {
+          serverSectorTrend = payload.sectorTrend;
+        }
         let anyUpdated = false;
         for (const [sym, value] of Object.entries(data)) {
           if (!value || typeof value !== 'object') continue;
