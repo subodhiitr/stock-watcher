@@ -3088,6 +3088,72 @@ function _autofillManualTradeFields(sym, side = null) {
   }
 }
 
+async function submitManualTrade() {
+  const statusEl = document.getElementById('manual-trade-status');
+  const setStatus = (msg, color = 'var(--muted)') => { if (statusEl) { statusEl.textContent = msg; statusEl.style.color = color; } };
+  const submitBtn = document.getElementById('manual-trade-submit-btn');
+
+  const sym = (document.getElementById('mt-sym')?.value || '').toUpperCase();
+  const side = _getManualTradeSide();
+  const brokerModeVal = normalizeManualTradeBrokerMode(document.getElementById('mt-broker')?.value);
+  const qtyRaw = Number(document.getElementById('mt-qty')?.value);
+  const qty = Number.isInteger(qtyRaw) && qtyRaw > 0 ? qtyRaw : NaN; // reject non-integers up front
+  const entryPrice = Number(document.getElementById('mt-price')?.value);
+  const target = Number(document.getElementById('mt-target')?.value) || undefined;
+  const stop = Number(document.getElementById('mt-stop')?.value) || undefined;
+
+  // Validation — block cases
+  if (!sym) { setStatus('Select a symbol.', 'var(--red)'); return; }
+  if (!Number.isFinite(entryPrice) || entryPrice <= 0) { setStatus('Enter a valid positive price.', 'var(--red)'); return; }
+  if (!Number.isFinite(qty) || qty <= 0) { setStatus('Enter a valid quantity (positive integer).', 'var(--red)'); return; }
+  if (getOpenPaperTrade(sym)) { setStatus('Already have an open trade for this symbol. Exit it first.', 'var(--red)'); return; }
+  const portfolio = getPortfolioSummary();
+  if (portfolio.cashAvailable <= 0) { setStatus('No cash available. Close an existing trade first.', 'var(--red)'); return; }
+  // Use getSuggestedPaperQty to derive cashLimit — same source of truth as openPaperTrade()
+  const t = intradayData[sym];
+  const suggestion = getSuggestedPaperQty(t || {}, side, entryPrice, portfolio.cashAvailable);
+  if (suggestion.qty <= 0) { setStatus('Not enough available cash for this trade.', 'var(--red)'); return; }
+  if (qty > suggestion.cashLimit) { setStatus(`Quantity exceeds available cash/max exposure. Max allowed: ${suggestion.cashLimit}`, 'var(--red)'); return; }
+  // Warn-only: stale or missing intraday (non-blocking) — shown after blocking checks so it's visible
+  let intradayWarn = '';
+  if (!t || getIntradayFreshness(t).stale) {
+    intradayWarn = '⚠️ Intraday data is stale.';
+    setStatus(intradayWarn, 'var(--yellow, orange)');
+  }
+
+  const asset = getAssetBySymbol(sym);
+  const assetType = asset?.cap === 'etf' ? 'etf' : 'stock';
+  const name = asset?.name || sym;
+
+  if (submitBtn) submitBtn.disabled = true;
+  setStatus(intradayWarn ? `${intradayWarn} Placing trade…` : 'Placing trade…', 'var(--muted)');
+
+  try {
+    const openResult = await postPaperTrade('open', {
+      symbol: sym,
+      name,
+      assetType,
+      side,
+      qty,
+      entryPrice,
+      target,
+      stop,
+      source: 'manual',
+      brokerMode: brokerModeVal,
+      reservedCapital: +(qty * entryPrice).toFixed(2),
+      portfolioInitial: getPortfolioCapital(),
+    });
+    applyOpenedTradeLocally(openResult?.trade);
+    loadPaperTrades(true).catch(e => console.warn('manual trade reconcile failed', e.message));
+    setStatus('Trade placed ✓', 'var(--green)');
+    setTimeout(() => closeManualTradeModal(), 1500);
+  } catch (e) {
+    setStatus(e.message || 'Could not place trade.', 'var(--red)');
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+}
+
 function closePortfolioModal(e) {
   if (e) e.stopPropagation();
   const modal = document.getElementById('portfolio-modal');

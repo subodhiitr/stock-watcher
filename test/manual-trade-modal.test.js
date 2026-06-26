@@ -37,7 +37,7 @@ test('submitManualTrade calls applyOpenedTradeLocally on success', () => {
 
 test('submitManualTrade calls loadPaperTrades after opening', () => {
   // same reconcile pattern as openPaperTrade
-  const submitFnMatch = source.match(/function submitManualTrade[\s\S]{0,2000}?loadPaperTrades/);
+  const submitFnMatch = source.match(/function submitManualTrade[\s\S]{0,3500}?loadPaperTrades/);
   assert.ok(submitFnMatch, 'submitManualTrade should call loadPaperTrades for reconciliation');
 });
 
