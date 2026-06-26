@@ -233,6 +233,11 @@
           </tr></thead>
           <tbody id="stock-tbody"></tbody>
         </table>
+        <div id="stock-pagination" style="display:none;align-items:center;justify-content:center;gap:12px;padding:12px 0 4px;flex-wrap:wrap;">
+          <button class="btn" id="pg-prev" onclick="stockPagePrev()" style="padding:5px 14px;font-size:13px">← Prev</button>
+          <span id="pg-info" style="font-size:13px;color:var(--muted)"></span>
+          <button class="btn" id="pg-next" onclick="stockPageNext()" style="padding:5px 14px;font-size:13px">Next →</button>
+        </div>
         <div id="status-bar">Waiting for data…</div>
 		</div>
     </div>

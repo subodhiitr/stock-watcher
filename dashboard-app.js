@@ -645,6 +645,37 @@ function scheduleETFRender() {
   _etfRenderTimer = setTimeout(() => { _etfRenderTimer = null; renderETFSection(); }, 400);
 }
 
+// ── Stock table pagination ────────────────────────────────────────────────
+const STOCK_PAGE_SIZE = 50;
+let stockPage = 0; // 0-indexed current page
+
+function stockPagePrev() { if (stockPage > 0) { stockPage--; renderTable(); } }
+function stockPageNext() {
+  const allRows = _lastFilteredRows;
+  if (allRows && (stockPage + 1) * STOCK_PAGE_SIZE < allRows.length) { stockPage++; renderTable(); }
+}
+function stockPageReset() { stockPage = 0; }
+
+// Holds the last fully-filtered+sorted row list so next/prev can paginate without re-computing
+let _lastFilteredRows = null;
+
+function _renderPaginationBar(filteredRows) {
+  const bar = document.getElementById('stock-pagination');
+  const info = document.getElementById('pg-info');
+  const prevBtn = document.getElementById('pg-prev');
+  const nextBtn = document.getElementById('pg-next');
+  if (!bar) return;
+  const total = filteredRows.length;
+  const pages = Math.ceil(total / STOCK_PAGE_SIZE);
+  if (pages <= 1) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  const from = stockPage * STOCK_PAGE_SIZE + 1;
+  const to = Math.min((stockPage + 1) * STOCK_PAGE_SIZE, total);
+  if (info) info.textContent = `${from}–${to} of ${total}  (page ${stockPage + 1}/${pages})`;
+  if (prevBtn) prevBtn.disabled = stockPage === 0;
+  if (nextBtn) nextBtn.disabled = (stockPage + 1) >= pages;
+}
+
 // scheduleTableRender — debounced renderTable for SSE streaming (coalesces per-symbol renders)
 let _tableRenderTimer = null;
 function scheduleTableRender() {
@@ -1568,6 +1599,7 @@ function renderIndices(){
 function toggleSector(name) {
   if (activeSectors.has(name)) activeSectors.delete(name);
   else activeSectors.add(name);
+  stockPageReset();
   if (activeSectors.size) {
     const allBtn = document.getElementById('filter-all');
     if (allBtn) setFilter('all', allBtn);
@@ -6286,6 +6318,7 @@ function selectSetupCard(kind, ...filterModes) {
 }
 
 function setFilter(mode, el) {
+  stockPageReset();
   if (mode === 'all') {
     // "All" clears every active filter
     stockFilters.clear();
@@ -6313,6 +6346,7 @@ function setFilter(mode, el) {
 
 function setTargetFilter(mode, el){
   targetFilter = mode || 'all';
+  stockPageReset();
   document.querySelectorAll('.target-filter-btn').forEach(b=>b.classList.remove('active'));
   if(el) el.classList.add('active');
   renderTable();
@@ -6402,6 +6436,7 @@ async function setView(view, el){
 
 function clearSectors(){
   activeSectors = new Set();
+  stockPageReset();
   const pillEl = document.getElementById('sector-pill');
   if(pillEl) pillEl.style.display='none';
   renderSectors();
@@ -6409,6 +6444,7 @@ function clearSectors(){
 }
 
 function sortBy(col){
+  stockPageReset();
   if(currentSort.col===col)currentSort.dir*=-1;
   else{currentSort.col=col;currentSort.dir=-1;}
   renderTable();
@@ -6427,6 +6463,7 @@ function handleStockSearchInput(input) {
   if (value.length > 0 && value.length < 3) return;
   if (value === lastAppliedStockSearch) return;
   lastAppliedStockSearch = value;
+  stockPageReset();
   renderTable();
 }
 
@@ -6836,14 +6873,22 @@ function renderTableNow(){
   const filteredEl = document.getElementById('stat-filtered');
   if (filteredEl) filteredEl.textContent = filterActive ? `${rows.length}/${totalRows} shown` : `${totalRows} stocks`;
 
+  // Store for pagination prev/next
+  _lastFilteredRows = rows;
+  // Clamp page if filter reduced total rows
+  const maxPage = Math.max(0, Math.ceil(rows.length / STOCK_PAGE_SIZE) - 1);
+  if (stockPage > maxPage) stockPage = maxPage;
+  const pageRows = rows.slice(stockPage * STOCK_PAGE_SIZE, (stockPage + 1) * STOCK_PAGE_SIZE);
+  _renderPaginationBar(rows);
+
   const tbody=document.getElementById('stock-tbody');
   if(!rows.length){tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--muted)">No stocks match</td></tr>';return;}
   if (rows.length > 0 && Object.keys(intradayData).length === 0) {
     console.warn(`[renderTableNow] ${rows.length} rows to render but intradayData is EMPTY!`);
   }
   // Chunk-render rows asynchronously — yields the thread every 25 rows to prevent freeze
-  _renderRowsChunked(tbody, rows, () => {
-    scheduleVisibleEventFlags(rows);
+  _renderRowsChunked(tbody, pageRows, () => {
+    scheduleVisibleEventFlags(pageRows);
     renderTopActionBar();
     syncStockScrollSizing();
     applyColumnPreset();
