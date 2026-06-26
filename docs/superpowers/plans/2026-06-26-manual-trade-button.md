@@ -172,7 +172,7 @@ test('symbol input uses datalist for searchable autocomplete', () => {
 node --test test/manual-trade-modal.test.js
 ```
 
-Expected: 9 of 12 tests fail (functions not yet defined). `postPaperTrade`, `applyOpenedTradeLocally`, `loadPaperTrades`, `getCurrentTradePrice`, `getPaperPlanForSide`, `setManualTradeBrokerMode`, `getAssetBySymbol` tests pass since those already exist. The 3 new-function tests fail.
+Expected: 11 of 15 tests fail (functions not yet defined). Tests for `postPaperTrade`, `applyOpenedTradeLocally`, `loadPaperTrades`, `getCurrentTradePrice`, `getPaperPlanForSide`, `setManualTradeBrokerMode`, `getAssetBySymbol`, `getManualTradeBrokerMode` pass since those already exist in `dashboard-app.js`. The remaining 7 tests fail.
 
 ---
 
@@ -349,7 +349,8 @@ async function submitManualTrade() {
   const sym = (document.getElementById('mt-sym')?.value || '').toUpperCase();
   const side = _getManualTradeSide();
   const brokerModeVal = normalizeManualTradeBrokerMode(document.getElementById('mt-broker')?.value);
-  const qty = Math.floor(Number(document.getElementById('mt-qty')?.value));
+  const qtyRaw = Number(document.getElementById('mt-qty')?.value);
+  const qty = Number.isInteger(qtyRaw) && qtyRaw > 0 ? qtyRaw : NaN; // reject non-integers up front
   const entryPrice = Number(document.getElementById('mt-price')?.value);
   const target = Number(document.getElementById('mt-target')?.value) || undefined;
   const stop = Number(document.getElementById('mt-stop')?.value) || undefined;
@@ -366,9 +367,11 @@ async function submitManualTrade() {
   const suggestion = getSuggestedPaperQty(t || {}, side, entryPrice, portfolio.cashAvailable);
   if (suggestion.qty <= 0) { setStatus('Not enough available cash for this trade.', 'var(--red)'); return; }
   if (qty > suggestion.cashLimit) { setStatus(`Quantity exceeds available cash/max exposure. Max allowed: ${suggestion.cashLimit}`, 'var(--red)'); return; }
-  // Warn-only: stale or missing intraday (non-blocking)
+  // Warn-only: stale or missing intraday (non-blocking) — shown after blocking checks so it's visible
+  let intradayWarn = '';
   if (!t || getIntradayFreshness(t).stale) {
-    setStatus('⚠️ Intraday data is stale — placing trade anyway.', 'var(--yellow, orange)');
+    intradayWarn = '⚠️ Intraday data is stale.';
+    setStatus(intradayWarn, 'var(--yellow, orange)');
   }
 
   const asset = getAssetBySymbol(sym);
@@ -376,7 +379,7 @@ async function submitManualTrade() {
   const name = asset?.name || sym;
 
   if (submitBtn) submitBtn.disabled = true;
-  setStatus('Placing trade…', 'var(--muted)');
+  setStatus(intradayWarn ? `${intradayWarn} Placing trade…` : 'Placing trade…', 'var(--muted)');
 
   try {
     const openResult = await postPaperTrade('open', {
@@ -411,7 +414,7 @@ async function submitManualTrade() {
 node --test test/manual-trade-modal.test.js
 ```
 
-Expected: all 12 tests pass.
+Expected: all 15 tests pass.
 
 - [ ] **Step 3: Run full regression suite**
 
@@ -419,7 +422,7 @@ Expected: all 12 tests pass.
 node --test test/simulation-runtime-endpoints.test.js test/intraday-sse-migration.test.js test/manual-trade-modal.test.js
 ```
 
-Expected: all 37 tests pass.
+Expected: all 40 tests pass (25 runtime + 5 SSE + 15 modal).
 
 - [ ] **Step 4: Commit**
 
@@ -464,6 +467,6 @@ Then open `http://localhost:3000` in the browser.
 - [ ] **Step 5: Commit**
 
 ```
-git add .
+git add nse_midcap_dashboard.html dashboard-app.js test/manual-trade-modal.test.js
 git commit -m "feat: manual trade button complete — button, modal, validation, submit"
 ```
