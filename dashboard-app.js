@@ -688,31 +688,34 @@ function scheduleTableRender() {
   }, 250);
 }
 
-// _renderRowsChunked — writes rows to tbody in chunks of 25, yielding the thread between each
-// chunk via requestIdleCallback (or setTimeout fallback). Prevents main-thread freeze on 150+ rows.
-let _chunkRenderVersion = 0; // incremented on each new render — stale chunk callbacks self-cancel
+// _renderRowsChunked — builds rows in offscreen chunks (no live DOM writes mid-render),
+// then swaps the entire content into tbody atomically to prevent visual "dancing".
+// Chunks yield the thread between each batch via requestIdleCallback/setTimeout.
+let _chunkRenderVersion = 0;
 function _renderRowsChunked(tbody, rows, onDone) {
   const version = ++_chunkRenderVersion;
   const CHUNK = 25;
   let i = 0;
+  const offscreen = document.createDocumentFragment(); // all rows built here, off-DOM
   const schedule = typeof requestIdleCallback !== 'undefined'
-    ? cb => requestIdleCallback(cb, { timeout: 100 })
+    ? cb => requestIdleCallback(cb, { timeout: 150 })
     : cb => setTimeout(cb, 0);
-  tbody.innerHTML = '';
+
   function nextChunk() {
-    if (_chunkRenderVersion !== version) return; // superseded by a newer render — abort
-    const frag = document.createDocumentFragment();
+    if (_chunkRenderVersion !== version) return; // superseded — abort silently
     const end = Math.min(i + CHUNK, rows.length);
     for (; i < end; i++) {
       const tpl = document.createElement('template');
       tpl.innerHTML = renderStockRowHTML(rows[i]);
-      frag.appendChild(tpl.content.firstElementChild);
+      offscreen.appendChild(tpl.content.firstElementChild);
     }
-    tbody.appendChild(frag);
     if (i < rows.length) {
-      schedule(nextChunk);
-    } else if (onDone) {
-      onDone();
+      schedule(nextChunk); // yield thread, continue building off-DOM
+    } else {
+      // All rows ready — single atomic DOM swap, zero visual jumping
+      tbody.innerHTML = '';
+      tbody.appendChild(offscreen);
+      if (onDone) onDone();
     }
   }
   schedule(nextChunk);
