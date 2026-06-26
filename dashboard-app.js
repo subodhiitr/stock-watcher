@@ -3145,8 +3145,16 @@ async function submitManualTrade() {
     });
     applyOpenedTradeLocally(openResult?.trade);
     loadPaperTrades(true).catch(e => console.warn('manual trade reconcile failed', e.message));
-    setStatus('Trade placed ✓', 'var(--green)');
-    setTimeout(() => closeManualTradeModal(), 1500);
+    // Warn if broker order failed (trade is saved but broker rejected/errored)
+    const brokerStatus = String(openResult?.trade?.broker?.status || '').toLowerCase();
+    const brokerError = openResult?.trade?.broker?.error;
+    if (['failed', 'rejected', 'cancelled'].includes(brokerStatus)) {
+      setStatus(`⚠️ Trade saved but broker order ${brokerStatus}: ${brokerError || 'check broker credentials'}`, 'var(--yellow, orange)');
+      // Do NOT auto-close — user needs to see the broker failure
+    } else {
+      setStatus('Trade placed ✓', 'var(--green)');
+      setTimeout(() => closeManualTradeModal(), 1500);
+    }
   } catch (e) {
     setStatus(e.message || 'Could not place trade.', 'var(--red)');
   } finally {
