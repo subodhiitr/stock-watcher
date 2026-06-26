@@ -2377,13 +2377,24 @@ function renderOpenTradeRows(openTrades, newKeys, mode = 'all') {
       statusHTML = '📝 Paper';
     }
     
-    // In new events modal, show exit reason for closed trades, entry reason for open trades
-    const reasonDisplay = mode === 'new' && !isOpen
-      ? escapeHTML(trade.closeReason || '--')
-      : escapeHTML(formatEntryJournal(trade));
-    const reasonTitle = mode === 'new' && !isOpen
-      ? escapeHTML(trade.closeReason || '--')
-      : escapeHTML(formatEntryJournal(trade));
+    // In new events modal, show exit reason for closed trades, broker error for failed orders, entry reason for open trades
+    const brokerFailReason = (() => {
+      const bs = String(trade?.broker?.status || '').toLowerCase();
+      if (['failed', 'rejected', 'cancelled', 'timeout'].includes(bs)) {
+        return `Broker ${bs}: ${trade.broker?.error || trade.broker?.rejectReason || 'check credentials'}`;
+      }
+      return null;
+    })();
+    const reasonDisplay = brokerFailReason
+      ? escapeHTML(brokerFailReason)
+      : mode === 'new' && !isOpen
+        ? escapeHTML(trade.closeReason || '--')
+        : escapeHTML(formatEntryJournal(trade));
+    const reasonTitle = brokerFailReason
+      ? escapeHTML(brokerFailReason)
+      : mode === 'new' && !isOpen
+        ? escapeHTML(trade.closeReason || '--')
+        : escapeHTML(formatEntryJournal(trade));
     const exitRoute = (() => {
       const owner = String(trade?.exitOwner || '').toLowerCase();
       const brokerName = String(trade?.broker?.name || '').toLowerCase();
