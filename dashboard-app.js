@@ -657,6 +657,36 @@ function scheduleTableRender() {
   }, 250);
 }
 
+// _renderRowsChunked — writes rows to tbody in chunks of 25, yielding the thread between each
+// chunk via requestIdleCallback (or setTimeout fallback). Prevents main-thread freeze on 150+ rows.
+let _chunkRenderVersion = 0; // incremented on each new render — stale chunk callbacks self-cancel
+function _renderRowsChunked(tbody, rows, onDone) {
+  const version = ++_chunkRenderVersion;
+  const CHUNK = 25;
+  let i = 0;
+  const schedule = typeof requestIdleCallback !== 'undefined'
+    ? cb => requestIdleCallback(cb, { timeout: 100 })
+    : cb => setTimeout(cb, 0);
+  tbody.innerHTML = '';
+  function nextChunk() {
+    if (_chunkRenderVersion !== version) return; // superseded by a newer render — abort
+    const frag = document.createDocumentFragment();
+    const end = Math.min(i + CHUNK, rows.length);
+    for (; i < end; i++) {
+      const tpl = document.createElement('template');
+      tpl.innerHTML = renderStockRowHTML(rows[i]);
+      frag.appendChild(tpl.content.firstElementChild);
+    }
+    tbody.appendChild(frag);
+    if (i < rows.length) {
+      schedule(nextChunk);
+    } else if (onDone) {
+      onDone();
+    }
+  }
+  schedule(nextChunk);
+}
+
 // scheduleSectorRender — debounced renderSectors for batch refresh loops (coalesces per-batch calls)
 let _sectorRenderTimer = null;
 function scheduleSectorRender() {
@@ -6811,11 +6841,13 @@ function renderTableNow(){
   if (rows.length > 0 && Object.keys(intradayData).length === 0) {
     console.warn(`[renderTableNow] ${rows.length} rows to render but intradayData is EMPTY!`);
   }
-  tbody.innerHTML = rows.map(renderStockRowHTML).join('');
-  scheduleVisibleEventFlags(rows);
-  renderTopActionBar();
-  syncStockScrollSizing();
-  applyColumnPreset();
+  // Chunk-render rows asynchronously — yields the thread every 25 rows to prevent freeze
+  _renderRowsChunked(tbody, rows, () => {
+    scheduleVisibleEventFlags(rows);
+    renderTopActionBar();
+    syncStockScrollSizing();
+    applyColumnPreset();
+  });
 }
 
 // Compute an overall health score (0-100) from fundamentals
