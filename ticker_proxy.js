@@ -6637,45 +6637,45 @@ async function proxyRequestHandler(req, res) {
     }
   }
 
+  // /sharekhan-portfolio -- Live Sharekhan portfolio snapshot
+  if (pathname === '/sharekhan-portfolio') {
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed. Use GET.' }));
+      return;
+    }
+    try {
+      if (!sharekhanCredentials || !sharekhanClientLive) {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Sharekhan integration is not initialized' }));
+        return;
+      }
+      const portfolio = await sharekhanClientLive.getPortfolioState();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        ok: true,
+        mode: brokerMode,
+        broker: 'sharekhan',
+        portfolio,
+      }));
+      return;
+    } catch (e) {
+      const isAuth = /AUTH_FAILED_REFRESH_NEEDED|token|permission/i.test(String(e?.message || ''));
+      res.writeHead(isAuth ? 401 : 500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: e.message,
+        hint: isAuth ? 'Token expired. Use Refresh token now in Settings.' : undefined,
+      }));
+      return;
+    }
+  }
+
   // /zerodha-portfolio -- Live Zerodha portfolio snapshot
   if (pathname === '/zerodha-portfolio') {
     if (req.method !== 'GET') {
       res.writeHead(405, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Method not allowed. Use GET.' }));
       return;
-    }
-
-    // /sharekhan-portfolio -- Live Sharekhan portfolio snapshot
-    if (pathname === '/sharekhan-portfolio') {
-      if (req.method !== 'GET') {
-        res.writeHead(405, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Method not allowed. Use GET.' }));
-        return;
-      }
-      try {
-        if (!sharekhanCredentials || !sharekhanClientLive) {
-          res.writeHead(503, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Sharekhan integration is not initialized' }));
-          return;
-        }
-        const portfolio = await sharekhanClientLive.getPortfolioState();
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          ok: true,
-          mode: brokerMode,
-          broker: 'sharekhan',
-          portfolio,
-        }));
-        return;
-      } catch (e) {
-        const isAuth = /AUTH_FAILED_REFRESH_NEEDED|token|permission/i.test(String(e?.message || ''));
-        res.writeHead(isAuth ? 401 : 500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: e.message,
-          hint: isAuth ? 'Token expired. Use Refresh token now in Settings.' : undefined,
-        }));
-        return;
-      }
     }
     try {
       if (!zerodhaCredentials || !kiteClientLive) {

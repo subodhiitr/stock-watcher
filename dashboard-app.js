@@ -3739,6 +3739,11 @@ function renderBrokerPortfolioModal() {
 async function openBrokerPortfolioModal() {
   const modal = document.getElementById('broker-portfolio-modal');
   if (modal) modal.style.display = 'flex';
+  const title = document.getElementById('broker-portfolio-modal-title');
+  if (title) {
+    const brokerName = brokerMode === 'sharekhan_live' ? 'Sharekhan' : 'Zerodha';
+    title.textContent = `${brokerName} Portfolio`;
+  }
   renderBrokerPortfolioModal();
   if (!brokerPortfolioState.ok && !brokerPortfolioState.loading) {
     await pollBrokerPortfolioState();
