@@ -1,4 +1,5 @@
 const { SharekhanApi } = require('sharekhan-api/lib');
+const { buildScripCodeMap, loadScripCache, saveScripCache } = require('./sharekhan-intraday');
 
 class SharekhanClient {
   constructor(config = {}) {
@@ -76,22 +77,29 @@ class SharekhanClient {
 
   async ensureSymbolCodeMap(exchange = 'NC') {
     const now = Date.now();
+    // Return early if in-memory cache is fresh
     if (this.symbolCodeCache.size && now - this.symbolCacheUpdatedAt < this.symbolCacheTtlMs) return;
-    const result = await this.withAuthRetry(() => this.client.getActiveScriptOfDay(exchange));
-    const payload = this.parseResponse(result);
-    const list = Array.isArray(payload) ? payload
-      : (Array.isArray(payload?.data) ? payload.data
-      : (Array.isArray(payload?.result) ? payload.result : []));
-    const nextMap = new Map();
-    for (const item of list) {
-      const symbol = String(item?.tradingSymbol || item?.symbol || item?.name || '').trim().toUpperCase();
-      const scripCode = Number(item?.scripCode || item?.scrip_code || item?.scriptCode || 0);
-      if (symbol && Number.isFinite(scripCode) && scripCode > 0) nextMap.set(symbol, scripCode);
-    }
-    if (nextMap.size) {
-      this.symbolCodeCache = nextMap;
+    // Try file cache first (avoids API call on every server start)
+    const fileCached = loadScripCache();
+    if (fileCached && fileCached.size) {
+      this.symbolCodeCache = fileCached;
       this.symbolCacheUpdatedAt = now;
+      return;
     }
+    // Fetch from master endpoint (works any time)
+    try {
+      const result = await this.withAuthRetry(() => this.client.getActiveScriptOfDay(exchange));
+      const payload = this.parseResponse(result);
+      const list = Array.isArray(payload) ? payload
+        : (Array.isArray(payload?.data) ? payload.data
+        : (Array.isArray(payload?.result) ? payload.result : []));
+      const nextMap = buildScripCodeMap(list);
+      if (nextMap.size) {
+        this.symbolCodeCache = nextMap;
+        this.symbolCacheUpdatedAt = now;
+        saveScripCache(nextMap);
+      }
+    } catch (_) {}
   }
 
   async resolveScripCode(symbol, exchange = 'NC') {
@@ -99,6 +107,29 @@ class SharekhanClient {
     if (!clean) return 0;
     await this.ensureSymbolCodeMap(exchange);
     return Number(this.symbolCodeCache.get(clean) || 0);
+  }
+
+  // Adapter method satisfying fetchSharekhanIntraday client contract
+  async getScripCode(symbol) {
+    return this.resolveScripCode(symbol, 'NC');
+  }
+
+  // Adapter method satisfying fetchSharekhanIntraday client contract
+  // Returns raw candle data (array or string) — normalizeSharekhanCandles handles both
+  async fetchRawCandles(exchange, scripCode, interval) {
+    try {
+      const res = await this.withAuthRetry(() =>
+        this.client.getHistoricalIntervalData(exchange, scripCode, interval)
+      );
+      const data = this.parseResponse(res);
+      if (!data) return [];
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data.data)) return data.data;
+      if (typeof data === 'string') return data;
+      return [];
+    } catch (_) {
+      return [];
+    }
   }
 
   buildOrderPayload(order = {}) {
