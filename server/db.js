@@ -18,8 +18,13 @@ const TRADE_FILTERS = {
   id: 'id',
   symbol: "json_extract(data, '$.symbol')",
   status: "json_extract(data, '$.status')",
+  source: "json_extract(data, '$.source')",
   strategy: "json_extract(data, '$.strategy')",
   side: "json_extract(data, '$.side')"
+};
+const TRADE_RANGE_FILTERS = {
+  since: { column: "CAST(json_extract(data, '$.opened_at') AS REAL)", operator: '>=' },
+  until: { column: "CAST(json_extract(data, '$.opened_at') AS REAL)", operator: '<=' }
 };
 
 let activeDb = null;
@@ -282,7 +287,16 @@ export function listTrades(filters = {}) {
   const params = [];
 
   for (const [key, value] of Object.entries(filters || {})) {
-    if (!(key in TRADE_FILTERS) || value === undefined) {
+    if (value === undefined) {
+      continue;
+    }
+    if (key in TRADE_RANGE_FILTERS) {
+      const { column, operator } = TRADE_RANGE_FILTERS[key];
+      clauses.push(`${column} ${operator} ?`);
+      params.push(value);
+      continue;
+    }
+    if (!(key in TRADE_FILTERS)) {
       continue;
     }
     const column = TRADE_FILTERS[key];
