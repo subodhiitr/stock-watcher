@@ -65,6 +65,11 @@ class SharekhanClient {
   async withAuthRetry(task) {
     const res = await task();
     const status = Number(res?.status || 0);
+    // Surface server errors so callers get clear failure instead of silent empty data
+    if (status >= 500) {
+      const msg = String(res?.message || res?.error || 'Server error');
+      throw new Error(`SHAREKHAN_SERVER_ERROR_${status}: ${msg}`);
+    }
     if (status !== 401 && status !== 403) return res;
     const refreshed = await this.refreshAccessToken();
     if (!refreshed) throw new Error('AUTH_FAILED_REFRESH_NEEDED');
@@ -216,10 +221,18 @@ class SharekhanClient {
   }
 
   async getPortfolioState() {
-    const [fundRes, holdingsRes] = await this.withAuthRetry(() => Promise.all([
-      this.client.getFundsDetails('NC'),
-      this.client.getHoldings(),
-    ]));
+    // Fetch funds and holdings independently so errors surface per-call
+    const checkStatus = (res, name) => {
+      const status = Number(res?.status || 0);
+      if (status >= 500) throw new Error(`SHAREKHAN_SERVER_ERROR_${status} on ${name}: ${res?.message || 'Bad Gateway'}`);
+      if (status === 401 || status === 403) throw new Error('AUTH_FAILED_REFRESH_NEEDED');
+      return res;
+    };
+
+    const [fundRes, holdingsRes] = await Promise.all([
+      this.client.getFundsDetails('NC').then(r => checkStatus(r, 'getFundsDetails')),
+      this.client.getHoldings().then(r => checkStatus(r, 'getHoldings')),
+    ]);
 
     const fundPayload = this.parseResponse(fundRes);
     const holdingsPayload = this.parseResponse(holdingsRes);
