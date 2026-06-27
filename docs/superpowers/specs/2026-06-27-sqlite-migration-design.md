@@ -205,6 +205,11 @@ Expected compression ratio: ~95% (JSON text compresses extremely well).
 - Install: `npm install better-sqlite3`
 - Synchronous API matches existing `fs.readFileSync` patterns — minimal refactor
 - No async/await needed for DB calls
+- Enable WAL mode and busy timeout on init:
+  ```js
+  db.pragma('journal_mode = WAL');   // concurrent read + write on same machine
+  db.pragma('busy_timeout = 5000');  // wait up to 5s on write lock instead of failing
+  ```
 
 ---
 
