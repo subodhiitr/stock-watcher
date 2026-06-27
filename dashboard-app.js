@@ -2550,9 +2550,13 @@ function renderOpenTradesModal() {
       const bt = new Date(getTradeTransactionTime(b) || 0).getTime() || 0;
       return (at - bt) * dir;
     });
+  const isFailedTrade = t => ['failed', 'cancelled', 'rejected', 'timeout'].includes(String(t?.status || t?.broker?.status || '').toLowerCase());
+  const todaysFailedTrades = paperTrades
+    .filter(t => isTradeToday(t) && isFailedTrade(t))
+    .sort((a, b) => new Date(b.openedAt || 0) - new Date(a.openedAt || 0));
   const newCount = allOpenTrades.filter(t => newSimulationTradeKeys.has(simulationTradeKey(t))).length;
   const visibleTrades = openTradesModalMode === 'new'
-    ? newEventTrades
+    ? [...newEventTrades, ...todaysFailedTrades]
     : allOpenTrades;
   const visibleOpenTrades = visibleTrades.filter(isOpenTrade);
   const pnlBaseTrades = openTradesModalMode === 'new' ? visibleTrades : visibleOpenTrades;
