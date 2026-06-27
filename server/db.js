@@ -1,4 +1,5 @@
-import Database from 'better-sqlite3';
+const Database = require('better-sqlite3');
+
 
 const INITIAL_SCHEMA_VERSION = 1;
 const SOURCE_SAVED = 'saved';
@@ -276,7 +277,7 @@ function readEtfMasterRow(row) {
   };
 }
 
-export function initDb(path = 'stock-watcher.db') {
+function initDb(path = 'stock-watcher.db') {
   const db = new Database(path);
 
   db.exec(`
@@ -361,18 +362,18 @@ export function initDb(path = 'stock-watcher.db') {
   return db;
 }
 
-export function getSchemaVersion(db = requireDb()) {
+function getSchemaVersion(db = requireDb()) {
   const row = getPrepared(db).getSchemaVersion.get();
   return row?.version ?? 0;
 }
 
-export function rememberSymbols(rows) {
+function rememberSymbols(rows) {
   const db = requireDb();
   const prepared = getPrepared(db);
   prepared.rememberSymbolsTx(Array.isArray(rows) ? rows : []);
 }
 
-export function upsertSymbol(symbol, name, sector, cap, source) {
+function upsertSymbol(symbol, name, sector, cap, source) {
   if (!symbol) {
     return;
   }
@@ -381,14 +382,14 @@ export function upsertSymbol(symbol, name, sector, cap, source) {
   prepared.upsertSymbolTx(symbol, name, sector, cap, source);
 }
 
-export function upsertScripCodes(rows, broker = 'sharekhan') {
+function upsertScripCodes(rows, broker = 'sharekhan') {
   assertSupportedBroker(broker);
   const db = requireDb();
   const prepared = getPrepared(db);
   prepared.upsertScripCodesTxByBroker[broker](Array.isArray(rows) ? rows : []);
 }
 
-export function getScripCode(symbol, broker = 'sharekhan') {
+function getScripCode(symbol, broker = 'sharekhan') {
   if (!symbol) {
     return null;
   }
@@ -399,7 +400,7 @@ export function getScripCode(symbol, broker = 'sharekhan') {
   return row?.code ?? null;
 }
 
-export function scripCodesUpdatedAt(broker = 'sharekhan') {
+function scripCodesUpdatedAt(broker = 'sharekhan') {
   assertSupportedBroker(broker);
   const db = requireDb();
   const prepared = getPrepared(db);
@@ -407,7 +408,7 @@ export function scripCodesUpdatedAt(broker = 'sharekhan') {
   return row?.updated_at ?? 0;
 }
 
-export function saveTrade(trade) {
+function saveTrade(trade) {
   const patch = normalizeTradePatch(trade);
   if (!patch.id) {
     return null;
@@ -422,7 +423,7 @@ export function saveTrade(trade) {
   return merged;
 }
 
-export function updateTrade(id, fields) {
+function updateTrade(id, fields) {
   if (!id) {
     return null;
   }
@@ -431,7 +432,7 @@ export function updateTrade(id, fields) {
   return saveTrade({ id, ...patch });
 }
 
-export function getTrade(id) {
+function getTrade(id) {
   if (!id) {
     return null;
   }
@@ -440,7 +441,7 @@ export function getTrade(id) {
   return parseTradeRow(prepared.getTradeRow.get(id));
 }
 
-export function listTrades(filters = {}) {
+function listTrades(filters = {}) {
   const db = requireDb();
   const clauses = [];
   const params = [];
@@ -481,14 +482,14 @@ export function listTrades(filters = {}) {
   return db.prepare(sql).all(...params).map((row) => parseTradeRow(row)).filter(Boolean);
 }
 
-export function countTrades() {
+function countTrades() {
   const db = requireDb();
   const prepared = getPrepared(db);
   const row = prepared.countTrades.get();
   return row?.count ?? 0;
 }
 
-export function saveFreshNews(symbol, date, newsArray, ttlMs = FIFTEEN_DAYS_MS) {
+function saveFreshNews(symbol, date, newsArray, ttlMs = FIFTEEN_DAYS_MS) {
   if (!symbol || !date) {
     return null;
   }
@@ -501,7 +502,7 @@ export function saveFreshNews(symbol, date, newsArray, ttlMs = FIFTEEN_DAYS_MS) 
   return payload;
 }
 
-export function getFreshNews(symbol, date) {
+function getFreshNews(symbol, date) {
   if (!symbol || !date) {
     return null;
   }
@@ -518,14 +519,14 @@ export function getFreshNews(symbol, date) {
   return parseJson(row.news_json, []);
 }
 
-export function pruneFreshNews() {
+function pruneFreshNews() {
   const db = requireDb();
   const prepared = getPrepared(db);
   const result = prepared.pruneFreshNewsRows.run(Date.now());
   return result.changes ?? 0;
 }
 
-export function upsertEtfMaster(rows) {
+function upsertEtfMaster(rows) {
   const db = requireDb();
   const prepared = getPrepared(db);
   const list = Array.isArray(rows) ? rows : [];
@@ -546,7 +547,7 @@ export function upsertEtfMaster(rows) {
   tx(list);
 }
 
-export function getEtfMaster(symbol) {
+function getEtfMaster(symbol) {
   if (!symbol) {
     return null;
   }
@@ -555,7 +556,7 @@ export function getEtfMaster(symbol) {
   return readEtfMasterRow(prepared.getEtfMasterRow.get(String(symbol)));
 }
 
-export function saveEtfNavDaily(rows) {
+function saveEtfNavDaily(rows) {
   const db = requireDb();
   const prepared = getPrepared(db);
   const list = Array.isArray(rows) ? rows : [];
@@ -578,7 +579,7 @@ export function saveEtfNavDaily(rows) {
   tx(list);
 }
 
-export function getEtfNavHistory(symbol, from, to) {
+function getEtfNavHistory(symbol, from, to) {
   if (!symbol) {
     return [];
   }
@@ -597,7 +598,7 @@ export function getEtfNavHistory(symbol, from, to) {
   });
 }
 
-export function saveEtfQuoteCache(symbol, payload, ttlMs) {
+function saveEtfQuoteCache(symbol, payload, ttlMs) {
   if (!symbol) {
     return null;
   }
@@ -609,7 +610,7 @@ export function saveEtfQuoteCache(symbol, payload, ttlMs) {
   return payload ?? null;
 }
 
-export function getEtfQuoteCache(symbol) {
+function getEtfQuoteCache(symbol) {
   if (!symbol) {
     return null;
   }
@@ -626,14 +627,14 @@ export function getEtfQuoteCache(symbol) {
   return parseJson(row.payload, null);
 }
 
-export function pruneEtfQuoteCache() {
+function pruneEtfQuoteCache() {
   const db = requireDb();
   const prepared = getPrepared(db);
   const result = prepared.pruneEtfQuoteCacheRows.run(Date.now());
   return result.changes ?? 0;
 }
 
-export function saveEtfHoldingsCache(symbol, payload, ttlMs) {
+function saveEtfHoldingsCache(symbol, payload, ttlMs) {
   if (!symbol) {
     return null;
   }
@@ -645,7 +646,7 @@ export function saveEtfHoldingsCache(symbol, payload, ttlMs) {
   return payload ?? null;
 }
 
-export function getEtfHoldingsCache(symbol) {
+function getEtfHoldingsCache(symbol) {
   if (!symbol) {
     return null;
   }
@@ -662,14 +663,14 @@ export function getEtfHoldingsCache(symbol) {
   return parseJson(row.payload, null);
 }
 
-export function pruneEtfHoldingsCache() {
+function pruneEtfHoldingsCache() {
   const db = requireDb();
   const prepared = getPrepared(db);
   const result = prepared.pruneEtfHoldingsCacheRows.run(Date.now());
   return result.changes ?? 0;
 }
 
-export function setEtfSaved(symbol, isSaved) {
+function setEtfSaved(symbol, isSaved) {
   if (!symbol) {
     return null;
   }
@@ -689,7 +690,7 @@ export function setEtfSaved(symbol, isSaved) {
   return getEtfMaster(target);
 }
 
-export function setEtfFavorite(symbol, isFavorite) {
+function setEtfFavorite(symbol, isFavorite) {
   if (!symbol) {
     return null;
   }
@@ -709,14 +710,55 @@ export function setEtfFavorite(symbol, isFavorite) {
   return getEtfMaster(target);
 }
 
-export function listSavedEtfs() {
+function listSavedEtfs() {
   const db = requireDb();
   const prepared = getPrepared(db);
   return prepared.listSavedEtfRows.all().map((row) => readEtfMasterRow(row)).filter(Boolean);
 }
 
-export function listEtfFavorites() {
+function listEtfFavorites() {
   const db = requireDb();
   const prepared = getPrepared(db);
   return prepared.listFavoriteEtfRows.all().map((row) => readEtfMasterRow(row)).filter(Boolean);
 }
+module.exports = {
+  requireDb,
+  normalizeSource,
+  getPrepared,
+  assertSupportedBroker,
+  normalizeTradePatch,
+  parseTradeRow,
+  parseJson,
+  toSqliteBool,
+  readEtfMasterRow,
+  initDb,
+  getSchemaVersion,
+  rememberSymbols,
+  upsertSymbol,
+  upsertScripCodes,
+  getScripCode,
+  scripCodesUpdatedAt,
+  saveTrade,
+  updateTrade,
+  getTrade,
+  listTrades,
+  countTrades,
+  saveFreshNews,
+  getFreshNews,
+  pruneFreshNews,
+  upsertEtfMaster,
+  getEtfMaster,
+  saveEtfNavDaily,
+  getEtfNavHistory,
+  saveEtfQuoteCache,
+  getEtfQuoteCache,
+  pruneEtfQuoteCache,
+  saveEtfHoldingsCache,
+  getEtfHoldingsCache,
+  pruneEtfHoldingsCache,
+  setEtfSaved,
+  setEtfFavorite,
+  listSavedEtfs,
+  listEtfFavorites,
+};
+

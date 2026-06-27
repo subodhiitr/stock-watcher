@@ -7714,6 +7714,16 @@ let proxyInitialized = false;
 async function initializeProxy() {
   if (proxyInitialized) return;
   proxyInitialized = true;
+  
+  // Initialize SQLite database
+  try {
+    initDb('stock-watcher.db');
+    console.log('[db] SQLite database initialized at stock-watcher.db');
+  } catch (e) {
+    console.error('[db] Failed to initialize SQLite database:', e.message);
+    process.exit(1);
+  }
+  
   await initializeSimulationRuntime();
   await Promise.all([warmNSESession(), refreshYahooCrumb()]);
   
