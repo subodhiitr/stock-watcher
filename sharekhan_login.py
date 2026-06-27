@@ -12,29 +12,19 @@ Steps:
   4. Script generates the access token and updates ~/.sharekhan.properties
 
 Requirements:
-  pip install requests
+  Node.js must be installed (uses sharekhan-api npm package for token exchange)
 """
 
 import os
-import re
 import sys
-import hmac
-import base64
-import hashlib
+import json
+import subprocess
 import webbrowser
-import configparser
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
-try:
-    import requests
-except ImportError:
-    print("Install requests first: pip install requests")
-    sys.exit(1)
-
 CREDS_FILE = Path.home() / ".sharekhan.properties"
 SHAREKHAN_LOGIN_BASE = "https://api.sharekhan.com/skapi/auth/login.html"
-SHAREKHAN_TOKEN_URL  = "https://api.sharekhan.com/skapi/services/access/token"
 
 
 def load_properties(path: Path) -> dict:
@@ -67,52 +57,56 @@ def save_property(path: Path, key: str, value: str):
     print(f"  ✓ Saved {key} to {path}")
 
 
-def aes_base64(token: str, secret_key: str) -> str:
+def generate_access_token(script_dir: Path, api_key: str, request_token: str,
+                           secret_key: str, version_id: str = "", vendor_key: str = "") -> str:
     """
-    Sharekhan token encryption (without version_id):
-    HMAC-SHA256(secret_key, request_token) → base64
+    Delegate token generation to Node.js — uses the real sharekhan-api AES-256-GCM
+    encryption which is too complex to replicate cleanly in Python.
     """
-    sig = hmac.new(secret_key.encode(), token.encode(), hashlib.sha256).digest()
-    return base64.b64encode(sig).decode()
-
-
-def aes_base64url(token: str, secret_key: str) -> str:
-    """
-    Sharekhan token encryption (with version_id):
-    HMAC-SHA256(secret_key, request_token) → base64url (no padding)
-    """
-    sig = hmac.new(secret_key.encode(), token.encode(), hashlib.sha256).digest()
-    return base64.urlsafe_b64encode(sig).rstrip(b"=").decode()
-
-
-def generate_access_token(api_key: str, request_token: str, secret_key: str,
-                           version_id: str = "", vendor_key: str = "") -> str:
-    """Call Sharekhan API to exchange request_token → access_token."""
-    if version_id:
-        enc = aes_base64url(request_token, secret_key)
-        body = {"apiKey": api_key, "requestToken": enc, "versionId": version_id}
-    else:
-        enc = aes_base64(request_token, secret_key)
-        body = {"apiKey": api_key, "requestToken": enc}
-
-    headers = {"Content-Type": "application/json"}
-    if vendor_key:
-        headers["vender-key"] = vendor_key
-
-    resp = requests.post(SHAREKHAN_TOKEN_URL, json=body, headers=headers, timeout=15)
-    data = resp.json()
-
-    # Try common response shapes
-    token = (
-        data.get("data", {}).get("token")
-        or data.get("token")
-        or data.get("accessToken")
-        or data.get("jwtToken")
-        or ""
+    node_script = f"""
+const {{ SharekhanApi }} = require('./node_modules/sharekhan-api/lib');
+const client = new SharekhanApi({{
+  api_key: {json.dumps(api_key)},
+  customer_id: 'x',
+  vender_key: {json.dumps(vendor_key)} || undefined,
+}});
+async function run() {{
+  try {{
+    const fn = {json.dumps(version_id)} 
+      ? client.generateSessionWithVersionID.bind(client)
+      : client.generateSessionWithoutVersionID.bind(client);
+    const args = {json.dumps(version_id)}
+      ? [{json.dumps(request_token)}, {json.dumps(secret_key)}, {json.dumps(version_id)}]
+      : [{json.dumps(request_token)}, {json.dumps(secret_key)}];
+    const result = await fn(...args);
+    const data = result?.data ?? result;
+    const token = data?.token || data?.accessToken || data?.jwtToken || '';
+    if (!token) {{
+      process.stderr.write(JSON.stringify(result) + '\\n');
+      process.exit(1);
+    }}
+    process.stdout.write(token);
+  }} catch(e) {{
+    process.stderr.write(e.message + '\\n');
+    process.exit(1);
+  }}
+}}
+run();
+"""
+    result = subprocess.run(
+        ["node", "-e", node_script],
+        capture_output=True, text=True, cwd=str(script_dir)
     )
+    if result.returncode != 0:
+        err = result.stderr.strip()
+        try:
+            parsed = json.loads(err)
+            raise ValueError(f"Sharekhan API error: {parsed}")
+        except (json.JSONDecodeError, ValueError):
+            raise ValueError(err or "Node.js token generation failed")
+    token = result.stdout.strip()
     if not token:
-        print(f"\n  ✗ Server response: {data}")
-        raise ValueError("No access token in server response")
+        raise ValueError("Empty token returned")
     return token
 
 
@@ -217,10 +211,11 @@ def main():
     print(f"\n  request_token: {request_token[:8]}...")
 
     # Generate access token
-    print("  Generating access token...")
+    print("  Generating access token via Node.js sharekhan-api...")
     try:
+        script_dir = Path(__file__).parent
         access_token = generate_access_token(
-            api_key, request_token, secret_key, version_id, vendor_key
+            script_dir, api_key, request_token, secret_key, version_id, vendor_key
         )
     except Exception as e:
         print(f"\n  ✗ Failed: {e}")
