@@ -2310,7 +2310,10 @@ function buildWhyMissedResponse(day, symbol) {
 }
 
 function sanitizeSimulationSnapshot(payload) {
-  const candidates = Array.isArray(payload.candidates) ? payload.candidates.slice(0, 100) : [];
+  const raw = Array.isArray(payload.candidates) ? payload.candidates : [];
+  const candidates = raw
+    .sort((a, b) => Math.abs(Number(b.score) || 0) - Math.abs(Number(a.score) || 0))
+    .slice(0, 100);
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     at: new Date().toISOString(),
@@ -2348,7 +2351,9 @@ function persistServerSimulationSnapshot(source = 'intraday-live-refresh', chang
     const overrideSettings = loadTradeSettingsFile().overrides || {};
      const settings = SimulationEngine.withDefaults ? SimulationEngine.withDefaults(overrideSettings) : overrideSettings;
     const symbolMetaBySymbol = getSimulationSymbolMetaIndex();
-    const candidates = buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol).slice(0, 100);
+    const candidates = buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol)
+      .sort((a, b) => Math.abs(Number(b.score) || 0) - Math.abs(Number(a.score) || 0))
+      .slice(0, 100);
     const market = { indices: simulationMarketCache.indices || {} };
     const sectorTrend = buildSectorTrendFromCandidates(candidates);
     const trades = loadPaperStateFile().trades || [];
