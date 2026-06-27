@@ -177,11 +177,16 @@ function migrateScriptCodes(db, fixturesDir) {
  * Migrate ETF master from various ETF cache and saved files
  */
 function migrateEtfs(db, fixturesDir) {
-  const etfListPath = path.join(fixturesDir, 'etf_list_cache.json');
-  const etfSummaryPath = path.join(fixturesDir, 'etf_summary_cache.json');
-  const etfHoldingsPath = path.join(fixturesDir, 'etf_holdings_cache.json');
-  const savedEtfsPath = path.join(fixturesDir, 'saved_etfs.json');
-  const savedEtfFavsPath = path.join(fixturesDir, 'saved_etf_favs.json');
+  // Resolve each path: prefer fixtures/ dir, fall back to project root (parent)
+  const resolve = (filename) => {
+    const inFixtures = path.join(fixturesDir, filename);
+    return fs.existsSync(inFixtures) ? inFixtures : path.join(fixturesDir, '..', filename);
+  };
+  const etfListPath = resolve('etf_list_cache.json');
+  const etfSummaryPath = resolve('etf_summary_cache.json');
+  const etfHoldingsPath = resolve('etf_holdings_cache.json');
+  const savedEtfsPath = resolve('saved_etfs.json');
+  const savedEtfFavsPath = resolve('saved_etf_favs.json');
 
   // Load all ETF data
   let etfListData = loadJson(etfListPath, {});
@@ -189,6 +194,9 @@ function migrateEtfs(db, fixturesDir) {
                 (etfListData?.etfs && Array.isArray(etfListData.etfs)) ? etfListData.etfs :
                 (etfListData?.stocks && Array.isArray(etfListData.stocks)) ? etfListData.stocks :
                 Object.values(etfListData).filter(v => v && typeof v === 'object' && (v.symbol || v.sym));
+
+  // etf_list_cache.meta = {SYMBOL: {oneYearReturn, threeYearReturn, expenseRatio, ...}}
+  const etfMetaMap = typeof etfListData?.meta === 'object' ? etfListData.meta : {};
 
   // etf_summary_cache.json is {SYMBOL: {oneMonthReturn, savedAt, version}} keyed by symbol
   let etfSummaryRaw = loadJson(etfSummaryPath, {});
@@ -208,14 +216,26 @@ function migrateEtfs(db, fixturesDir) {
   // Build map of all ETFs
   const etfsMap = new Map();
 
-  // Collect from etf_list_cache
+  // Collect from etf_list_cache (etfs array) + etf_list_cache.meta (1Y/3Y/expense ratio)
   for (const etf of etfList) {
     const sym = etf?.symbol || etf?.sym;
     if (sym) {
+      const meta = etfMetaMap[sym] || {};
       etfsMap.set(sym, {
         symbol: sym,
         name: etf.name || null,
-        data: JSON.stringify({ ...etf, symbol: sym }),
+        data: JSON.stringify({
+          ...etf,
+          symbol: sym,
+          // Merge meta fields (1Y/3Y returns, expense ratio) into the ETF data blob
+          oneYearReturn:   meta.oneYearReturn   ?? null,
+          threeYearReturn: meta.threeYearReturn  ?? null,
+          fiveYearReturn:  meta.fiveYearReturn   ?? null,
+          ytdReturn:       meta.ytdReturn        ?? null,
+          category:        meta.category         ?? null,
+          fundFamily:      meta.fundFamily || etf.fundFamily || null,
+          expenseRatio:    meta.expenseRatio ?? etf.expRatio ?? null,
+        }),
         is_saved: 0,
         is_favorite: 0
       });
