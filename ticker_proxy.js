@@ -5946,8 +5946,9 @@ async function proxyRequestHandler(req, res) {
         navMap = navMapCache.data;
         if (isStale) refreshNavMapFromNSE().catch(e => console.warn('[stream/etf-nav] bg NSE refresh failed:', e.message));
       } else {
-        await refreshNavMapFromNSE();
-        navMap = navMapCache.data;
+        // Cold start: trigger NSE refresh in background; send DB/cached nav immediately
+        refreshNavMapFromNSE().catch(e => console.warn('[stream/etf-nav] bg NSE refresh failed:', e.message));
+        navMap = {};
       }
       const etfListData = loadEtfListDataMap();
 
@@ -5957,6 +5958,11 @@ async function proxyRequestHandler(req, res) {
         await Promise.allSettled(chunk.map(sym => (async () => {
           const nse = navMap[sym] || {};
           const disk = etfListData[sym] || {};
+          // Send cached nav immediately so the dashboard can display something
+          const cachedNav = nse.nav || disk.nav || null;
+          if (cachedNav) {
+            send({ sym, data: { nav: cachedNav, high52: nse.high52||disk.high52||null, low52: nse.low52||disk.low52||null, volume: nse.volume||disk.volume||null, navPremium: null, aum: nse.aum||null, expRatio: nse.expRatio||null } });
+          }
           try {
             const path = `/v8/finance/chart/${encodeURIComponent(sym)}.NS?interval=1d&range=1d&includePrePost=false`;
             let r = await httpsGet({ hostname: 'query1.finance.yahoo.com', path, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS });
@@ -5971,7 +5977,9 @@ async function proxyRequestHandler(req, res) {
             const navPremium = (nav && price) ? +((( price - nav) / nav) * 100).toFixed(2) : null;
             send({ sym, data: { price, nav, navPremium, high52, low52, volume, aum: nse.aum || null, expRatio: nse.expRatio || null } });
           } catch(e) {
-            send({ sym, data: { nav: nse.nav||disk.nav||null, high52: nse.high52||disk.high52||null, low52: nse.low52||disk.low52||null, volume: nse.volume||disk.volume||null, navPremium: null, aum: nse.aum||null, expRatio: nse.expRatio||null } });
+            if (!cachedNav) {
+              send({ sym, data: { nav: nse.nav||disk.nav||null, high52: nse.high52||disk.high52||null, low52: nse.low52||disk.low52||null, volume: nse.volume||disk.volume||null, navPremium: null, aum: nse.aum||null, expRatio: nse.expRatio||null } });
+            }
           }
         })()));
       }
