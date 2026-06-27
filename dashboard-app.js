@@ -2900,7 +2900,7 @@ function renderPortfolioModal() {
   const safety = getSimulationSafetySummary();
   const openCount = paperTrades.filter(isOpenTrade).length;
   const closedCount = paperTrades.filter(isClosedTrade).length;
-  const todaysTrades = paperTrades.filter(t => isTradeToday(t) && (isOpenTrade(t) || isClosedTrade(t)));
+  const todaysTrades = paperTrades.filter(isTradeToday).filter(t => isOpenTrade(t) || isClosedTrade(t));
   const transactionRows = todaysTrades.length ? todaysTrades.map(trade => {
     const isOpen = isOpenTrade(trade);
     const current = isOpen ? getCurrentTradePrice(trade.symbol) : Number(trade.exitPrice);
@@ -2913,8 +2913,9 @@ function renderPortfolioModal() {
     const breakdown = pnlObj?.chargeBreakup || livePnl?.chargeBreakup || {};
     const grossPnl = Number.isFinite(Number(pnlObj?.grossPnl)) ? Number(pnlObj.grossPnl) : null;
     const costTitle = `Brokerage ${moneyINR(breakdown.brokerage)} | STT ${moneyINR(breakdown.stt)} | Txn ${moneyINR(breakdown.transaction)} | GST ${moneyINR(breakdown.gst)} | SEBI ${moneyINR(breakdown.sebi)} | Stamp ${moneyINR(breakdown.stamp)}`;
-    return `<tr>
-      <td>${escapeHTML(isOpen ? 'open' : 'closed')}</td>
+    const isBrokerFailed = ['cancelled', 'rejected', 'timeout', 'failed'].includes(String(trade?.broker?.status || '').toLowerCase());
+    return `<tr${isBrokerFailed ? ' style="opacity:.55"' : ''}>
+      <td style="${isBrokerFailed ? 'color:var(--red)' : ''}">${escapeHTML(isBrokerFailed ? `failed (${trade.broker?.status})` : isOpen ? 'open' : 'closed')}</td>
       <td>${escapeHTML(trade.source === 'simulation' ? 'Sim' : 'Manual')}</td>
       <td title="${escapeHTML(brokerOrder)}">${escapeHTML(brokerLabel)}</td>
       <td>${escapeHTML(trade.symbol || '--')}</td>
