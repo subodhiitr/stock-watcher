@@ -24,6 +24,7 @@ const proxyPaths = new Set([
   '/trade-execution',
   '/trade-settings',
   '/zerodha-portfolio',
+  '/sharekhan-portfolio',
 ])
 
 export function shouldProxyPath(pathname: string) {

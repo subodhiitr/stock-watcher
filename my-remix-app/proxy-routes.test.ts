@@ -13,3 +13,8 @@ test('should proxy trade execution and simulation runtime paths', () => {
   assert.equal(shouldProxyPath('/simulation/status'), true)
   assert.equal(shouldProxyPath('/not-proxy-path'), false)
 })
+
+test('should proxy broker portfolio paths', () => {
+  assert.equal(shouldProxyPath('/zerodha-portfolio'), true)
+  assert.equal(shouldProxyPath('/sharekhan-portfolio'), true)
+})
