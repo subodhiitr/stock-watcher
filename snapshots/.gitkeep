@@ -1,0 +1,9 @@
+# This folder stores compressed simulation snapshots (.json.gz format)
+# Snapshots are created daily by ticker_proxy.js during simulation execution
+# and loaded by backtest_simulation.js for replay analysis.
+#
+# Format: simulation_snapshots_YYYY-MM-DD.json.gz
+# Retention: 30 days (auto-pruned)
+# Compression: ~95% size reduction via gzip
+#
+# The .gitkeep file ensures this directory is tracked by git.
