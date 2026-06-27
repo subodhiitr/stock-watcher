@@ -63,11 +63,20 @@ const {
   getTradesUpdatedAt,
   computeAllTimeRealizedPnl,
   rememberSymbols: dbRememberSymbols,
+  getSavedStockSymbols,
+  getSimulationSymbols,
+  saveSimulationSymbols: dbSaveSimulationSymbols,
   upsertScripCodes,
   getFreshNews,
   saveFreshNews: dbSaveFreshNews,
   loadPortfolioState,
   savePortfolioState,
+  listAllEtfs,
+  getEtfSavedSymbols,
+  getEtfFavoriteSymbols,
+  setEtfSavedBulk,
+  setEtfFavoriteBulk,
+  upsertEtfMaster,
 } = require('./server/db');
 const PORT  = 3001;
 const USER_OPENAI_PROPERTIES = path.join(os.homedir(), 'openai.properties');
@@ -242,6 +251,7 @@ function parseExplicitINav(item) {
 
 function loadSavedETFsFile() {
   try {
+    if (proxyDbReady) return getEtfSavedSymbols();
     if (!fs.existsSync(SAVED_ETF_FILE)) fs.writeFileSync(SAVED_ETF_FILE, '[]', 'utf8');
     const content = fs.readFileSync(SAVED_ETF_FILE, 'utf8');
     return JSON.parse(content || '[]');
@@ -251,6 +261,9 @@ function loadSavedETFsFile() {
 }
 function saveSavedETFsFile(symbols) {
   try {
+    if (proxyDbReady) {
+      setEtfSavedBulk(symbols);
+    }
     fs.writeFileSync(SAVED_ETF_FILE, JSON.stringify(Array.isArray(symbols) ? symbols : [], null, 2), 'utf8');
   } catch (e) {
     console.warn('[proxy] Could not save ETF prefs:', e.message);
@@ -259,6 +272,7 @@ function saveSavedETFsFile(symbols) {
 
 function loadSavedStocksFile() {
   try {
+    if (proxyDbReady) return getSavedStockSymbols();
     if (!fs.existsSync(SAVED_STOCK_FILE)) fs.writeFileSync(SAVED_STOCK_FILE, '[]', 'utf8');
     const content = fs.readFileSync(SAVED_STOCK_FILE, 'utf8');
     return JSON.parse(content || '[]');
@@ -268,6 +282,14 @@ function loadSavedStocksFile() {
 }
 function saveSavedStocksFile(symbols) {
   try {
+    if (proxyDbReady && Array.isArray(symbols)) {
+      // symbols is [{sym, name, sector, cap}] or [string]
+      const rows = symbols.map(s => typeof s === 'string'
+        ? { symbol: s, source: 'saved' }
+        : { symbol: s.sym || s.symbol, name: s.name || null, sector: s.sector || null, cap: s.cap || null, source: 'saved' }
+      ).filter(r => r.symbol);
+      dbRememberSymbols(rows);
+    }
     fs.writeFileSync(SAVED_STOCK_FILE, JSON.stringify(Array.isArray(symbols) ? symbols : [], null, 2), 'utf8');
   } catch (e) {
     console.warn('[proxy] Could not save stock prefs:', e.message);
@@ -355,6 +377,22 @@ function getETFExpenseRatio(sym) {
   return etfMetaCache[key]?.expenseRatio ?? STATIC_TER[key] ?? null;
 }
 
+// Returns a {sym → etfObject} map from DB (when ready) or etf_list_cache.json fallback
+function loadEtfListDataMap() {
+  const map = {};
+  try {
+    if (proxyDbReady) {
+      for (const e of listAllEtfs()) map[e.sym || e.symbol] = e;
+      return map;
+    }
+    if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
+      const cached = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8'));
+      for (const e of (cached.etfs || [])) map[e.sym] = e;
+    }
+  } catch(_) {}
+  return map;
+}
+
 
 // ── NSE index membership cache (per-index, 24h TTL) ─────────────────────────
 let nseIdxCache = {};
@@ -375,6 +413,7 @@ loadNseIdxCache();
 
 function loadSavedETFFavsFile() {
   try {
+    if (proxyDbReady) return getEtfFavoriteSymbols();
     if (!fs.existsSync(SAVED_ETF_FAV_FILE)) fs.writeFileSync(SAVED_ETF_FAV_FILE, '[]', 'utf8');
     const content = fs.readFileSync(SAVED_ETF_FAV_FILE, 'utf8');
     return JSON.parse(content || '[]');
@@ -384,6 +423,9 @@ function loadSavedETFFavsFile() {
 }
 function saveSavedETFFavsFile(symbols) {
   try {
+    if (proxyDbReady) {
+      setEtfFavoriteBulk(symbols);
+    }
     fs.writeFileSync(SAVED_ETF_FAV_FILE, JSON.stringify(Array.isArray(symbols) ? symbols : [], null, 2), 'utf8');
   } catch (e) {
     console.warn('[proxy] Could not save ETF favorites:', e.message);
@@ -801,6 +843,7 @@ function readSchedulerTickInput() {
 
 function loadSimulationUniverseState() {
   try {
+    if (proxyDbReady) return getSimulationSymbols();
     if (!fs.existsSync(SIMULATION_UNIVERSE_FILE)) return [];
     const parsed = JSON.parse(fs.readFileSync(SIMULATION_UNIVERSE_FILE, 'utf8') || '{}');
     return Array.isArray(parsed.symbols) ? parsed.symbols : [];
@@ -815,6 +858,9 @@ function saveSimulationUniverseState(symbols) {
     const normalized = [...new Set((Array.isArray(symbols) ? symbols : [])
       .map(sym => String(sym || '').trim().toUpperCase())
       .filter(sym => /^[A-Z0-9_.-]+$/.test(sym)))];
+    if (proxyDbReady) {
+      dbSaveSimulationSymbols(normalized);
+    }
     fs.writeFileSync(SIMULATION_UNIVERSE_FILE, JSON.stringify({ savedAt: Date.now(), symbols: normalized }, null, 2), 'utf8');
     return normalized;
   } catch (error) {
@@ -1613,6 +1659,10 @@ function saveTradeSettingsFile(overrides) {
 
 function readEtfListCacheSummary() {
   try {
+    if (proxyDbReady) {
+      const etfs = listAllEtfs();
+      return { savedAt: Date.now(), count: etfs.length, etfs };
+    }
     if (!fs.existsSync(ETF_LIST_CACHE_FILE)) return { savedAt:null, count:0, etfs:[] };
     const cached = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8') || '{}');
     const etfs = Array.isArray(cached.etfs) ? cached.etfs : [];
@@ -5265,14 +5315,7 @@ async function fetchETFData(etfSymbols) {
   }
 
   // Seed 52W range from etf_list_cache for any symbol navMap doesn't have it
-  // (etf_list_cache is 24h; avoids Yahoo chart calls just for range data)
-  const etfListData = {};
-  try {
-    if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
-      const cached = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8'));
-      for (const e of (cached.etfs || [])) etfListData[e.sym] = e;
-    }
-  } catch(_) {}
+  const etfListData = loadEtfListDataMap();
 
   // For each symbol, merge NSE nav data with Yahoo price data
   for (let i = 0; i < etfSymbols.length; i += CONCURRENCY) {
@@ -5810,24 +5853,34 @@ async function proxyRequestHandler(req, res) {
         return { sym, name, sector, fundFamily, price, nav, navPremium, high52, low52, volume, aum, expRatio, chg, chgPct };
       }).filter(e => e.sym);
 
-      // Persist to cache file
+      // Persist to cache file and DB
       fs.writeFileSync(ETF_LIST_CACHE_FILE, JSON.stringify({ savedAt: Date.now(), etfs, meta: etfMetaCache }, null, 2), 'utf8');
+      if (proxyDbReady) {
+        try { upsertEtfMaster(etfs.map(e => ({ ...e, symbol: e.sym }))); } catch (_) {}
+      }
       console.log(`[etf-list] fetched ${etfs.length} ETFs from NSE, saved to cache`);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, count: etfs.length, etfs }));
     } catch(e) {
       console.warn('[etf-list] NSE fetch error:', e.message);
-      // Try to serve stale cache rather than failing completely
-      if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
-        try {
+      // Try to serve stale cache — DB first, then JSON file
+      try {
+        const staleEtfs = proxyDbReady ? listAllEtfs() : null;
+        if (staleEtfs && staleEtfs.length) {
+          console.warn(`[etf-list] serving stale DB cache (${staleEtfs.length} ETFs) after error`);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, count: staleEtfs.length, etfs: staleEtfs, fromCache: true, stale: true }));
+          return;
+        }
+        if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
           const cached = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8'));
-          console.warn(`[etf-list] serving stale cache (age ${Math.round((Date.now()-cached.savedAt)/60000)}m) after error`);
+          console.warn(`[etf-list] serving stale JSON cache (age ${Math.round((Date.now()-cached.savedAt)/60000)}m) after error`);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, count: cached.etfs.length, etfs: cached.etfs, fromCache: true, stale: true }));
           return;
-        } catch(_) {}
-      }
+        }
+      } catch(_) {}
       res.writeHead(502, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
     }
@@ -5896,13 +5949,7 @@ async function proxyRequestHandler(req, res) {
         await refreshNavMapFromNSE();
         navMap = navMapCache.data;
       }
-      const etfListData = {};
-      try {
-        if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
-          const cached = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8'));
-          for (const e of (cached.etfs || [])) etfListData[e.sym] = e;
-        }
-      } catch(_) {}
+      const etfListData = loadEtfListDataMap();
 
       for (let i = 0; i < symbols.length; i += CONCURRENCY) {
         if (closed) break;
@@ -5948,15 +5995,8 @@ async function proxyRequestHandler(req, res) {
     const send = (obj) => { if (!closed && !res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
     const now = Date.now();
     try {
-      const etfListForSum = {};
-      try {
-        if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
-          const lc = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8'));
-          for (const e of (lc.etfs || [])) etfListForSum[e.sym] = e;
-        }
-      } catch(_) {}
+      const etfListForSum = loadEtfListDataMap();
 
-      const stale = [];
       for (const sym of symbols) {
         const meta = etfMetaCache[sym];
         const metaFresh = meta && (now - (meta.savedAt || 0)) < ETF_META_TTL;
@@ -6417,14 +6457,7 @@ async function proxyRequestHandler(req, res) {
       const results = {};
 
       // Read etf_list_cache once upfront — used as nav fallback for both cached and fresh fetches
-      // (Yahoo quoteSummary rarely returns nav for Indian ETFs like BANKIETF)
-      const etfListForSum = {};
-      try {
-        if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
-          const lc = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8'));
-          for (const e of (lc.etfs || [])) etfListForSum[e.sym] = e;
-        }
-      } catch(_) {}
+      const etfListForSum = loadEtfListDataMap();
 
       // ── Cache read: two-tier lookup ─────────────────────────────────────────
       // etfMetaCache  → static fields (TER, category, fundFamily, 1Y/3Y/5Y) — 30d TTL

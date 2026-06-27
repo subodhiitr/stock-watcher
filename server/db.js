@@ -389,6 +389,102 @@ export function getSymbols() {
   return db.prepare('SELECT symbol, name, sector, cap, source FROM symbols ORDER BY symbol ASC').all();
 }
 
+// Returns only symbols with source 'saved' or 'both', formatted as {sym, name, sector, cap}
+// matching the legacy saved_stocks.json array format for backward compatibility
+export function getSavedStockSymbols() {
+  const db = requireDb();
+  return db.prepare(
+    "SELECT symbol, name, sector, cap FROM symbols WHERE source IN ('saved','both') ORDER BY symbol ASC"
+  ).all().map(r => ({ sym: r.symbol, name: r.name || r.symbol, sector: r.sector || null, cap: r.cap || null }));
+}
+
+// Returns only symbols with source 'simulation' or 'both' as a plain string array
+// matching the legacy simulation_universe.json symbols array format
+export function getSimulationSymbols() {
+  const db = requireDb();
+  return db.prepare(
+    "SELECT symbol FROM symbols WHERE source IN ('simulation','both') ORDER BY symbol ASC"
+  ).all().map(r => r.symbol);
+}
+
+// Bulk-set simulation universe: removes old simulation-only rows, upserts new set
+export function saveSimulationSymbols(symbols) {
+  const db = requireDb();
+  const normalized = [...new Set((Array.isArray(symbols) ? symbols : [])
+    .map(s => String(s || '').trim().toUpperCase()).filter(s => /^[A-Z0-9_.-]+$/.test(s)))];
+  const tx = db.transaction(() => {
+    // Rows that are 'both' stay but lose simulation source → become 'saved'
+    db.prepare("UPDATE symbols SET source = 'saved', updated_at = ? WHERE source = 'both'").run(Date.now());
+    // Delete rows that were simulation-only
+    db.prepare("DELETE FROM symbols WHERE source = 'simulation'").run();
+    // Upsert new simulation symbols
+    const upsert = db.prepare(`
+      INSERT INTO symbols (symbol, source, updated_at) VALUES (?, 'simulation', ?)
+      ON CONFLICT(symbol) DO UPDATE SET
+        source = CASE WHEN symbols.source = 'saved' THEN 'both' ELSE 'simulation' END,
+        updated_at = excluded.updated_at
+    `);
+    const now = Date.now();
+    for (const sym of normalized) upsert.run(sym, now);
+  });
+  tx();
+  return normalized;
+}
+
+// Returns list of all ETFs in etf_master formatted as {sym, name, ...data}
+export function listAllEtfs() {
+  const db = requireDb();
+  return db.prepare('SELECT symbol, data, is_saved, is_favorite FROM etf_master ORDER BY symbol ASC').all()
+    .map(r => {
+      const data = parseJson(r.data, {}) ?? {};
+      return { ...data, sym: r.symbol, symbol: r.symbol, isSaved: r.is_saved === 1, isFavorite: r.is_favorite === 1 };
+    });
+}
+
+// Returns saved ETF symbol strings (for /etf-prefs endpoint backward compat)
+export function getEtfSavedSymbols() {
+  const db = requireDb();
+  return db.prepare("SELECT symbol FROM etf_master WHERE is_saved = 1 ORDER BY symbol ASC").all().map(r => r.symbol);
+}
+
+// Returns favorite ETF symbol strings (for /etf-favs endpoint backward compat)
+export function getEtfFavoriteSymbols() {
+  const db = requireDb();
+  return db.prepare("SELECT symbol FROM etf_master WHERE is_favorite = 1 ORDER BY symbol ASC").all().map(r => r.symbol);
+}
+
+// Bulk-set ETF saved flags: marks given symbols as saved, clears all others
+export function setEtfSavedBulk(symbols) {
+  const db = requireDb();
+  const syms = new Set((Array.isArray(symbols) ? symbols : []).map(s => String(s).trim().toUpperCase()).filter(Boolean));
+  const tx = db.transaction(() => {
+    db.prepare('UPDATE etf_master SET is_saved = 0, updated_at = ?').run(Date.now());
+    const upsert = db.prepare(`
+      INSERT INTO etf_master (symbol, data, is_saved, is_favorite, updated_at) VALUES (?, '{}', 1, 0, ?)
+      ON CONFLICT(symbol) DO UPDATE SET is_saved = 1, updated_at = excluded.updated_at
+    `);
+    const now = Date.now();
+    for (const sym of syms) upsert.run(sym, now);
+  });
+  tx();
+}
+
+// Bulk-set ETF favorite flags: marks given symbols as favorites, clears all others
+export function setEtfFavoriteBulk(symbols) {
+  const db = requireDb();
+  const syms = new Set((Array.isArray(symbols) ? symbols : []).map(s => String(s).trim().toUpperCase()).filter(Boolean));
+  const tx = db.transaction(() => {
+    db.prepare('UPDATE etf_master SET is_favorite = 0, updated_at = ?').run(Date.now());
+    const upsert = db.prepare(`
+      INSERT INTO etf_master (symbol, data, is_saved, is_favorite, updated_at) VALUES (?, '{}', 0, 1, ?)
+      ON CONFLICT(symbol) DO UPDATE SET is_favorite = 1, updated_at = excluded.updated_at
+    `);
+    const now = Date.now();
+    for (const sym of syms) upsert.run(sym, now);
+  });
+  tx();
+}
+
 export function rememberSymbols(rows) {
   const db = requireDb();
   const prepared = getPrepared(db);
