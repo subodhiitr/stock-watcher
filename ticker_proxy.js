@@ -545,6 +545,23 @@ function loadPaperStateFile() {
       const dbPortfolio = loadPortfolioState() || defaultPaperPortfolio();
       const todayKey = getIstDateKey();
 
+      // Merge any trades from JSON that aren't in DB yet (transition safety net)
+      if (fs.existsSync(PAPER_TRADES_FILE)) {
+        try {
+          const jsonRaw = JSON.parse(fs.readFileSync(PAPER_TRADES_FILE, 'utf8') || '{}');
+          const jsonTrades = Array.isArray(jsonRaw) ? jsonRaw : (Array.isArray(jsonRaw?.trades) ? jsonRaw.trades : []);
+          const dbIds = new Set(allTrades.map(t => t.id));
+          const missingFromDb = jsonTrades.filter(t => t?.id && !dbIds.has(t.id));
+          if (missingFromDb.length) {
+            console.log(`[paper-trades] Syncing ${missingFromDb.length} trades from JSON to DB`);
+            for (const t of missingFromDb) {
+              try { saveTrade(t); } catch (_) {}
+            }
+            allTrades.push(...missingFromDb);
+          }
+        } catch (_) {}
+      }
+
       // Only load open trades + today's closed trades — all-time realized P&L is pre-aggregated
       const filteredTrades = allTrades.filter(t => {
         if (String(t.status || '').toLowerCase() === 'open') return true;
