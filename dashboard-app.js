@@ -2642,7 +2642,7 @@ function buildNotificationBadgeCount() {
   const todayKey = getTradeDateKey();
   const dayPnl = (getPortfolioSummary().dayPnl[todayKey] ?? 0);
   if (Math.abs(dayPnl) > 0) count++;
-  count += Math.min(5, paperTrades.filter(t => isTradeToday(t) && (isOpenTrade(t) || isClosedTrade(t))).length);
+  count += Math.min(5, paperTrades.filter(t => isTradeToday(t) && (isOpenTrade(t) || isClosedTrade(t) || ['failed'].includes(String(t?.status || '').toLowerCase()) || ['cancelled','rejected','timeout','failed'].includes(String(t?.broker?.status || '').toLowerCase()))).length);
   return Math.min(count, 12);
 }
 
@@ -2672,7 +2672,7 @@ function buildDashboardNotifications() {
     }
   });
   paperTrades
-    .filter(t => isTradeToday(t) && (isOpenTrade(t) || isClosedTrade(t)))
+    .filter(t => isTradeToday(t) && (isOpenTrade(t) || isClosedTrade(t) || ['failed'].includes(String(t?.status || '').toLowerCase()) || ['cancelled', 'rejected', 'timeout', 'failed'].includes(String(t?.broker?.status || '').toLowerCase())))
     .slice(-5)
     .reverse()
     .forEach(t => {
