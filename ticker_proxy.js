@@ -546,8 +546,10 @@ function loadPaperStateFile() {
       const todayKey = getIstDateKey();
 
       // Merge any trades from JSON that aren't in DB yet (production transition safety net).
-      // Skip in test/memory mode (_dbPath===':memory:') to avoid test contamination.
-      if (_dbPath !== ':memory:' && fs.existsSync(PAPER_TRADES_FILE)) {
+      // Skip JSON→DB sync when PAPER_TRADES_FILE is a fixture path (test mode).
+      // In production PAPER_TRADES_FILE is the default path at project root.
+      const isTestFixture = !!process.env.PAPER_TRADES_FILE;
+      if (!isTestFixture && fs.existsSync(PAPER_TRADES_FILE)) {
         try {
           const jsonRaw = JSON.parse(fs.readFileSync(PAPER_TRADES_FILE, 'utf8') || '{}');
           const jsonTrades = Array.isArray(jsonRaw) ? jsonRaw : (Array.isArray(jsonRaw?.trades) ? jsonRaw.trades : []);
