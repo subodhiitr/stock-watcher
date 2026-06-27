@@ -124,25 +124,63 @@ def main():
     # 1. Load existing credentials
     props = load_properties(CREDS_FILE)
 
-    api_key    = props.get("SHAREKHAN_API_KEY", "").strip()
-    customer_id= props.get("SHAREKHAN_CUSTOMER_ID", "").strip()
-    secret_key = props.get("SHAREKHAN_SECRET_KEY", "").strip()
-    version_id = props.get("SHAREKHAN_VERSION_ID", "").strip()
-    vendor_key = props.get("SHAREKHAN_VENDOR_KEY", "").strip()
+    api_key     = props.get("SHAREKHAN_API_KEY", "").strip()
+    customer_id = props.get("SHAREKHAN_CUSTOMER_ID", "").strip()
+    secret_key  = props.get("SHAREKHAN_SECRET_KEY", "").strip()
+    version_id  = props.get("SHAREKHAN_VERSION_ID", "").strip()
+    vendor_key  = props.get("SHAREKHAN_VENDOR_KEY", "").strip()
+    access_token= props.get("SHAREKHAN_ACCESS_TOKEN", "").strip()
 
-    # 2. Prompt for any missing required fields
-    if not api_key or api_key.startswith("your_"):
+    # Strip placeholder values
+    def is_placeholder(v):
+        return not v or v.startswith("your_")
+
+    if is_placeholder(api_key):
         api_key = input("\nEnter SHAREKHAN_API_KEY: ").strip()
-    if not secret_key or secret_key.startswith("your_"):
-        secret_key = input("Enter SHAREKHAN_SECRET_KEY: ").strip()
-    if not customer_id or customer_id.startswith("your_"):
+    else:
+        print(f"\n  API Key: {api_key[:6]}... (from {CREDS_FILE})")
+
+    if is_placeholder(customer_id):
         customer_id = input("Enter SHAREKHAN_CUSTOMER_ID: ").strip()
-    if not version_id or version_id.startswith("your_"):
+    else:
+        print(f"  Customer ID: {customer_id} (from {CREDS_FILE})")
+
+    # Option A: User already has access token
+    if not is_placeholder(access_token):
+        print(f"\n  Existing ACCESS_TOKEN found: {access_token[:12]}...")
+        choice = input("  Use existing token? [Y/n]: ").strip().lower()
+        if choice != "n":
+            print("\n  ✓ Using existing token. No changes needed.")
+            print("  ✓ Restart the proxy server if you haven't already.\n")
+            return
+
+    # Option B: Paste token directly
+    print("\n  How would you like to get the access token?")
+    print("  1) Browser login (OAuth flow) — recommended")
+    print("  2) Paste access token directly (if you already have it)")
+    choice = input("  Enter choice [1/2]: ").strip()
+
+    if choice == "2":
+        access_token = input("  Paste your SHAREKHAN_ACCESS_TOKEN: ").strip()
+        if not access_token:
+            print("  ✗ No token entered. Exiting.")
+            sys.exit(1)
+        print(f"\n  Saving to {CREDS_FILE}...")
+        save_property(CREDS_FILE, "SHAREKHAN_API_KEY",      api_key)
+        save_property(CREDS_FILE, "SHAREKHAN_CUSTOMER_ID",  customer_id)
+        save_property(CREDS_FILE, "SHAREKHAN_ACCESS_TOKEN", access_token)
+        print("\n  ✓ Done! Restart the proxy server to apply.\n")
+        return
+
+    # Option 1: Browser OAuth flow — now ask for secret_key
+    if is_placeholder(secret_key):
+        secret_key = input("Enter SHAREKHAN_SECRET_KEY (needed to exchange request_token): ").strip()
+    if is_placeholder(version_id):
         version_id = input("Enter SHAREKHAN_VERSION_ID (press Enter to skip): ").strip()
-    if not vendor_key or vendor_key.startswith("your_"):
+    if is_placeholder(vendor_key):
         vendor_key = input("Enter SHAREKHAN_VENDOR_KEY (press Enter to skip): ").strip()
 
-    # 3. Build login URL and open browser
+    # Build login URL and open browser
     login_url = (
         f"{SHAREKHAN_LOGIN_BASE}"
         f"?api_key={api_key}"
@@ -159,17 +197,15 @@ def main():
 
     redirect_url = input("Paste the full redirect URL here: ").strip()
 
-    # 4. Extract request_token from redirect URL
+    # Extract request_token from redirect URL
     try:
         parsed = urlparse(redirect_url)
         params = parse_qs(parsed.query)
         request_token = params.get("request_token", [None])[0]
         if not request_token:
-            # Try fragment
             frag_params = parse_qs(parsed.fragment)
             request_token = frag_params.get("request_token", [None])[0]
         if not request_token:
-            # Maybe they pasted just the token
             request_token = redirect_url.strip()
     except Exception:
         request_token = redirect_url.strip()
@@ -180,7 +216,7 @@ def main():
 
     print(f"\n  request_token: {request_token[:8]}...")
 
-    # 5. Generate access token
+    # Generate access token
     print("  Generating access token...")
     try:
         access_token = generate_access_token(
@@ -192,12 +228,12 @@ def main():
 
     print(f"  access_token:  {access_token[:12]}...")
 
-    # 6. Save to .sharekhan.properties
+    # Save to .sharekhan.properties
     print(f"\n  Saving to {CREDS_FILE}...")
-    save_property(CREDS_FILE, "SHAREKHAN_API_KEY",      api_key)
-    save_property(CREDS_FILE, "SHAREKHAN_CUSTOMER_ID",  customer_id)
-    save_property(CREDS_FILE, "SHAREKHAN_SECRET_KEY",   secret_key)
-    save_property(CREDS_FILE, "SHAREKHAN_ACCESS_TOKEN", access_token)
+    save_property(CREDS_FILE, "SHAREKHAN_API_KEY",       api_key)
+    save_property(CREDS_FILE, "SHAREKHAN_CUSTOMER_ID",   customer_id)
+    save_property(CREDS_FILE, "SHAREKHAN_SECRET_KEY",    secret_key)
+    save_property(CREDS_FILE, "SHAREKHAN_ACCESS_TOKEN",  access_token)
     save_property(CREDS_FILE, "SHAREKHAN_REQUEST_TOKEN", request_token)
     if version_id:
         save_property(CREDS_FILE, "SHAREKHAN_VERSION_ID", version_id)
@@ -205,7 +241,7 @@ def main():
         save_property(CREDS_FILE, "SHAREKHAN_VENDOR_KEY", vendor_key)
 
     print("\n  ✓ Done! Restart the proxy server to apply the new token.")
-    print("  ✓ The server will auto-refresh the token using request_token + secret_key when it expires.\n")
+    print("  ✓ The server will auto-refresh using request_token + secret_key when it expires.\n")
 
 
 if __name__ == "__main__":
