@@ -184,8 +184,9 @@
     const list = Array.isArray(trades) ? trades : [];
     const sameDay = helpers.sameDay || (() => true);
     const isTodayTrade = helpers.isTodayTrade || (trade => sameDay(trade?.openedAt, at) || sameDay(trade?.closedAt, at));
+    const isBrokerFailed = t => ['cancelled','rejected','timeout','failed'].includes(String(t?.broker?.status||'').toLowerCase());
     const dayTrades = list.filter(isTodayTrade);
-    const closed = dayTrades.filter(t => t.status === 'closed');
+    const closed = dayTrades.filter(t => t.status === 'closed' && !isBrokerFailed(t));
     const netPnl = closed.reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
     const firstHourEntries = dayTrades.filter(t => {
       const mins = getIstMinutes(t.openedAt);
@@ -195,7 +196,7 @@
       trades: dayTrades,
       dayTrades,
       closed,
-      entries: dayTrades.filter(t => !helpers.sameDay || sameDay(t.openedAt, at)).length,
+      entries: dayTrades.filter(t => !isBrokerFailed(t) && (!helpers.sameDay || sameDay(t.openedAt, at))).length,
       firstHourEntries,
       stops: closed.filter(isLosingStopExit).length,
       dailyStopLimit: getEffectiveStopLimit(netPnl, settings),

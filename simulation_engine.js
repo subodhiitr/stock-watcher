@@ -1066,7 +1066,11 @@
   function summarizeSimulationSafety(trades, settings, context = {}) {
     settings = withDefaults(settings);
     const list = Array.isArray(trades) ? trades : [];
-    const open = list.filter(t => String(t?.status || '').toLowerCase() === 'open');
+    const open = list.filter(t => {
+      if (String(t?.status || '').toLowerCase() !== 'open') return false;
+      const brokerStatus = String(t?.broker?.status || '').toLowerCase();
+      return !['cancelled', 'rejected', 'timeout', 'failed'].includes(brokerStatus);
+    });
     const simOpen = open.filter(t => String(t?.source || '').toLowerCase() === 'simulation');
     const dayStats = context.dayStats || TradeRules.buildDayStats(list, context.at || Date.now(), settings, context);
     const cash = Number(context.cashAvailable);
