@@ -2915,7 +2915,7 @@ function renderPortfolioModal() {
     const costTitle = `Brokerage ${moneyINR(breakdown.brokerage)} | STT ${moneyINR(breakdown.stt)} | Txn ${moneyINR(breakdown.transaction)} | GST ${moneyINR(breakdown.gst)} | SEBI ${moneyINR(breakdown.sebi)} | Stamp ${moneyINR(breakdown.stamp)}`;
     const isBrokerFailed = ['cancelled', 'rejected', 'timeout', 'failed'].includes(String(trade?.broker?.status || '').toLowerCase());
     return `<tr${isBrokerFailed ? ' style="opacity:.55"' : ''}>
-      <td style="${isBrokerFailed ? 'color:var(--red)' : ''}">${escapeHTML(isBrokerFailed ? `failed (${trade.broker?.status})` : isOpen ? 'open' : 'closed')}</td>
+      <td>${escapeHTML(isBrokerFailed ? 'failed' : isOpen ? 'open' : 'closed')}</td>
       <td>${escapeHTML(trade.source === 'simulation' ? 'Sim' : 'Manual')}</td>
       <td title="${escapeHTML(brokerOrder)}">${escapeHTML(brokerLabel)}</td>
       <td>${escapeHTML(trade.symbol || '--')}</td>
@@ -2927,7 +2927,7 @@ function renderPortfolioModal() {
       <td>${escapeHTML(formatTradeDateTime(trade.openedAt))}</td>
       <td>${escapeHTML(isOpen ? '--' : formatTradeDateTime(trade.closedAt))}</td>
       <td class="portfolio-journal-cell" title="${escapeHTML(formatEntryJournal(trade))}">${escapeHTML(formatEntryJournal(trade))}</td>
-      <td class="portfolio-journal-cell" title="${escapeHTML(trade.closeReason || '--')}">${escapeHTML(trade.closeReason || '--')}</td>
+      <td class="portfolio-journal-cell" style="${isBrokerFailed ? 'color:var(--red)' : ''}" title="${escapeHTML(isBrokerFailed ? (trade.broker?.error || `Broker order ${trade.broker?.status}`) : trade.closeReason || '--')}">${escapeHTML(isBrokerFailed ? (trade.broker?.error || `Broker order ${trade.broker?.status}`) : trade.closeReason || '--')}</td>
       <td title="${escapeHTML(costTitle)}">${moneyINR(pnlObj?.charges)}</td>
       <td class="portfolio-pnl ${portfolioValueClass(grossPnl || 0)}">${moneyINR(grossPnl)}</td>
       <td class="portfolio-pnl ${cls}">${moneyINR(pnl)}</td>
