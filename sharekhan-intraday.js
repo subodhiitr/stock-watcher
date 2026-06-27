@@ -39,7 +39,7 @@ function saveScripCache(map, cacheFile = SCRIP_CACHE_FILE) {
 
 // Parse a single candle from Sharekhan's response (handles multiple field name variants).
 function parseCandle(c) {
-  const time  = c.time || c.datetime || c.date || c.dt || null;
+  const time  = c.time ?? c.datetime ?? c.date ?? c.dt ?? null;
   const open  = Number(c.open  ?? c.o ?? NaN);
   const high  = Number(c.high  ?? c.h ?? NaN);
   const low   = Number(c.low   ?? c.l ?? NaN);
@@ -48,7 +48,7 @@ function parseCandle(c) {
 
   let unixSec = null;
   if (typeof time === 'number' && time > 1e9) {
-    unixSec = time > 1e12 ? Math.floor(time / 1000) : time;
+    unixSec = time >= 1e12 ? Math.floor(time / 1000) : time;
   } else if (typeof time === 'string' && time) {
     const ms = Date.parse(time);
     if (Number.isFinite(ms)) unixSec = Math.floor(ms / 1000);

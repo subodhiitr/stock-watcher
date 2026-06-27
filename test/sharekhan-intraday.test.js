@@ -110,3 +110,14 @@ test('normalizeSharekhanCandles handles alternate field names (o/h/l/c/v, dt)', 
   assert.equal(result.indicators.quote[0].open[0], 100.0);
   assert.equal(result.indicators.quote[0].close[1], 105.0);
 });
+
+test('normalizeSharekhanCandles deduplicates by timestamp (keeps last occurrence)', () => {
+  const candles = [
+    { time: '2026-06-27T04:15:00.000Z', open: 390.0, high: 392.0, low: 389.0, close: 391.0, volume: 10000 },
+    { time: '2026-06-27T04:15:00.000Z', open: 395.0, high: 397.0, low: 394.0, close: 396.0, volume: 15000 },
+  ];
+  const result = normalizeSharekhanCandles('TEST', candles);
+  assert.equal(result.timestamp.length, 1);
+  assert.equal(result.indicators.quote[0].open[0], 395.0);
+  assert.equal(result.indicators.quote[0].volume[0], 15000);
+});
