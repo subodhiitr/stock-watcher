@@ -181,6 +181,12 @@ CREATE TABLE IF NOT EXISTS etf_user_lists (
   is_favorite INTEGER NOT NULL DEFAULT 0,
   updated_at  INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 );
+
+-- Schema versioning
+CREATE TABLE IF NOT EXISTS schema_version (
+  version     INTEGER PRIMARY KEY,
+  updated_at  INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+);
 ```
 
 ---
@@ -189,21 +195,21 @@ CREATE TABLE IF NOT EXISTS etf_user_lists (
 
 ```js
 // Lifecycle
-initDb()                          // create tables, run migrations — call on server start
+initDb()                          // create tables, ensure schema_version row, run versioned migrations on startup
 
 // Symbols
 getSymbols()                      // → [{ symbol, name, sector, cap, source }]
 upsertSymbol(sym, name, sector, cap, source)
-rememberSymbols(symbolsArray)     // bulk upsert from simulation universe or saved stocks
+rememberSymbols(symbolsArray)     // bulk upsert; merge source to 'both' when symbol already exists from other source
 
 // scripts_master (one row per symbol, all broker codes as columns)
-getScripCode(symbol, broker?)             // → number | null; broker: 'sharekhan'(default)|'zerodha'|'nse'
+getScripCode(symbol, broker?)             // → string | number | null; broker: 'sharekhan'(default)|'zerodha'|'nse'|'yahoo'
 upsertScripCodes(masterDataArray, broker?) // bulk upsert; broker defaults to 'sharekhan'
 scripCodesUpdatedAt(broker?)              // → unix ms of last update (0 if never)
 
 // trade_txns
 getTrade(id)                      // → trade object | null
-saveTrade(tradeObj)               // insert or replace
+saveTrade(tradeObj)               // upsert via ON CONFLICT(id) DO UPDATE (preserve existing values when fields are absent)
 updateTrade(id, fields)           // partial update
 listTrades(filters?)              // → [trade] — filters: { status, symbol, since, until, source }
 countTrades()                     // → number
@@ -254,7 +260,7 @@ Backward compatible: if `.json` exists and `.json.gz` doesn't, load uncompressed
 One-time script, run manually: `node server/db-migrate.js`
 
 1. **trade_txns**: Read `paper_trades.json`. Store full original object in `raw_json` column.
-2. **Symbols**: Read `simulation_universe.json` (source='simulation') + `saved_stocks.json` (source='saved') → upsert into `symbols`.
+2. **Symbols**: Read `simulation_universe.json` (source='simulation') + `saved_stocks.json` (source='saved') → upsert into `symbols`. If a symbol is present in both files, set `source='both'`.
 3. **Scripts master**: Read `cache/sharekhan_scrip_codes.json` → upsert sharekhan_code into `scripts_master`.
 4. **Fresh news**: Read all `cache/fresh_news/*.json` + `cache/fresh_stock_news.json` → insert into `fresh_news` with 15-day TTL from file mtime. Skip expired entries.
 5. **ETF master/cache**: Read `etf_list_cache.json`, `etf_summary_cache.json`, `etf_holdings_cache.json` → upsert into `etf_master`, `etf_quotes_cache`, `etf_holdings_cache`.
@@ -307,7 +313,8 @@ Expected compression ratio: ~95% (JSON text compresses extremely well).
 5. Update `sharekhan-client.js` + `sharekhan-intraday.js` for scripts_master lookups
 6. Update `backtest_simulation.js` for snapshot loading
 7. Verify all tests pass after each step
-8. After stability period (1 week): delete original JSON files
+8. After stability period (1 week): delete only migrated legacy JSON files (keep `trade_settings.json`, `broker_preferences.json`, `simulation_runtime.json`, `fundamentals_cache.json`, `saved_stock_favs.json`).
+9. **Cutover safety**: Before each data-type cutover, either freeze writes briefly and run a final migration for that type, or enable temporary dual-write for that type until cutover is complete.
 
 ---
 
