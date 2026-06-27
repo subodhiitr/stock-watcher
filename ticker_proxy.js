@@ -7839,7 +7839,7 @@ async function proxyRequestHandler(req, res) {
       const ext = path.extname(resolved).toLowerCase();
       const mime = ext === '.html' ? 'text/html' : ext === '.js' ? 'application/javascript' : ext === '.css' ? 'text/css' : ext === '.json' ? 'application/json' : ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.ico' ? 'image/x-icon' : 'application/octet-stream';
       const cacheControl = ext === '.html'
-        ? 'no-cache'
+        ? 'no-store, no-cache, must-revalidate'
         : (ext === '.js' || ext === '.css' ? 'public, max-age=3600' : 'public, max-age=300');
       res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': cacheControl });
       const stream = fs.createReadStream(resolved);
