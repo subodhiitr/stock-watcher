@@ -53,6 +53,7 @@ const { loadCredentials, saveCredentialsTokens } = require('./zerodha-credential
 const { loadSharekhanCredentials, saveSharekhanAccessToken } = require('./sharekhan-credentials');
 const KiteClient = require('./zerodha-kite-client');
 const SharekhanClient = require('./sharekhan-client');
+const { fetchSharekhanIntraday } = require('./sharekhan-intraday');
 const ConfirmationPoller = require('./zerodha-confirmation-poller');
 const PORT  = 3001;
 const USER_OPENAI_PROPERTIES = path.join(os.homedir(), 'openai.properties');
@@ -4777,7 +4778,35 @@ async function fetchIntradaySignal(sym) {
   if (intradaySignalCache[sym] && (now - intradaySignalCache[sym].t) < INTRADAY_SIGNAL_TTL) {
     return intradaySignalCache[sym].v;
   }
-  
+
+  // Try Sharekhan first (real-time, no delay) — fall back to Yahoo on null/error
+  if (sharekhanClientLive) {
+    try {
+      const skResult = await fetchSharekhanIntraday(sym, sharekhanClientLive);
+      if (skResult) {
+        // Sharekhan candles don't include prev-day close — fetch Yahoo daily for levels
+        // Use same query1→query2 retry as existing Yahoo path
+        const yahooSym = resolveNseSymbol(sym);
+        const dailyPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=1d&range=1mo&includePrePost=false`;
+        let daily = await httpsGet({ hostname: 'query1.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+        if (daily.status !== 200) {
+          daily = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+        }
+        const dailyResult = daily?.status === 200 ? JSON.parse(daily.body)?.chart?.result?.[0] : null;
+        // Backfill previousClose — explicitly null if unavailable (NOT closes[0])
+        skResult.meta.previousClose = dailyResult?.meta?.previousClose ?? null;
+        const signal = buildIntradaySignal(sym, skResult, buildDailyTradeContext(dailyResult));
+        if (signal) {
+          signal.dataSource = 'sharekhan';
+          intradaySignalCache[sym] = { v: signal, t: now };
+          return signal;
+        }
+      }
+    } catch (_) {
+      // Sharekhan failed — fall through to Yahoo
+    }
+  }
+
   try {
     const yahooSym = resolveNseSymbol(sym);
     const intradayPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=5m&range=1d&includePrePost=false`;
