@@ -7,14 +7,14 @@
 
 ## Goal
 
-Replace JSON file storage for trades, symbol universe, Sharekhan script codes, and fresh news with SQLite (`better-sqlite3`). Keep simulation snapshots as compressed `.json.gz` files. Result: atomic writes, queryable history, 15-day TTL for news, ~90% reduction in snapshot disk usage.
+Replace JSON file storage for trade_txns, symbol universe, Sharekhan script codes, and fresh news with SQLite (`better-sqlite3`). Keep simulation snapshots as compressed `.json.gz` files. Result: atomic writes, queryable history, 15-day TTL for news, ~90% reduction in snapshot disk usage.
 
 ---
 
 ## Scope
 
 **Migrated to SQLite:**
-- `paper_trades.json` → `trades` table
+- `paper_trades.json` → `trade_txns` table
 - `simulation_universe.json` + `saved_stocks.json` → `symbols` table
 - `cache/sharekhan_scrip_codes.json` → `sharekhan_scripts` table
 - `cache/fresh_news/*.json` + `cache/fresh_stock_news.json` → `fresh_news` table
@@ -45,7 +45,7 @@ Replace JSON file storage for trades, symbol universe, Sharekhan script codes, a
 
 | File | Change |
 |------|--------|
-| `ticker_proxy.js` | Replace `fs.read/write` for trades, symbols, news, scrip codes with `db.*` calls |
+| `ticker_proxy.js` | Replace `fs.read/write` for trade_txns, symbols, news, scrip codes with `db.*` calls |
 | `sharekhan-client.js` | Replace `loadScripCache`/`saveScripCache` (file) with `db.getScripCode`/`db.upsertScripCodes` |
 | `sharekhan-intraday.js` | Remove file cache functions (`loadScripCache`, `saveScripCache`, `SCRIP_CACHE_FILE`); delegate to DB via client |
 | `backtest_simulation.js` | Replace snapshot file loading with `snapshotStore.loadSnapshotDay(date)` |
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS sharekhan_scripts (
 );
 
 -- Trade records
-CREATE TABLE IF NOT EXISTS trades (
+CREATE TABLE IF NOT EXISTS trade_txns (
   id             TEXT PRIMARY KEY,
   status         TEXT NOT NULL,
   symbol         TEXT NOT NULL,
@@ -102,9 +102,9 @@ CREATE TABLE IF NOT EXISTS trades (
   notes          TEXT,
   raw_json       TEXT NOT NULL      -- full original trade object (safety net during migration)
 );
-CREATE INDEX IF NOT EXISTS idx_trades_symbol    ON trades (symbol);
-CREATE INDEX IF NOT EXISTS idx_trades_opened_at ON trades (opened_at);
-CREATE INDEX IF NOT EXISTS idx_trades_status    ON trades (status);
+CREATE INDEX IF NOT EXISTS idx_trade_txns_symbol    ON trade_txns (symbol);
+CREATE INDEX IF NOT EXISTS idx_trade_txns_opened_at ON trade_txns (opened_at);
+CREATE INDEX IF NOT EXISTS idx_trade_txns_status    ON trade_txns (status);
 
 -- Fresh news with 15-day TTL
 CREATE TABLE IF NOT EXISTS fresh_news (
@@ -137,7 +137,7 @@ getScripCode(symbol)              // → number (0 if not found)
 upsertScripCodes(masterDataArray) // bulk upsert from Sharekhan master API response
 scripCodesUpdatedAt()             // → unix ms of last update (0 if never)
 
-// Trades
+// trade_txns
 getTrade(id)                      // → trade object | null
 saveTrade(tradeObj)               // insert or replace
 updateTrade(id, fields)           // partial update
@@ -170,7 +170,7 @@ Backward compatible: if `.json` exists and `.json.gz` doesn't, load uncompressed
 
 One-time script, run manually: `node server/db-migrate.js`
 
-1. **Trades**: Read `paper_trades.json` → insert all trades into `trades` table. Store full original object in `raw_json` column.
+1. **trade_txns**: Read `paper_trades.json`. Store full original object in `raw_json` column.
 2. **Symbols**: Read `simulation_universe.json` (source='simulation') + `saved_stocks.json` (source='saved') → upsert into `symbols`.
 3. **Sharekhan scripts**: Read `cache/sharekhan_scrip_codes.json` → upsert into `sharekhan_scripts`.
 4. **Fresh news**: Read all `cache/fresh_news/*.json` + `cache/fresh_stock_news.json` → insert into `fresh_news` with 15-day TTL from file mtime. Skip expired entries.
@@ -213,7 +213,7 @@ Expected compression ratio: ~95% (JSON text compresses extremely well).
 1. Install `better-sqlite3`
 2. Create `server/db.js`, `server/snapshot-store.js`
 3. Run `server/db-migrate.js` — populates DB from existing JSON files
-4. Update `ticker_proxy.js` one data type at a time (trades first, then symbols, then news)
+4. Update `ticker_proxy.js` one data type at a time (trade_txns first, then symbols, then news)
 5. Update `sharekhan-client.js` + `sharekhan-intraday.js` for scrip codes
 6. Update `backtest_simulation.js` for snapshot loading
 7. Verify all tests pass after each step

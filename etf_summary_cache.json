@@ -1,1632 +1,1632 @@
 {
   "LIQUID": {
     "oneMonthReturn": 0,
-    "savedAt": 1782006539101,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWLIQID": {
-    "oneMonthReturn": 0.0036,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.004,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NIFTYIETF": {
-    "oneMonthReturn": 0.0142,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0098,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HNGSNGBEES": {
-    "oneMonthReturn": -0.089,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.0969,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOGOLD": {
-    "oneMonthReturn": -0.0774,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.1038,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MODEFENCE": {
-    "oneMonthReturn": 0.055,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0123,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ALPHA": {
-    "oneMonthReturn": 0.0376,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0018,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BSLNIFTY": {
-    "oneMonthReturn": 0.0188,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0104,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AXISTECETF": {
-    "oneMonthReturn": -0.0513,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0542,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCGROWTH": {
-    "oneMonthReturn": -0.0095,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0118,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOINFRA": {
-    "oneMonthReturn": 0.0112,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": -0.0082,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "EQUAL50": {
-    "oneMonthReturn": 0.0063,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0064,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SMALLADD": {
-    "oneMonthReturn": 0.0619,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0326,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SBIMIDMOM": {
-    "oneMonthReturn": 0.0357,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0055,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AXISBNKETF": {
-    "oneMonthReturn": 0.064,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0646,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "CONS": {
-    "oneMonthReturn": 0.0275,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0102,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWNXT50": {
-    "oneMonthReturn": 0.0315,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0028,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BBNPPGOLD": {
-    "oneMonthReturn": -0.0809,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.1025,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SNXT50BETA": {
-    "oneMonthReturn": 0.0357,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0171,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOMGF": {
-    "oneMonthReturn": 0.0162,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0013,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NEXT30ADD": {
-    "oneMonthReturn": -0.0066,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": -0.0214,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LICNMID100": {
-    "oneMonthReturn": 0.021,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0123,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWLOVOL": {
-    "oneMonthReturn": 0.002,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0163,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SBIVALETF": {
-    "oneMonthReturn": -0.0249,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0195,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOENERGY": {
-    "oneMonthReturn": 0.0062,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.046,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AONEGOLD": {
-    "oneMonthReturn": -0.0796,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.0999,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "VAL30IETF": {
-    "oneMonthReturn": 0.0006,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.0366,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCNEXT50": {
-    "oneMonthReturn": 0.0404,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0023,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "QUAL30IETF": {
-    "oneMonthReturn": -0.0014,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.0159,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AUTOIETF": {
-    "oneMonthReturn": 0.022,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0047,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MAKEINDIA": {
-    "oneMonthReturn": 0.0153,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0052,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "CONSUMBEES": {
-    "oneMonthReturn": 0.0279,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0314,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NIFTYBEES": {
-    "oneMonthReturn": 0.0143,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": 0.0092,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "JUNIORBEES": {
-    "oneMonthReturn": 0.0367,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": 0.0059,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GOLDBEES": {
-    "oneMonthReturn": -0.0821,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1091,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ABSLBANETF": {
-    "oneMonthReturn": 0.065,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0618,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AONESILVER": {
-    "oneMonthReturn": -0.1182,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.1668,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MONIFTY500": {
-    "oneMonthReturn": 0.0207,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0098,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HEALTHCARE": {
-    "oneMonthReturn": 0.0075,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0213,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ALPL30IETF": {
-    "oneMonthReturn": 0.0214,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0306,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NIFTYCASE": {
-    "oneMonthReturn": 0.0105,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0234,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SILVER360": {
-    "oneMonthReturn": -0.1171,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.1666,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ENIFTY": {
-    "oneMonthReturn": 0.0134,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0249,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NV20": {
-    "oneMonthReturn": 0,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0077,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HEALTHADD": {
-    "oneMonthReturn": -0.003,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0187,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NETF": {
-    "oneMonthReturn": 0.015,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.009,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MSCIINDIA": {
-    "oneMonthReturn": 0.013,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0034,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NIFTYQLITY": {
-    "oneMonthReturn": 0.0009,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0249,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ELM250": {
-    "oneMonthReturn": 0.0111,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.008,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "TWCGOLDETF": {
-    "oneMonthReturn": -0.0762,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0997,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWN200": {
-    "oneMonthReturn": 0.0153,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MONEXT50": {
-    "oneMonthReturn": 0.0396,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0084,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "IDFNIFTYET": {
-    "oneMonthReturn": 0.0282,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0102,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HSBCGOLD": {
-    "oneMonthReturn": -0.079,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0982,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOSERVICE": {
-    "oneMonthReturn": 0.022,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.023,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "FMCGADD": {
-    "oneMonthReturn": -0.013,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": -0.011,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LICNETFSEN": {
-    "oneMonthReturn": 0.02,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.016,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MIDCAPADD": {
-    "oneMonthReturn": 0.0236,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0004,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MSCIADD": {
-    "oneMonthReturn": 0.0173,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0086,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GOLDBETA": {
-    "oneMonthReturn": -0.0813,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.1063,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ESILVER": {
-    "oneMonthReturn": -0.1215,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.168,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "CPSEETF": {
-    "oneMonthReturn": -0.0404,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.0755,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NEXT50IETF": {
-    "oneMonthReturn": 0.0383,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0151,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GSEC10YEAR": {
-    "oneMonthReturn": 0.0176,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0122,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AONELIQUID": {
-    "oneMonthReturn": 0.0038,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0042,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SETFNN50": {
-    "oneMonthReturn": 0.039,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0088,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ITETF": {
-    "oneMonthReturn": -0.0489,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0546,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ABSL10BANK": {
-    "oneMonthReturn": 0.0664,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0629,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCLOWVOL": {
-    "oneMonthReturn": 0.0084,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0045,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BBNPNBETF": {
-    "oneMonthReturn": 0.0743,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0646,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LOWVOL": {
-    "oneMonthReturn": 0.0001,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0067,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "EBANKNIFTY": {
-    "oneMonthReturn": 0.0646,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0575,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LICNFNHGP": {
-    "oneMonthReturn": 0.0033,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.008,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GSEC10IETF": {
-    "oneMonthReturn": 0.0063,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0188,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOBANK10": {
-    "oneMonthReturn": 0.0594,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.071,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BANKBEES": {
-    "oneMonthReturn": 0.0674,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": 0.061,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ITBEES": {
-    "oneMonthReturn": -0.0503,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.053,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "PHARMABEES": {
-    "oneMonthReturn": -0.0055,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": 0.0244,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SILVERBEES": {
-    "oneMonthReturn": -0.1232,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1733,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOMENTUM30": {
-    "oneMonthReturn": 0.0164,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0203,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOLOWVOL": {
-    "oneMonthReturn": 0.0003,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0281,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LICNETFN50": {
-    "oneMonthReturn": 0.0096,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0133,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "VALUE": {
-    "oneMonthReturn": 0.0006,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0281,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LICNETFGSC": {
-    "oneMonthReturn": 0.0182,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0198,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SBIETFCON": {
-    "oneMonthReturn": 0.0254,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0143,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "DIVIDEND": {
-    "oneMonthReturn": -0.0177,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": -0.0473,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SELECTIPO": {
-    "oneMonthReturn": 0.0406,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0214,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOCAPITAL": {
-    "oneMonthReturn": -0.0175,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.0244,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOSMALL250": {
-    "oneMonthReturn": 0.0522,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0332,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NEXT50": {
-    "oneMonthReturn": 0.0393,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0148,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWSLVR": {
-    "oneMonthReturn": -0.1234,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.1716,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AXISGOLD": {
-    "oneMonthReturn": -0.0839,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1123,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NIFTYETF": {
-    "oneMonthReturn": 0.0154,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0084,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AXISNIFTY": {
-    "oneMonthReturn": 0.0144,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.009,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "PSUBANK": {
-    "oneMonthReturn": 0.0852,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0455,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BBETF0432": {
-    "oneMonthReturn": 0.0264,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0274,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ABSLLIQUID": {
     "oneMonthReturn": 0.0024,
-    "savedAt": 1782006536759,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SETF10GILT": {
-    "oneMonthReturn": 0.019,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0231,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BFSI": {
-    "oneMonthReturn": 0.0336,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0571,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AXISVALUE": {
-    "oneMonthReturn": 0.0047,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.031,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "TOP100CASE": {
-    "oneMonthReturn": 0.0175,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0077,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "PSUBANKADD": {
-    "oneMonthReturn": 0.0921,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0567,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SMALL250": {
-    "oneMonthReturn": 0.0565,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0393,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MSCI360": {
-    "oneMonthReturn": 0.0172,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0192,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOPSE": {
-    "oneMonthReturn": -0.0169,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0367,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GILT10BETA": {
-    "oneMonthReturn": -0.0008,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0274,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOMNC": {
-    "oneMonthReturn": 0.0232,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": -0.0071,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOIPO": {
-    "oneMonthReturn": 0.0677,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0249,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GILT5BETA": {
-    "oneMonthReturn": 0.0078,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0234,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "EQUAL200": {
-    "oneMonthReturn": 0.0179,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": -0.0044,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ENEXT50": {
-    "oneMonthReturn": 0.0114,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": -0.002,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SML100CASE": {
-    "oneMonthReturn": 0.0452,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0231,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BANKNIFTY1": {
-    "oneMonthReturn": 0.0657,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0622,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOMENTUM50": {
-    "oneMonthReturn": 0.0289,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0083,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOM30IETF": {
-    "oneMonthReturn": 0.0292,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0252,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MAFANG": {
-    "oneMonthReturn": -0.032,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.0416,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BSLGOLDETF": {
-    "oneMonthReturn": -0.0807,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.1096,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ITIETF": {
-    "oneMonthReturn": -0.0496,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.0615,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ENERGY": {
-    "oneMonthReturn": 0.0089,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0479,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "TOP20": {
-    "oneMonthReturn": 0.0188,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0093,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MIDCAPBETA": {
-    "oneMonthReturn": 0.0168,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0048,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ESENSEX": {
-    "oneMonthReturn": 0.0198,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0281,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BSLSENETFG": {
-    "oneMonthReturn": 0.0105,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0224,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BANK10ADD": {
-    "oneMonthReturn": 0.0571,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0708,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AXISHCETF": {
-    "oneMonthReturn": -0.0005,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0192,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SBIETFQLTY": {
-    "oneMonthReturn": -0.0047,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0262,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MON50EQUAL": {
-    "oneMonthReturn": 0.0061,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": -0.0117,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ALPHAETF": {
-    "oneMonthReturn": 0.0304,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.0061,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOMIDMTM": {
-    "oneMonthReturn": 0.0322,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0051,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SBIETFIT": {
-    "oneMonthReturn": -0.0464,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.0522,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NV20IETF": {
-    "oneMonthReturn": 0.0044,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0007,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NIFTYBETA": {
-    "oneMonthReturn": 0.0134,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0218,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LTGILTCASE": {
-    "oneMonthReturn": 0.0155,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0181,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BANKBETA": {
-    "oneMonthReturn": 0.0668,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": 0.0751,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LICMFGOLD": {
-    "oneMonthReturn": -0.0765,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.1027,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "METAL": {
-    "oneMonthReturn": -0.0172,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.0911,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ICICIB22": {
-    "oneMonthReturn": 0.0058,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.0252,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SBILIQETF": {
     "oneMonthReturn": 0.0038,
-    "savedAt": 1782006536681,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "EBBETF0430": {
-    "oneMonthReturn": 0.0223,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0209,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWGOLD": {
-    "oneMonthReturn": -0.0812,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.0985,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AUTOBEES": {
-    "oneMonthReturn": 0.0265,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0044,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "FMCGIETF": {
-    "oneMonthReturn": -0.0136,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": 0.0051,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SMALLCAP": {
-    "oneMonthReturn": 0.0316,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0202,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LIQUIDBEES": {
     "oneMonthReturn": 0,
-    "savedAt": 1782006539101,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LIQUIDCASE": {
-    "oneMonthReturn": 0.0038,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": 0.0042,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LIQUIDETF": {
     "oneMonthReturn": 0,
-    "savedAt": 1782006536681,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SBISILVER": {
-    "oneMonthReturn": -0.1225,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1714,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SILVERIETF": {
-    "oneMonthReturn": -0.1231,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1712,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "TATSILV": {
-    "oneMonthReturn": -0.1226,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1692,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SETFGOLD": {
-    "oneMonthReturn": -0.0822,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1104,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCSILVER": {
-    "oneMonthReturn": -0.124,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1738,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWDEFNC": {
-    "oneMonthReturn": 0.0557,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.014,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NIFTY1": {
-    "oneMonthReturn": 0.0151,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.011,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCLIQUID": {
-    "oneMonthReturn": 0.0038,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0042,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWRAIL": {
-    "oneMonthReturn": -0.043,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0448,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SENSEXIETF": {
-    "oneMonthReturn": 0.0218,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0321,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "PSUBNKIETF": {
-    "oneMonthReturn": 0.0838,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0617,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOM100": {
-    "oneMonthReturn": 0.021,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.0091,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LIQGRWBEES": {
     "oneMonthReturn": 0.0036,
-    "savedAt": 1782006536702,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SBISMLETF": {
-    "oneMonthReturn": 0.0442,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0388,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SBINMID150": {
-    "oneMonthReturn": 0.0173,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0083,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SNXT30BEES": {
-    "oneMonthReturn": -0.0094,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0125,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWPSE": {
-    "oneMonthReturn": -0.0248,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": -0.0467,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ITBETA": {
-    "oneMonthReturn": -0.0475,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": -0.0502,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AXSENSEX": {
-    "oneMonthReturn": 0.0221,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0203,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NEXT50ETF": {
-    "oneMonthReturn": 0.0389,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0082,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "CHOICEGOLD": {
-    "oneMonthReturn": -0.0816,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0982,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MIDSELIETF": {
-    "oneMonthReturn": 0.0426,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0254,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MASPTOP50": {
-    "oneMonthReturn": -0.0625,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.067,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "DIVOPPBEES": {
-    "oneMonthReturn": -0.0044,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.0165,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCNIFIT": {
-    "oneMonthReturn": -0.0472,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.0525,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "EBBETF0433": {
-    "oneMonthReturn": 0.0267,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0306,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "TNIDETF": {
-    "oneMonthReturn": 0.0047,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0154,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "EVIETF": {
-    "oneMonthReturn": 0.0425,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0237,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BANKADD": {
-    "oneMonthReturn": 0.0676,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0746,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ABSLMSCIN": {
-    "oneMonthReturn": 0.1542,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.01,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ABGSEC": {
-    "oneMonthReturn": 0.026,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0171,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GSEC10ABSL": {
-    "oneMonthReturn": 0.0276,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0268,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOSILVER": {
-    "oneMonthReturn": -0.119,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.1622,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AXISILVER": {
-    "oneMonthReturn": -0.1218,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.1688,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWPOWER": {
-    "oneMonthReturn": 0.0247,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.0523,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MIDCAPETF": {
-    "oneMonthReturn": 0.02,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0095,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LTGILTBEES": {
-    "oneMonthReturn": 0.0192,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0188,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GOLDADD": {
-    "oneMonthReturn": -0.0829,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.1094,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "OILIETF": {
-    "oneMonthReturn": -0.0148,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0275,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SETFNIFBK": {
-    "oneMonthReturn": 0.0659,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0633,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SILVER": {
-    "oneMonthReturn": -0.1226,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1701,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "TATAGOLD": {
-    "oneMonthReturn": -0.0803,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1083,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCGOLD": {
-    "oneMonthReturn": -0.0817,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1074,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SILVERAG": {
-    "oneMonthReturn": -0.1226,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.1725,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "PSUBNKBEES": {
-    "oneMonthReturn": 0.0884,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": 0.0473,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LIQUIDPLUS": {
-    "oneMonthReturn": 0.0038,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": 0.0042,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LIQUID1": {
     "oneMonthReturn": 0.0038,
-    "savedAt": 1782006539101,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GOLDIETF": {
-    "oneMonthReturn": -0.0822,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1095,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOVALUE": {
-    "oneMonthReturn": 0.0078,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0301,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NEXT50BETA": {
-    "oneMonthReturn": 0.0486,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0176,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "DEFENCE": {
-    "oneMonthReturn": 0.0607,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0308,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "COMMOIETF": {
-    "oneMonthReturn": -0.0214,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0423,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCSENSEX": {
-    "oneMonthReturn": 0.0181,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0271,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "INFRAIETF": {
-    "oneMonthReturn": 0.0134,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0156,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LIQUIDSBI": {
     "oneMonthReturn": 0,
-    "savedAt": 1782006536759,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LIQUIDSHRI": {
-    "oneMonthReturn": 0.0036,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.004,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AXISCETF": {
-    "oneMonthReturn": 0.0248,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.015,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCQUAL": {
-    "oneMonthReturn": -0.0032,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0249,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "IVZINNIFTY": {
-    "oneMonthReturn": 0.0132,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0098,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NPBET": {
-    "oneMonthReturn": 0.0616,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0735,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOALPHA50": {
-    "oneMonthReturn": 0.0391,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0123,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCVALUE": {
-    "oneMonthReturn": -0.0044,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0111,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GSEC5IETF": {
-    "oneMonthReturn": 0.0228,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0199,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SENSEXADD": {
-    "oneMonthReturn": 0.0197,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0293,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOMOMENTUM": {
-    "oneMonthReturn": 0.0292,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0081,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NIFTYBETF": {
-    "oneMonthReturn": 0.0143,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0125,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AONETMMQ50": {
-    "oneMonthReturn": 0.0146,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0135,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "TECH": {
-    "oneMonthReturn": -0.0557,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0514,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "CONSUMIETF": {
-    "oneMonthReturn": 0.0285,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0155,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ECAPINSURE": {
-    "oneMonthReturn": 0.0024,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0179,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWMC150": {
-    "oneMonthReturn": 0.0221,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0023,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SENSEXETF": {
-    "oneMonthReturn": 0.0194,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0191,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SILVERBND": {
-    "oneMonthReturn": -0.1207,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.169,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOHEALTH": {
-    "oneMonthReturn": 0.0092,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.02,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MONQ50": {
-    "oneMonthReturn": 0.049,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0422,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BANKPSU": {
-    "oneMonthReturn": 0.0871,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0491,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SHARIABEES": {
-    "oneMonthReturn": -0.0332,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0389,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "TOP15IETF": {
-    "oneMonthReturn": 0.0145,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0238,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ELIQUID": {
     "oneMonthReturn": 0.0038,
-    "savedAt": 1782006536730,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCMOMENT": {
-    "oneMonthReturn": 0.0298,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0083,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SILVERCASE": {
-    "oneMonthReturn": -0.1231,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1743,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MON100": {
-    "oneMonthReturn": -0.0112,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.0089,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GOLD1": {
-    "oneMonthReturn": -0.0844,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1096,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LIQUIDBETF": {
-    "oneMonthReturn": 0.0037,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": 0.0041,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LIQUIDADD": {
-    "oneMonthReturn": 0.0038,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": 0.0041,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LIQUIDIETF": {
     "oneMonthReturn": 0,
-    "savedAt": 1782006539101,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "PVTBANIETF": {
-    "oneMonthReturn": 0.0598,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": 0.0768,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SILVERADD": {
-    "oneMonthReturn": -0.1237,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.165,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BANKETF": {
-    "oneMonthReturn": 0.0646,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0616,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOREALTY": {
-    "oneMonthReturn": 0.0464,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0522,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCNIFBAN": {
-    "oneMonthReturn": 0.0671,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0601,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "QGOLDHALF": {
-    "oneMonthReturn": -0.0818,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.1082,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GILT5YBEES": {
-    "oneMonthReturn": 0.0231,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0252,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWMETAL": {
-    "oneMonthReturn": -0.0183,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.094,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCNIFTY": {
-    "oneMonthReturn": 0.0158,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0216,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "EGOLD": {
-    "oneMonthReturn": -0.0812,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1052,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "QUALITY30": {
-    "oneMonthReturn": -0.0112,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0166,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "UNIONGOLD": {
-    "oneMonthReturn": -0.0821,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.1017,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SBIBPB": {
-    "oneMonthReturn": 0.0862,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0552,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MNC": {
-    "oneMonthReturn": 0.0208,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0098,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "CHEMICAL": {
-    "oneMonthReturn": 0.0181,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0147,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCBSE500": {
-    "oneMonthReturn": 0.0234,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0084,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "EQUAL50ADD": {
-    "oneMonthReturn": 0.0059,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.0047,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HEALTHIETF": {
-    "oneMonthReturn": -0.0007,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0382,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "FINIETF": {
-    "oneMonthReturn": 0.0025,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0059,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HEALTHY": {
-    "oneMonthReturn": -0.0006,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0205,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWPSUBK": {
-    "oneMonthReturn": 0.0871,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0497,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOMENTUM": {
-    "oneMonthReturn": 0.0297,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0067,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GOLDBND": {
-    "oneMonthReturn": -0.0831,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.1111,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AONETOTAL": {
-    "oneMonthReturn": 0.0253,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0112,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LOWVOL1": {
-    "oneMonthReturn": 0.0102,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0034,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ESG": {
-    "oneMonthReturn": 0.0109,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0176,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCNIF100": {
-    "oneMonthReturn": 0.0161,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0164,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWSC250": {
-    "oneMonthReturn": 0.0506,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0356,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MID150CASE": {
-    "oneMonthReturn": 0.0222,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0061,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MIDCAPIETF": {
-    "oneMonthReturn": 0.0202,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0081,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCSML250": {
-    "oneMonthReturn": 0.057,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": 0.0351,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "METALIETF": {
-    "oneMonthReturn": -0.0173,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": -0.0963,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MID150BEES": {
-    "oneMonthReturn": 0.0187,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": 0.0079,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "CASHIETF": {
     "oneMonthReturn": 0.0038,
-    "savedAt": 1782006539101,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GOLDETF": {
-    "oneMonthReturn": -0.081,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1083,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SILVERBETA": {
-    "oneMonthReturn": -0.1239,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1723,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GOLDCASE": {
-    "oneMonthReturn": -0.0815,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1112,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SILVER1": {
-    "oneMonthReturn": -0.121,
-    "savedAt": 1782006539101,
+    "oneMonthReturn": -0.1698,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCPSUBK": {
-    "oneMonthReturn": 0.0876,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0507,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NIFTYADD": {
-    "oneMonthReturn": 0.0117,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0224,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "IT": {
-    "oneMonthReturn": -0.0459,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0515,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "TOP10ADD": {
-    "oneMonthReturn": 0.0109,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0108,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SBINEQWETF": {
-    "oneMonthReturn": 0.0095,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0015,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWHOSPI": {
-    "oneMonthReturn": 0.0297,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0664,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWCAPM": {
-    "oneMonthReturn": -0.0026,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0263,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWEV": {
-    "oneMonthReturn": 0.046,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": 0.0171,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MAHKTECH": {
-    "oneMonthReturn": -0.0632,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.1041,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MIDSMALL": {
-    "oneMonthReturn": 0.0215,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0122,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NIF100IETF": {
-    "oneMonthReturn": 0.0201,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0087,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ITADD": {
-    "oneMonthReturn": -0.0524,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0596,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NEXT50ADD": {
-    "oneMonthReturn": 0.0367,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.004,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SBIETFPB": {
-    "oneMonthReturn": 0.0574,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0764,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWNET": {
-    "oneMonthReturn": 0.0322,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0065,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "FLEXIADD": {
-    "oneMonthReturn": 0.0113,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0102,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BSE500IETF": {
-    "oneMonthReturn": 0.0231,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0178,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "INFRA": {
-    "oneMonthReturn": 0.0367,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0057,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BANKIETF": {
-    "oneMonthReturn": 0.0672,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0604,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SETFNIF50": {
-    "oneMonthReturn": 0.0149,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0109,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "QNIFTY": {
-    "oneMonthReturn": 0.0149,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0105,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "BANKBETF": {
-    "oneMonthReturn": 0.0672,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0623,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MONIFTY100": {
-    "oneMonthReturn": 0.0198,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0047,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "AONENIFTY": {
-    "oneMonthReturn": 0.0175,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0081,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MID150": {
-    "oneMonthReturn": 0.0188,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": -0.0022,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "PVTBKGROWW": {
-    "oneMonthReturn": 0.0383,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0666,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "PVTBANKADD": {
-    "oneMonthReturn": 0.0651,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0818,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MIDQ50ADD": {
-    "oneMonthReturn": 0.0305,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.0006,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCMID150": {
-    "oneMonthReturn": 0.0193,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": -0.0052,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MIDCAP": {
-    "oneMonthReturn": 0.01,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0088,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "EBBETF0431": {
-    "oneMonthReturn": 0.0235,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0259,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "EVINDIA": {
-    "oneMonthReturn": 0.0397,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0134,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NIF100BEES": {
-    "oneMonthReturn": 0.0162,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0071,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MULTICAP": {
-    "oneMonthReturn": 0.0261,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.011,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "INFRABEES": {
-    "oneMonthReturn": 0.0177,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0005,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "LOWVOLIETF": {
-    "oneMonthReturn": 0.0074,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0173,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "HDFCPVTBAN": {
-    "oneMonthReturn": 0.0603,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0655,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWNIFTY": {
-    "oneMonthReturn": 0.0158,
-    "savedAt": 1782006536730,
+    "oneMonthReturn": 0.0125,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GOLD360": {
-    "oneMonthReturn": -0.0839,
-    "savedAt": 1782006536702,
+    "oneMonthReturn": -0.0726,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWRLTY": {
-    "oneMonthReturn": 0.0508,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0514,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NV20BEES": {
-    "oneMonthReturn": -0.004,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0056,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "SENSEXBETA": {
-    "oneMonthReturn": 0.0213,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0308,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "CONSUMER": {
-    "oneMonthReturn": 0.0457,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0261,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWCHEM": {
-    "oneMonthReturn": 0.0181,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0074,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "IVZINGOLD": {
-    "oneMonthReturn": -0.0824,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.1091,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "GROWWMOM50": {
-    "oneMonthReturn": 0.0236,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0074,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOGSEC": {
-    "oneMonthReturn": 0.0195,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": 0.0217,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "INTERNET": {
-    "oneMonthReturn": 0.0329,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0024,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MANUFGBEES": {
-    "oneMonthReturn": 0.0178,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0036,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ABSLNN50ET": {
-    "oneMonthReturn": 0.0334,
-    "savedAt": 1782006536796,
+    "oneMonthReturn": 0.0034,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "ABSLPSE": {
-    "oneMonthReturn": -0.0186,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.048,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOTOUR": {
-    "oneMonthReturn": 0.0822,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0883,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "EMULTIMQ": {
-    "oneMonthReturn": 0.0085,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": -0.0279,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOQUALITY": {
-    "oneMonthReturn": 0.0093,
-    "savedAt": 1782006536835,
+    "oneMonthReturn": -0.0172,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "NIFTY100EW": {
-    "oneMonthReturn": 0.0248,
-    "savedAt": 1782006536759,
+    "oneMonthReturn": 0.0073,
+    "savedAt": 1782550861403,
     "version": 3
   },
   "MOM50": {
-    "oneMonthReturn": 0.0147,
-    "savedAt": 1782006536681,
+    "oneMonthReturn": 0.0171,
+    "savedAt": 1782550861403,
     "version": 3
   }
 }

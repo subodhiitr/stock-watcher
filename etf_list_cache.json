@@ -5227,347 +5227,347 @@
       "oneYearReturn": 0.0408,
       "threeYearReturn": 0.0503,
       "fiveYearReturn": 0.0299,
-      "savedAt": 1780819100687
+      "savedAt": 1782550861403
     },
     "GROWWLIQID": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": 0.0196,
-      "oneYearReturn": 0.048,
-      "threeYearReturn": 0.0303,
-      "fiveYearReturn": 0.0181,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0224,
+      "oneYearReturn": 0.0481,
+      "threeYearReturn": 0.0312,
+      "fiveYearReturn": 0.0186,
+      "savedAt": 1782550861403
     },
     "NIFTYIETF": {
       "expenseRatio": 0.0013,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.1018,
-      "oneYearReturn": -0.0536,
-      "threeYearReturn": 0.0907,
-      "fiveYearReturn": 0.0953,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.0741,
+      "oneYearReturn": -0.0502,
+      "threeYearReturn": 0.0954,
+      "fiveYearReturn": 0.1001,
+      "savedAt": 1782550861403
     },
     "HNGSNGBEES": {
       "expenseRatio": 0.0065,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0091,
-      "oneYearReturn": 0.3134,
-      "threeYearReturn": 0.2229,
-      "fiveYearReturn": 0.0708,
-      "savedAt": 1780819100687
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": -0.05,
+      "oneYearReturn": 0.2235,
+      "threeYearReturn": 0.1992,
+      "fiveYearReturn": 0.0555,
+      "savedAt": 1782550861403
     },
     "MOGOLD": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.1623,
-      "oneYearReturn": 0.5531,
-      "threeYearReturn": 0.1581,
-      "fiveYearReturn": 0.092,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0468,
+      "oneYearReturn": 0.3987,
+      "threeYearReturn": 0.1183,
+      "fiveYearReturn": 0.0694,
+      "savedAt": 1782550861403
     },
     "MODEFENCE": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.1732,
-      "oneYearReturn": 0.018,
-      "threeYearReturn": 0.088,
-      "fiveYearReturn": 0.0519,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.2138,
+      "oneYearReturn": 0.0689,
+      "threeYearReturn": 0.1004,
+      "fiveYearReturn": 0.0591,
+      "savedAt": 1782550861403
     },
     "ALPHA": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0407,
-      "oneYearReturn": -0.0184,
-      "threeYearReturn": 0.2004,
-      "fiveYearReturn": 0.0867,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0664,
+      "oneYearReturn": -0.0014,
+      "threeYearReturn": 0.199,
+      "fiveYearReturn": 0.092,
+      "savedAt": 1782550861403
     },
     "BSLNIFTY": {
       "expenseRatio": 0.0005,
       "category": null,
       "fundFamily": "Aditya Birla Sun Life AMC",
-      "ytdReturn": -0.1014,
-      "oneYearReturn": -0.0524,
-      "threeYearReturn": 0.0902,
-      "fiveYearReturn": 0.0953,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.0724,
+      "oneYearReturn": -0.0467,
+      "threeYearReturn": 0.0954,
+      "fiveYearReturn": 0.1,
+      "savedAt": 1782550861403
     },
     "AXISTECETF": {
       "expenseRatio": 0.0035,
       "category": null,
       "fundFamily": "Axis AMC",
-      "ytdReturn": -0.233,
-      "oneYearReturn": -0.208,
-      "threeYearReturn": 0.024,
-      "fiveYearReturn": 0.0286,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.2772,
+      "oneYearReturn": -0.282,
+      "threeYearReturn": 0.0014,
+      "fiveYearReturn": 0.0062,
+      "savedAt": 1782550861403
     },
     "HDFCGROWTH": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": -0.1381,
-      "oneYearReturn": -0.0398,
-      "threeYearReturn": 0.0102,
-      "fiveYearReturn": 0.0061,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.1362,
+      "oneYearReturn": -0.055,
+      "threeYearReturn": 0.011,
+      "fiveYearReturn": 0.0066,
+      "savedAt": 1782550861403
     },
     "MOINFRA": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.0319,
-      "oneYearReturn": 0.0197,
-      "threeYearReturn": 0.0115,
-      "fiveYearReturn": 0.0069,
-      "savedAt": 1780819100723
+      "ytdReturn": 0.0455,
+      "oneYearReturn": 0.0326,
+      "threeYearReturn": 0.0159,
+      "fiveYearReturn": 0.0095,
+      "savedAt": 1782550861403
     },
     "EQUAL50": {
       "expenseRatio": 0.003,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0382,
-      "oneYearReturn": 0.0347,
-      "threeYearReturn": 0.0164,
-      "fiveYearReturn": 0.0098,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0245,
+      "oneYearReturn": 0.0194,
+      "threeYearReturn": 0.0212,
+      "fiveYearReturn": 0.0127,
+      "savedAt": 1782550861403
     },
     "SMALLADD": {
       "expenseRatio": 0.003,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0228,
-      "oneYearReturn": 0.0375,
-      "threeYearReturn": 0.0123,
-      "fiveYearReturn": 0.0074,
-      "savedAt": 1780819100723
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": 0.0629,
+      "oneYearReturn": 0.0782,
+      "threeYearReturn": 0.0254,
+      "fiveYearReturn": 0.0152,
+      "savedAt": 1782550861403
     },
     "SBIMIDMOM": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "SBI Funds Management",
-      "ytdReturn": 0.041,
-      "oneYearReturn": 0.041,
-      "threeYearReturn": 0.0135,
-      "fiveYearReturn": 0.0081,
-      "savedAt": 1780819100723
+      "ytdReturn": 0.0647,
+      "oneYearReturn": 0.0647,
+      "threeYearReturn": 0.0211,
+      "fiveYearReturn": 0.0126,
+      "savedAt": 1782550861403
     },
     "AXISBNKETF": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "Axis AMC",
-      "ytdReturn": -0.0861,
-      "oneYearReturn": -0.0298,
-      "threeYearReturn": 0.0791,
-      "fiveYearReturn": 0.0979,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0203,
+      "oneYearReturn": 0.0244,
+      "threeYearReturn": 0.1003,
+      "fiveYearReturn": 0.1134,
+      "savedAt": 1782550861403
     },
     "CONS": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.9082,
-      "oneYearReturn": -0.9027,
-      "threeYearReturn": -0.4796,
-      "fiveYearReturn": -0.3116,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.9053,
+      "oneYearReturn": -0.9018,
+      "threeYearReturn": -0.477,
+      "fiveYearReturn": -0.3072,
+      "savedAt": 1782550861403
     },
     "GROWWNXT50": {
       "expenseRatio": 0.0013,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": 0.0113,
-      "oneYearReturn": 0.0398,
-      "threeYearReturn": 0.0131,
-      "fiveYearReturn": 0.0078,
-      "savedAt": 1780819100735
+      "ytdReturn": 0.0351,
+      "oneYearReturn": 0.0643,
+      "threeYearReturn": 0.021,
+      "fiveYearReturn": 0.0125,
+      "savedAt": 1782550861403
     },
     "BBNPPGOLD": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.1572,
-      "oneYearReturn": 0.5669,
-      "threeYearReturn": 0.2096,
-      "fiveYearReturn": 0.1209,
-      "savedAt": 1780819100735
+      "fundFamily": "Baroda BNP Paribas Mutual Fund",
+      "ytdReturn": 0.0456,
+      "oneYearReturn": 0.4399,
+      "threeYearReturn": 0.1693,
+      "fiveYearReturn": 0.0984,
+      "savedAt": 1782550861403
     },
     "SNXT50BETA": {
       "expenseRatio": 0.0013,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.038,
-      "oneYearReturn": -0.0273,
-      "threeYearReturn": -0.0092,
-      "fiveYearReturn": -0.0055,
-      "savedAt": 1780819100735
+      "ytdReturn": -0.007,
+      "oneYearReturn": 0.0041,
+      "threeYearReturn": 0.0014,
+      "fiveYearReturn": 0.0008,
+      "savedAt": 1782550861403
     },
     "MOMGF": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.0233,
-      "oneYearReturn": 0.104,
-      "threeYearReturn": 0.0365,
-      "fiveYearReturn": 0.0218,
-      "savedAt": 1780819100735
+      "ytdReturn": 0.0378,
+      "oneYearReturn": 0.1036,
+      "threeYearReturn": 0.0414,
+      "fiveYearReturn": 0.0246,
+      "savedAt": 1782550861403
     },
     "NEXT30ADD": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0251,
-      "oneYearReturn": 0.1015,
-      "threeYearReturn": 0.0731,
-      "fiveYearReturn": 0.0432,
-      "savedAt": 1780819100735
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": 0.0256,
+      "oneYearReturn": 0.0634,
+      "threeYearReturn": 0.0733,
+      "fiveYearReturn": 0.0433,
+      "savedAt": 1782550861403
     },
     "LICNMID100": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "LIC Mutual Fund",
-      "ytdReturn": 0.0018,
-      "oneYearReturn": 0.0348,
-      "threeYearReturn": 0.0751,
-      "fiveYearReturn": 0.0444,
-      "savedAt": 1780819100735
+      "ytdReturn": 0.0113,
+      "oneYearReturn": 0.0425,
+      "threeYearReturn": 0.0785,
+      "fiveYearReturn": 0.0464,
+      "savedAt": 1782550861403
     },
     "GROWWLOVOL": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": -0.0571,
-      "oneYearReturn": 0.0062,
-      "threeYearReturn": 0.0021,
-      "fiveYearReturn": 0.0012,
-      "savedAt": 1780819100735
+      "ytdReturn": -0.046,
+      "oneYearReturn": 0.0038,
+      "threeYearReturn": 0.006,
+      "fiveYearReturn": 0.0036,
+      "savedAt": 1782550861403
     },
     "SBIVALETF": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "SBI Funds Management",
-      "ytdReturn": -0.0173,
-      "oneYearReturn": -0.0173,
-      "threeYearReturn": -0.0058,
-      "fiveYearReturn": -0.0035,
-      "savedAt": 1780819100735
+      "ytdReturn": -0.0364,
+      "oneYearReturn": -0.0364,
+      "threeYearReturn": -0.0123,
+      "fiveYearReturn": -0.0074,
+      "savedAt": 1782550861403
     },
     "MOENERGY": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.1386,
-      "oneYearReturn": 0.1375,
-      "threeYearReturn": 0.0439,
-      "fiveYearReturn": 0.0261,
-      "savedAt": 1780819100709
+      "ytdReturn": 0.12,
+      "oneYearReturn": 0.1189,
+      "threeYearReturn": 0.0382,
+      "fiveYearReturn": 0.0227,
+      "savedAt": 1782550861403
     },
     "AONEGOLD": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.1535,
-      "oneYearReturn": 0.401,
-      "threeYearReturn": 0.1189,
-      "fiveYearReturn": 0.0698,
-      "savedAt": 1780819100709
+      "fundFamily": "Angel One AMC",
+      "ytdReturn": 0.044,
+      "oneYearReturn": 0.268,
+      "threeYearReturn": 0.0824,
+      "fiveYearReturn": 0.0486,
+      "savedAt": 1782550861403
     },
     "VAL30IETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0452,
-      "oneYearReturn": 0.2018,
-      "threeYearReturn": 0.0496,
-      "fiveYearReturn": 0.0295,
-      "savedAt": 1780819100709
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": 0.0313,
+      "oneYearReturn": 0.1627,
+      "threeYearReturn": 0.0449,
+      "fiveYearReturn": 0.0267,
+      "savedAt": 1782550861403
     },
     "HDFCNEXT50": {
       "expenseRatio": 0.0013,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": 0.0111,
-      "oneYearReturn": 0.0442,
-      "threeYearReturn": -0.4481,
-      "fiveYearReturn": -0.2968,
-      "savedAt": 1780819100709
+      "ytdReturn": 0.0348,
+      "oneYearReturn": 0.0559,
+      "threeYearReturn": -0.4472,
+      "fiveYearReturn": -0.2935,
+      "savedAt": 1782550861403
     },
     "QUAL30IETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0658,
-      "oneYearReturn": -0.0247,
-      "threeYearReturn": 0.0885,
-      "fiveYearReturn": 0.0522,
-      "savedAt": 1780819100709
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.0699,
+      "oneYearReturn": -0.0519,
+      "threeYearReturn": 0.0869,
+      "fiveYearReturn": 0.0513,
+      "savedAt": 1782550861403
     },
     "AUTOIETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0741,
-      "oneYearReturn": 0.1211,
-      "threeYearReturn": 0.0439,
-      "fiveYearReturn": 0.0261,
-      "savedAt": 1780819100709
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.0509,
+      "oneYearReturn": 0.1342,
+      "threeYearReturn": 0.0526,
+      "fiveYearReturn": 0.0312,
+      "savedAt": 1782550861403
     },
     "MAKEINDIA": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.018,
-      "oneYearReturn": 0.1046,
-      "threeYearReturn": 0.1771,
-      "fiveYearReturn": 0.1028,
-      "savedAt": 1780819100709
+      "ytdReturn": 0.0321,
+      "oneYearReturn": 0.1004,
+      "threeYearReturn": 0.1825,
+      "fiveYearReturn": 0.1058,
+      "savedAt": 1782550861403
     },
     "CONSUMBEES": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0843,
-      "oneYearReturn": -0.0324,
-      "threeYearReturn": 0.1205,
-      "fiveYearReturn": 0.1305,
-      "savedAt": 1780819100709
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": -0.051,
+      "oneYearReturn": -0.0179,
+      "threeYearReturn": 0.1268,
+      "fiveYearReturn": 0.1333,
+      "savedAt": 1782550861403
     },
     "NIFTYBEES": {
       "expenseRatio": 0.0004,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.1015,
-      "oneYearReturn": -0.054,
-      "threeYearReturn": 0.0907,
-      "fiveYearReturn": 0.095,
-      "savedAt": 1780819100682
+      "ytdReturn": -0.0742,
+      "oneYearReturn": -0.0505,
+      "threeYearReturn": 0.0951,
+      "fiveYearReturn": 0.0999,
+      "savedAt": 1782550861403
     },
     "JUNIORBEES": {
       "expenseRatio": 0.0019,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": 0.0134,
-      "oneYearReturn": 0.0429,
-      "threeYearReturn": 0.1877,
-      "fiveYearReturn": 0.1306,
-      "savedAt": 1780819100682
+      "ytdReturn": 0.0426,
+      "oneYearReturn": 0.0623,
+      "threeYearReturn": 0.1925,
+      "fiveYearReturn": 0.1406,
+      "savedAt": 1782550861403
     },
     "GOLDBEES": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.1562,
-      "oneYearReturn": 0.5731,
-      "threeYearReturn": 0.3609,
-      "fiveYearReturn": 0.2468,
-      "savedAt": 1780819100682
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": 0.0402,
+      "oneYearReturn": 0.4404,
+      "threeYearReturn": 0.3238,
+      "fiveYearReturn": 0.2301,
+      "savedAt": 1782550861403
     },
     "KOTAKGOLD": {
       "expenseRatio": null,
@@ -5577,7 +5577,7 @@
       "oneYearReturn": null,
       "threeYearReturn": null,
       "fiveYearReturn": null,
-      "savedAt": 1780819100682
+      "savedAt": 1782550861403
     },
     "SBIGETS": {
       "expenseRatio": null,
@@ -5587,7 +5587,7 @@
       "oneYearReturn": null,
       "threeYearReturn": null,
       "fiveYearReturn": null,
-      "savedAt": 1780819100682
+      "savedAt": 1782550861403
     },
     "NIFTYINFRA": {
       "expenseRatio": null,
@@ -5597,7 +5597,7 @@
       "oneYearReturn": null,
       "threeYearReturn": null,
       "fiveYearReturn": null,
-      "savedAt": 1780819100682
+      "savedAt": 1782550861403
     },
     "CPSE": {
       "expenseRatio": null,
@@ -5607,407 +5607,407 @@
       "oneYearReturn": null,
       "threeYearReturn": null,
       "fiveYearReturn": null,
-      "savedAt": 1780819100682
+      "savedAt": 1782550861403
     },
     "ABSLBANETF": {
       "expenseRatio": 0.006,
       "category": null,
       "fundFamily": "Aditya Birla Sun Life AMC",
-      "ytdReturn": -0.0854,
-      "oneYearReturn": -0.031,
-      "threeYearReturn": 0.0792,
-      "fiveYearReturn": -0.3069,
-      "savedAt": 1780819100709
+      "ytdReturn": -0.021,
+      "oneYearReturn": 0.0214,
+      "threeYearReturn": 0.1022,
+      "fiveYearReturn": -0.2982,
+      "savedAt": 1782550861403
     },
     "AONESILVER": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.1188,
-      "oneYearReturn": -0.1188,
-      "threeYearReturn": -0.0413,
-      "fiveYearReturn": -0.025,
-      "savedAt": 1780819100709
+      "fundFamily": "Angel One AMC",
+      "ytdReturn": -0.2484,
+      "oneYearReturn": -0.2484,
+      "threeYearReturn": -0.0908,
+      "fiveYearReturn": -0.0555,
+      "savedAt": 1782550861403
     },
     "MONIFTY500": {
       "expenseRatio": 0.0014,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.0563,
-      "oneYearReturn": -0.0159,
-      "threeYearReturn": 0.1055,
-      "fiveYearReturn": 0.062,
-      "savedAt": 1780819100709
+      "ytdReturn": -0.0283,
+      "oneYearReturn": -0.0076,
+      "threeYearReturn": 0.1163,
+      "fiveYearReturn": 0.0683,
+      "savedAt": 1782550861403
     },
     "HEALTHCARE": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.08,
-      "oneYearReturn": 0.08,
-      "threeYearReturn": 0.026,
-      "fiveYearReturn": 0.0155,
-      "savedAt": 1780819100709
+      "ytdReturn": 0.118,
+      "oneYearReturn": 0.118,
+      "threeYearReturn": 0.0379,
+      "fiveYearReturn": 0.0226,
+      "savedAt": 1782550861403
     },
     "ALPL30IETF": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0626,
-      "oneYearReturn": -0.0473,
-      "threeYearReturn": 0.1131,
-      "fiveYearReturn": 0.1087,
-      "savedAt": 1780819100709
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.024,
+      "oneYearReturn": -0.0261,
+      "threeYearReturn": 0.1222,
+      "fiveYearReturn": 0.1154,
+      "savedAt": 1782550861403
     },
     "NIFTYCASE": {
       "expenseRatio": 0.0007,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.1047,
-      "oneYearReturn": -0.0943,
-      "threeYearReturn": -0.0325,
-      "fiveYearReturn": -0.0196,
-      "savedAt": 1780819100709
+      "ytdReturn": -0.074,
+      "oneYearReturn": -0.0632,
+      "threeYearReturn": -0.0215,
+      "fiveYearReturn": -0.013,
+      "savedAt": 1782550861403
     },
     "SILVER360": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.1439,
-      "oneYearReturn": 1.3901,
-      "threeYearReturn": 0.3817,
-      "fiveYearReturn": 0.2141,
-      "savedAt": 1780819100709
+      "ytdReturn": -0.0271,
+      "oneYearReturn": 0.9991,
+      "threeYearReturn": 0.3091,
+      "fiveYearReturn": 0.1754,
+      "savedAt": 1782550861403
     },
     "ENIFTY": {
       "expenseRatio": 0.0005,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.1023,
-      "oneYearReturn": -0.1051,
-      "threeYearReturn": -0.0363,
-      "fiveYearReturn": -0.022,
-      "savedAt": 1780819100709
+      "fundFamily": "Edelweiss AMC",
+      "ytdReturn": -0.0709,
+      "oneYearReturn": -0.0737,
+      "threeYearReturn": -0.0252,
+      "fiveYearReturn": -0.0152,
+      "savedAt": 1782550861403
     },
     "NV20": {
       "expenseRatio": 0.004,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.9094,
-      "oneYearReturn": -0.9056,
-      "threeYearReturn": -0.4935,
-      "fiveYearReturn": -0.3035,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.9086,
+      "oneYearReturn": -0.9062,
+      "threeYearReturn": -0.4925,
+      "fiveYearReturn": -0.3052,
+      "savedAt": 1782550861403
     },
     "HEALTHADD": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0566,
-      "oneYearReturn": 0.1009,
-      "threeYearReturn": 0.0658,
-      "fiveYearReturn": 0.039,
-      "savedAt": 1780819100723
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": 0.0925,
+      "oneYearReturn": 0.1119,
+      "threeYearReturn": 0.0777,
+      "fiveYearReturn": 0.0459,
+      "savedAt": 1782550861403
     },
     "NETF": {
       "expenseRatio": 0.0004,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.105,
-      "oneYearReturn": -0.0551,
-      "threeYearReturn": 0.0871,
-      "fiveYearReturn": 0.0556,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0782,
+      "oneYearReturn": -0.0516,
+      "threeYearReturn": 0.094,
+      "fiveYearReturn": 0.0599,
+      "savedAt": 1782550861403
     },
     "MSCIINDIA": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0695,
-      "oneYearReturn": -0.0209,
-      "threeYearReturn": 0.0264,
-      "fiveYearReturn": 0.0158,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0503,
+      "oneYearReturn": -0.0237,
+      "threeYearReturn": 0.0335,
+      "fiveYearReturn": 0.0199,
+      "savedAt": 1782550861403
     },
     "NIFTYQLITY": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.0617,
-      "oneYearReturn": -0.023,
-      "threeYearReturn": 0.1062,
-      "fiveYearReturn": 0.0337,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0662,
+      "oneYearReturn": -0.0452,
+      "threeYearReturn": 0.1004,
+      "fiveYearReturn": 0.0327,
+      "savedAt": 1782550861403
     },
     "ELM250": {
       "expenseRatio": 0.0015,
       "category": null,
       "fundFamily": "Edelweiss AMC",
-      "ytdReturn": -0.0468,
-      "oneYearReturn": -0.0074,
-      "threeYearReturn": -0.0025,
-      "fiveYearReturn": -0.0015,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0285,
+      "oneYearReturn": 0.0117,
+      "threeYearReturn": 0.0039,
+      "fiveYearReturn": 0.0023,
+      "savedAt": 1782550861403
     },
     "TWCGOLDETF": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0123,
-      "oneYearReturn": 0.0123,
-      "threeYearReturn": 0.0041,
-      "fiveYearReturn": 0.0025,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0805,
+      "oneYearReturn": -0.0805,
+      "threeYearReturn": -0.0276,
+      "fiveYearReturn": -0.0166,
+      "savedAt": 1782550861403
     },
     "GROWWN200": {
       "expenseRatio": 0.0015,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": -0.0672,
-      "oneYearReturn": -0.0257,
-      "threeYearReturn": 0.0317,
-      "fiveYearReturn": 0.0189,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0442,
+      "oneYearReturn": -0.0225,
+      "threeYearReturn": 0.04,
+      "fiveYearReturn": 0.0238,
+      "savedAt": 1782550861403
     },
     "MONEXT50": {
       "expenseRatio": 0.0013,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.0149,
-      "oneYearReturn": 0.0423,
-      "threeYearReturn": 0.026,
-      "fiveYearReturn": 0.0155,
-      "savedAt": 1780819100735
+      "ytdReturn": 0.0432,
+      "oneYearReturn": 0.0574,
+      "threeYearReturn": 0.0355,
+      "fiveYearReturn": 0.0211,
+      "savedAt": 1782550861403
     },
     "IDFNIFTYET": {
       "expenseRatio": 0.0005,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.1015,
-      "oneYearReturn": -0.0525,
-      "threeYearReturn": 0.0898,
-      "fiveYearReturn": 0.0938,
-      "savedAt": 1780819100735
+      "fundFamily": "Bandhan Mutual Fund",
+      "ytdReturn": -0.0739,
+      "oneYearReturn": -0.0484,
+      "threeYearReturn": 0.0946,
+      "fiveYearReturn": 0.099,
+      "savedAt": 1782550861403
     },
     "HSBCGOLD": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "HSBC AMC",
-      "ytdReturn": 0.089,
-      "oneYearReturn": 0.089,
-      "threeYearReturn": 0.0288,
-      "fiveYearReturn": 0.0172,
-      "savedAt": 1780819100735
+      "ytdReturn": -0.0138,
+      "oneYearReturn": -0.0138,
+      "threeYearReturn": -0.0046,
+      "fiveYearReturn": -0.0028,
+      "savedAt": 1782550861403
     },
     "MOSERVICE": {
       "expenseRatio": 0.0035,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.1238,
-      "oneYearReturn": -0.1343,
-      "threeYearReturn": -0.0469,
-      "fiveYearReturn": -0.0284,
-      "savedAt": 1780819100735
+      "ytdReturn": -0.0924,
+      "oneYearReturn": -0.1033,
+      "threeYearReturn": -0.0357,
+      "fiveYearReturn": -0.0216,
+      "savedAt": 1782550861403
     },
     "FMCGADD": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0508,
-      "oneYearReturn": -0.0508,
-      "threeYearReturn": -0.0172,
-      "fiveYearReturn": -0.0104,
-      "savedAt": 1780819100735
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": -0.0234,
+      "oneYearReturn": -0.0234,
+      "threeYearReturn": -0.0079,
+      "fiveYearReturn": -0.0047,
+      "savedAt": 1782550861403
     },
     "LICNETFSEN": {
       "expenseRatio": 0.0005,
       "category": null,
       "fundFamily": "LIC Mutual Fund",
-      "ytdReturn": -0.1215,
-      "oneYearReturn": -0.0825,
-      "threeYearReturn": 0.0695,
-      "fiveYearReturn": 0.0863,
-      "savedAt": 1780819100735
+      "ytdReturn": -0.0914,
+      "oneYearReturn": -0.0786,
+      "threeYearReturn": 0.0737,
+      "fiveYearReturn": 0.0895,
+      "savedAt": 1782550861403
     },
     "MIDCAPADD": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0031,
-      "oneYearReturn": 0.0091,
-      "threeYearReturn": 0.003,
-      "fiveYearReturn": 0.0018,
-      "savedAt": 1780819100735
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": 0.0196,
+      "oneYearReturn": 0.0322,
+      "threeYearReturn": 0.0106,
+      "fiveYearReturn": 0.0064,
+      "savedAt": 1782550861403
     },
     "MSCIADD": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0555,
-      "oneYearReturn": -0.0555,
-      "threeYearReturn": -0.0188,
-      "fiveYearReturn": -0.0113,
-      "savedAt": 1780819100735
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": -0.0287,
+      "oneYearReturn": -0.0287,
+      "threeYearReturn": -0.0097,
+      "fiveYearReturn": -0.0058,
+      "savedAt": 1782550861403
     },
     "GOLDBETA": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.1586,
-      "oneYearReturn": 0.5831,
-      "threeYearReturn": 0.3662,
-      "fiveYearReturn": 0.2498,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0414,
+      "oneYearReturn": 0.445,
+      "threeYearReturn": 0.3295,
+      "fiveYearReturn": 0.2334,
+      "savedAt": 1782550861403
     },
     "ESILVER": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.1256,
-      "oneYearReturn": 1.3777,
-      "threeYearReturn": 0.5002,
-      "fiveYearReturn": 0.2755,
-      "savedAt": 1780819100687
+      "fundFamily": "Edelweiss AMC",
+      "ytdReturn": -0.0404,
+      "oneYearReturn": 1.0294,
+      "threeYearReturn": 0.4224,
+      "fiveYearReturn": 0.2354,
+      "savedAt": 1782550861403
     },
     "CPSEETF": {
       "expenseRatio": 0.0015,
       "category": null,
       "fundFamily": "Bharat Bond / CPSE ETF",
-      "ytdReturn": 0.0895,
-      "oneYearReturn": 0.078,
-      "threeYearReturn": 0.3292,
-      "fiveYearReturn": 0.3077,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0457,
+      "oneYearReturn": 0.0225,
+      "threeYearReturn": 0.3023,
+      "fiveYearReturn": 0.2948,
+      "savedAt": 1782550861403
     },
     "NEXT50IETF": {
       "expenseRatio": 0.0013,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.013,
-      "oneYearReturn": 0.0444,
-      "threeYearReturn": 0.1211,
-      "fiveYearReturn": 0.071,
-      "savedAt": 1780819100687
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": 0.0405,
+      "oneYearReturn": 0.0619,
+      "threeYearReturn": 0.1311,
+      "fiveYearReturn": 0.0767,
+      "savedAt": 1782550861403
     },
     "GSEC10YEAR": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0047,
-      "oneYearReturn": 0.0178,
-      "threeYearReturn": 0.0617,
-      "fiveYearReturn": 0.0366,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0098,
+      "oneYearReturn": 0.0253,
+      "threeYearReturn": 0.0635,
+      "fiveYearReturn": 0.0376,
+      "savedAt": 1782550861403
     },
     "AONELIQUID": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0209,
-      "oneYearReturn": 0.0508,
-      "threeYearReturn": 0.02,
-      "fiveYearReturn": 0.0119,
-      "savedAt": 1780819100687
+      "fundFamily": "Angel One AMC",
+      "ytdReturn": 0.0238,
+      "oneYearReturn": 0.0509,
+      "threeYearReturn": 0.0209,
+      "fiveYearReturn": 0.0125,
+      "savedAt": 1782550861403
     },
     "SETFNN50": {
       "expenseRatio": 0.0013,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": 0.0123,
-      "oneYearReturn": 0.0442,
-      "threeYearReturn": 0.1875,
-      "fiveYearReturn": 0.131,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0432,
+      "oneYearReturn": 0.0635,
+      "threeYearReturn": 0.1937,
+      "fiveYearReturn": 0.1406,
+      "savedAt": 1782550861403
     },
     "ITETF": {
       "expenseRatio": 0.0035,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.2331,
-      "oneYearReturn": -0.2056,
-      "threeYearReturn": -0.0745,
-      "fiveYearReturn": -0.0454,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.2773,
+      "oneYearReturn": -0.2818,
+      "threeYearReturn": -0.0927,
+      "fiveYearReturn": -0.0567,
+      "savedAt": 1782550861403
     },
     "ABSL10BANK": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "Aditya Birla Sun Life AMC",
-      "ytdReturn": -0.1229,
-      "oneYearReturn": -0.1229,
-      "threeYearReturn": -0.0428,
-      "fiveYearReturn": -0.0259,
-      "savedAt": 1780819100735
+      "ytdReturn": -0.0606,
+      "oneYearReturn": -0.0606,
+      "threeYearReturn": -0.0206,
+      "fiveYearReturn": -0.0124,
+      "savedAt": 1782550861403
     },
     "HDFCLOWVOL": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": -0.0825,
-      "oneYearReturn": -0.0164,
-      "threeYearReturn": -0.4926,
-      "fiveYearReturn": -0.3344,
-      "savedAt": 1780819100735
+      "ytdReturn": -0.0602,
+      "oneYearReturn": -0.0127,
+      "threeYearReturn": -0.4885,
+      "fiveYearReturn": -0.3312,
+      "savedAt": 1782550861403
     },
     "BBNPNBETF": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0833,
-      "oneYearReturn": -0.0241,
-      "threeYearReturn": 0.0471,
-      "fiveYearReturn": 0.028,
-      "savedAt": 1780819100735
+      "ytdReturn": -0.0192,
+      "oneYearReturn": 0.0294,
+      "threeYearReturn": 0.071,
+      "fiveYearReturn": 0.042,
+      "savedAt": 1782550861403
     },
     "LOWVOL": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0829,
-      "oneYearReturn": -0.0149,
-      "threeYearReturn": 0.1007,
-      "fiveYearReturn": 0.0592,
-      "savedAt": 1780819100735
+      "ytdReturn": -0.0602,
+      "oneYearReturn": -0.0153,
+      "threeYearReturn": 0.1097,
+      "fiveYearReturn": 0.0644,
+      "savedAt": 1782550861403
     },
     "EBANKNIFTY": {
       "expenseRatio": 0.0015,
       "category": null,
       "fundFamily": "Edelweiss AMC",
-      "ytdReturn": -0.0848,
-      "oneYearReturn": -0.0296,
-      "threeYearReturn": 0.0312,
-      "fiveYearReturn": 0.0186,
-      "savedAt": 1780819100735
+      "ytdReturn": -0.0239,
+      "oneYearReturn": 0.0206,
+      "threeYearReturn": 0.0535,
+      "fiveYearReturn": 0.0318,
+      "savedAt": 1782550861403
     },
     "LICNFNHGP": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "LIC Mutual Fund",
-      "ytdReturn": -0.0809,
-      "oneYearReturn": -0.0575,
-      "threeYearReturn": 0.1043,
-      "fiveYearReturn": 0.0964,
-      "savedAt": 1780819100735
+      "ytdReturn": -0.0509,
+      "oneYearReturn": -0.0287,
+      "threeYearReturn": 0.1089,
+      "fiveYearReturn": 0.1087,
+      "savedAt": 1782550861403
     },
     "GSEC10IETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0057,
-      "oneYearReturn": -0.001,
-      "threeYearReturn": 0.0184,
-      "fiveYearReturn": 0.011,
-      "savedAt": 1780819100735
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": 0.0164,
+      "oneYearReturn": 0.0229,
+      "threeYearReturn": 0.022,
+      "fiveYearReturn": 0.0131,
+      "savedAt": 1782550861403
     },
     "MOBANK10": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.0406,
-      "oneYearReturn": -0.0406,
-      "threeYearReturn": -0.0137,
-      "fiveYearReturn": -0.0083,
-      "savedAt": 1780819100735
+      "ytdReturn": 0.0364,
+      "oneYearReturn": 0.0364,
+      "threeYearReturn": 0.012,
+      "fiveYearReturn": 0.0072,
+      "savedAt": 1782550861403
     },
     "KOTAKNIFTY": {
       "expenseRatio": null,
@@ -6017,7 +6017,7 @@
       "oneYearReturn": null,
       "threeYearReturn": null,
       "fiveYearReturn": null,
-      "savedAt": 1780819100682
+      "savedAt": 1782550861403
     },
     "NIPPOFFSH": {
       "expenseRatio": null,
@@ -6027,7 +6027,7 @@
       "oneYearReturn": null,
       "threeYearReturn": null,
       "fiveYearReturn": null,
-      "savedAt": 1780819100682
+      "savedAt": 1782550861403
     },
     "HDFCNETF": {
       "expenseRatio": null,
@@ -6037,217 +6037,217 @@
       "oneYearReturn": null,
       "threeYearReturn": null,
       "fiveYearReturn": null,
-      "savedAt": 1780819100682
+      "savedAt": 1782550861403
     },
     "BANKBEES": {
       "expenseRatio": 0.0019,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.0849,
-      "oneYearReturn": -0.0324,
-      "threeYearReturn": 0.0793,
-      "fiveYearReturn": 0.0984,
-      "savedAt": 1780819100682
+      "ytdReturn": -0.0217,
+      "oneYearReturn": 0.0191,
+      "threeYearReturn": 0.1012,
+      "fiveYearReturn": 0.1112,
+      "savedAt": 1782550861403
     },
     "ITBEES": {
       "expenseRatio": 0.0035,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.2316,
-      "oneYearReturn": -0.2033,
-      "threeYearReturn": 0.0249,
-      "fiveYearReturn": 0.0286,
-      "savedAt": 1780819100682
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": -0.2766,
+      "oneYearReturn": -0.2821,
+      "threeYearReturn": 0.0015,
+      "fiveYearReturn": 0.0056,
+      "savedAt": 1782550861403
     },
     "PHARMABEES": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0733,
-      "oneYearReturn": 0.1267,
-      "threeYearReturn": 0.24,
-      "fiveYearReturn": 0.1144,
-      "savedAt": 1780819100682
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": 0.1047,
+      "oneYearReturn": 0.1447,
+      "threeYearReturn": 0.2301,
+      "fiveYearReturn": 0.1208,
+      "savedAt": 1782550861403
     },
     "SILVERBEES": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.1332,
-      "oneYearReturn": 1.3785,
-      "threeYearReturn": 0.5078,
-      "fiveYearReturn": 0.3192,
-      "savedAt": 1780819100682
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": -0.039,
+      "oneYearReturn": 1.032,
+      "threeYearReturn": 0.4456,
+      "fiveYearReturn": 0.2765,
+      "savedAt": 1782550861403
     },
     "MOMENTUM30": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.0348,
-      "oneYearReturn": -0.097,
-      "threeYearReturn": -0.0335,
-      "fiveYearReturn": -0.0202,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0045,
+      "oneYearReturn": -0.0687,
+      "threeYearReturn": -0.0234,
+      "fiveYearReturn": -0.0141,
+      "savedAt": 1782550861403
     },
     "MOLOWVOL": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.0823,
-      "oneYearReturn": -0.0436,
-      "threeYearReturn": 0.1092,
-      "fiveYearReturn": -0.2043,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0328,
+      "oneYearReturn": -0.019,
+      "threeYearReturn": 0.1145,
+      "fiveYearReturn": -0.1959,
+      "savedAt": 1782550861403
     },
     "LICNETFN50": {
       "expenseRatio": 0.0005,
       "category": null,
       "fundFamily": "LIC Mutual Fund",
-      "ytdReturn": -0.1016,
-      "oneYearReturn": -0.0533,
-      "threeYearReturn": 0.0911,
-      "fiveYearReturn": 0.0556,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0714,
+      "oneYearReturn": -0.0454,
+      "threeYearReturn": 0.0966,
+      "fiveYearReturn": 0.0606,
+      "savedAt": 1782550861403
     },
     "VALUE": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0937,
-      "oneYearReturn": 0.0937,
-      "threeYearReturn": 0.0303,
-      "fiveYearReturn": 0.0181,
-      "savedAt": 1780819100723
+      "ytdReturn": 0.0733,
+      "oneYearReturn": 0.0733,
+      "threeYearReturn": 0.0238,
+      "fiveYearReturn": 0.0142,
+      "savedAt": 1782550861403
     },
     "LICNETFGSC": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "LIC Mutual Fund",
-      "ytdReturn": 0.0059,
-      "oneYearReturn": 0.014,
-      "threeYearReturn": 0.0692,
-      "fiveYearReturn": 0.0547,
-      "savedAt": 1780819100723
+      "ytdReturn": 0.0216,
+      "oneYearReturn": 0.0338,
+      "threeYearReturn": 0.072,
+      "fiveYearReturn": 0.0594,
+      "savedAt": 1782550861403
     },
     "SBIETFCON": {
       "expenseRatio": 0.0035,
       "category": null,
       "fundFamily": "SBI Funds Management",
-      "ytdReturn": -0.0793,
-      "oneYearReturn": -0.0255,
-      "threeYearReturn": 0.1231,
-      "fiveYearReturn": 0.1256,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0494,
+      "oneYearReturn": -0.0168,
+      "threeYearReturn": 0.1271,
+      "fiveYearReturn": 0.1328,
+      "savedAt": 1782550861403
     },
     "DIVIDEND": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0203,
-      "oneYearReturn": -0.0203,
-      "threeYearReturn": -0.0068,
-      "fiveYearReturn": -0.0041,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0436,
+      "oneYearReturn": -0.0436,
+      "threeYearReturn": -0.0147,
+      "fiveYearReturn": -0.0089,
+      "savedAt": 1782550861403
     },
     "SELECTIPO": {
       "expenseRatio": 0.005,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0678,
-      "oneYearReturn": -0.1198,
-      "threeYearReturn": 0.0271,
-      "fiveYearReturn": 0.0162,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0267,
+      "oneYearReturn": -0.0884,
+      "threeYearReturn": 0.042,
+      "fiveYearReturn": 0.025,
+      "savedAt": 1782550861403
     },
     "MOCAPITAL": {
       "expenseRatio": 0.0035,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.0652,
-      "oneYearReturn": -0.0652,
-      "threeYearReturn": -0.0222,
-      "fiveYearReturn": -0.0134,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.036,
+      "oneYearReturn": -0.036,
+      "threeYearReturn": -0.0121,
+      "fiveYearReturn": -0.0073,
+      "savedAt": 1782550861403
     },
     "MOSMALL250": {
       "expenseRatio": 0.003,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.0209,
-      "oneYearReturn": -0.011,
-      "threeYearReturn": 0.0683,
-      "fiveYearReturn": 0.0404,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0604,
+      "oneYearReturn": 0.0034,
+      "threeYearReturn": 0.0819,
+      "fiveYearReturn": 0.0484,
+      "savedAt": 1782550861403
     },
     "NEXT50": {
       "expenseRatio": 0.0013,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0118,
-      "oneYearReturn": 0.0445,
-      "threeYearReturn": 0.1702,
-      "fiveYearReturn": 0.0989,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0399,
+      "oneYearReturn": 0.0613,
+      "threeYearReturn": 0.181,
+      "fiveYearReturn": 0.1049,
+      "savedAt": 1782550861403
     },
     "GROWWSLVR": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": -0.8878,
-      "oneYearReturn": -0.7619,
-      "threeYearReturn": -0.3651,
-      "fiveYearReturn": -0.2386,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.9047,
+      "oneYearReturn": -0.7974,
+      "threeYearReturn": -0.3986,
+      "fiveYearReturn": -0.263,
+      "savedAt": 1782550861403
     },
     "AXISGOLD": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Axis AMC",
-      "ytdReturn": 0.1543,
-      "oneYearReturn": 0.5729,
-      "threeYearReturn": 0.3613,
-      "fiveYearReturn": 0.2488,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0351,
+      "oneYearReturn": 0.4378,
+      "threeYearReturn": 0.3239,
+      "fiveYearReturn": 0.2314,
+      "savedAt": 1782550861403
     },
     "NIFTYETF": {
       "expenseRatio": 0.0007,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.102,
-      "oneYearReturn": -0.056,
-      "threeYearReturn": 0.0897,
-      "fiveYearReturn": 0.0941,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.0744,
+      "oneYearReturn": -0.0511,
+      "threeYearReturn": 0.0939,
+      "fiveYearReturn": 0.0994,
+      "savedAt": 1782550861403
     },
     "AXISNIFTY": {
       "expenseRatio": 0.0005,
       "category": null,
       "fundFamily": "Axis AMC",
-      "ytdReturn": -0.1008,
-      "oneYearReturn": -0.0525,
-      "threeYearReturn": 0.0903,
-      "fiveYearReturn": 0.0912,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.0732,
+      "oneYearReturn": -0.0485,
+      "threeYearReturn": 0.095,
+      "fiveYearReturn": 0.1006,
+      "savedAt": 1782550861403
     },
     "PSUBANK": {
       "expenseRatio": 0.0019,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.03,
-      "oneYearReturn": 0.1685,
-      "threeYearReturn": 0.2682,
-      "fiveYearReturn": 0.2784,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0107,
+      "oneYearReturn": 0.2317,
+      "threeYearReturn": 0.291,
+      "fiveYearReturn": 0.2808,
+      "savedAt": 1782550861403
     },
     "BBETF0432": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0012,
-      "oneYearReturn": 0.0202,
-      "threeYearReturn": 0.0666,
-      "fiveYearReturn": 0.0553,
-      "savedAt": 1780819100709
+      "fundFamily": "Edelweiss AMC",
+      "ytdReturn": 0.0228,
+      "oneYearReturn": 0.0512,
+      "threeYearReturn": 0.0759,
+      "fiveYearReturn": 0.0604,
+      "savedAt": 1782550861403
     },
     "ABSLLIQUID": {
       "expenseRatio": null,
@@ -6257,467 +6257,467 @@
       "oneYearReturn": 0.0328,
       "threeYearReturn": 0.0391,
       "fiveYearReturn": 0.024,
-      "savedAt": 1780819100709
+      "savedAt": 1782550861403
     },
     "SETF10GILT": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": 0.0032,
-      "oneYearReturn": 0.0043,
-      "threeYearReturn": 0.0619,
-      "fiveYearReturn": 0.0474,
-      "savedAt": 1780819100709
+      "ytdReturn": 0.0181,
+      "oneYearReturn": 0.022,
+      "threeYearReturn": 0.067,
+      "fiveYearReturn": 0.0503,
+      "savedAt": 1782550861403
     },
     "BFSI": {
       "expenseRatio": 0.0035,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0927,
-      "oneYearReturn": -0.0598,
-      "threeYearReturn": 0.0887,
-      "fiveYearReturn": 0.0523,
-      "savedAt": 1780819100709
+      "ytdReturn": -0.028,
+      "oneYearReturn": -0.0089,
+      "threeYearReturn": 0.114,
+      "fiveYearReturn": 0.0669,
+      "savedAt": 1782550861403
     },
     "AXISVALUE": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Axis AMC",
-      "ytdReturn": 0.0628,
-      "oneYearReturn": 0.1922,
-      "threeYearReturn": 0.0919,
-      "fiveYearReturn": 0.0542,
-      "savedAt": 1780819100709
+      "ytdReturn": 0.0439,
+      "oneYearReturn": 0.1434,
+      "threeYearReturn": 0.0854,
+      "fiveYearReturn": 0.0504,
+      "savedAt": 1782550861403
     },
     "TOP100CASE": {
       "expenseRatio": 0.0015,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0861,
-      "oneYearReturn": -0.0378,
-      "threeYearReturn": 0.0018,
-      "fiveYearReturn": 0.0011,
-      "savedAt": 1780819100709
+      "fundFamily": "Mirae Asset AMC",
+      "ytdReturn": -0.0565,
+      "oneYearReturn": -0.0295,
+      "threeYearReturn": 0.0125,
+      "fiveYearReturn": 0.0075,
+      "savedAt": 1782550861403
     },
     "PSUBANKADD": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.03,
-      "oneYearReturn": 0.1715,
-      "threeYearReturn": 0.2337,
-      "fiveYearReturn": 0.1343,
-      "savedAt": 1780819100709
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": 0.0172,
+      "oneYearReturn": 0.2391,
+      "threeYearReturn": 0.2534,
+      "fiveYearReturn": 0.1451,
+      "savedAt": 1782550861403
     },
     "SMALL250": {
       "expenseRatio": 0.003,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0234,
-      "oneYearReturn": -0.0012,
-      "threeYearReturn": -0.0004,
-      "fiveYearReturn": -0.0002,
-      "savedAt": 1780819100709
+      "ytdReturn": 0.0618,
+      "oneYearReturn": 0.0363,
+      "threeYearReturn": 0.012,
+      "fiveYearReturn": 0.0072,
+      "savedAt": 1782550861403
     },
     "MSCI360": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0162,
-      "oneYearReturn": -0.0162,
-      "threeYearReturn": -0.0054,
-      "fiveYearReturn": -0.0033,
-      "savedAt": 1780819100735
+      "ytdReturn": 0.0192,
+      "oneYearReturn": 0.0192,
+      "threeYearReturn": 0.0064,
+      "fiveYearReturn": 0.0038,
+      "savedAt": 1782550861403
     },
     "MOPSE": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.024,
-      "oneYearReturn": 0.0245,
-      "threeYearReturn": 0.0099,
-      "fiveYearReturn": 0.0059,
-      "savedAt": 1780819100735
+      "ytdReturn": 0.0106,
+      "oneYearReturn": 0.0041,
+      "threeYearReturn": 0.0054,
+      "fiveYearReturn": 0.0033,
+      "savedAt": 1782550861403
     },
     "GILT10BETA": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0069,
-      "oneYearReturn": -0.0061,
-      "threeYearReturn": 0.0124,
-      "fiveYearReturn": 0.0074,
-      "savedAt": 1780819100735
+      "ytdReturn": 0.0222,
+      "oneYearReturn": 0.0226,
+      "threeYearReturn": 0.0222,
+      "fiveYearReturn": 0.0133,
+      "savedAt": 1782550861403
     },
     "MOMNC": {
       "expenseRatio": 0.0035,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.037,
-      "oneYearReturn": 0.0487,
-      "threeYearReturn": 0.016,
-      "fiveYearReturn": 0.0096,
-      "savedAt": 1780819100735
+      "ytdReturn": 0.0597,
+      "oneYearReturn": 0.0716,
+      "threeYearReturn": 0.0233,
+      "fiveYearReturn": 0.0139,
+      "savedAt": 1782550861403
     },
     "MOIPO": {
       "expenseRatio": 0.005,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.068,
-      "oneYearReturn": -0.108,
-      "threeYearReturn": -0.0374,
-      "fiveYearReturn": -0.0226,
-      "savedAt": 1780819100735
+      "ytdReturn": -0.0326,
+      "oneYearReturn": -0.0741,
+      "threeYearReturn": -0.0253,
+      "fiveYearReturn": -0.0153,
+      "savedAt": 1782550861403
     },
     "GILT5BETA": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0326,
-      "oneYearReturn": 0.0364,
-      "threeYearReturn": 0.0224,
-      "fiveYearReturn": 0.0134,
-      "savedAt": 1780819100735
+      "ytdReturn": 0.053,
+      "oneYearReturn": 0.0611,
+      "threeYearReturn": 0.0291,
+      "fiveYearReturn": 0.0174,
+      "savedAt": 1782550861403
     },
     "EQUAL200": {
       "expenseRatio": 0.003,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0158,
-      "oneYearReturn": 0.0199,
-      "threeYearReturn": 0.0556,
-      "fiveYearReturn": 0.033,
-      "savedAt": 1780819100735
+      "ytdReturn": 0.0027,
+      "oneYearReturn": 0.0288,
+      "threeYearReturn": 0.0622,
+      "fiveYearReturn": 0.0369,
+      "savedAt": 1782550861403
     },
     "ENEXT50": {
       "expenseRatio": 0.0013,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0119,
-      "oneYearReturn": -0.0119,
-      "threeYearReturn": -0.004,
-      "fiveYearReturn": -0.0024,
-      "savedAt": 1780819100735
+      "fundFamily": "Edelweiss AMC",
+      "ytdReturn": -0.0011,
+      "oneYearReturn": -0.0011,
+      "threeYearReturn": -0.0004,
+      "fiveYearReturn": -0.0002,
+      "savedAt": 1782550861403
     },
     "SML100CASE": {
       "expenseRatio": 0.003,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0253,
-      "oneYearReturn": 0.0031,
-      "threeYearReturn": 0.001,
-      "fiveYearReturn": 0.0006,
-      "savedAt": 1780819101674
+      "fundFamily": "Mirae Asset AMC",
+      "ytdReturn": 0.0633,
+      "oneYearReturn": 0.0403,
+      "threeYearReturn": 0.0133,
+      "fiveYearReturn": 0.0079,
+      "savedAt": 1782550861403
     },
     "BANKNIFTY1": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.9086,
-      "oneYearReturn": -0.9031,
-      "threeYearReturn": -0.4985,
-      "fiveYearReturn": -0.3071,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.9023,
+      "oneYearReturn": -0.8981,
+      "threeYearReturn": -0.4888,
+      "fiveYearReturn": -0.299,
+      "savedAt": 1782550861403
     },
     "MOMENTUM50": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.0115,
-      "oneYearReturn": -0.0432,
-      "threeYearReturn": -0.0675,
-      "fiveYearReturn": -0.0411,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.0239,
+      "oneYearReturn": -0.0323,
+      "threeYearReturn": -0.0565,
+      "fiveYearReturn": -0.0343,
+      "savedAt": 1782550861403
     },
     "MOM30IETF": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.0412,
-      "oneYearReturn": -0.0424,
-      "threeYearReturn": -0.0559,
-      "fiveYearReturn": -0.0339,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.0022,
+      "oneYearReturn": -0.0216,
+      "threeYearReturn": -0.0432,
+      "fiveYearReturn": -0.0262,
+      "savedAt": 1782550861403
     },
     "MAFANG": {
       "expenseRatio": 0.0065,
       "category": null,
       "fundFamily": "Mirae Asset AMC",
-      "ytdReturn": 0.2236,
-      "oneYearReturn": 0.5257,
-      "threeYearReturn": 0.5098,
-      "fiveYearReturn": 0.3312,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.1032,
+      "oneYearReturn": 0.3477,
+      "threeYearReturn": 0.4449,
+      "fiveYearReturn": 0.2821,
+      "savedAt": 1782550861403
     },
     "BSLGOLDETF": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Aditya Birla Sun Life AMC",
-      "ytdReturn": 0.1561,
-      "oneYearReturn": 0.5793,
-      "threeYearReturn": 0.3625,
-      "fiveYearReturn": -0.5027,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.0396,
+      "oneYearReturn": 0.4447,
+      "threeYearReturn": 0.3262,
+      "fiveYearReturn": -0.5093,
+      "savedAt": 1782550861403
     },
     "ITIETF": {
       "expenseRatio": 0.0035,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.2313,
-      "oneYearReturn": -0.2038,
-      "threeYearReturn": -0.0297,
-      "fiveYearReturn": -0.0179,
-      "savedAt": 1780819101674
+      "fundFamily": "ITI Mutual Fund",
+      "ytdReturn": -0.2757,
+      "oneYearReturn": -0.2785,
+      "threeYearReturn": -0.0487,
+      "fiveYearReturn": -0.0295,
+      "savedAt": 1782550861403
     },
     "ENERGY": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.1388,
-      "oneYearReturn": 0.1259,
-      "threeYearReturn": 0.0403,
-      "fiveYearReturn": 0.024,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.1199,
+      "oneYearReturn": 0.1072,
+      "threeYearReturn": 0.0345,
+      "fiveYearReturn": 0.0206,
+      "savedAt": 1782550861403
     },
     "TOP20": {
       "expenseRatio": 0.0015,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.113,
-      "oneYearReturn": -0.113,
-      "threeYearReturn": -0.0392,
-      "fiveYearReturn": -0.0237,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0845,
+      "oneYearReturn": -0.0845,
+      "threeYearReturn": -0.029,
+      "fiveYearReturn": -0.0175,
+      "savedAt": 1782550861403
     },
     "MIDCAPBETA": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0017,
-      "oneYearReturn": 0.0087,
-      "threeYearReturn": 0.0029,
-      "fiveYearReturn": 0.0017,
-      "savedAt": 1780819100723
+      "ytdReturn": 0.018,
+      "oneYearReturn": 0.0286,
+      "threeYearReturn": 0.0094,
+      "fiveYearReturn": 0.0057,
+      "savedAt": 1782550861403
     },
     "ESENSEX": {
       "expenseRatio": 0.0007,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.1299,
-      "oneYearReturn": -0.1549,
-      "threeYearReturn": -0.0546,
-      "fiveYearReturn": -0.0331,
-      "savedAt": 1780819100723
+      "fundFamily": "Edelweiss AMC",
+      "ytdReturn": -0.0897,
+      "oneYearReturn": -0.1159,
+      "threeYearReturn": -0.0402,
+      "fiveYearReturn": -0.0243,
+      "savedAt": 1782550861403
     },
     "BSLSENETFG": {
       "expenseRatio": 0.0005,
       "category": null,
       "fundFamily": "Aditya Birla Sun Life AMC",
-      "ytdReturn": -0.1267,
-      "oneYearReturn": -0.0856,
-      "threeYearReturn": 0.0092,
-      "fiveYearReturn": 0.0055,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0894,
+      "oneYearReturn": -0.0697,
+      "threeYearReturn": 0.0233,
+      "fiveYearReturn": 0.0139,
+      "savedAt": 1782550861403
     },
     "BANK10ADD": {
       "expenseRatio": 0.0019,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0416,
-      "oneYearReturn": -0.0416,
-      "threeYearReturn": -0.0141,
-      "fiveYearReturn": -0.0085,
-      "savedAt": 1780819100723
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": 0.0371,
+      "oneYearReturn": 0.0371,
+      "threeYearReturn": 0.0122,
+      "fiveYearReturn": 0.0073,
+      "savedAt": 1782550861403
     },
     "AXISHCETF": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Axis AMC",
-      "ytdReturn": 0.0506,
-      "oneYearReturn": 0.0938,
-      "threeYearReturn": 0.2274,
-      "fiveYearReturn": 0.1275,
-      "savedAt": 1780819100723
+      "ytdReturn": 0.0945,
+      "oneYearReturn": 0.1164,
+      "threeYearReturn": 0.2221,
+      "fiveYearReturn": 0.1338,
+      "savedAt": 1782550861403
     },
     "SBIETFQLTY": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "SBI Funds Management",
-      "ytdReturn": -0.0616,
-      "oneYearReturn": -0.0235,
-      "threeYearReturn": 0.1054,
-      "fiveYearReturn": 0.0977,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0708,
+      "oneYearReturn": -0.0496,
+      "threeYearReturn": 0.0976,
+      "fiveYearReturn": 0.0926,
+      "savedAt": 1782550861403
     },
     "MON50EQUAL": {
       "expenseRatio": 0.003,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.0316,
-      "oneYearReturn": 0.0417,
-      "threeYearReturn": 0.0245,
-      "fiveYearReturn": 0.0147,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0164,
+      "oneYearReturn": 0.0319,
+      "threeYearReturn": 0.0299,
+      "fiveYearReturn": 0.0178,
+      "savedAt": 1782550861403
     },
     "ALPHAETF": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0211,
-      "oneYearReturn": 0.0075,
-      "threeYearReturn": 0.0708,
-      "fiveYearReturn": 0.0419,
-      "savedAt": 1780819100709
+      "ytdReturn": 0.0435,
+      "oneYearReturn": 0.0112,
+      "threeYearReturn": 0.0786,
+      "fiveYearReturn": 0.0464,
+      "savedAt": 1782550861403
     },
     "MOMIDMTM": {
       "expenseRatio": 0.0035,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.0013,
-      "oneYearReturn": -0.0255,
-      "threeYearReturn": -0.0086,
-      "fiveYearReturn": -0.0052,
-      "savedAt": 1780819100709
+      "ytdReturn": 0.0238,
+      "oneYearReturn": -0.0036,
+      "threeYearReturn": -0.0012,
+      "fiveYearReturn": -0.0007,
+      "savedAt": 1782550861403
     },
     "SBIETFIT": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "SBI Funds Management",
-      "ytdReturn": -0.2313,
-      "oneYearReturn": -0.2042,
-      "threeYearReturn": 0.0248,
-      "fiveYearReturn": 0.0282,
-      "savedAt": 1780819100709
+      "ytdReturn": -0.2766,
+      "oneYearReturn": -0.2824,
+      "threeYearReturn": 0.0009,
+      "fiveYearReturn": 0.0051,
+      "savedAt": 1782550861403
     },
     "NV20IETF": {
       "expenseRatio": 0.004,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0928,
-      "oneYearReturn": -0.0579,
-      "threeYearReturn": 0.0902,
-      "fiveYearReturn": 0.1035,
-      "savedAt": 1780819100709
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.0875,
+      "oneYearReturn": -0.0665,
+      "threeYearReturn": 0.0893,
+      "fiveYearReturn": 0.0998,
+      "savedAt": 1782550861403
     },
     "NIFTYBETA": {
       "expenseRatio": 0.001,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.1023,
-      "oneYearReturn": -0.1004,
-      "threeYearReturn": -0.0346,
-      "fiveYearReturn": -0.0209,
-      "savedAt": 1780819100709
+      "ytdReturn": -0.0745,
+      "oneYearReturn": -0.0726,
+      "threeYearReturn": -0.0248,
+      "fiveYearReturn": -0.015,
+      "savedAt": 1782550861403
     },
     "LTGILTCASE": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0054,
-      "oneYearReturn": 0.0219,
-      "threeYearReturn": 0.0072,
-      "fiveYearReturn": 0.0043,
-      "savedAt": 1780819100709
+      "fundFamily": "Mirae Asset AMC",
+      "ytdReturn": 0.0202,
+      "oneYearReturn": 0.0369,
+      "threeYearReturn": 0.0122,
+      "fiveYearReturn": 0.0073,
+      "savedAt": 1782550861403
     },
     "BANKBETA": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0852,
-      "oneYearReturn": -0.0842,
-      "threeYearReturn": -0.0289,
-      "fiveYearReturn": -0.0174,
-      "savedAt": 1780819100709
+      "ytdReturn": -0.0203,
+      "oneYearReturn": -0.0192,
+      "threeYearReturn": -0.0064,
+      "fiveYearReturn": -0.0039,
+      "savedAt": 1782550861403
     },
     "LICMFGOLD": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "LIC Mutual Fund",
-      "ytdReturn": -0.9885,
-      "oneYearReturn": -0.9843,
-      "threeYearReturn": -0.7061,
-      "fiveYearReturn": -0.5012,
-      "savedAt": 1780819100709
+      "ytdReturn": -0.9896,
+      "oneYearReturn": -0.9855,
+      "threeYearReturn": -0.7132,
+      "fiveYearReturn": -0.5079,
+      "savedAt": 1782550861403
     },
     "METAL": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.1779,
-      "oneYearReturn": 0.416,
-      "threeYearReturn": 0.1044,
-      "fiveYearReturn": 0.0614,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.1124,
+      "oneYearReturn": 0.308,
+      "threeYearReturn": 0.0836,
+      "fiveYearReturn": 0.0493,
+      "savedAt": 1782550861403
     },
     "ICICIB22": {
       "expenseRatio": 0.0014,
       "category": null,
       "fundFamily": "ICICI Prudential AMC",
-      "ytdReturn": 0.0066,
-      "oneYearReturn": 0.076,
-      "threeYearReturn": 0.2221,
-      "fiveYearReturn": 0.2399,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0126,
+      "oneYearReturn": 0.0715,
+      "threeYearReturn": 0.2176,
+      "fiveYearReturn": 0.2433,
+      "savedAt": 1782550861403
     },
     "SBILIQETF": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "SBI Funds Management",
-      "ytdReturn": 0.0208,
-      "oneYearReturn": 0.041,
-      "threeYearReturn": 0.0135,
-      "fiveYearReturn": 0.0081,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0237,
+      "oneYearReturn": 0.044,
+      "threeYearReturn": 0.0144,
+      "fiveYearReturn": 0.0086,
+      "savedAt": 1782550861403
     },
     "EBBETF0430": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0056,
-      "oneYearReturn": 0.0337,
-      "threeYearReturn": 0.0685,
-      "fiveYearReturn": 0.0628,
-      "savedAt": 1780819100687
+      "fundFamily": "Edelweiss AMC",
+      "ytdReturn": 0.0228,
+      "oneYearReturn": 0.0539,
+      "threeYearReturn": 0.0756,
+      "fiveYearReturn": 0.0663,
+      "savedAt": 1782550861403
     },
     "GROWWGOLD": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": -0.8845,
-      "oneYearReturn": -0.8431,
-      "threeYearReturn": -0.4215,
-      "fiveYearReturn": -0.2799,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.8949,
+      "oneYearReturn": -0.855,
+      "threeYearReturn": -0.4393,
+      "fiveYearReturn": -0.2933,
+      "savedAt": 1782550861403
     },
     "AUTOBEES": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0791,
-      "oneYearReturn": 0.1158,
-      "threeYearReturn": 0.2204,
-      "fiveYearReturn": 0.1907,
-      "savedAt": 1780819100687
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": -0.053,
+      "oneYearReturn": 0.1309,
+      "threeYearReturn": 0.2278,
+      "fiveYearReturn": 0.1973,
+      "savedAt": 1782550861403
     },
     "FMCGIETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0998,
-      "oneYearReturn": -0.1282,
-      "threeYearReturn": -0.0048,
-      "fiveYearReturn": 0.0724,
-      "savedAt": 1780819100687
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.0798,
+      "oneYearReturn": -0.0982,
+      "threeYearReturn": -0.003,
+      "fiveYearReturn": 0.0771,
+      "savedAt": 1782550861403
     },
     "SMALLCAP": {
       "expenseRatio": 0.003,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0216,
-      "oneYearReturn": -0.0529,
-      "threeYearReturn": 0.027,
-      "fiveYearReturn": 0.0161,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0562,
+      "oneYearReturn": -0.0397,
+      "threeYearReturn": 0.0385,
+      "fiveYearReturn": 0.0229,
+      "savedAt": 1782550861403
     },
     "LIQUIDBEES": {
       "expenseRatio": null,
@@ -6727,17 +6727,17 @@
       "oneYearReturn": 0.0131,
       "threeYearReturn": 0.0365,
       "fiveYearReturn": 0.0367,
-      "savedAt": 1780819100682
+      "savedAt": 1782550861403
     },
     "LIQUIDCASE": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0208,
+      "fundFamily": "Mirae Asset AMC",
+      "ytdReturn": 0.0236,
       "oneYearReturn": 0.0503,
-      "threeYearReturn": 0.0459,
-      "fiveYearReturn": 0.0273,
-      "savedAt": 1780819100682
+      "threeYearReturn": 0.0469,
+      "fiveYearReturn": 0.0279,
+      "savedAt": 1782550861403
     },
     "LIQUIDETF": {
       "expenseRatio": null,
@@ -6747,1807 +6747,1807 @@
       "oneYearReturn": 0.0377,
       "threeYearReturn": 0.05,
       "fiveYearReturn": 0.046,
-      "savedAt": 1780819100682
+      "savedAt": 1782550861403
     },
     "SBISILVER": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "SBI Funds Management",
-      "ytdReturn": 0.1323,
-      "oneYearReturn": 1.3784,
-      "threeYearReturn": 0.3967,
-      "fiveYearReturn": 0.222,
-      "savedAt": 1780819100682
+      "ytdReturn": -0.0382,
+      "oneYearReturn": 1.0235,
+      "threeYearReturn": 0.3227,
+      "fiveYearReturn": 0.1827,
+      "savedAt": 1782550861403
     },
     "SILVERIETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.1303,
-      "oneYearReturn": 1.3868,
-      "threeYearReturn": 0.3923,
-      "fiveYearReturn": 0.2197,
-      "savedAt": 1780819100682
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.0384,
+      "oneYearReturn": 1.044,
+      "threeYearReturn": 0.3193,
+      "fiveYearReturn": 0.1809,
+      "savedAt": 1782550861403
     },
     "TATSILV": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.131,
-      "oneYearReturn": 1.3819,
-      "threeYearReturn": 0.4513,
-      "fiveYearReturn": 0.2504,
-      "savedAt": 1780819100682
+      "fundFamily": "Tata AMC",
+      "ytdReturn": -0.0375,
+      "oneYearReturn": 1.0349,
+      "threeYearReturn": 0.3753,
+      "fiveYearReturn": 0.2107,
+      "savedAt": 1782550861403
     },
     "SETFGOLD": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": 0.1562,
-      "oneYearReturn": 0.5746,
-      "threeYearReturn": 0.3614,
-      "fiveYearReturn": 0.2483,
-      "savedAt": 1780819100682
+      "ytdReturn": 0.0381,
+      "oneYearReturn": 0.4386,
+      "threeYearReturn": 0.3237,
+      "fiveYearReturn": 0.2311,
+      "savedAt": 1782550861403
     },
     "HDFCSILVER": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": 0.1318,
-      "oneYearReturn": 1.3692,
-      "threeYearReturn": 0.3849,
-      "fiveYearReturn": 0.2158,
-      "savedAt": 1780819100682
+      "ytdReturn": -0.0406,
+      "oneYearReturn": 1.0251,
+      "threeYearReturn": 0.3107,
+      "fiveYearReturn": 0.1763,
+      "savedAt": 1782550861403
     },
     "GROWWDEFNC": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": 0.1772,
-      "oneYearReturn": 0.0178,
-      "threeYearReturn": 0.1062,
-      "fiveYearReturn": 0.0624,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.2153,
+      "oneYearReturn": 0.0715,
+      "threeYearReturn": 0.1181,
+      "fiveYearReturn": 0.0692,
+      "savedAt": 1782550861403
     },
     "NIFTY1": {
       "expenseRatio": 0.0007,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.1035,
-      "oneYearReturn": -0.0532,
-      "threeYearReturn": 0.0906,
-      "fiveYearReturn": 0.0945,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.0761,
+      "oneYearReturn": -0.0494,
+      "threeYearReturn": 0.0958,
+      "fiveYearReturn": 0.0993,
+      "savedAt": 1782550861403
     },
     "HDFCLIQUID": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": 0.0204,
-      "oneYearReturn": 0.0613,
-      "threeYearReturn": 0.0486,
-      "fiveYearReturn": 0.0289,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.0234,
+      "oneYearReturn": 0.0644,
+      "threeYearReturn": 0.0496,
+      "fiveYearReturn": 0.0295,
+      "savedAt": 1782550861403
     },
     "GROWWRAIL": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": -0.1627,
-      "oneYearReturn": -0.2612,
-      "threeYearReturn": -0.0582,
-      "fiveYearReturn": -0.0353,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.17,
+      "oneYearReturn": -0.241,
+      "threeYearReturn": -0.061,
+      "fiveYearReturn": -0.037,
+      "savedAt": 1782550861403
     },
     "SENSEXIETF": {
       "expenseRatio": 0.0013,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.1273,
-      "oneYearReturn": -0.088,
-      "threeYearReturn": 0.0312,
-      "fiveYearReturn": 0.0186,
-      "savedAt": 1780819101674
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.0907,
+      "oneYearReturn": -0.0737,
+      "threeYearReturn": 0.0454,
+      "fiveYearReturn": 0.027,
+      "savedAt": 1782550861403
     },
     "PSUBNKIETF": {
       "expenseRatio": 0.0035,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0259,
-      "oneYearReturn": 0.1734,
-      "threeYearReturn": 0.2705,
-      "fiveYearReturn": 0.1813,
-      "savedAt": 1780819101674
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": 0.0153,
+      "oneYearReturn": 0.2368,
+      "threeYearReturn": 0.2939,
+      "fiveYearReturn": 0.1911,
+      "savedAt": 1782550861403
     },
     "MOM100": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.0024,
-      "oneYearReturn": 0.0354,
-      "threeYearReturn": 0.2188,
-      "fiveYearReturn": 0.1824,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.0203,
+      "oneYearReturn": 0.0464,
+      "threeYearReturn": 0.2107,
+      "fiveYearReturn": 0.188,
+      "savedAt": 1782550861403
     },
     "LIQGRWBEES": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0198,
-      "oneYearReturn": 0.0413,
-      "threeYearReturn": 0.0136,
-      "fiveYearReturn": 0.0081,
-      "savedAt": 1780819101674
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": 0.0225,
+      "oneYearReturn": 0.0441,
+      "threeYearReturn": 0.0145,
+      "fiveYearReturn": 0.0087,
+      "savedAt": 1782550861403
     },
     "SBISMLETF": {
       "expenseRatio": 0.003,
       "category": null,
       "fundFamily": "SBI Funds Management",
-      "ytdReturn": 0.0018,
-      "oneYearReturn": 0.0018,
-      "threeYearReturn": 0.0006,
-      "fiveYearReturn": 0.0004,
-      "savedAt": 1780819100723
+      "ytdReturn": 0.0406,
+      "oneYearReturn": 0.0406,
+      "threeYearReturn": 0.0134,
+      "fiveYearReturn": 0.008,
+      "savedAt": 1782550861403
     },
     "SBINMID150": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "SBI Funds Management",
-      "ytdReturn": 0.1015,
-      "oneYearReturn": 0.1015,
-      "threeYearReturn": 0.0328,
-      "fiveYearReturn": 0.0195,
-      "savedAt": 1780819100723
+      "ytdReturn": 0.1242,
+      "oneYearReturn": 0.1242,
+      "threeYearReturn": 0.0398,
+      "fiveYearReturn": 0.0237,
+      "savedAt": 1782550861403
     },
     "SNXT30BEES": {
       "expenseRatio": 0.0013,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0276,
-      "oneYearReturn": 0.1075,
-      "threeYearReturn": 0.0346,
-      "fiveYearReturn": 0.0206,
-      "savedAt": 1780819100723
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": 0.0254,
+      "oneYearReturn": 0.0663,
+      "threeYearReturn": 0.0339,
+      "fiveYearReturn": 0.0202,
+      "savedAt": 1782550861403
     },
     "GROWWPSE": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": -0.0231,
-      "oneYearReturn": -0.0231,
-      "threeYearReturn": -0.0078,
-      "fiveYearReturn": -0.0047,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0368,
+      "oneYearReturn": -0.0368,
+      "threeYearReturn": -0.0124,
+      "fiveYearReturn": -0.0075,
+      "savedAt": 1782550861403
     },
     "ITBETA": {
       "expenseRatio": 0.0035,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.234,
-      "oneYearReturn": -0.2085,
-      "threeYearReturn": -0.0594,
-      "fiveYearReturn": -0.0361,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.2746,
+      "oneYearReturn": -0.2843,
+      "threeYearReturn": -0.0764,
+      "fiveYearReturn": -0.0465,
+      "savedAt": 1782550861403
     },
     "AXSENSEX": {
       "expenseRatio": 0.0005,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.1257,
-      "oneYearReturn": -0.0847,
-      "threeYearReturn": 0.068,
-      "fiveYearReturn": 0.0576,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0912,
+      "oneYearReturn": -0.0689,
+      "threeYearReturn": 0.0763,
+      "fiveYearReturn": 0.0659,
+      "savedAt": 1782550861403
     },
     "NEXT50ETF": {
       "expenseRatio": 0.0013,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0028,
-      "oneYearReturn": 0.0028,
-      "threeYearReturn": 0.0009,
-      "fiveYearReturn": 0.0006,
-      "savedAt": 1780819100723
+      "ytdReturn": 0.028,
+      "oneYearReturn": 0.028,
+      "threeYearReturn": 0.0093,
+      "fiveYearReturn": 0.0055,
+      "savedAt": 1782550861403
     },
     "CHOICEGOLD": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.1578,
-      "oneYearReturn": 0.257,
-      "threeYearReturn": 0.0792,
-      "fiveYearReturn": 0.0468,
-      "savedAt": 1780819100723
+      "ytdReturn": 0.0491,
+      "oneYearReturn": 0.1389,
+      "threeYearReturn": 0.0443,
+      "fiveYearReturn": 0.0264,
+      "savedAt": 1782550861403
     },
     "MIDSELIETF": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0146,
-      "oneYearReturn": 0.0422,
-      "threeYearReturn": 0.1959,
-      "fiveYearReturn": 0.1443,
-      "savedAt": 1780819100709
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": 0.0227,
+      "oneYearReturn": 0.0628,
+      "threeYearReturn": 0.1998,
+      "fiveYearReturn": 0.1506,
+      "savedAt": 1782550861403
     },
     "MASPTOP50": {
       "expenseRatio": 0.0025,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.1346,
-      "oneYearReturn": 0.5129,
-      "threeYearReturn": 0.3797,
-      "fiveYearReturn": 0.2391,
-      "savedAt": 1780819100709
+      "fundFamily": "Mirae Asset AMC",
+      "ytdReturn": 0.0598,
+      "oneYearReturn": 0.401,
+      "threeYearReturn": 0.3398,
+      "fiveYearReturn": 0.2223,
+      "savedAt": 1782550861403
     },
     "DIVOPPBEES": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0752,
-      "oneYearReturn": -0.0165,
-      "threeYearReturn": 0.1396,
-      "fiveYearReturn": 0.1428,
-      "savedAt": 1780819100709
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": -0.0835,
+      "oneYearReturn": -0.0369,
+      "threeYearReturn": 0.1291,
+      "fiveYearReturn": 0.138,
+      "savedAt": 1782550861403
     },
     "HDFCNIFIT": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": -0.2297,
-      "oneYearReturn": -0.2054,
-      "threeYearReturn": -0.5249,
-      "fiveYearReturn": -0.3634,
-      "savedAt": 1780819100709
+      "ytdReturn": -0.2737,
+      "oneYearReturn": -0.2816,
+      "threeYearReturn": -0.5354,
+      "fiveYearReturn": -0.3708,
+      "savedAt": 1782550861403
     },
     "EBBETF0433": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0006,
-      "oneYearReturn": 0.0175,
-      "threeYearReturn": 0.0228,
-      "fiveYearReturn": 0.0136,
-      "savedAt": 1780819100709
+      "fundFamily": "Edelweiss AMC",
+      "ytdReturn": 0.0239,
+      "oneYearReturn": 0.0477,
+      "threeYearReturn": 0.031,
+      "fiveYearReturn": 0.0185,
+      "savedAt": 1782550861403
     },
     "TNIDETF": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.1797,
-      "oneYearReturn": -0.1194,
-      "threeYearReturn": 0.1193,
-      "fiveYearReturn": 0.0453,
-      "savedAt": 1780819100709
+      "fundFamily": "Tata AMC",
+      "ytdReturn": -0.1832,
+      "oneYearReturn": -0.1465,
+      "threeYearReturn": 0.1041,
+      "fiveYearReturn": 0.0444,
+      "savedAt": 1782550861403
     },
     "EVIETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0249,
-      "oneYearReturn": 0.0439,
-      "threeYearReturn": 0.0576,
-      "fiveYearReturn": 0.0342,
-      "savedAt": 1780819100709
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.0035,
+      "oneYearReturn": 0.0687,
+      "threeYearReturn": 0.0653,
+      "fiveYearReturn": 0.0387,
+      "savedAt": 1782550861403
     },
     "BANKADD": {
       "expenseRatio": 0.0019,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0849,
-      "oneYearReturn": -0.0301,
-      "threeYearReturn": 0.0805,
-      "fiveYearReturn": 0.0547,
-      "savedAt": 1780819100709
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": -0.0196,
+      "oneYearReturn": 0.0179,
+      "threeYearReturn": 0.1025,
+      "fiveYearReturn": 0.0693,
+      "savedAt": 1782550861403
     },
     "ABSLMSCIN": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "Aditya Birla Sun Life AMC",
-      "ytdReturn": -0.0624,
-      "oneYearReturn": -0.0624,
-      "threeYearReturn": -0.0213,
-      "fiveYearReturn": -0.0128,
-      "savedAt": 1780819100735
+      "ytdReturn": -0.0327,
+      "oneYearReturn": -0.0327,
+      "threeYearReturn": -0.011,
+      "fiveYearReturn": -0.0066,
+      "savedAt": 1782550861403
     },
     "ABGSEC": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0075,
-      "oneYearReturn": 0.0116,
-      "threeYearReturn": 0.021,
-      "fiveYearReturn": 0.0125,
-      "savedAt": 1780819100735
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": 0.0174,
+      "oneYearReturn": 0.0327,
+      "threeYearReturn": 0.0243,
+      "fiveYearReturn": 0.0145,
+      "savedAt": 1782550861403
     },
     "GSEC10ABSL": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.003,
-      "oneYearReturn": -0.0037,
-      "threeYearReturn": 0.0152,
-      "fiveYearReturn": 0.0091,
-      "savedAt": 1780819100735
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": 0.0236,
+      "oneYearReturn": 0.0316,
+      "threeYearReturn": 0.0241,
+      "fiveYearReturn": 0.0144,
+      "savedAt": 1782550861403
     },
     "MOSILVER": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.1267,
-      "oneYearReturn": 1.1989,
-      "threeYearReturn": 0.3004,
-      "fiveYearReturn": 0.1707,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.0347,
+      "oneYearReturn": 0.8838,
+      "threeYearReturn": 0.235,
+      "fiveYearReturn": 0.135,
+      "savedAt": 1782550861403
     },
     "AXISILVER": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Axis AMC",
-      "ytdReturn": 0.123,
-      "oneYearReturn": 1.382,
-      "threeYearReturn": 0.5097,
-      "fiveYearReturn": 0.3333,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.0421,
+      "oneYearReturn": 1.0387,
+      "threeYearReturn": 0.4484,
+      "fiveYearReturn": 0.2916,
+      "savedAt": 1782550861403
     },
     "GROWWPOWER": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": 0.3487,
-      "oneYearReturn": 0.3487,
-      "threeYearReturn": 0.1049,
-      "fiveYearReturn": 0.0617,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.3311,
+      "oneYearReturn": 0.3311,
+      "threeYearReturn": 0.1,
+      "fiveYearReturn": 0.0589,
+      "savedAt": 1782550861403
     },
     "MIDCAPETF": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0022,
-      "oneYearReturn": 0.0336,
-      "threeYearReturn": 0.0297,
-      "fiveYearReturn": 0.0177,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0206,
+      "oneYearReturn": 0.0477,
+      "threeYearReturn": 0.0375,
+      "fiveYearReturn": 0.0223,
+      "savedAt": 1782550861403
     },
     "LTGILTBEES": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0058,
-      "oneYearReturn": 0.0131,
-      "threeYearReturn": 0.0664,
-      "fiveYearReturn": 0.0543,
-      "savedAt": 1780819100687
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": 0.0209,
+      "oneYearReturn": 0.0322,
+      "threeYearReturn": 0.0714,
+      "fiveYearReturn": 0.0572,
+      "savedAt": 1782550861403
     },
     "GOLDADD": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.1579,
-      "oneYearReturn": 0.575,
-      "threeYearReturn": 0.3615,
-      "fiveYearReturn": 0.1964,
-      "savedAt": 1780819100687
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": 0.0377,
+      "oneYearReturn": 0.4356,
+      "threeYearReturn": 0.3231,
+      "fiveYearReturn": 0.1705,
+      "savedAt": 1782550861403
     },
     "OILIETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0895,
-      "oneYearReturn": -0.02,
-      "threeYearReturn": -0.0597,
-      "fiveYearReturn": -0.0363,
-      "savedAt": 1780819100687
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.0887,
+      "oneYearReturn": -0.0512,
+      "threeYearReturn": -0.0594,
+      "fiveYearReturn": -0.0361,
+      "savedAt": 1782550861403
     },
     "SETFNIFBK": {
       "expenseRatio": 0.0015,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.085,
-      "oneYearReturn": -0.0314,
-      "threeYearReturn": 0.0791,
-      "fiveYearReturn": 0.0984,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.0204,
+      "oneYearReturn": 0.0177,
+      "threeYearReturn": 0.102,
+      "fiveYearReturn": 0.1118,
+      "savedAt": 1782550861403
     },
     "SILVER": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.1363,
-      "oneYearReturn": 1.3887,
-      "threeYearReturn": 0.5108,
-      "fiveYearReturn": 0.3214,
-      "savedAt": 1780819100682
+      "ytdReturn": -0.033,
+      "oneYearReturn": 1.0419,
+      "threeYearReturn": 0.4499,
+      "fiveYearReturn": 0.2794,
+      "savedAt": 1782550861403
     },
     "TATAGOLD": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Tata AMC",
-      "ytdReturn": 0.1574,
-      "oneYearReturn": 0.5723,
-      "threeYearReturn": 0.3428,
-      "fiveYearReturn": 0.1934,
-      "savedAt": 1780819100682
+      "ytdReturn": 0.0417,
+      "oneYearReturn": 0.4392,
+      "threeYearReturn": 0.2964,
+      "fiveYearReturn": 0.1686,
+      "savedAt": 1782550861403
     },
     "HDFCGOLD": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": 0.157,
-      "oneYearReturn": 0.5751,
-      "threeYearReturn": 0.3622,
-      "fiveYearReturn": 0.2038,
-      "savedAt": 1780819100682
+      "ytdReturn": 0.039,
+      "oneYearReturn": 0.4392,
+      "threeYearReturn": 0.3247,
+      "fiveYearReturn": 0.1781,
+      "savedAt": 1782550861403
     },
     "SILVERAG": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.1366,
-      "oneYearReturn": 1.38,
-      "threeYearReturn": 0.5143,
-      "fiveYearReturn": 0.2827,
-      "savedAt": 1780819100682
+      "ytdReturn": -0.0363,
+      "oneYearReturn": 1.0306,
+      "threeYearReturn": 0.4454,
+      "fiveYearReturn": 0.2411,
+      "savedAt": 1782550861403
     },
     "PSUBNKBEES": {
       "expenseRatio": 0.0035,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.0314,
-      "oneYearReturn": 0.1668,
-      "threeYearReturn": 0.2667,
-      "fiveYearReturn": 0.2797,
-      "savedAt": 1780819100682
+      "ytdReturn": 0.0124,
+      "oneYearReturn": 0.2288,
+      "threeYearReturn": 0.2911,
+      "fiveYearReturn": 0.2796,
+      "savedAt": 1782550861403
     },
     "LIQUIDPLUS": {
       "expenseRatio": 0.0005,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0209,
-      "oneYearReturn": 0.051,
-      "threeYearReturn": 0.0284,
-      "fiveYearReturn": 0.0169,
-      "savedAt": 1780819100682
+      "ytdReturn": 0.0238,
+      "oneYearReturn": 0.0509,
+      "threeYearReturn": 0.0294,
+      "fiveYearReturn": 0.0175,
+      "savedAt": 1782550861403
     },
     "LIQUID1": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.021,
+      "ytdReturn": 0.024,
       "oneYearReturn": 0.0511,
-      "threeYearReturn": 0.0347,
-      "fiveYearReturn": 0.0207,
-      "savedAt": 1780819100682
+      "threeYearReturn": 0.0357,
+      "fiveYearReturn": 0.0213,
+      "savedAt": 1782550861403
     },
     "GOLDIETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.1556,
-      "oneYearReturn": 0.5745,
-      "threeYearReturn": 0.3532,
-      "fiveYearReturn": 0.199,
-      "savedAt": 1780819100682
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": 0.0356,
+      "oneYearReturn": 0.4399,
+      "threeYearReturn": 0.3046,
+      "fiveYearReturn": 0.173,
+      "savedAt": 1782550861403
     },
     "MOVALUE": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.0017,
-      "oneYearReturn": 0.1364,
-      "threeYearReturn": 0.3114,
-      "fiveYearReturn": 0.1922,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.0159,
+      "oneYearReturn": 0.1019,
+      "threeYearReturn": 0.2925,
+      "fiveYearReturn": 0.1888,
+      "savedAt": 1782550861403
     },
     "NEXT50BETA": {
       "expenseRatio": 0.0013,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0131,
-      "oneYearReturn": 0.028,
-      "threeYearReturn": 0.0092,
-      "fiveYearReturn": 0.0055,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.0427,
+      "oneYearReturn": 0.058,
+      "threeYearReturn": 0.019,
+      "fiveYearReturn": 0.0113,
+      "savedAt": 1782550861403
     },
     "DEFENCE": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.1289,
-      "oneYearReturn": 0.1289,
-      "threeYearReturn": 0.0412,
-      "fiveYearReturn": 0.0245,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.1638,
+      "oneYearReturn": 0.1638,
+      "threeYearReturn": 0.0519,
+      "fiveYearReturn": 0.0308,
+      "savedAt": 1782550861403
     },
     "COMMOIETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0527,
-      "oneYearReturn": 0.1697,
-      "threeYearReturn": 0.1192,
-      "fiveYearReturn": 0.0699,
-      "savedAt": 1780819101674
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": 0.032,
+      "oneYearReturn": 0.1109,
+      "threeYearReturn": 0.1119,
+      "fiveYearReturn": 0.0657,
+      "savedAt": 1782550861403
     },
     "HDFCSENSEX": {
       "expenseRatio": 0.0005,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": -0.1274,
-      "oneYearReturn": -0.0864,
-      "threeYearReturn": 0.0544,
-      "fiveYearReturn": 0.0862,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.0931,
+      "oneYearReturn": -0.0734,
+      "threeYearReturn": 0.0758,
+      "fiveYearReturn": 0.0904,
+      "savedAt": 1782550861403
     },
     "INFRAIETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.049,
-      "oneYearReturn": 0.0194,
-      "threeYearReturn": 0.0136,
-      "fiveYearReturn": 0.0082,
-      "savedAt": 1780819101674
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.0215,
+      "oneYearReturn": 0.0075,
+      "threeYearReturn": 0.0233,
+      "fiveYearReturn": 0.0139,
+      "savedAt": 1782550861403
     },
     "LIQUIDSBI": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
+      "fundFamily": "SBI Funds Management",
       "ytdReturn": 0.0114,
       "oneYearReturn": 0.0353,
       "threeYearReturn": 0.0148,
       "fiveYearReturn": 0.0089,
-      "savedAt": 1780819101674
+      "savedAt": 1782550861403
     },
     "LIQUIDSHRI": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0198,
+      "fundFamily": "Shriram AMC",
+      "ytdReturn": 0.0226,
       "oneYearReturn": 0.0484,
-      "threeYearReturn": 0.0342,
-      "fiveYearReturn": 0.0204,
-      "savedAt": 1780819101674
+      "threeYearReturn": 0.0352,
+      "fiveYearReturn": 0.021,
+      "savedAt": 1782550861403
     },
     "AXISCETF": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Axis AMC",
-      "ytdReturn": -0.0946,
-      "oneYearReturn": -0.0342,
-      "threeYearReturn": 0.1186,
-      "fiveYearReturn": 0.09,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0607,
+      "oneYearReturn": -0.0225,
+      "threeYearReturn": 0.1241,
+      "fiveYearReturn": 0.098,
+      "savedAt": 1782550861403
     },
     "HDFCQUAL": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": -0.059,
-      "oneYearReturn": -0.0113,
-      "threeYearReturn": 0.0367,
-      "fiveYearReturn": 0.0219,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0619,
+      "oneYearReturn": -0.0287,
+      "threeYearReturn": 0.0356,
+      "fiveYearReturn": 0.0212,
+      "savedAt": 1782550861403
     },
     "IVZINNIFTY": {
       "expenseRatio": 0.0005,
       "category": null,
       "fundFamily": "Invesco AMC",
-      "ytdReturn": -0.0983,
-      "oneYearReturn": -0.0504,
-      "threeYearReturn": 0.0897,
-      "fiveYearReturn": 0.093,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0693,
+      "oneYearReturn": -0.0415,
+      "threeYearReturn": 0.0952,
+      "fiveYearReturn": 0.0982,
+      "savedAt": 1782550861403
     },
     "NPBET": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0882,
-      "oneYearReturn": -0.0499,
-      "threeYearReturn": 0.0578,
-      "fiveYearReturn": 0.0823,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0103,
+      "oneYearReturn": 0.0057,
+      "threeYearReturn": 0.0865,
+      "fiveYearReturn": 0.0958,
+      "savedAt": 1782550861403
     },
     "MOALPHA50": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.0372,
-      "oneYearReturn": -0.0097,
-      "threeYearReturn": -0.0032,
-      "fiveYearReturn": -0.0019,
-      "savedAt": 1780819100723
+      "ytdReturn": 0.0617,
+      "oneYearReturn": 0.0137,
+      "threeYearReturn": 0.0045,
+      "fiveYearReturn": 0.0027,
+      "savedAt": 1782550861403
     },
     "HDFCVALUE": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": -0.0935,
-      "oneYearReturn": -0.0574,
-      "threeYearReturn": 0.0031,
-      "fiveYearReturn": 0.0019,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0894,
+      "oneYearReturn": -0.0649,
+      "threeYearReturn": 0.0046,
+      "fiveYearReturn": 0.0028,
+      "savedAt": 1782550861403
     },
     "GSEC5IETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0155,
-      "oneYearReturn": 0.03,
-      "threeYearReturn": 0.0269,
-      "fiveYearReturn": 0.0161,
-      "savedAt": 1780819100723
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": 0.0337,
+      "oneYearReturn": 0.0526,
+      "threeYearReturn": 0.033,
+      "fiveYearReturn": 0.0197,
+      "savedAt": 1782550861403
     },
     "SENSEXADD": {
       "expenseRatio": 0.0005,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.1281,
-      "oneYearReturn": -0.0863,
-      "threeYearReturn": 0.0521,
-      "fiveYearReturn": 0.0309,
-      "savedAt": 1780819100723
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": -0.092,
+      "oneYearReturn": -0.0721,
+      "threeYearReturn": 0.0664,
+      "fiveYearReturn": 0.0393,
+      "savedAt": 1782550861403
     },
     "MOMOMENTUM": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.0377,
-      "oneYearReturn": -0.0418,
-      "threeYearReturn": 0.0363,
-      "fiveYearReturn": 0.0216,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0009,
+      "oneYearReturn": -0.0259,
+      "threeYearReturn": 0.0493,
+      "fiveYearReturn": 0.0293,
+      "savedAt": 1782550861403
     },
     "NIFTYBETF": {
       "expenseRatio": 0.0007,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.1053,
-      "oneYearReturn": -0.0571,
-      "threeYearReturn": 0.0217,
-      "fiveYearReturn": 0.0129,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0746,
+      "oneYearReturn": -0.0478,
+      "threeYearReturn": 0.0332,
+      "fiveYearReturn": 0.0198,
+      "savedAt": 1782550861403
     },
     "AONETMMQ50": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
+      "fundFamily": "Angel One AMC",
       "ytdReturn": 0.0591,
       "oneYearReturn": 0.02,
       "threeYearReturn": 0.0066,
       "fiveYearReturn": 0.004,
-      "savedAt": 1780819102456
+      "savedAt": 1782550861403
     },
     "TECH": {
       "expenseRatio": 0.0035,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.2253,
-      "oneYearReturn": -0.1985,
-      "threeYearReturn": -0.0715,
-      "fiveYearReturn": -0.0435,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.2711,
+      "oneYearReturn": -0.2752,
+      "threeYearReturn": -0.0902,
+      "fiveYearReturn": -0.0551,
+      "savedAt": 1782550861403
     },
     "CONSUMIETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0862,
-      "oneYearReturn": -0.0295,
-      "threeYearReturn": -0.0048,
-      "fiveYearReturn": -0.0029,
-      "savedAt": 1780819102456
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.0506,
+      "oneYearReturn": -0.0143,
+      "threeYearReturn": 0.0079,
+      "fiveYearReturn": 0.0048,
+      "savedAt": 1782550861403
     },
     "ECAPINSURE": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0191,
-      "oneYearReturn": 0.0239,
-      "threeYearReturn": 0.0564,
-      "fiveYearReturn": 0.0335,
-      "savedAt": 1780819102456
+      "fundFamily": "Edelweiss AMC",
+      "ytdReturn": 0.0062,
+      "oneYearReturn": 0.0151,
+      "threeYearReturn": 0.0655,
+      "fiveYearReturn": 0.0388,
+      "savedAt": 1782550861403
     },
     "GROWWMC150": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": -0.0044,
-      "oneYearReturn": -0.0093,
-      "threeYearReturn": -0.0031,
-      "fiveYearReturn": -0.0019,
-      "savedAt": 1780819102456
+      "ytdReturn": 0.0173,
+      "oneYearReturn": 0.0122,
+      "threeYearReturn": 0.0041,
+      "fiveYearReturn": 0.0024,
+      "savedAt": 1782550861403
     },
     "SENSEXETF": {
       "expenseRatio": 0.0007,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.1266,
-      "oneYearReturn": -0.0867,
-      "threeYearReturn": 0.0521,
-      "fiveYearReturn": 0.031,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0908,
+      "oneYearReturn": -0.0708,
+      "threeYearReturn": 0.0663,
+      "fiveYearReturn": 0.0393,
+      "savedAt": 1782550861403
     },
     "SILVERBND": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0668,
-      "oneYearReturn": 0.0668,
-      "threeYearReturn": 0.0218,
-      "fiveYearReturn": 0.013,
-      "savedAt": 1780819100709
+      "ytdReturn": -0.0889,
+      "oneYearReturn": -0.0889,
+      "threeYearReturn": -0.0306,
+      "fiveYearReturn": -0.0184,
+      "savedAt": 1782550861403
     },
     "MOHEALTH": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.0733,
-      "oneYearReturn": 0.0928,
-      "threeYearReturn": 0.2534,
-      "fiveYearReturn": 0.1547,
-      "savedAt": 1780819100709
+      "ytdReturn": 0.106,
+      "oneYearReturn": 0.103,
+      "threeYearReturn": 0.2421,
+      "fiveYearReturn": 0.1617,
+      "savedAt": 1782550861403
     },
     "MONQ50": {
       "expenseRatio": 0.0013,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.4796,
-      "oneYearReturn": 0.9819,
-      "threeYearReturn": 0.4018,
-      "fiveYearReturn": 0.1697,
-      "savedAt": 1780819100709
+      "ytdReturn": 0.4513,
+      "oneYearReturn": 0.9217,
+      "threeYearReturn": 0.3947,
+      "fiveYearReturn": 0.1652,
+      "savedAt": 1782550861403
     },
     "BANKPSU": {
       "expenseRatio": 0.0019,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0306,
-      "oneYearReturn": 0.1666,
-      "threeYearReturn": 0.0767,
-      "fiveYearReturn": 0.0453,
-      "savedAt": 1780819100709
+      "ytdReturn": 0.0143,
+      "oneYearReturn": 0.2357,
+      "threeYearReturn": 0.093,
+      "fiveYearReturn": 0.0548,
+      "savedAt": 1782550861403
     },
     "SHARIABEES": {
       "expenseRatio": 0.003,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.1119,
-      "oneYearReturn": -0.09,
-      "threeYearReturn": 0.0411,
-      "fiveYearReturn": 0.0323,
-      "savedAt": 1780819100709
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": -0.1316,
+      "oneYearReturn": -0.1273,
+      "threeYearReturn": 0.0284,
+      "fiveYearReturn": 0.0191,
+      "savedAt": 1782550861403
     },
     "TOP15IETF": {
       "expenseRatio": 0.0015,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.1387,
-      "oneYearReturn": -0.0874,
-      "threeYearReturn": -0.03,
-      "fiveYearReturn": -0.0181,
-      "savedAt": 1780819100709
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.1043,
+      "oneYearReturn": -0.0509,
+      "threeYearReturn": -0.0173,
+      "fiveYearReturn": -0.0104,
+      "savedAt": 1782550861403
     },
     "ELIQUID": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.021,
-      "oneYearReturn": 0.0325,
-      "threeYearReturn": 0.0107,
-      "fiveYearReturn": 0.0064,
-      "savedAt": 1780819100709
+      "fundFamily": "Edelweiss AMC",
+      "ytdReturn": 0.0239,
+      "oneYearReturn": 0.0354,
+      "threeYearReturn": 0.0117,
+      "fiveYearReturn": 0.007,
+      "savedAt": 1782550861403
     },
     "HDFCMOMENT": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": -0.0349,
-      "oneYearReturn": -0.0377,
-      "threeYearReturn": -0.4938,
-      "fiveYearReturn": -0.3353,
-      "savedAt": 1780819100709
+      "ytdReturn": -0.0022,
+      "oneYearReturn": -0.0221,
+      "threeYearReturn": -0.4881,
+      "fiveYearReturn": -0.3309,
+      "savedAt": 1782550861403
     },
     "SILVERCASE": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.1245,
-      "oneYearReturn": 1.3993,
-      "threeYearReturn": 0.3687,
-      "fiveYearReturn": 0.2072,
-      "savedAt": 1780819100682
+      "fundFamily": "Mirae Asset AMC",
+      "ytdReturn": -0.0493,
+      "oneYearReturn": 1.0321,
+      "threeYearReturn": 0.2942,
+      "fiveYearReturn": 0.1673,
+      "savedAt": 1782550861403
     },
     "MON100": {
       "expenseRatio": 0.0065,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.4605,
-      "oneYearReturn": 0.8997,
-      "threeYearReturn": 0.4403,
-      "fiveYearReturn": 0.2808,
-      "savedAt": 1780819100682
+      "ytdReturn": 0.3892,
+      "oneYearReturn": 0.724,
+      "threeYearReturn": 0.4014,
+      "fiveYearReturn": 0.2532,
+      "savedAt": 1782550861403
     },
     "GOLD1": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.156,
-      "oneYearReturn": 0.5727,
-      "threeYearReturn": 0.3609,
-      "fiveYearReturn": 0.2474,
-      "savedAt": 1780819100682
+      "ytdReturn": 0.0396,
+      "oneYearReturn": 0.4398,
+      "threeYearReturn": 0.326,
+      "fiveYearReturn": 0.2297,
+      "savedAt": 1782550861403
     },
     "LIQUIDBETF": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0203,
+      "ytdReturn": 0.0231,
       "oneYearReturn": 0.0492,
-      "threeYearReturn": 0.0275,
-      "fiveYearReturn": 0.0164,
-      "savedAt": 1780819100682
+      "threeYearReturn": 0.0284,
+      "fiveYearReturn": 0.017,
+      "savedAt": 1782550861403
     },
     "LIQUIDADD": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0206,
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": 0.0235,
       "oneYearReturn": 0.05,
-      "threeYearReturn": 0.0283,
-      "fiveYearReturn": 0.0169,
-      "savedAt": 1780819100682
+      "threeYearReturn": 0.0293,
+      "fiveYearReturn": 0.0175,
+      "savedAt": 1782550861403
     },
     "LIQUIDIETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
+      "fundFamily": "ICICI Prudential AMC",
       "ytdReturn": 0,
       "oneYearReturn": 0,
       "threeYearReturn": 0,
       "fiveYearReturn": 0,
-      "savedAt": 1780819100682
+      "savedAt": 1782550861403
     },
     "PVTBANIETF": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0868,
-      "oneYearReturn": -0.0481,
-      "threeYearReturn": 0.0602,
-      "fiveYearReturn": 0.078,
-      "savedAt": 1780819100682
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.0145,
+      "oneYearReturn": 0.0014,
+      "threeYearReturn": 0.0828,
+      "fiveYearReturn": 0.0934,
+      "savedAt": 1782550861403
     },
     "SILVERADD": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.126,
-      "oneYearReturn": 1.3847,
-      "threeYearReturn": 0.5258,
-      "fiveYearReturn": 0.2885,
-      "savedAt": 1780819100682
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": -0.0366,
+      "oneYearReturn": 1.0549,
+      "threeYearReturn": 0.4485,
+      "fiveYearReturn": 0.249,
+      "savedAt": 1782550861403
     },
     "BANKETF": {
       "expenseRatio": 0.0019,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0842,
-      "oneYearReturn": -0.0289,
-      "threeYearReturn": 0.0358,
-      "fiveYearReturn": 0.0213,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.0209,
+      "oneYearReturn": 0.0235,
+      "threeYearReturn": 0.0592,
+      "fiveYearReturn": 0.0351,
+      "savedAt": 1782550861403
     },
     "MOREALTY": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.1318,
-      "oneYearReturn": -0.261,
-      "threeYearReturn": -0.0284,
-      "fiveYearReturn": -0.0171,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.0685,
+      "oneYearReturn": -0.1706,
+      "threeYearReturn": -0.0053,
+      "fiveYearReturn": -0.0032,
+      "savedAt": 1782550861403
     },
     "HDFCNIFBAN": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": -0.085,
-      "oneYearReturn": -0.031,
-      "threeYearReturn": 0.0447,
-      "fiveYearReturn": 0.0266,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.0226,
+      "oneYearReturn": 0.0161,
+      "threeYearReturn": 0.0679,
+      "fiveYearReturn": 0.0402,
+      "savedAt": 1782550861403
     },
     "QGOLDHALF": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Quantum AMC",
-      "ytdReturn": 0.1592,
-      "oneYearReturn": 0.5781,
-      "threeYearReturn": 0.363,
-      "fiveYearReturn": 0.2484,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.0427,
+      "oneYearReturn": 0.444,
+      "threeYearReturn": 0.3262,
+      "fiveYearReturn": 0.2321,
+      "savedAt": 1782550861403
     },
     "GILT5YBEES": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0212,
-      "oneYearReturn": 0.0338,
-      "threeYearReturn": 0.0737,
-      "fiveYearReturn": 0.0601,
-      "savedAt": 1780819100687
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": 0.0373,
+      "oneYearReturn": 0.0582,
+      "threeYearReturn": 0.0787,
+      "fiveYearReturn": 0.0651,
+      "savedAt": 1782550861403
     },
     "GROWWMETAL": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": 0.1847,
-      "oneYearReturn": 0.2493,
-      "threeYearReturn": 0.077,
-      "fiveYearReturn": 0.0455,
-      "savedAt": 1780819100687
+      "ytdReturn": 0.1097,
+      "oneYearReturn": 0.1703,
+      "threeYearReturn": 0.0538,
+      "fiveYearReturn": 0.032,
+      "savedAt": 1782550861403
     },
     "HDFCNIFTY": {
       "expenseRatio": 0.0005,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": -0.1027,
-      "oneYearReturn": -0.0564,
-      "threeYearReturn": 0.0902,
-      "fiveYearReturn": 0.0532,
-      "savedAt": 1780819100687
+      "ytdReturn": -0.0748,
+      "oneYearReturn": -0.0503,
+      "threeYearReturn": 0.0938,
+      "fiveYearReturn": 0.0596,
+      "savedAt": 1782550861403
     },
     "EGOLD": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.155,
-      "oneYearReturn": 0.5676,
-      "threeYearReturn": 0.355,
-      "fiveYearReturn": 0.2,
-      "savedAt": 1780819100687
+      "fundFamily": "Edelweiss AMC",
+      "ytdReturn": 0.0446,
+      "oneYearReturn": 0.4434,
+      "threeYearReturn": 0.3104,
+      "fiveYearReturn": 0.1761,
+      "savedAt": 1782550861403
     },
     "QUALITY30": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.06,
-      "oneYearReturn": -0.033,
-      "threeYearReturn": -0.0111,
-      "fiveYearReturn": -0.0067,
-      "savedAt": 1780819100723
+      "ytdReturn": -0.0656,
+      "oneYearReturn": -0.0388,
+      "threeYearReturn": -0.0131,
+      "fiveYearReturn": -0.0079,
+      "savedAt": 1782550861403
     },
     "UNIONGOLD": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.1564,
-      "oneYearReturn": 0.5786,
-      "threeYearReturn": 0.2119,
-      "fiveYearReturn": 0.1222,
-      "savedAt": 1780819100723
+      "fundFamily": "Union Mutual Fund",
+      "ytdReturn": 0.0416,
+      "oneYearReturn": 0.4483,
+      "threeYearReturn": 0.1704,
+      "fiveYearReturn": 0.099,
+      "savedAt": 1782550861403
     },
     "SBIBPB": {
       "expenseRatio": 0.0014,
       "category": null,
       "fundFamily": "SBI Funds Management",
-      "ytdReturn": -0.0388,
-      "oneYearReturn": 0.1497,
-      "threeYearReturn": 0.0999,
-      "fiveYearReturn": 0.0588,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.0034,
+      "oneYearReturn": 0.2248,
+      "threeYearReturn": 0.1158,
+      "fiveYearReturn": 0.0679,
+      "savedAt": 1782550861403
     },
     "MNC": {
       "expenseRatio": 0.0035,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0489,
-      "oneYearReturn": 0.1376,
-      "threeYearReturn": 0.1542,
-      "fiveYearReturn": 0.1119,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.0649,
+      "oneYearReturn": 0.1372,
+      "threeYearReturn": 0.1531,
+      "fiveYearReturn": 0.1153,
+      "savedAt": 1782550861403
     },
     "CHEMICAL": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0069,
-      "oneYearReturn": 0.0014,
-      "threeYearReturn": 0.0005,
-      "fiveYearReturn": 0.0003,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.0221,
+      "oneYearReturn": 0.0164,
+      "threeYearReturn": 0.0055,
+      "fiveYearReturn": 0.0033,
+      "savedAt": 1782550861403
     },
     "HDFCBSE500": {
       "expenseRatio": 0.0015,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": -0.0567,
-      "oneYearReturn": -0.0134,
-      "threeYearReturn": 0.06,
-      "fiveYearReturn": 0.0884,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.0298,
+      "oneYearReturn": -0.0122,
+      "threeYearReturn": 0.1297,
+      "fiveYearReturn": 0.0946,
+      "savedAt": 1782550861403
     },
     "EQUAL50ADD": {
       "expenseRatio": 0.003,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0361,
-      "oneYearReturn": 0.0378,
-      "threeYearReturn": 0.0542,
-      "fiveYearReturn": 0.0322,
-      "savedAt": 1780819101674
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": -0.0205,
+      "oneYearReturn": 0.025,
+      "threeYearReturn": 0.0599,
+      "fiveYearReturn": 0.0355,
+      "savedAt": 1782550861403
     },
     "HEALTHIETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0572,
-      "oneYearReturn": 0.0985,
-      "threeYearReturn": 0.1536,
-      "fiveYearReturn": 0.0895,
-      "savedAt": 1780819101674
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": 0.0934,
+      "oneYearReturn": 0.1147,
+      "threeYearReturn": 0.1666,
+      "fiveYearReturn": 0.0969,
+      "savedAt": 1782550861403
     },
     "FINIETF": {
       "expenseRatio": 0.0035,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0561,
-      "oneYearReturn": -0.001,
-      "threeYearReturn": 0.0645,
-      "fiveYearReturn": 0.0382,
-      "savedAt": 1780819101674
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.0123,
+      "oneYearReturn": 0.0281,
+      "threeYearReturn": 0.0807,
+      "fiveYearReturn": 0.0477,
+      "savedAt": 1782550861403
     },
     "HEALTHY": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0606,
-      "oneYearReturn": 0.1133,
-      "threeYearReturn": 0.2346,
-      "fiveYearReturn": 0.1272,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.0926,
+      "oneYearReturn": 0.1134,
+      "threeYearReturn": 0.2251,
+      "fiveYearReturn": 0.1339,
+      "savedAt": 1782550861403
     },
     "GROWWPSUBK": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": 0.0051,
-      "oneYearReturn": 0.0051,
-      "threeYearReturn": 0.0017,
-      "fiveYearReturn": 0.001,
-      "savedAt": 1780819102456
+      "ytdReturn": 0.0421,
+      "oneYearReturn": 0.0421,
+      "threeYearReturn": 0.0138,
+      "fiveYearReturn": 0.0083,
+      "savedAt": 1782550861403
     },
     "MOMENTUM": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.0386,
-      "oneYearReturn": -0.041,
-      "threeYearReturn": 0.1349,
-      "fiveYearReturn": 0.0765,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0044,
+      "oneYearReturn": -0.0223,
+      "threeYearReturn": 0.139,
+      "fiveYearReturn": 0.0841,
+      "savedAt": 1782550861403
     },
     "GOLDBND": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0026,
-      "oneYearReturn": 0.0026,
-      "threeYearReturn": 0.0009,
-      "fiveYearReturn": 0.0005,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.1,
+      "oneYearReturn": -0.1,
+      "threeYearReturn": -0.0345,
+      "fiveYearReturn": -0.0209,
+      "savedAt": 1782550861403
     },
     "AONETOTAL": {
       "expenseRatio": 0.0015,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0522,
-      "oneYearReturn": -0.0216,
-      "threeYearReturn": 0.0456,
-      "fiveYearReturn": 0.0271,
-      "savedAt": 1780819102456
+      "fundFamily": "Angel One AMC",
+      "ytdReturn": -0.0249,
+      "oneYearReturn": -0.0136,
+      "threeYearReturn": 0.0555,
+      "fiveYearReturn": 0.033,
+      "savedAt": 1782550861403
     },
     "LOWVOL1": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.085,
-      "oneYearReturn": -0.0142,
-      "threeYearReturn": 0.1183,
-      "fiveYearReturn": 0.1503,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0563,
+      "oneYearReturn": -0.0086,
+      "threeYearReturn": 0.1221,
+      "fiveYearReturn": 0.1574,
+      "savedAt": 1782550861403
     },
     "ESG": {
       "expenseRatio": 0.004,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.1033,
-      "oneYearReturn": -0.0587,
-      "threeYearReturn": 0.0816,
-      "fiveYearReturn": 0.0482,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0779,
+      "oneYearReturn": -0.0554,
+      "threeYearReturn": 0.0917,
+      "fiveYearReturn": 0.0541,
+      "savedAt": 1782550861403
     },
     "HDFCNIF100": {
       "expenseRatio": 0.0015,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": -0.0854,
-      "oneYearReturn": -0.0389,
-      "threeYearReturn": -0.4875,
-      "fiveYearReturn": -0.3238,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0563,
+      "oneYearReturn": -0.0313,
+      "threeYearReturn": -0.4849,
+      "fiveYearReturn": -0.3195,
+      "savedAt": 1782550861403
     },
     "GROWWSC250": {
       "expenseRatio": 0.003,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": 0.0194,
-      "oneYearReturn": -0.021,
-      "threeYearReturn": -0.007,
-      "fiveYearReturn": -0.0042,
-      "savedAt": 1780819102456
+      "ytdReturn": 0.0611,
+      "oneYearReturn": 0.019,
+      "threeYearReturn": 0.0063,
+      "fiveYearReturn": 0.0038,
+      "savedAt": 1782550861403
     },
     "MID150CASE": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0027,
-      "oneYearReturn": 0.0344,
-      "threeYearReturn": 0.0282,
-      "fiveYearReturn": 0.0168,
-      "savedAt": 1780819100687
+      "fundFamily": "Mirae Asset AMC",
+      "ytdReturn": 0.0215,
+      "oneYearReturn": 0.0526,
+      "threeYearReturn": 0.0364,
+      "fiveYearReturn": 0.0217,
+      "savedAt": 1782550861403
     },
     "MIDCAPIETF": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0013,
-      "oneYearReturn": 0.0332,
-      "threeYearReturn": 0.207,
-      "fiveYearReturn": 0.1726,
-      "savedAt": 1780819100687
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": 0.0213,
+      "oneYearReturn": 0.0476,
+      "threeYearReturn": 0.2014,
+      "fiveYearReturn": 0.1815,
+      "savedAt": 1782550861403
     },
     "HDFCSML250": {
       "expenseRatio": 0.003,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": 0.022,
-      "oneYearReturn": -0.0124,
-      "threeYearReturn": 0.1885,
-      "fiveYearReturn": 0.1287,
-      "savedAt": 1780819100682
+      "ytdReturn": 0.062,
+      "oneYearReturn": 0.0029,
+      "threeYearReturn": 0.192,
+      "fiveYearReturn": 0.1374,
+      "savedAt": 1782550861403
     },
     "METALIETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.1768,
-      "oneYearReturn": 0.4175,
-      "threeYearReturn": 0.133,
-      "fiveYearReturn": 0.0778,
-      "savedAt": 1780819100682
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": 0.1034,
+      "oneYearReturn": 0.3027,
+      "threeYearReturn": 0.1089,
+      "fiveYearReturn": 0.064,
+      "savedAt": 1782550861403
     },
     "MID150BEES": {
       "expenseRatio": 0.0015,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.003,
-      "oneYearReturn": 0.0306,
-      "threeYearReturn": 0.2062,
-      "fiveYearReturn": 0.1746,
-      "savedAt": 1780819100682
+      "ytdReturn": 0.0185,
+      "oneYearReturn": 0.0442,
+      "threeYearReturn": 0.1998,
+      "fiveYearReturn": 0.1793,
+      "savedAt": 1782550861403
     },
     "CASHIETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0209,
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": 0.0238,
       "oneYearReturn": 0.0506,
-      "threeYearReturn": 0.0208,
-      "fiveYearReturn": 0.0124,
-      "savedAt": 1780819100682
+      "threeYearReturn": 0.0218,
+      "fiveYearReturn": 0.013,
+      "savedAt": 1782550861403
     },
     "GOLDETF": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.1569,
-      "oneYearReturn": 0.5724,
-      "threeYearReturn": 0.3635,
-      "fiveYearReturn": 0.2045,
-      "savedAt": 1780819100682
+      "ytdReturn": 0.0411,
+      "oneYearReturn": 0.4408,
+      "threeYearReturn": 0.3164,
+      "fiveYearReturn": 0.1793,
+      "savedAt": 1782550861403
     },
     "SILVERBETA": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.1322,
-      "oneYearReturn": 1.3771,
-      "threeYearReturn": 0.5042,
-      "fiveYearReturn": 0.2395,
-      "savedAt": 1780819100682
+      "ytdReturn": -0.0398,
+      "oneYearReturn": 1.0259,
+      "threeYearReturn": 0.4422,
+      "fiveYearReturn": 0.1993,
+      "savedAt": 1782550861403
     },
     "GOLDCASE": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.1575,
-      "oneYearReturn": 0.5762,
-      "threeYearReturn": 0.3223,
-      "fiveYearReturn": 0.1825,
-      "savedAt": 1780819100682
+      "fundFamily": "Mirae Asset AMC",
+      "ytdReturn": 0.0386,
+      "oneYearReturn": 0.4393,
+      "threeYearReturn": 0.2753,
+      "fiveYearReturn": 0.1571,
+      "savedAt": 1782550861403
     },
     "SILVER1": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.8883,
-      "oneYearReturn": -0.7414,
-      "threeYearReturn": -0.2986,
-      "fiveYearReturn": -0.1842,
-      "savedAt": 1780819100682
+      "ytdReturn": -0.9048,
+      "oneYearReturn": -0.7795,
+      "threeYearReturn": -0.3273,
+      "fiveYearReturn": -0.2098,
+      "savedAt": 1782550861403
     },
     "HDFCPSUBK": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": -0.0301,
-      "oneYearReturn": 0.1722,
-      "threeYearReturn": 0.0765,
-      "fiveYearReturn": 0.0452,
-      "savedAt": 1780819100709
+      "ytdReturn": 0.0128,
+      "oneYearReturn": 0.2311,
+      "threeYearReturn": 0.0921,
+      "fiveYearReturn": 0.0543,
+      "savedAt": 1782550861403
     },
     "NIFTYADD": {
       "expenseRatio": 0.0005,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.1032,
-      "oneYearReturn": -0.0544,
-      "threeYearReturn": 0.0917,
-      "fiveYearReturn": 0.0707,
-      "savedAt": 1780819100709
+      "ytdReturn": -0.0764,
+      "oneYearReturn": -0.0516,
+      "threeYearReturn": 0.0946,
+      "fiveYearReturn": 0.0771,
+      "savedAt": 1782550861403
     },
     "IT": {
       "expenseRatio": 0.0035,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.2333,
-      "oneYearReturn": -0.2064,
-      "threeYearReturn": 0.0252,
-      "fiveYearReturn": 0.0291,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.2737,
+      "oneYearReturn": -0.2756,
+      "threeYearReturn": 0.0035,
+      "fiveYearReturn": 0.008,
+      "savedAt": 1782550861403
     },
     "TOP10ADD": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.1573,
-      "oneYearReturn": -0.13,
-      "threeYearReturn": -0.0405,
-      "fiveYearReturn": -0.0245,
-      "savedAt": 1780819101674
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": -0.1286,
+      "oneYearReturn": -0.1257,
+      "threeYearReturn": -0.0298,
+      "fiveYearReturn": -0.018,
+      "savedAt": 1782550861403
     },
     "SBINEQWETF": {
       "expenseRatio": 0.003,
       "category": null,
       "fundFamily": "SBI Funds Management",
-      "ytdReturn": -0.0362,
-      "oneYearReturn": 0.0377,
-      "threeYearReturn": 0.0538,
-      "fiveYearReturn": 0.0319,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.0193,
+      "oneYearReturn": 0.0267,
+      "threeYearReturn": 0.0599,
+      "fiveYearReturn": 0.0355,
+      "savedAt": 1782550861403
     },
     "GROWWHOSPI": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": 0.0568,
-      "oneYearReturn": 0.0568,
-      "threeYearReturn": 0.0186,
-      "fiveYearReturn": 0.0111,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.1035,
+      "oneYearReturn": 0.1035,
+      "threeYearReturn": 0.0334,
+      "fiveYearReturn": 0.0199,
+      "savedAt": 1782550861403
     },
     "GROWWCAPM": {
       "expenseRatio": 0.004,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": 0.144,
-      "oneYearReturn": 0.1359,
-      "threeYearReturn": 0.0434,
-      "fiveYearReturn": 0.0258,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.1779,
+      "oneYearReturn": 0.1695,
+      "threeYearReturn": 0.0536,
+      "fiveYearReturn": 0.0318,
+      "savedAt": 1782550861403
     },
     "GROWWEV": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": -0.0257,
-      "oneYearReturn": 0.0434,
-      "threeYearReturn": -0.0185,
-      "fiveYearReturn": -0.0111,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.0016,
+      "oneYearReturn": 0.0741,
+      "threeYearReturn": -0.0094,
+      "fiveYearReturn": -0.0057,
+      "savedAt": 1782550861403
     },
     "MAHKTECH": {
       "expenseRatio": 0.004,
       "category": null,
       "fundFamily": "Mahindra Manulife AMC",
-      "ytdReturn": -0.0339,
-      "oneYearReturn": 0.1302,
-      "threeYearReturn": 0.2206,
-      "fiveYearReturn": 0.0479,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.1662,
+      "oneYearReturn": -0.0259,
+      "threeYearReturn": 0.157,
+      "fiveYearReturn": 0.0175,
+      "savedAt": 1782550861403
     },
     "MIDSMALL": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.049,
-      "oneYearReturn": -0.0177,
-      "threeYearReturn": -0.0291,
-      "fiveYearReturn": -0.0176,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.0698,
+      "oneYearReturn": -0.0014,
+      "threeYearReturn": -0.0228,
+      "fiveYearReturn": -0.0137,
+      "savedAt": 1782550861403
     },
     "NIF100IETF": {
       "expenseRatio": 0.0015,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.0868,
-      "oneYearReturn": 0.1422,
-      "threeYearReturn": -0.489,
-      "fiveYearReturn": -0.3091,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0589,
+      "oneYearReturn": 0.1771,
+      "threeYearReturn": -0.4864,
+      "fiveYearReturn": -0.3063,
+      "savedAt": 1782550861403
     },
     "ITADD": {
       "expenseRatio": 0.0035,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.2332,
-      "oneYearReturn": -0.2066,
-      "threeYearReturn": -0.006,
-      "fiveYearReturn": -0.0036,
-      "savedAt": 1780819102456
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": -0.2739,
+      "oneYearReturn": -0.2772,
+      "threeYearReturn": -0.0239,
+      "fiveYearReturn": -0.0144,
+      "savedAt": 1782550861403
     },
     "NEXT50ADD": {
       "expenseRatio": 0.0013,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0148,
-      "oneYearReturn": 0.0148,
-      "threeYearReturn": 0.0049,
-      "fiveYearReturn": 0.0029,
-      "savedAt": 1780819102456
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": 0.0435,
+      "oneYearReturn": 0.0435,
+      "threeYearReturn": 0.0143,
+      "fiveYearReturn": 0.0086,
+      "savedAt": 1782550861403
     },
     "SBIETFPB": {
       "expenseRatio": 0.0014,
       "category": null,
       "fundFamily": "SBI Funds Management",
-      "ytdReturn": -0.0835,
-      "oneYearReturn": -0.0481,
-      "threeYearReturn": 0.06,
-      "fiveYearReturn": 0.0771,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0055,
+      "oneYearReturn": 0.0082,
+      "threeYearReturn": 0.0856,
+      "fiveYearReturn": 0.0948,
+      "savedAt": 1782550861403
     },
     "GROWWNET": {
       "expenseRatio": 0.005,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": -0.1559,
-      "oneYearReturn": -0.1885,
-      "threeYearReturn": -0.0673,
-      "fiveYearReturn": -0.0409,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.1146,
+      "oneYearReturn": -0.1488,
+      "threeYearReturn": -0.0523,
+      "fiveYearReturn": -0.0317,
+      "savedAt": 1782550861403
     },
     "FLEXIADD": {
       "expenseRatio": 0.004,
       "category": null,
-      "fundFamily": null,
+      "fundFamily": "Aditya Birla Sun Life AMC",
       "ytdReturn": -0.0876,
       "oneYearReturn": -0.0901,
       "threeYearReturn": -0.031,
       "fiveYearReturn": -0.0187,
-      "savedAt": 1780819102456
+      "savedAt": 1782550861403
     },
     "BSE500IETF": {
       "expenseRatio": 0.0015,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0624,
-      "oneYearReturn": -0.0255,
-      "threeYearReturn": 0.0641,
-      "fiveYearReturn": 0.038,
-      "savedAt": 1780819102456
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.0359,
+      "oneYearReturn": -0.0172,
+      "threeYearReturn": 0.074,
+      "fiveYearReturn": 0.0438,
+      "savedAt": 1782550861403
     },
     "INFRA": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.0425,
-      "oneYearReturn": 0.0425,
-      "threeYearReturn": 0.014,
-      "fiveYearReturn": 0.0084,
-      "savedAt": 1780819102456
+      "ytdReturn": 0.0694,
+      "oneYearReturn": 0.0694,
+      "threeYearReturn": 0.0226,
+      "fiveYearReturn": 0.0135,
+      "savedAt": 1782550861403
     },
     "BANKIETF": {
       "expenseRatio": 0.0019,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0852,
-      "oneYearReturn": 0.0078,
-      "threeYearReturn": 0.0775,
-      "fiveYearReturn": -0.2873,
-      "savedAt": 1780819100682
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.022,
+      "oneYearReturn": 0.0775,
+      "threeYearReturn": 0.1018,
+      "fiveYearReturn": 0.0599,
+      "savedAt": 1782550861403
     },
     "SETFNIF50": {
       "expenseRatio": 0.0007,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.1018,
-      "oneYearReturn": -0.0537,
-      "threeYearReturn": 0.0905,
-      "fiveYearReturn": 0.095,
-      "savedAt": 1780819100682
+      "ytdReturn": -0.0738,
+      "oneYearReturn": -0.0504,
+      "threeYearReturn": 0.0952,
+      "fiveYearReturn": 0.0998,
+      "savedAt": 1782550861403
     },
     "QNIFTY": {
       "expenseRatio": 0.0005,
       "category": null,
       "fundFamily": "Quantum AMC",
-      "ytdReturn": -0.9103,
-      "oneYearReturn": -0.9057,
-      "threeYearReturn": -0.4943,
-      "fiveYearReturn": -0.3095,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.9075,
+      "oneYearReturn": -0.905,
+      "threeYearReturn": -0.4919,
+      "fiveYearReturn": -0.3059,
+      "savedAt": 1782550861403
     },
     "BANKBETF": {
       "expenseRatio": 0.0019,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0842,
-      "oneYearReturn": -0.028,
-      "threeYearReturn": 0.0709,
-      "fiveYearReturn": 0.042,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0196,
+      "oneYearReturn": 0.0211,
+      "threeYearReturn": 0.0955,
+      "fiveYearReturn": 0.0563,
+      "savedAt": 1782550861403
     },
     "MONIFTY100": {
       "expenseRatio": 0.0015,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.0861,
-      "oneYearReturn": -0.0655,
-      "threeYearReturn": -0.0223,
-      "fiveYearReturn": -0.0135,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0574,
+      "oneYearReturn": -0.0362,
+      "threeYearReturn": -0.0122,
+      "fiveYearReturn": -0.0073,
+      "savedAt": 1782550861403
     },
     "AONENIFTY": {
       "expenseRatio": 0.0005,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.1037,
-      "oneYearReturn": -0.0578,
-      "threeYearReturn": -0.0139,
-      "fiveYearReturn": -0.0083,
-      "savedAt": 1780819102456
+      "fundFamily": "Angel One AMC",
+      "ytdReturn": -0.0748,
+      "oneYearReturn": -0.0531,
+      "threeYearReturn": -0.0033,
+      "fiveYearReturn": -0.002,
+      "savedAt": 1782550861403
     },
     "MID150": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0031,
-      "oneYearReturn": 0.0316,
-      "threeYearReturn": 0.0545,
-      "fiveYearReturn": 0.0324,
-      "savedAt": 1780819102456
+      "ytdReturn": 0.0234,
+      "oneYearReturn": 0.0499,
+      "threeYearReturn": 0.0638,
+      "fiveYearReturn": 0.0378,
+      "savedAt": 1782550861403
     },
     "PVTBKGROWW": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0216,
-      "oneYearReturn": -0.0216,
-      "threeYearReturn": -0.0072,
-      "fiveYearReturn": -0.0044,
-      "savedAt": 1780819102456
+      "ytdReturn": 0.0595,
+      "oneYearReturn": 0.0595,
+      "threeYearReturn": 0.0194,
+      "fiveYearReturn": 0.0116,
+      "savedAt": 1782550861403
     },
     "PVTBANKADD": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0856,
-      "oneYearReturn": -0.049,
-      "threeYearReturn": 0.0487,
-      "fiveYearReturn": 0.029,
-      "savedAt": 1780819102456
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": -0.0089,
+      "oneYearReturn": 0.0049,
+      "threeYearReturn": 0.0772,
+      "fiveYearReturn": 0.0457,
+      "savedAt": 1782550861403
     },
     "MIDQ50ADD": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.015,
-      "oneYearReturn": -0.0349,
-      "threeYearReturn": 0.0501,
-      "fiveYearReturn": 0.0298,
-      "savedAt": 1780819102456
+      "fundFamily": "Aditya Birla Sun Life AMC",
+      "ytdReturn": 0.0033,
+      "oneYearReturn": -0.0266,
+      "threeYearReturn": 0.0566,
+      "fiveYearReturn": 0.0336,
+      "savedAt": 1782550861403
     },
     "HDFCMID150": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": -0.0027,
-      "oneYearReturn": 0.0321,
-      "threeYearReturn": 0.0662,
-      "fiveYearReturn": 0.0392,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.0186,
+      "oneYearReturn": 0.044,
+      "threeYearReturn": 0.0737,
+      "fiveYearReturn": 0.0436,
+      "savedAt": 1782550861403
     },
     "MIDCAP": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.8898,
-      "oneYearReturn": -0.8898,
-      "threeYearReturn": -0.435,
-      "fiveYearReturn": -0.2664,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.8876,
+      "oneYearReturn": -0.8876,
+      "threeYearReturn": -0.438,
+      "fiveYearReturn": -0.2635,
+      "savedAt": 1782550861403
     },
     "EBBETF0431": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0033,
-      "oneYearReturn": 0.0279,
-      "threeYearReturn": 0.0678,
-      "fiveYearReturn": 0.061,
-      "savedAt": 1780819101674
+      "fundFamily": "Edelweiss AMC",
+      "ytdReturn": 0.0256,
+      "oneYearReturn": 0.0533,
+      "threeYearReturn": 0.0751,
+      "fiveYearReturn": 0.0655,
+      "savedAt": 1782550861403
     },
     "EVINDIA": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0287,
-      "oneYearReturn": 0.0445,
-      "threeYearReturn": -0.0238,
-      "fiveYearReturn": -0.0144,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.0006,
+      "oneYearReturn": 0.0729,
+      "threeYearReturn": -0.0145,
+      "fiveYearReturn": -0.0087,
+      "savedAt": 1782550861403
     },
     "NIF100BEES": {
       "expenseRatio": 0.0015,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.0273,
-      "oneYearReturn": -0.0273,
-      "threeYearReturn": 0.1469,
-      "fiveYearReturn": 0.0942,
-      "savedAt": 1780819101674
+      "ytdReturn": 0.0005,
+      "oneYearReturn": 0.0005,
+      "threeYearReturn": 0.1043,
+      "fiveYearReturn": 0.0987,
+      "savedAt": 1782550861403
     },
     "MULTICAP": {
       "expenseRatio": 0.004,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0373,
-      "oneYearReturn": -0.0136,
-      "threeYearReturn": -0.0122,
-      "fiveYearReturn": -0.0074,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.0078,
+      "oneYearReturn": -0.0006,
+      "threeYearReturn": -0.0023,
+      "fiveYearReturn": -0.0014,
+      "savedAt": 1782550861403
     },
     "INFRABEES": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.0488,
-      "oneYearReturn": 0.0142,
-      "threeYearReturn": 0.1795,
-      "fiveYearReturn": 0.1524,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.0191,
+      "oneYearReturn": 0.0062,
+      "threeYearReturn": 0.1842,
+      "fiveYearReturn": 0.1663,
+      "savedAt": 1782550861403
     },
     "LOWVOLIETF": {
       "expenseRatio": null,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.085,
-      "oneYearReturn": -0.0176,
-      "threeYearReturn": 0.1165,
-      "fiveYearReturn": 0.1043,
-      "savedAt": 1780819101674
+      "fundFamily": "ICICI Prudential AMC",
+      "ytdReturn": -0.06,
+      "oneYearReturn": -0.0131,
+      "threeYearReturn": 0.1197,
+      "fiveYearReturn": 0.1093,
+      "savedAt": 1782550861403
     },
     "HDFCPVTBAN": {
       "expenseRatio": 0.002,
       "category": null,
       "fundFamily": "HDFC AMC",
-      "ytdReturn": -0.086,
-      "oneYearReturn": -0.0512,
-      "threeYearReturn": -0.5102,
-      "fiveYearReturn": -0.3448,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.0134,
+      "oneYearReturn": -0.0021,
+      "threeYearReturn": -0.4977,
+      "fiveYearReturn": -0.3347,
+      "savedAt": 1782550861403
     },
     "GROWWNIFTY": {
       "expenseRatio": 0.0005,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": -0.0683,
-      "oneYearReturn": -0.0683,
-      "threeYearReturn": -0.0233,
-      "fiveYearReturn": -0.0141,
-      "savedAt": 1780819101674
+      "ytdReturn": -0.0376,
+      "oneYearReturn": -0.0376,
+      "threeYearReturn": -0.0127,
+      "fiveYearReturn": -0.0076,
+      "savedAt": 1782550861403
     },
     "GOLD360": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": 0.1567,
-      "oneYearReturn": 0.5598,
-      "threeYearReturn": 0.1984,
-      "fiveYearReturn": 0.1147,
-      "savedAt": 1780819102456
+      "ytdReturn": 0.0787,
+      "oneYearReturn": 0.4815,
+      "threeYearReturn": 0.1709,
+      "fiveYearReturn": 0.0993,
+      "savedAt": 1782550861403
     },
     "GROWWRLTY": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": -0.1324,
-      "oneYearReturn": -0.141,
-      "threeYearReturn": -0.0494,
-      "fiveYearReturn": -0.0299,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0708,
+      "oneYearReturn": -0.0801,
+      "threeYearReturn": -0.0274,
+      "fiveYearReturn": -0.0166,
+      "savedAt": 1782550861403
     },
     "NV20BEES": {
       "expenseRatio": 0.004,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": -0.0929,
-      "oneYearReturn": 0.4733,
-      "threeYearReturn": 0.1379,
-      "fiveYearReturn": 0.1022,
-      "savedAt": 1780819102456
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": -0.0852,
+      "oneYearReturn": 0.4857,
+      "threeYearReturn": 0.1411,
+      "fiveYearReturn": 0.0989,
+      "savedAt": 1782550861403
     },
     "SENSEXBETA": {
       "expenseRatio": 0.001,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.1253,
-      "oneYearReturn": -0.1251,
-      "threeYearReturn": -0.0436,
-      "fiveYearReturn": -0.0264,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.093,
+      "oneYearReturn": -0.0928,
+      "threeYearReturn": -0.0319,
+      "fiveYearReturn": -0.0193,
+      "savedAt": 1782550861403
     },
     "CONSUMER": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.0847,
-      "oneYearReturn": -0.0635,
-      "threeYearReturn": -0.0243,
-      "fiveYearReturn": -0.0146,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0453,
+      "oneYearReturn": -0.0364,
+      "threeYearReturn": -0.0104,
+      "fiveYearReturn": -0.0063,
+      "savedAt": 1782550861403
     },
     "GROWWCHEM": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": 0.0116,
-      "oneYearReturn": 0.0116,
-      "threeYearReturn": 0.0039,
-      "fiveYearReturn": 0.0023,
-      "savedAt": 1780819102456
+      "ytdReturn": 0.0255,
+      "oneYearReturn": 0.0255,
+      "threeYearReturn": 0.0084,
+      "fiveYearReturn": 0.0051,
+      "savedAt": 1782550861403
     },
     "IVZINGOLD": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Invesco AMC",
-      "ytdReturn": -0.9884,
-      "oneYearReturn": -0.9842,
-      "threeYearReturn": -0.7059,
-      "fiveYearReturn": -0.5029,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.9896,
+      "oneYearReturn": -0.9856,
+      "threeYearReturn": -0.7143,
+      "fiveYearReturn": -0.5093,
+      "savedAt": 1782550861403
     },
     "GROWWMOM50": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Groww AMC",
-      "ytdReturn": -0.0066,
-      "oneYearReturn": -0.0366,
-      "threeYearReturn": 0.0128,
-      "fiveYearReturn": 0.0076,
-      "savedAt": 1780819102456
+      "ytdReturn": 0.0264,
+      "oneYearReturn": -0.0171,
+      "threeYearReturn": 0.0239,
+      "fiveYearReturn": 0.0143,
+      "savedAt": 1782550861403
     },
     "MOGSEC": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.016,
-      "oneYearReturn": 0.0323,
-      "threeYearReturn": 0.0229,
-      "fiveYearReturn": 0.0137,
-      "savedAt": 1780819102456
+      "ytdReturn": 0.0306,
+      "oneYearReturn": 0.0534,
+      "threeYearReturn": 0.0278,
+      "fiveYearReturn": 0.0166,
+      "savedAt": 1782550861403
     },
     "INTERNET": {
       "expenseRatio": 0.005,
       "category": null,
       "fundFamily": null,
-      "ytdReturn": -0.1518,
-      "oneYearReturn": -0.184,
-      "threeYearReturn": -0.0655,
-      "fiveYearReturn": -0.0399,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.1163,
+      "oneYearReturn": -0.1498,
+      "threeYearReturn": -0.0527,
+      "fiveYearReturn": -0.0319,
+      "savedAt": 1782550861403
     },
     "MANUFGBEES": {
       "expenseRatio": 0.0035,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0192,
-      "oneYearReturn": 0.1044,
-      "threeYearReturn": 0.0337,
-      "fiveYearReturn": 0.0201,
-      "savedAt": 1780819102456
+      "fundFamily": "Nippon India AMC",
+      "ytdReturn": 0.0324,
+      "oneYearReturn": 0.1188,
+      "threeYearReturn": 0.0381,
+      "fiveYearReturn": 0.0227,
+      "savedAt": 1782550861403
     },
     "ABSLNN50ET": {
       "expenseRatio": 0.0013,
       "category": null,
       "fundFamily": "Aditya Birla Sun Life AMC",
-      "ytdReturn": 0.01,
-      "oneYearReturn": 0.0432,
-      "threeYearReturn": 0.1869,
-      "fiveYearReturn": 0.1336,
-      "savedAt": 1780819102456
+      "ytdReturn": 0.0385,
+      "oneYearReturn": 0.0602,
+      "threeYearReturn": 0.1906,
+      "fiveYearReturn": 0.1396,
+      "savedAt": 1782550861403
     },
     "ABSLPSE": {
       "expenseRatio": 0.0015,
       "category": null,
       "fundFamily": "Aditya Birla Sun Life AMC",
-      "ytdReturn": 0.0255,
-      "oneYearReturn": 0.0306,
-      "threeYearReturn": -0.0064,
-      "fiveYearReturn": -0.0039,
-      "savedAt": 1780819102456
+      "ytdReturn": 0.0128,
+      "oneYearReturn": 0.0078,
+      "threeYearReturn": -0.0106,
+      "fiveYearReturn": -0.0064,
+      "savedAt": 1782550861403
     },
     "MOTOUR": {
       "expenseRatio": 0.004,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.1505,
-      "oneYearReturn": -0.1866,
-      "threeYearReturn": -0.0665,
-      "fiveYearReturn": -0.0405,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0689,
+      "oneYearReturn": -0.137,
+      "threeYearReturn": -0.0375,
+      "fiveYearReturn": -0.0227,
+      "savedAt": 1782550861403
     },
     "EMULTIMQ": {
       "expenseRatio": 0.002,
       "category": null,
-      "fundFamily": null,
-      "ytdReturn": 0.0121,
-      "oneYearReturn": -0.0247,
-      "threeYearReturn": -0.0272,
-      "fiveYearReturn": -0.0164,
-      "savedAt": 1780819102456
+      "fundFamily": "Edelweiss AMC",
+      "ytdReturn": 0.0176,
+      "oneYearReturn": -0.0392,
+      "threeYearReturn": -0.0254,
+      "fiveYearReturn": -0.0153,
+      "savedAt": 1782550861403
     },
     "MOQUALITY": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": 0.0019,
-      "oneYearReturn": 0.0312,
-      "threeYearReturn": 0.1579,
-      "fiveYearReturn": 0.0795,
-      "savedAt": 1780819102456
+      "ytdReturn": 0.005,
+      "oneYearReturn": 0.0112,
+      "threeYearReturn": 0.1538,
+      "fiveYearReturn": 0.0802,
+      "savedAt": 1782550861403
     },
     "NIFTY100EW": {
       "expenseRatio": 0.003,
       "category": null,
       "fundFamily": "Nippon India AMC",
-      "ytdReturn": -0.0061,
-      "oneYearReturn": 0.0409,
-      "threeYearReturn": 0.0643,
-      "fiveYearReturn": 0.0381,
-      "savedAt": 1780819102456
+      "ytdReturn": 0.0099,
+      "oneYearReturn": 0.0433,
+      "threeYearReturn": 0.07,
+      "fiveYearReturn": 0.0415,
+      "savedAt": 1782550861403
     },
     "MOM50": {
       "expenseRatio": null,
       "category": null,
       "fundFamily": "Motilal Oswal AMC",
-      "ytdReturn": -0.1038,
-      "oneYearReturn": -0.0544,
-      "threeYearReturn": 0.0911,
-      "fiveYearReturn": 0.0944,
-      "savedAt": 1780819102456
+      "ytdReturn": -0.0785,
+      "oneYearReturn": -0.0499,
+      "threeYearReturn": 0.0926,
+      "fiveYearReturn": 0.098,
+      "savedAt": 1782550861403
     },
     "UTIETF": {
       "expenseRatio": null,
@@ -8557,7 +8557,7 @@
       "oneYearReturn": null,
       "threeYearReturn": null,
       "fiveYearReturn": null,
-      "savedAt": 1780823966907
+      "savedAt": 1782550861403
     }
   }
 }
