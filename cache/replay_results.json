@@ -1,80 +1,6 @@
 {
-  "savedAt": 1782396342328,
+  "savedAt": 1782470162607,
   "entries": [
-    {
-      "key": "21 Jun 2026|report|127a330bb30eeec6|94e7a01f57ed82e2",
-      "savedAt": 1782059933789,
-      "hitAt": 1782059933789,
-      "payload": {
-        "ok": true,
-        "date": "21 Jun 2026",
-        "count": 0,
-        "result": {
-          "snapshots": 0,
-          "first": null,
-          "last": null,
-          "settings": {
-            "capital": 2510000,
-            "availableCash": 2504219.4,
-            "capitalSource": "paper_trades.json portfolio capital",
-            "capitalDetail": {
-              "initial": 500000,
-              "addedCapital": 2010000,
-              "capital": 2510000,
-              "realized": -5780.6,
-              "openExposure": 0,
-              "cashAvailable": 2504219.4,
-              "tradeCount": 102
-            },
-            "maxOpen": 20,
-            "maxActiveOpen": 15,
-            "maxNewPerCycle": 4,
-            "firstHourMaxEntries": 2,
-            "dailyMaxTrades": 25,
-            "dailyMaxStops": 4,
-            "dailyMaxStopsWhenProfitBuffer": 8,
-            "dailyStopProfitBufferPct": 0.2,
-            "maxPositionExposure": 100000,
-            "replayMode": "long+short",
-            "shortMinScore": 45
-          },
-          "summary": {
-            "trades": 0,
-            "wins": 0,
-            "losses": 0,
-            "winRate": 0,
-            "gross": 0,
-            "fees": 0,
-            "net": 0,
-            "returnPct": 0,
-            "maxDrawdown": 0,
-            "maxDrawdownPct": 0,
-            "maxLossStreak": 0,
-            "currentLossStreak": 0
-          },
-          "trades": [],
-          "rejected": [],
-          "setupStats": [],
-          "quality": {
-            "summary": {
-              "trades": 0,
-              "wins": 0,
-              "losses": 0,
-              "winRate": 0,
-              "net": 0,
-              "avgHoldMin": 0,
-              "avgNetPct": 0
-            },
-            "bySetup": [],
-            "byExit": [],
-            "byHour": []
-          },
-          "dataQuality": [],
-          "top": [],
-          "bottom": []
-        }
-      }
-    },
     {
       "key": "22 Jun 2026|report|2214f258fcf1cc32|b5b98ddb2857fdb2",
       "savedAt": 1782113986778,
@@ -20001,6 +19927,152 @@
             "byHour": []
           },
           "dataQuality": [],
+          "top": [],
+          "bottom": []
+        }
+      }
+    },
+    {
+      "key": "2026-06-26|report|v4|b622177669b5c521|d137f4b6201a78f3",
+      "savedAt": 1782470162606,
+      "hitAt": 1782470162606,
+      "payload": {
+        "ok": true,
+        "date": "2026-06-26",
+        "count": 151,
+        "result": {
+          "snapshots": 151,
+          "first": "2026-06-26T06:04:03.575Z",
+          "last": "2026-06-26T10:35:24.898Z",
+          "settings": {
+            "capital": 2510000,
+            "availableCash": 2520125.12,
+            "capitalSource": "paper_trades.json portfolio capital",
+            "capitalDetail": {
+              "initial": 500000,
+              "addedCapital": 2010000,
+              "capital": 2510000,
+              "realized": 10125.12,
+              "openExposure": 0,
+              "cashAvailable": 2520125.12,
+              "tradeCount": 323
+            },
+            "maxOpen": 20,
+            "maxActiveOpen": 15,
+            "maxNewPerCycle": 4,
+            "firstHourMaxEntries": 2,
+            "dailyMaxTrades": 25,
+            "dailyMaxStops": 4,
+            "dailyMaxStopsWhenProfitBuffer": 8,
+            "dailyStopProfitBufferPct": 0.2,
+            "maxPositionExposure": 100000,
+            "replayMode": "long+short",
+            "shortMinScore": 45
+          },
+          "summary": {
+            "trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "winRate": 0,
+            "gross": 0,
+            "fees": 0,
+            "net": 0,
+            "returnPct": 0,
+            "maxDrawdown": 0,
+            "maxDrawdownPct": 0,
+            "maxLossStreak": 0,
+            "currentLossStreak": 0
+          },
+          "trades": [],
+          "rejected": [
+            {
+              "symbol": "INDUSINDBK",
+              "side": "sell",
+              "setupType": "SHORT_MOMENTUM",
+              "rank": 1,
+              "score": -45,
+              "price": 917.4,
+              "reason": "setup SHORT_MOMENTUM not allowed | entry Wait | Insufficient intraday data (0 candles, need 6+)",
+              "net": -82.68,
+              "movePct": 0
+            },
+            {
+              "symbol": "SHRIRAMFIN",
+              "side": "sell",
+              "setupType": "SHORT_MOMENTUM",
+              "rank": 2,
+              "score": -45,
+              "price": 1030.8,
+              "reason": "setup SHORT_MOMENTUM not allowed | entry Wait | Insufficient intraday data (0 candles, need 6+)",
+              "net": -82.68,
+              "movePct": 0
+            },
+            {
+              "symbol": "IRFC",
+              "side": "sell",
+              "setupType": "SHORT_MOMENTUM",
+              "rank": 3,
+              "score": -45,
+              "price": 91.73,
+              "reason": "setup SHORT_MOMENTUM not allowed | entry Wait | Insufficient intraday data (0 candles, need 6+)",
+              "net": -82.68,
+              "movePct": 0
+            },
+            {
+              "symbol": "SWIGGY",
+              "side": "sell",
+              "setupType": "SHORT_MOMENTUM",
+              "rank": 4,
+              "score": -45,
+              "price": 240.35,
+              "reason": "setup SHORT_MOMENTUM not allowed | entry Wait | Insufficient intraday data (0 candles, need 6+)",
+              "net": -82.68,
+              "movePct": 0
+            },
+            {
+              "symbol": "KOTAKBANK",
+              "side": "sell",
+              "setupType": "SHORT_MOMENTUM",
+              "rank": 5,
+              "score": -45,
+              "price": 409.75,
+              "reason": "setup SHORT_MOMENTUM not allowed | entry Wait | Insufficient intraday data (0 candles, need 6+)",
+              "net": -82.67,
+              "movePct": 0
+            },
+            {
+              "symbol": "WIPRO",
+              "side": "sell",
+              "setupType": "SHORT_MOMENTUM",
+              "rank": 6,
+              "score": -45,
+              "price": 175.09,
+              "reason": "setup SHORT_MOMENTUM not allowed | entry Wait | Insufficient intraday data (0 candles, need 6+)",
+              "net": -82.67,
+              "movePct": 0
+            }
+          ],
+          "setupStats": [],
+          "quality": {
+            "summary": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winRate": 0,
+              "net": 0,
+              "avgHoldMin": 0,
+              "avgNetPct": 0
+            },
+            "bySetup": [],
+            "byExit": [],
+            "byHour": []
+          },
+          "dataQuality": [
+            {
+              "issue": "Insufficient intraday data (0 candles, need 6+)",
+              "count": 10800
+            }
+          ],
           "top": [],
           "bottom": []
         }

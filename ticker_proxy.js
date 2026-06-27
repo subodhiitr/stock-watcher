@@ -794,10 +794,11 @@ async function refreshIntradayLiveCache(reason = 'interval') {
   if (!symbols.length) return;
   intradayLiveRefreshInFlight = true;
   try {
-    const changed = [];
+    const allChanged = [];
     for (let i = 0; i < symbols.length; i += CONCURRENCY) {
       const chunk = symbols.slice(i, i + CONCURRENCY);
       const settled = await Promise.allSettled(chunk.map(sym => fetchIntradaySignal(sym)));
+      const chunkChanged = [];
       for (let idx = 0; idx < settled.length; idx += 1) {
         const sym = chunk[idx];
         const nextValue = settled[idx].status === 'fulfilled'
@@ -806,15 +807,18 @@ async function refreshIntradayLiveCache(reason = 'interval') {
         const prev = intradayLiveCache.get(sym);
         intradayLiveCache.set(sym, nextValue);
         if (!prev || JSON.stringify(prev) !== JSON.stringify(nextValue)) {
-          changed.push(sym);
+          chunkChanged.push(sym);
         }
       }
+      if (chunkChanged.length) {
+        allChanged.push(...chunkChanged);
+        broadcastIntradayLive(reason, chunkChanged); // broadcast each chunk immediately
+      }
     }
-    if (changed.length) {
-      persistServerSimulationSnapshot(reason, changed);
-      broadcastIntradayLive(reason, changed);
+    if (allChanged.length) {
+      persistServerSimulationSnapshot(reason, allChanged); // persist once after all chunks
     }
-    return { ok: true, changedCount: changed.length };
+    return { ok: true, changedCount: allChanged.length };
   } finally {
     intradayLiveRefreshInFlight = false;
   }

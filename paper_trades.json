@@ -1,5 +1,5 @@
 {
-  "savedAt": 1782389757007,
+  "savedAt": 1782480469352,
   "portfolio": {
     "initialCapital": 500000,
     "capitalAdds": [
@@ -16,6 +16,446 @@
     ]
   },
   "trades": [
+    {
+      "id": "1782480469285-xs7gzt",
+      "status": "open",
+      "symbol": "AMBUJACEM",
+      "name": "Ambuja Cements",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 424,
+      "target": 848,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 424,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-26T13:27:49.285Z",
+      "executionMode": "zerodha_live",
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only",
+      "broker": {
+        "name": "zerodha",
+        "mode": "live",
+        "status": "failed",
+        "error": "IP (124.123.175.72) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+        "createdAt": "2026-06-26T13:27:49.285Z",
+        "audit": [
+          {
+            "at": "2026-06-26T13:27:49.285Z",
+            "event": "live_order_failed",
+            "error": "IP (124.123.175.72) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip"
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782479967099-yfshew",
+      "status": "open",
+      "symbol": "ALKEM",
+      "name": "Alkem Laboratories",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 5425,
+      "target": 10850,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 5425,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-26T13:19:27.099Z",
+      "executionMode": "zerodha_live",
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only",
+      "broker": {
+        "name": "zerodha",
+        "mode": "live",
+        "status": "failed",
+        "error": "No IPs configured for this app. Add allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+        "createdAt": "2026-06-26T13:19:27.099Z",
+        "audit": [
+          {
+            "at": "2026-06-26T13:19:27.099Z",
+            "event": "live_order_failed",
+            "error": "No IPs configured for this app. Add allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip"
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782479947066-2qu85u",
+      "status": "closed",
+      "symbol": "AIAENG",
+      "name": "AIA Engineering",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 4847.5,
+      "target": 9695,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 4847.5,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-26T13:19:07.066Z",
+      "executionMode": "zerodha_dry_run",
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "exit_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "AIAENG",
+          "transaction_type": "BUY",
+          "quantity": 1,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 4847.5,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": 9695,
+          "stop": null,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-26T13:19:07.066Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "AIAENG",
+              "transaction_type": "BUY",
+              "quantity": 1,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 4847.5,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-26T13:19:14.519Z",
+            "event": "exit_dry_run_created",
+            "reason": "Manual exit",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "AIAENG",
+              "transaction_type": "SELL",
+              "quantity": 1,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 4847.5,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "AIAENG",
+          "transaction_type": "SELL",
+          "quantity": 1,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 4847.5,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "exitPrice": 4847.5,
+      "closedAt": "2026-06-26T13:19:14.519Z",
+      "closeReason": "Manual exit",
+      "pnl": -5.15,
+      "pnlPct": -0.11,
+      "grossPnl": 0,
+      "charges": 5.15,
+      "chargeBreakup": {
+        "total": 5.15,
+        "totalPct": 0.106,
+        "brokerage": 2.91,
+        "stt": 1.21,
+        "transaction": 0.3,
+        "gst": 0.58,
+        "sebi": 0.01,
+        "stamp": 0.15,
+        "turnover": 9695
+      }
+    },
+    {
+      "id": "1782479312235-12i17c",
+      "status": "open",
+      "symbol": "ADANIPORTS",
+      "name": "Adani Ports",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 1795,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 1795,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-26T13:08:32.235Z",
+      "executionMode": "zerodha_live",
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only",
+      "broker": {
+        "name": "zerodha",
+        "mode": "live",
+        "status": "failed",
+        "error": "No IPs configured for this app. Add allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+        "createdAt": "2026-06-26T13:08:32.235Z",
+        "audit": [
+          {
+            "at": "2026-06-26T13:08:32.235Z",
+            "event": "live_order_failed",
+            "error": "No IPs configured for this app. Add allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip"
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782478716544-yk5ds3",
+      "status": "open",
+      "symbol": "ADANIPOWER",
+      "name": "Adani Power",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 229.1,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 229.1,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-26T12:58:36.544Z",
+      "executionMode": "zerodha_live",
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only",
+      "broker": {
+        "name": "zerodha",
+        "mode": "live",
+        "status": "failed",
+        "error": "AUTH_FAILED_REFRESH_NEEDED",
+        "createdAt": "2026-06-26T12:58:36.544Z",
+        "audit": [
+          {
+            "at": "2026-06-26T12:58:36.544Z",
+            "event": "live_order_failed",
+            "error": "AUTH_FAILED_REFRESH_NEEDED"
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782478643578-7daav1",
+      "status": "closed",
+      "symbol": "ADANIGREEN",
+      "name": "Adani Green Energy",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 1525.9,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 1525.9,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-26T12:57:23.578Z",
+      "executionMode": "zerodha_dry_run",
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only",
+      "broker": {
+        "name": "zerodha",
+        "mode": "dry-run",
+        "status": "exit_dry_run",
+        "entryOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "ADANIGREEN",
+          "transaction_type": "BUY",
+          "quantity": 1,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 1525.9,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        },
+        "exitPlan": {
+          "target": null,
+          "stop": null,
+          "squareOff": "intraday dashboard managed exit"
+        },
+        "audit": [
+          {
+            "at": "2026-06-26T12:57:23.578Z",
+            "event": "entry_dry_run_created",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "ADANIGREEN",
+              "transaction_type": "BUY",
+              "quantity": 1,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 1525.9,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          },
+          {
+            "at": "2026-06-26T12:58:00.413Z",
+            "event": "exit_dry_run_created",
+            "reason": "Manual exit",
+            "order": {
+              "exchange": "NSE",
+              "tradingsymbol": "ADANIGREEN",
+              "transaction_type": "SELL",
+              "quantity": 1,
+              "product": "MIS",
+              "order_type": "LIMIT",
+              "price": 1525.9,
+              "validity": "DAY",
+              "variety": "regular",
+              "tag": "stockdash-dry"
+            }
+          }
+        ],
+        "exitOrder": {
+          "exchange": "NSE",
+          "tradingsymbol": "ADANIGREEN",
+          "transaction_type": "SELL",
+          "quantity": 1,
+          "product": "MIS",
+          "order_type": "LIMIT",
+          "price": 1525.9,
+          "validity": "DAY",
+          "variety": "regular",
+          "tag": "stockdash-dry"
+        }
+      },
+      "exitPrice": 1525.9,
+      "closedAt": "2026-06-26T12:58:00.413Z",
+      "closeReason": "Manual exit",
+      "pnl": -1.62,
+      "pnlPct": -0.11,
+      "grossPnl": 0,
+      "charges": 1.62,
+      "chargeBreakup": {
+        "total": 1.62,
+        "totalPct": 0.106,
+        "brokerage": 0.92,
+        "stt": 0.38,
+        "transaction": 0.09,
+        "gst": 0.18,
+        "sebi": 0,
+        "stamp": 0.05,
+        "turnover": 3051.8
+      }
+    },
+    {
+      "id": "1782474704098-2801bv",
+      "status": "open",
+      "symbol": "DELTACORP",
+      "name": "Delta Corp",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 64.35,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 64.35,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-26T11:51:44.099Z",
+      "executionMode": "zerodha_live",
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only",
+      "broker": {
+        "name": "zerodha",
+        "mode": "live",
+        "status": "failed",
+        "error": "AUTH_FAILED_REFRESH_NEEDED",
+        "createdAt": "2026-06-26T11:51:44.099Z",
+        "audit": [
+          {
+            "at": "2026-06-26T11:51:44.099Z",
+            "event": "live_order_failed",
+            "error": "AUTH_FAILED_REFRESH_NEEDED"
+          }
+        ]
+      }
+    },
     {
       "id": "1782386162493-t9npti",
       "status": "closed",

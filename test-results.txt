@@ -1,0 +1,2022 @@
+Γ£û openManualTradeModal function is defined (2.6734ms)
+Γ£û closeManualTradeModal function is defined (0.6768ms)
+Γ£û submitManualTrade function is defined (0.8644ms)
+Γ£û openManualTradeModal populates manual-trade-modal-body (0.4497ms)
+Γ£ö submitManualTrade uses postPaperTrade with source manual (0.4715ms)
+Γ£ö submitManualTrade derives assetType from getAssetBySymbol (0.3041ms)
+Γ£ö submitManualTrade calls applyOpenedTradeLocally on success (0.1583ms)
+Γ£û submitManualTrade calls loadPaperTrades after opening (0.3917ms)
+Γ£û modal shows inline status message on error without closing (0.5249ms)
+Γ£ö symbol change triggers price autofill via getCurrentTradePrice (0.1821ms)
+Γ£ö target and stop autofill use getPaperPlanForSide (0.1285ms)
+Γ£ö submitManualTrade uses getSuggestedPaperQty for cash/exposure validation (0.1811ms)
+Γ£û _autofillManualTradeFields clears fields before filling (stale-value safety) (0.5897ms)
+Γ£ö _onManualTradeSymChange uses getManualTradeBrokerMode for broker reload (0.1417ms)
+Γ£û symbol input uses datalist for searchable autocomplete (0.5401ms)
+Γä╣ tests 15
+Γä╣ suites 0
+Γä╣ pass 7
+Γä╣ fail 8
+Γä╣ cancelled 0
+Γä╣ skipped 0
+Γä╣ todo 0
+Γä╣ duration_ms 215.6525
+
+Γ£û failing tests:
+
+test at test\manual-trade-modal.test.js:8:1
+Γ£û openManualTradeModal function is defined (2.6734ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /function openManualTradeModal\s*\(/. Input:
+  
+  '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n' +
+    '//  CONFIG\r\n' +
+    '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n' +
+    '// Adaptive refresh: 30s during market hours (9:15ΓÇô15:30 IST), 2 min outside\r\n' +
+    'function getRefreshInterval() {\r\n' +
+    '  const now = new Date();\r\n' +
+    '  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);\r\n' +
+    '  const day = ist.getUTCDay(); // 0=Sun, 6=Sat\r\n' +
+    '  if (day === 0 || day === 6) return 120; // weekend\r\n' +
+    '  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();\r\n' +
+    '  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;\r\n' +
+    '}\r\n' +
+    "const PROXY = location.protocol === 'file:' ? 'http://localhost:3001' : location.origin;\r\n" +
+    'const DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;\r\n' +
+    'const ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;\r\n' +
+    "const ETF_STORAGE_KEY = 'stock-watcher-etf-symbols';\r\n" +
+    'const ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;\r\n' +
+    "const ETF_FAV_STORAGE_KEY = 'stock-watcher-etf-favorites';\r\n" +
+    'const STOCK_PREFS_ENDPOINT = `${PROXY}/stock-prefs`;\r\n' +
+    "const STOCK_STORAGE_KEY = 'stock-watcher-stock-symbols';\r\n" +
+    'const STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;\r\n' +
+    "const STOCK_FAV_STORAGE_KEY = 'stock-watcher-stock-favorites';\r\n" +
+    'const PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;\r\n' +
+    'const PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;\r\n' +
+    'const SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;\r\n' +
+    'const SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;\r\n' +
+    'const SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;\r\n' +
+    'const SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;\r\n' +
+    'const FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;\r\n' +
+    'const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;\r\n' +
+    'const SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;\r\n' +
+    'const SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;\r\n' +
+    'const SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;\r\n' +
+    'const BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;\r\n' +
+    'const ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;\r\n' +
+    'const SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;\r\n' +
+    'const INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;\r\n' +
+    'const REPLAY_FETCH_TIMEOUT_MS = 120000;\r\n' +
+    'const TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;\r\n' +
+    "const TRADE_SETTING_OVERRIDES_KEY = 'stock-watcher-trade-setting-overrides';\r\n" +
+    'const OPENAI_ENDPOINT = `${PROXY}/openai`;\r\n' +
+    'const OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;\r\n' +
+    'const DEBUG_INTRADAY_LOGS = false;\r\n' +
+    'const DEBUG_SIM_LOGS = false;\r\n' +
+    'const DEBUG_EVENT_LOGS = false;\r\n' +
+    '\r\n' +
+    'let STOCK_FAVORITES = new Set();\r\n' +
+    'let ETF_FAVORITES = new Set();\r\n' +
+    'let tradeSettingOverrides = null;\r\n' +
+    'let dashboardBootstrap = null;\r\n' +
+    'let dashboardBootstrapLoaded = false;\r\n' +
+    '\r\n' +
+    'async function loadDashboardBootstrap() {\r\n' +
+    '  if (dashboardBootstrapLoaded) return dashboardBootstrap;\r\n' +
+    '  dashboardBootstrapLoaded = true;\r\n' +
+    '  try {\r\n' +
+    '    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });\r\n' +
+    '    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);\r\n' +
+    '    const payload = await res.json();\r\n' +
+    '    dashboardBootstrap = payload && payload.ok ? payload : null;\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Dashboard bootstrap failed:', e.message);\r\n" +
+    '    dashboardBootstrap = null;\r\n' +
+    '  }\r\n' +
+    '  return dashboardBootstrap;\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function bootstrapArray(path, fallback = null) {\r\n' +
+    '  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);\r\n' +
+    '  return Array.isArray(value) ? value : fallback;\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadSavedETFsFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(ETF_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveSavedETFsToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('ETF local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadFavoriteETFsFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(ETF_FAV_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveFavoriteETFsToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(ETF_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('ETF fav local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadSavedStocksFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(STOCK_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveSavedStocksToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Stock local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadFavoriteStocksFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(STOCK_FAV_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveFavoriteStocksToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(STOCK_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Stock fav local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadFavoriteETFs() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'etfFavorites']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveFavoriteETFsToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(ETF_FAVS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('ETF favs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveFavoriteETFsToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved ETF favorites load failed:', e.message);\r\n" +
+    '      saved = loadFavoriteETFsFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    "  ETF_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadFavoriteStocks() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'stockFavorites']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveFavoriteStocksToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(STOCK_FAVS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('Stock favs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveFavoriteStocksToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved stock favorites load failed:', e.message);\r\n" +
+    '      saved = loadFavoriteStocksFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    "  STOCK_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadSavedETFs() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'etfs']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveSavedETFsToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(ETF_PREFS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('ETF prefs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveSavedETFsToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved ETFs load failed:', e.message);\r\n" +
+    '      saved = loadSavedETFsFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    '  const newSymbols = [];\r\n' +
+    '  for (const rawSym of saved) {\r\n' +
+    '    // support stored formats: string or object { sym, sector, cap }\r\n' +
+    "    if (typeof rawSym === 'string') {\r\n" +
+    '      const sym = rawSym.trim().toUpperCase();\r\n' +
+    '      if (!sym) continue;\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n' +
+    '      EXTRA_SYMBOLS.push(sym);\r\n' +
+    "      ETF_ASSETS.push({ sym, name: sym, sector: 'ETF', cap: 'etf' });\r\n" +
+    '      newSymbols.push(sym);\r\n' +
+    "    } else if (rawSym && typeof rawSym === 'object' && rawSym.sym) {\r\n" +
+    '      const sym = String(rawSym.sym).trim().toUpperCase();\r\n' +
+    '      if (!sym) continue;\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n' +
+    '      EXTRA_SYMBOLS.push(sym);\r\n' +
+    "      ETF_ASSETS.push({ sym, name: rawSym.name||sym, sector: rawSym.sector||'ETF', cap: rawSym.cap||'etf' });\r\n" +
+    '      newSymbols.push(sym);\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (newSymbols.length && dataSource) {\r\n' +
+    '    await fetchAdditionalSymbols(newSymbols);\r\n' +
+    '  }\r\n' +
+    '  // Initialize preset ETFs if no saved ETFs exist (fallback on page load)\r\n' +
+    '  if (!ETF_ASSETS.length) {\r\n' +
+    '    for (const etf of PRESET_ETFS) {\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym)) continue;\r\n' +
+    '      ETF_ASSETS.push({ ...etf });\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    "  if (currentView === 'etfs') renderETFSection();\r\n" +
+    '}\r\n' +
+    '// not already in MIDCAP_STOCKS (handles quarterly rebalancing without hardcoding)\r\n' +
+    'async function refreshIndexMembership() {\r\n' +
+    '  const INDICES = [\r\n' +
+    "    'NIFTY 50',\r\n" +
+    "    'NIFTY NEXT 50',\r\n" +
+    "    'NIFTY MIDCAP 150',\r\n" +
+    '  ];\r\n' +
+    '  let added = 0;\r\n' +
+    '  for (const index of INDICES) {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(`${PROXY}/nse/index-symbols?index=${encodeURIComponent(index)}`);\r\n' +
+    '      if (!res.ok) continue;\r\n' +
+    '      const json = await res.json();\r\n' +
+    '      for (const { sym, name } of (json.symbols || [])) {\r\n' +
+    '        if (!sym) continue;\r\n' +
+    '        if (MIDCAP_STOCKS.some(s => s.sym === sym)) continue;\r\n' +
+    '        // New symbol not in hardcoded list ΓÇö add it dynamically\r\n' +
+    "        const cap = index === 'NIFTY MIDCAP 150' ? 'midcap' : 'largecap';\r\n" +
+    "        MIDCAP_STOCKS.push({ sym, name: name || sym, sector: 'Other', cap });\r\n" +
+    '        added++;\r\n' +
+    '        console.log(`[index-membership] New symbol from "${index}": ${sym}`);\r\n' +
+    '      }\r\n' +
+    '    } catch(e) { console.warn(`[index-membership] ${index'... 403995 more characters
+  
+      at TestContext.<anonymous> (C:\data\project\stock-watcher\test\manual-trade-modal.test.js:9:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.start (node:internal/test_runner/test:1096:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n//  CONFIG\r\n// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n// Adaptive refresh: 30s during market hours (9:15ΓÇô15:30 IST), 2 min outside\r\nfunction getRefreshInterval() {\r\n  const now = new Date();\r\n  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);\r\n  const day = ist.getUTCDay(); // 0=Sun, 6=Sat\r\n  if (day === 0 || day === 6) return 120; // weekend\r\n  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();\r\n  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;\r\n}\r\nconst PROXY = location.protocol === \'file:\' ? \'http://localhost:3001\' : location.origin;\r\nconst DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;\r\nconst ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;\r\nconst ETF_STORAGE_KEY = \'stock-watcher-etf-symbols\';\r\nconst ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;\r\nconst ETF_FAV_STORAGE_KEY = \'stock-watcher-etf-favorites\';\r\nconst STOCK_PREFS_ENDPOINT = `${PROXY}/stock-prefs`;\r\nconst STOCK_STORAGE_KEY = \'stock-watcher-stock-symbols\';\r\nconst STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;\r\nconst STOCK_FAV_STORAGE_KEY = \'stock-watcher-stock-favorites\';\r\nconst PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;\r\nconst PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;\r\nconst SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;\r\nconst SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;\r\nconst SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;\r\nconst SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;\r\nconst FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;\r\nconst SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;\r\nconst SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;\r\nconst SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;\r\nconst SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;\r\nconst BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;\r\nconst ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;\r\nconst SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;\r\nconst INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;\r\nconst REPLAY_FETCH_TIMEOUT_MS = 120000;\r\nconst TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;\r\nconst TRADE_SETTING_OVERRIDES_KEY = \'stock-watcher-trade-setting-overrides\';\r\nconst OPENAI_ENDPOINT = `${PROXY}/openai`;\r\nconst OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;\r\nconst DEBUG_INTRADAY_LOGS = false;\r\nconst DEBUG_SIM_LOGS = false;\r\nconst DEBUG_EVENT_LOGS = false;\r\n\r\nlet STOCK_FAVORITES = new Set();\r\nlet ETF_FAVORITES = new Set();\r\nlet tradeSettingOverrides = null;\r\nlet dashboardBootstrap = null;\r\nlet dashboardBootstrapLoaded = false;\r\n\r\nasync function loadDashboardBootstrap() {\r\n  if (dashboardBootstrapLoaded) return dashboardBootstrap;\r\n  dashboardBootstrapLoaded = true;\r\n  try {\r\n    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });\r\n    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);\r\n    const payload = await res.json();\r\n    dashboardBootstrap = payload && payload.ok ? payload : null;\r\n  } catch (e) {\r\n    console.warn(\'Dashboard bootstrap failed:\', e.message);\r\n    dashboardBootstrap = null;\r\n  }\r\n  return dashboardBootstrap;\r\n}\r\n\r\nfunction bootstrapArray(path, fallback = null) {\r\n  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);\r\n  return Array.isArray(value) ? value : fallback;\r\n}\r\n\r\nfunction loadSavedETFsFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(ETF_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveSavedETFsToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'ETF local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadFavoriteETFsFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(ETF_FAV_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveFavoriteETFsToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(ETF_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'ETF fav local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadSavedStocksFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(STOCK_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveSavedStocksToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'Stock local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadFavoriteStocksFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(STOCK_FAV_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveFavoriteStocksToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(STOCK_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'Stock fav local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nasync function loadFavoriteETFs() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'etfFavorites\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveFavoriteETFsToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(ETF_FAVS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'ETF favs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveFavoriteETFsToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved ETF favorites load failed:\', e.message);\r\n      saved = loadFavoriteETFsFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  ETF_FAVORITES = new Set(saved.filter(s => typeof s === \'string\').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n}\r\n\r\nasync function loadFavoriteStocks() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'stockFavorites\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveFavoriteStocksToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(STOCK_FAVS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'Stock favs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveFavoriteStocksToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved stock favorites load failed:\', e.message);\r\n      saved = loadFavoriteStocksFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  STOCK_FAVORITES = new Set(saved.filter(s => typeof s === \'string\').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n}\r\n\r\nasync function loadSavedETFs() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'etfs\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveSavedETFsToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(ETF_PREFS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'ETF prefs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveSavedETFsToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved ETFs load failed:\', e.message);\r\n      saved = loadSavedETFsFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  const newSymbols = [];\r\n  for (const rawSym of saved) {\r\n    // support stored formats: string or object { sym, sector, cap }\r\n    if (typeof rawSym === \'string\') {\r\n      const sym = rawSym.trim().toUpperCase();\r\n      if (!sym) continue;\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n      EXTRA_SYMBOLS.push(sym);\r\n      ETF_ASSETS.push({ sym, name: sym, sector: \'ETF\', cap: \'etf\' });\r\n      newSymbols.push(sym);\r\n    } else if (rawSym && typeof rawSym === \'object\' && rawSym.sym) {\r\n      const sym = String(rawSym.sym).trim().toUpperCase();\r\n      if (!sym) continue;\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n      EXTRA_SYMBOLS.push(sym);\r\n      ETF_ASSETS.push({ sym, name: rawSym.name||sym, sector: rawSym.sector||\'ETF\', cap: rawSym.cap||\'etf\' });\r\n      newSymbols.push(sym);\r\n    }\r\n  }\r\n  if (newSymbols.length && dataSource) {\r\n    await fetchAdditionalSymbols(newSymbols);\r\n  }\r\n  // Initialize preset ETFs if no saved ETFs exist (fallback on page load)\r\n  if (!ETF_ASSETS.length) {\r\n    for (const etf of PRESET_ETFS) {\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym)) continue;\r\n      ETF_ASSETS.push({ ...etf });\r\n    }\r\n  }\r\n  if (currentView === \'etfs\') renderETFSection();\r\n}\r\n// not already in MIDCAP_STOCKS (handles quarterly rebalancing without hardcoding)\r\nasync function refreshIndexMembership() {\r\n  const INDICES = [\r\n    \'NIFTY 50\',\r\n    \'NIFTY NEXT 50\',\r\n    \'NIFTY MIDCAP 150\',\r\n  ];\r\n  let added = 0;\r\n  for (const index of INDICES) {\r\n    try {\r\n      const res = await fetch(`${PROXY}/nse/index-symbols?index=${encodeURIComponent(index)}`);\r\n      if (!res.ok) continue;\r\n      const json = await res.json();\r\n      for (const { sym, name } of (json.symbols || [])) {\r\n        if (!sym) continue;\r\n        if (MIDCAP_STOCKS.some(s => s.sym === sym)) continue;\r\n        // New symbol not in hardcoded list ΓÇö add it dynamically\r\n        const cap = index === \'NIFTY MIDCAP 150\' ? \'midcap\' : \'largecap\';\r\n        MIDCAP_STOCKS.push({ sym, name: name || sym, sector: \'Other\', cap });\r\n        added++;\r\n        console.log(`[index-membership] New symbol from "${index}": ${sym}`);\r\n      }\r\n    } catch(e) { console.warn(`[index-membership] ${index'... 403995 more characters,
+    expected: /function openManualTradeModal\s*\(/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\manual-trade-modal.test.js:12:1
+Γ£û closeManualTradeModal function is defined (0.6768ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /function closeManualTradeModal\s*\(/. Input:
+  
+  '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n' +
+    '//  CONFIG\r\n' +
+    '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n' +
+    '// Adaptive refresh: 30s during market hours (9:15ΓÇô15:30 IST), 2 min outside\r\n' +
+    'function getRefreshInterval() {\r\n' +
+    '  const now = new Date();\r\n' +
+    '  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);\r\n' +
+    '  const day = ist.getUTCDay(); // 0=Sun, 6=Sat\r\n' +
+    '  if (day === 0 || day === 6) return 120; // weekend\r\n' +
+    '  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();\r\n' +
+    '  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;\r\n' +
+    '}\r\n' +
+    "const PROXY = location.protocol === 'file:' ? 'http://localhost:3001' : location.origin;\r\n" +
+    'const DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;\r\n' +
+    'const ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;\r\n' +
+    "const ETF_STORAGE_KEY = 'stock-watcher-etf-symbols';\r\n" +
+    'const ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;\r\n' +
+    "const ETF_FAV_STORAGE_KEY = 'stock-watcher-etf-favorites';\r\n" +
+    'const STOCK_PREFS_ENDPOINT = `${PROXY}/stock-prefs`;\r\n' +
+    "const STOCK_STORAGE_KEY = 'stock-watcher-stock-symbols';\r\n" +
+    'const STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;\r\n' +
+    "const STOCK_FAV_STORAGE_KEY = 'stock-watcher-stock-favorites';\r\n" +
+    'const PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;\r\n' +
+    'const PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;\r\n' +
+    'const SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;\r\n' +
+    'const SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;\r\n' +
+    'const SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;\r\n' +
+    'const SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;\r\n' +
+    'const FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;\r\n' +
+    'const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;\r\n' +
+    'const SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;\r\n' +
+    'const SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;\r\n' +
+    'const SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;\r\n' +
+    'const BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;\r\n' +
+    'const ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;\r\n' +
+    'const SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;\r\n' +
+    'const INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;\r\n' +
+    'const REPLAY_FETCH_TIMEOUT_MS = 120000;\r\n' +
+    'const TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;\r\n' +
+    "const TRADE_SETTING_OVERRIDES_KEY = 'stock-watcher-trade-setting-overrides';\r\n" +
+    'const OPENAI_ENDPOINT = `${PROXY}/openai`;\r\n' +
+    'const OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;\r\n' +
+    'const DEBUG_INTRADAY_LOGS = false;\r\n' +
+    'const DEBUG_SIM_LOGS = false;\r\n' +
+    'const DEBUG_EVENT_LOGS = false;\r\n' +
+    '\r\n' +
+    'let STOCK_FAVORITES = new Set();\r\n' +
+    'let ETF_FAVORITES = new Set();\r\n' +
+    'let tradeSettingOverrides = null;\r\n' +
+    'let dashboardBootstrap = null;\r\n' +
+    'let dashboardBootstrapLoaded = false;\r\n' +
+    '\r\n' +
+    'async function loadDashboardBootstrap() {\r\n' +
+    '  if (dashboardBootstrapLoaded) return dashboardBootstrap;\r\n' +
+    '  dashboardBootstrapLoaded = true;\r\n' +
+    '  try {\r\n' +
+    '    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });\r\n' +
+    '    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);\r\n' +
+    '    const payload = await res.json();\r\n' +
+    '    dashboardBootstrap = payload && payload.ok ? payload : null;\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Dashboard bootstrap failed:', e.message);\r\n" +
+    '    dashboardBootstrap = null;\r\n' +
+    '  }\r\n' +
+    '  return dashboardBootstrap;\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function bootstrapArray(path, fallback = null) {\r\n' +
+    '  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);\r\n' +
+    '  return Array.isArray(value) ? value : fallback;\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadSavedETFsFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(ETF_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveSavedETFsToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('ETF local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadFavoriteETFsFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(ETF_FAV_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveFavoriteETFsToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(ETF_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('ETF fav local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadSavedStocksFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(STOCK_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveSavedStocksToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Stock local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadFavoriteStocksFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(STOCK_FAV_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveFavoriteStocksToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(STOCK_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Stock fav local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadFavoriteETFs() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'etfFavorites']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveFavoriteETFsToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(ETF_FAVS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('ETF favs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveFavoriteETFsToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved ETF favorites load failed:', e.message);\r\n" +
+    '      saved = loadFavoriteETFsFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    "  ETF_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadFavoriteStocks() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'stockFavorites']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveFavoriteStocksToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(STOCK_FAVS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('Stock favs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveFavoriteStocksToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved stock favorites load failed:', e.message);\r\n" +
+    '      saved = loadFavoriteStocksFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    "  STOCK_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadSavedETFs() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'etfs']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveSavedETFsToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(ETF_PREFS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('ETF prefs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveSavedETFsToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved ETFs load failed:', e.message);\r\n" +
+    '      saved = loadSavedETFsFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    '  const newSymbols = [];\r\n' +
+    '  for (const rawSym of saved) {\r\n' +
+    '    // support stored formats: string or object { sym, sector, cap }\r\n' +
+    "    if (typeof rawSym === 'string') {\r\n" +
+    '      const sym = rawSym.trim().toUpperCase();\r\n' +
+    '      if (!sym) continue;\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n' +
+    '      EXTRA_SYMBOLS.push(sym);\r\n' +
+    "      ETF_ASSETS.push({ sym, name: sym, sector: 'ETF', cap: 'etf' });\r\n" +
+    '      newSymbols.push(sym);\r\n' +
+    "    } else if (rawSym && typeof rawSym === 'object' && rawSym.sym) {\r\n" +
+    '      const sym = String(rawSym.sym).trim().toUpperCase();\r\n' +
+    '      if (!sym) continue;\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n' +
+    '      EXTRA_SYMBOLS.push(sym);\r\n' +
+    "      ETF_ASSETS.push({ sym, name: rawSym.name||sym, sector: rawSym.sector||'ETF', cap: rawSym.cap||'etf' });\r\n" +
+    '      newSymbols.push(sym);\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (newSymbols.length && dataSource) {\r\n' +
+    '    await fetchAdditionalSymbols(newSymbols);\r\n' +
+    '  }\r\n' +
+    '  // Initialize preset ETFs if no saved ETFs exist (fallback on page load)\r\n' +
+    '  if (!ETF_ASSETS.length) {\r\n' +
+    '    for (const etf of PRESET_ETFS) {\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym)) continue;\r\n' +
+    '      ETF_ASSETS.push({ ...etf });\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    "  if (currentView === 'etfs') renderETFSection();\r\n" +
+    '}\r\n' +
+    '// not already in MIDCAP_STOCKS (handles quarterly rebalancing without hardcoding)\r\n' +
+    'async function refreshIndexMembership() {\r\n' +
+    '  const INDICES = [\r\n' +
+    "    'NIFTY 50',\r\n" +
+    "    'NIFTY NEXT 50',\r\n" +
+    "    'NIFTY MIDCAP 150',\r\n" +
+    '  ];\r\n' +
+    '  let added = 0;\r\n' +
+    '  for (const index of INDICES) {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(`${PROXY}/nse/index-symbols?index=${encodeURIComponent(index)}`);\r\n' +
+    '      if (!res.ok) continue;\r\n' +
+    '      const json = await res.json();\r\n' +
+    '      for (const { sym, name } of (json.symbols || [])) {\r\n' +
+    '        if (!sym) continue;\r\n' +
+    '        if (MIDCAP_STOCKS.some(s => s.sym === sym)) continue;\r\n' +
+    '        // New symbol not in hardcoded list ΓÇö add it dynamically\r\n' +
+    "        const cap = index === 'NIFTY MIDCAP 150' ? 'midcap' : 'largecap';\r\n" +
+    "        MIDCAP_STOCKS.push({ sym, name: name || sym, sector: 'Other', cap });\r\n" +
+    '        added++;\r\n' +
+    '        console.log(`[index-membership] New symbol from "${index}": ${sym}`);\r\n' +
+    '      }\r\n' +
+    '    } catch(e) { console.warn(`[index-membership] ${index'... 403995 more characters
+  
+      at TestContext.<anonymous> (C:\data\project\stock-watcher\test\manual-trade-modal.test.js:13:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n//  CONFIG\r\n// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n// Adaptive refresh: 30s during market hours (9:15ΓÇô15:30 IST), 2 min outside\r\nfunction getRefreshInterval() {\r\n  const now = new Date();\r\n  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);\r\n  const day = ist.getUTCDay(); // 0=Sun, 6=Sat\r\n  if (day === 0 || day === 6) return 120; // weekend\r\n  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();\r\n  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;\r\n}\r\nconst PROXY = location.protocol === \'file:\' ? \'http://localhost:3001\' : location.origin;\r\nconst DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;\r\nconst ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;\r\nconst ETF_STORAGE_KEY = \'stock-watcher-etf-symbols\';\r\nconst ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;\r\nconst ETF_FAV_STORAGE_KEY = \'stock-watcher-etf-favorites\';\r\nconst STOCK_PREFS_ENDPOINT = `${PROXY}/stock-prefs`;\r\nconst STOCK_STORAGE_KEY = \'stock-watcher-stock-symbols\';\r\nconst STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;\r\nconst STOCK_FAV_STORAGE_KEY = \'stock-watcher-stock-favorites\';\r\nconst PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;\r\nconst PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;\r\nconst SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;\r\nconst SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;\r\nconst SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;\r\nconst SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;\r\nconst FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;\r\nconst SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;\r\nconst SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;\r\nconst SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;\r\nconst SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;\r\nconst BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;\r\nconst ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;\r\nconst SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;\r\nconst INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;\r\nconst REPLAY_FETCH_TIMEOUT_MS = 120000;\r\nconst TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;\r\nconst TRADE_SETTING_OVERRIDES_KEY = \'stock-watcher-trade-setting-overrides\';\r\nconst OPENAI_ENDPOINT = `${PROXY}/openai`;\r\nconst OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;\r\nconst DEBUG_INTRADAY_LOGS = false;\r\nconst DEBUG_SIM_LOGS = false;\r\nconst DEBUG_EVENT_LOGS = false;\r\n\r\nlet STOCK_FAVORITES = new Set();\r\nlet ETF_FAVORITES = new Set();\r\nlet tradeSettingOverrides = null;\r\nlet dashboardBootstrap = null;\r\nlet dashboardBootstrapLoaded = false;\r\n\r\nasync function loadDashboardBootstrap() {\r\n  if (dashboardBootstrapLoaded) return dashboardBootstrap;\r\n  dashboardBootstrapLoaded = true;\r\n  try {\r\n    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });\r\n    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);\r\n    const payload = await res.json();\r\n    dashboardBootstrap = payload && payload.ok ? payload : null;\r\n  } catch (e) {\r\n    console.warn(\'Dashboard bootstrap failed:\', e.message);\r\n    dashboardBootstrap = null;\r\n  }\r\n  return dashboardBootstrap;\r\n}\r\n\r\nfunction bootstrapArray(path, fallback = null) {\r\n  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);\r\n  return Array.isArray(value) ? value : fallback;\r\n}\r\n\r\nfunction loadSavedETFsFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(ETF_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveSavedETFsToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'ETF local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadFavoriteETFsFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(ETF_FAV_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveFavoriteETFsToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(ETF_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'ETF fav local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadSavedStocksFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(STOCK_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveSavedStocksToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'Stock local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadFavoriteStocksFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(STOCK_FAV_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveFavoriteStocksToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(STOCK_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'Stock fav local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nasync function loadFavoriteETFs() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'etfFavorites\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveFavoriteETFsToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(ETF_FAVS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'ETF favs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveFavoriteETFsToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved ETF favorites load failed:\', e.message);\r\n      saved = loadFavoriteETFsFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  ETF_FAVORITES = new Set(saved.filter(s => typeof s === \'string\').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n}\r\n\r\nasync function loadFavoriteStocks() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'stockFavorites\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveFavoriteStocksToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(STOCK_FAVS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'Stock favs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveFavoriteStocksToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved stock favorites load failed:\', e.message);\r\n      saved = loadFavoriteStocksFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  STOCK_FAVORITES = new Set(saved.filter(s => typeof s === \'string\').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n}\r\n\r\nasync function loadSavedETFs() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'etfs\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveSavedETFsToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(ETF_PREFS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'ETF prefs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveSavedETFsToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved ETFs load failed:\', e.message);\r\n      saved = loadSavedETFsFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  const newSymbols = [];\r\n  for (const rawSym of saved) {\r\n    // support stored formats: string or object { sym, sector, cap }\r\n    if (typeof rawSym === \'string\') {\r\n      const sym = rawSym.trim().toUpperCase();\r\n      if (!sym) continue;\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n      EXTRA_SYMBOLS.push(sym);\r\n      ETF_ASSETS.push({ sym, name: sym, sector: \'ETF\', cap: \'etf\' });\r\n      newSymbols.push(sym);\r\n    } else if (rawSym && typeof rawSym === \'object\' && rawSym.sym) {\r\n      const sym = String(rawSym.sym).trim().toUpperCase();\r\n      if (!sym) continue;\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n      EXTRA_SYMBOLS.push(sym);\r\n      ETF_ASSETS.push({ sym, name: rawSym.name||sym, sector: rawSym.sector||\'ETF\', cap: rawSym.cap||\'etf\' });\r\n      newSymbols.push(sym);\r\n    }\r\n  }\r\n  if (newSymbols.length && dataSource) {\r\n    await fetchAdditionalSymbols(newSymbols);\r\n  }\r\n  // Initialize preset ETFs if no saved ETFs exist (fallback on page load)\r\n  if (!ETF_ASSETS.length) {\r\n    for (const etf of PRESET_ETFS) {\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym)) continue;\r\n      ETF_ASSETS.push({ ...etf });\r\n    }\r\n  }\r\n  if (currentView === \'etfs\') renderETFSection();\r\n}\r\n// not already in MIDCAP_STOCKS (handles quarterly rebalancing without hardcoding)\r\nasync function refreshIndexMembership() {\r\n  const INDICES = [\r\n    \'NIFTY 50\',\r\n    \'NIFTY NEXT 50\',\r\n    \'NIFTY MIDCAP 150\',\r\n  ];\r\n  let added = 0;\r\n  for (const index of INDICES) {\r\n    try {\r\n      const res = await fetch(`${PROXY}/nse/index-symbols?index=${encodeURIComponent(index)}`);\r\n      if (!res.ok) continue;\r\n      const json = await res.json();\r\n      for (const { sym, name } of (json.symbols || [])) {\r\n        if (!sym) continue;\r\n        if (MIDCAP_STOCKS.some(s => s.sym === sym)) continue;\r\n        // New symbol not in hardcoded list ΓÇö add it dynamically\r\n        const cap = index === \'NIFTY MIDCAP 150\' ? \'midcap\' : \'largecap\';\r\n        MIDCAP_STOCKS.push({ sym, name: name || sym, sector: \'Other\', cap });\r\n        added++;\r\n        console.log(`[index-membership] New symbol from "${index}": ${sym}`);\r\n      }\r\n    } catch(e) { console.warn(`[index-membership] ${index'... 403995 more characters,
+    expected: /function closeManualTradeModal\s*\(/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\manual-trade-modal.test.js:16:1
+Γ£û submitManualTrade function is defined (0.8644ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /function submitManualTrade\s*\(/. Input:
+  
+  '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n' +
+    '//  CONFIG\r\n' +
+    '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n' +
+    '// Adaptive refresh: 30s during market hours (9:15ΓÇô15:30 IST), 2 min outside\r\n' +
+    'function getRefreshInterval() {\r\n' +
+    '  const now = new Date();\r\n' +
+    '  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);\r\n' +
+    '  const day = ist.getUTCDay(); // 0=Sun, 6=Sat\r\n' +
+    '  if (day === 0 || day === 6) return 120; // weekend\r\n' +
+    '  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();\r\n' +
+    '  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;\r\n' +
+    '}\r\n' +
+    "const PROXY = location.protocol === 'file:' ? 'http://localhost:3001' : location.origin;\r\n" +
+    'const DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;\r\n' +
+    'const ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;\r\n' +
+    "const ETF_STORAGE_KEY = 'stock-watcher-etf-symbols';\r\n" +
+    'const ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;\r\n' +
+    "const ETF_FAV_STORAGE_KEY = 'stock-watcher-etf-favorites';\r\n" +
+    'const STOCK_PREFS_ENDPOINT = `${PROXY}/stock-prefs`;\r\n' +
+    "const STOCK_STORAGE_KEY = 'stock-watcher-stock-symbols';\r\n" +
+    'const STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;\r\n' +
+    "const STOCK_FAV_STORAGE_KEY = 'stock-watcher-stock-favorites';\r\n" +
+    'const PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;\r\n' +
+    'const PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;\r\n' +
+    'const SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;\r\n' +
+    'const SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;\r\n' +
+    'const SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;\r\n' +
+    'const SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;\r\n' +
+    'const FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;\r\n' +
+    'const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;\r\n' +
+    'const SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;\r\n' +
+    'const SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;\r\n' +
+    'const SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;\r\n' +
+    'const BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;\r\n' +
+    'const ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;\r\n' +
+    'const SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;\r\n' +
+    'const INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;\r\n' +
+    'const REPLAY_FETCH_TIMEOUT_MS = 120000;\r\n' +
+    'const TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;\r\n' +
+    "const TRADE_SETTING_OVERRIDES_KEY = 'stock-watcher-trade-setting-overrides';\r\n" +
+    'const OPENAI_ENDPOINT = `${PROXY}/openai`;\r\n' +
+    'const OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;\r\n' +
+    'const DEBUG_INTRADAY_LOGS = false;\r\n' +
+    'const DEBUG_SIM_LOGS = false;\r\n' +
+    'const DEBUG_EVENT_LOGS = false;\r\n' +
+    '\r\n' +
+    'let STOCK_FAVORITES = new Set();\r\n' +
+    'let ETF_FAVORITES = new Set();\r\n' +
+    'let tradeSettingOverrides = null;\r\n' +
+    'let dashboardBootstrap = null;\r\n' +
+    'let dashboardBootstrapLoaded = false;\r\n' +
+    '\r\n' +
+    'async function loadDashboardBootstrap() {\r\n' +
+    '  if (dashboardBootstrapLoaded) return dashboardBootstrap;\r\n' +
+    '  dashboardBootstrapLoaded = true;\r\n' +
+    '  try {\r\n' +
+    '    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });\r\n' +
+    '    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);\r\n' +
+    '    const payload = await res.json();\r\n' +
+    '    dashboardBootstrap = payload && payload.ok ? payload : null;\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Dashboard bootstrap failed:', e.message);\r\n" +
+    '    dashboardBootstrap = null;\r\n' +
+    '  }\r\n' +
+    '  return dashboardBootstrap;\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function bootstrapArray(path, fallback = null) {\r\n' +
+    '  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);\r\n' +
+    '  return Array.isArray(value) ? value : fallback;\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadSavedETFsFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(ETF_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveSavedETFsToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('ETF local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadFavoriteETFsFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(ETF_FAV_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveFavoriteETFsToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(ETF_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('ETF fav local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadSavedStocksFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(STOCK_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveSavedStocksToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Stock local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadFavoriteStocksFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(STOCK_FAV_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveFavoriteStocksToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(STOCK_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Stock fav local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadFavoriteETFs() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'etfFavorites']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveFavoriteETFsToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(ETF_FAVS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('ETF favs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveFavoriteETFsToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved ETF favorites load failed:', e.message);\r\n" +
+    '      saved = loadFavoriteETFsFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    "  ETF_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadFavoriteStocks() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'stockFavorites']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveFavoriteStocksToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(STOCK_FAVS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('Stock favs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveFavoriteStocksToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved stock favorites load failed:', e.message);\r\n" +
+    '      saved = loadFavoriteStocksFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    "  STOCK_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadSavedETFs() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'etfs']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveSavedETFsToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(ETF_PREFS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('ETF prefs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveSavedETFsToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved ETFs load failed:', e.message);\r\n" +
+    '      saved = loadSavedETFsFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    '  const newSymbols = [];\r\n' +
+    '  for (const rawSym of saved) {\r\n' +
+    '    // support stored formats: string or object { sym, sector, cap }\r\n' +
+    "    if (typeof rawSym === 'string') {\r\n" +
+    '      const sym = rawSym.trim().toUpperCase();\r\n' +
+    '      if (!sym) continue;\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n' +
+    '      EXTRA_SYMBOLS.push(sym);\r\n' +
+    "      ETF_ASSETS.push({ sym, name: sym, sector: 'ETF', cap: 'etf' });\r\n" +
+    '      newSymbols.push(sym);\r\n' +
+    "    } else if (rawSym && typeof rawSym === 'object' && rawSym.sym) {\r\n" +
+    '      const sym = String(rawSym.sym).trim().toUpperCase();\r\n' +
+    '      if (!sym) continue;\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n' +
+    '      EXTRA_SYMBOLS.push(sym);\r\n' +
+    "      ETF_ASSETS.push({ sym, name: rawSym.name||sym, sector: rawSym.sector||'ETF', cap: rawSym.cap||'etf' });\r\n" +
+    '      newSymbols.push(sym);\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (newSymbols.length && dataSource) {\r\n' +
+    '    await fetchAdditionalSymbols(newSymbols);\r\n' +
+    '  }\r\n' +
+    '  // Initialize preset ETFs if no saved ETFs exist (fallback on page load)\r\n' +
+    '  if (!ETF_ASSETS.length) {\r\n' +
+    '    for (const etf of PRESET_ETFS) {\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym)) continue;\r\n' +
+    '      ETF_ASSETS.push({ ...etf });\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    "  if (currentView === 'etfs') renderETFSection();\r\n" +
+    '}\r\n' +
+    '// not already in MIDCAP_STOCKS (handles quarterly rebalancing without hardcoding)\r\n' +
+    'async function refreshIndexMembership() {\r\n' +
+    '  const INDICES = [\r\n' +
+    "    'NIFTY 50',\r\n" +
+    "    'NIFTY NEXT 50',\r\n" +
+    "    'NIFTY MIDCAP 150',\r\n" +
+    '  ];\r\n' +
+    '  let added = 0;\r\n' +
+    '  for (const index of INDICES) {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(`${PROXY}/nse/index-symbols?index=${encodeURIComponent(index)}`);\r\n' +
+    '      if (!res.ok) continue;\r\n' +
+    '      const json = await res.json();\r\n' +
+    '      for (const { sym, name } of (json.symbols || [])) {\r\n' +
+    '        if (!sym) continue;\r\n' +
+    '        if (MIDCAP_STOCKS.some(s => s.sym === sym)) continue;\r\n' +
+    '        // New symbol not in hardcoded list ΓÇö add it dynamically\r\n' +
+    "        const cap = index === 'NIFTY MIDCAP 150' ? 'midcap' : 'largecap';\r\n" +
+    "        MIDCAP_STOCKS.push({ sym, name: name || sym, sector: 'Other', cap });\r\n" +
+    '        added++;\r\n' +
+    '        console.log(`[index-membership] New symbol from "${index}": ${sym}`);\r\n' +
+    '      }\r\n' +
+    '    } catch(e) { console.warn(`[index-membership] ${index'... 403995 more characters
+  
+      at TestContext.<anonymous> (C:\data\project\stock-watcher\test\manual-trade-modal.test.js:17:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n//  CONFIG\r\n// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n// Adaptive refresh: 30s during market hours (9:15ΓÇô15:30 IST), 2 min outside\r\nfunction getRefreshInterval() {\r\n  const now = new Date();\r\n  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);\r\n  const day = ist.getUTCDay(); // 0=Sun, 6=Sat\r\n  if (day === 0 || day === 6) return 120; // weekend\r\n  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();\r\n  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;\r\n}\r\nconst PROXY = location.protocol === \'file:\' ? \'http://localhost:3001\' : location.origin;\r\nconst DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;\r\nconst ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;\r\nconst ETF_STORAGE_KEY = \'stock-watcher-etf-symbols\';\r\nconst ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;\r\nconst ETF_FAV_STORAGE_KEY = \'stock-watcher-etf-favorites\';\r\nconst STOCK_PREFS_ENDPOINT = `${PROXY}/stock-prefs`;\r\nconst STOCK_STORAGE_KEY = \'stock-watcher-stock-symbols\';\r\nconst STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;\r\nconst STOCK_FAV_STORAGE_KEY = \'stock-watcher-stock-favorites\';\r\nconst PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;\r\nconst PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;\r\nconst SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;\r\nconst SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;\r\nconst SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;\r\nconst SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;\r\nconst FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;\r\nconst SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;\r\nconst SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;\r\nconst SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;\r\nconst SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;\r\nconst BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;\r\nconst ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;\r\nconst SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;\r\nconst INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;\r\nconst REPLAY_FETCH_TIMEOUT_MS = 120000;\r\nconst TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;\r\nconst TRADE_SETTING_OVERRIDES_KEY = \'stock-watcher-trade-setting-overrides\';\r\nconst OPENAI_ENDPOINT = `${PROXY}/openai`;\r\nconst OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;\r\nconst DEBUG_INTRADAY_LOGS = false;\r\nconst DEBUG_SIM_LOGS = false;\r\nconst DEBUG_EVENT_LOGS = false;\r\n\r\nlet STOCK_FAVORITES = new Set();\r\nlet ETF_FAVORITES = new Set();\r\nlet tradeSettingOverrides = null;\r\nlet dashboardBootstrap = null;\r\nlet dashboardBootstrapLoaded = false;\r\n\r\nasync function loadDashboardBootstrap() {\r\n  if (dashboardBootstrapLoaded) return dashboardBootstrap;\r\n  dashboardBootstrapLoaded = true;\r\n  try {\r\n    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });\r\n    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);\r\n    const payload = await res.json();\r\n    dashboardBootstrap = payload && payload.ok ? payload : null;\r\n  } catch (e) {\r\n    console.warn(\'Dashboard bootstrap failed:\', e.message);\r\n    dashboardBootstrap = null;\r\n  }\r\n  return dashboardBootstrap;\r\n}\r\n\r\nfunction bootstrapArray(path, fallback = null) {\r\n  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);\r\n  return Array.isArray(value) ? value : fallback;\r\n}\r\n\r\nfunction loadSavedETFsFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(ETF_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveSavedETFsToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'ETF local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadFavoriteETFsFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(ETF_FAV_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveFavoriteETFsToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(ETF_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'ETF fav local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadSavedStocksFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(STOCK_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveSavedStocksToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'Stock local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadFavoriteStocksFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(STOCK_FAV_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveFavoriteStocksToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(STOCK_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'Stock fav local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nasync function loadFavoriteETFs() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'etfFavorites\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveFavoriteETFsToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(ETF_FAVS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'ETF favs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveFavoriteETFsToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved ETF favorites load failed:\', e.message);\r\n      saved = loadFavoriteETFsFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  ETF_FAVORITES = new Set(saved.filter(s => typeof s === \'string\').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n}\r\n\r\nasync function loadFavoriteStocks() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'stockFavorites\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveFavoriteStocksToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(STOCK_FAVS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'Stock favs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveFavoriteStocksToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved stock favorites load failed:\', e.message);\r\n      saved = loadFavoriteStocksFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  STOCK_FAVORITES = new Set(saved.filter(s => typeof s === \'string\').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n}\r\n\r\nasync function loadSavedETFs() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'etfs\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveSavedETFsToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(ETF_PREFS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'ETF prefs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveSavedETFsToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved ETFs load failed:\', e.message);\r\n      saved = loadSavedETFsFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  const newSymbols = [];\r\n  for (const rawSym of saved) {\r\n    // support stored formats: string or object { sym, sector, cap }\r\n    if (typeof rawSym === \'string\') {\r\n      const sym = rawSym.trim().toUpperCase();\r\n      if (!sym) continue;\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n      EXTRA_SYMBOLS.push(sym);\r\n      ETF_ASSETS.push({ sym, name: sym, sector: \'ETF\', cap: \'etf\' });\r\n      newSymbols.push(sym);\r\n    } else if (rawSym && typeof rawSym === \'object\' && rawSym.sym) {\r\n      const sym = String(rawSym.sym).trim().toUpperCase();\r\n      if (!sym) continue;\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n      EXTRA_SYMBOLS.push(sym);\r\n      ETF_ASSETS.push({ sym, name: rawSym.name||sym, sector: rawSym.sector||\'ETF\', cap: rawSym.cap||\'etf\' });\r\n      newSymbols.push(sym);\r\n    }\r\n  }\r\n  if (newSymbols.length && dataSource) {\r\n    await fetchAdditionalSymbols(newSymbols);\r\n  }\r\n  // Initialize preset ETFs if no saved ETFs exist (fallback on page load)\r\n  if (!ETF_ASSETS.length) {\r\n    for (const etf of PRESET_ETFS) {\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym)) continue;\r\n      ETF_ASSETS.push({ ...etf });\r\n    }\r\n  }\r\n  if (currentView === \'etfs\') renderETFSection();\r\n}\r\n// not already in MIDCAP_STOCKS (handles quarterly rebalancing without hardcoding)\r\nasync function refreshIndexMembership() {\r\n  const INDICES = [\r\n    \'NIFTY 50\',\r\n    \'NIFTY NEXT 50\',\r\n    \'NIFTY MIDCAP 150\',\r\n  ];\r\n  let added = 0;\r\n  for (const index of INDICES) {\r\n    try {\r\n      const res = await fetch(`${PROXY}/nse/index-symbols?index=${encodeURIComponent(index)}`);\r\n      if (!res.ok) continue;\r\n      const json = await res.json();\r\n      for (const { sym, name } of (json.symbols || [])) {\r\n        if (!sym) continue;\r\n        if (MIDCAP_STOCKS.some(s => s.sym === sym)) continue;\r\n        // New symbol not in hardcoded list ΓÇö add it dynamically\r\n        const cap = index === \'NIFTY MIDCAP 150\' ? \'midcap\' : \'largecap\';\r\n        MIDCAP_STOCKS.push({ sym, name: name || sym, sector: \'Other\', cap });\r\n        added++;\r\n        console.log(`[index-membership] New symbol from "${index}": ${sym}`);\r\n      }\r\n    } catch(e) { console.warn(`[index-membership] ${index'... 403995 more characters,
+    expected: /function submitManualTrade\s*\(/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\manual-trade-modal.test.js:20:1
+Γ£û openManualTradeModal populates manual-trade-modal-body (0.4497ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /manual-trade-modal-body/. Input:
+  
+  '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n' +
+    '//  CONFIG\r\n' +
+    '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n' +
+    '// Adaptive refresh: 30s during market hours (9:15ΓÇô15:30 IST), 2 min outside\r\n' +
+    'function getRefreshInterval() {\r\n' +
+    '  const now = new Date();\r\n' +
+    '  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);\r\n' +
+    '  const day = ist.getUTCDay(); // 0=Sun, 6=Sat\r\n' +
+    '  if (day === 0 || day === 6) return 120; // weekend\r\n' +
+    '  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();\r\n' +
+    '  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;\r\n' +
+    '}\r\n' +
+    "const PROXY = location.protocol === 'file:' ? 'http://localhost:3001' : location.origin;\r\n" +
+    'const DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;\r\n' +
+    'const ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;\r\n' +
+    "const ETF_STORAGE_KEY = 'stock-watcher-etf-symbols';\r\n" +
+    'const ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;\r\n' +
+    "const ETF_FAV_STORAGE_KEY = 'stock-watcher-etf-favorites';\r\n" +
+    'const STOCK_PREFS_ENDPOINT = `${PROXY}/stock-prefs`;\r\n' +
+    "const STOCK_STORAGE_KEY = 'stock-watcher-stock-symbols';\r\n" +
+    'const STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;\r\n' +
+    "const STOCK_FAV_STORAGE_KEY = 'stock-watcher-stock-favorites';\r\n" +
+    'const PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;\r\n' +
+    'const PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;\r\n' +
+    'const SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;\r\n' +
+    'const SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;\r\n' +
+    'const SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;\r\n' +
+    'const SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;\r\n' +
+    'const FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;\r\n' +
+    'const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;\r\n' +
+    'const SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;\r\n' +
+    'const SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;\r\n' +
+    'const SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;\r\n' +
+    'const BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;\r\n' +
+    'const ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;\r\n' +
+    'const SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;\r\n' +
+    'const INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;\r\n' +
+    'const REPLAY_FETCH_TIMEOUT_MS = 120000;\r\n' +
+    'const TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;\r\n' +
+    "const TRADE_SETTING_OVERRIDES_KEY = 'stock-watcher-trade-setting-overrides';\r\n" +
+    'const OPENAI_ENDPOINT = `${PROXY}/openai`;\r\n' +
+    'const OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;\r\n' +
+    'const DEBUG_INTRADAY_LOGS = false;\r\n' +
+    'const DEBUG_SIM_LOGS = false;\r\n' +
+    'const DEBUG_EVENT_LOGS = false;\r\n' +
+    '\r\n' +
+    'let STOCK_FAVORITES = new Set();\r\n' +
+    'let ETF_FAVORITES = new Set();\r\n' +
+    'let tradeSettingOverrides = null;\r\n' +
+    'let dashboardBootstrap = null;\r\n' +
+    'let dashboardBootstrapLoaded = false;\r\n' +
+    '\r\n' +
+    'async function loadDashboardBootstrap() {\r\n' +
+    '  if (dashboardBootstrapLoaded) return dashboardBootstrap;\r\n' +
+    '  dashboardBootstrapLoaded = true;\r\n' +
+    '  try {\r\n' +
+    '    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });\r\n' +
+    '    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);\r\n' +
+    '    const payload = await res.json();\r\n' +
+    '    dashboardBootstrap = payload && payload.ok ? payload : null;\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Dashboard bootstrap failed:', e.message);\r\n" +
+    '    dashboardBootstrap = null;\r\n' +
+    '  }\r\n' +
+    '  return dashboardBootstrap;\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function bootstrapArray(path, fallback = null) {\r\n' +
+    '  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);\r\n' +
+    '  return Array.isArray(value) ? value : fallback;\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadSavedETFsFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(ETF_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveSavedETFsToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('ETF local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadFavoriteETFsFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(ETF_FAV_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveFavoriteETFsToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(ETF_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('ETF fav local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadSavedStocksFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(STOCK_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveSavedStocksToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Stock local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadFavoriteStocksFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(STOCK_FAV_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveFavoriteStocksToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(STOCK_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Stock fav local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadFavoriteETFs() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'etfFavorites']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveFavoriteETFsToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(ETF_FAVS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('ETF favs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveFavoriteETFsToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved ETF favorites load failed:', e.message);\r\n" +
+    '      saved = loadFavoriteETFsFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    "  ETF_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadFavoriteStocks() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'stockFavorites']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveFavoriteStocksToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(STOCK_FAVS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('Stock favs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveFavoriteStocksToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved stock favorites load failed:', e.message);\r\n" +
+    '      saved = loadFavoriteStocksFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    "  STOCK_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadSavedETFs() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'etfs']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveSavedETFsToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(ETF_PREFS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('ETF prefs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveSavedETFsToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved ETFs load failed:', e.message);\r\n" +
+    '      saved = loadSavedETFsFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    '  const newSymbols = [];\r\n' +
+    '  for (const rawSym of saved) {\r\n' +
+    '    // support stored formats: string or object { sym, sector, cap }\r\n' +
+    "    if (typeof rawSym === 'string') {\r\n" +
+    '      const sym = rawSym.trim().toUpperCase();\r\n' +
+    '      if (!sym) continue;\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n' +
+    '      EXTRA_SYMBOLS.push(sym);\r\n' +
+    "      ETF_ASSETS.push({ sym, name: sym, sector: 'ETF', cap: 'etf' });\r\n" +
+    '      newSymbols.push(sym);\r\n' +
+    "    } else if (rawSym && typeof rawSym === 'object' && rawSym.sym) {\r\n" +
+    '      const sym = String(rawSym.sym).trim().toUpperCase();\r\n' +
+    '      if (!sym) continue;\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n' +
+    '      EXTRA_SYMBOLS.push(sym);\r\n' +
+    "      ETF_ASSETS.push({ sym, name: rawSym.name||sym, sector: rawSym.sector||'ETF', cap: rawSym.cap||'etf' });\r\n" +
+    '      newSymbols.push(sym);\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (newSymbols.length && dataSource) {\r\n' +
+    '    await fetchAdditionalSymbols(newSymbols);\r\n' +
+    '  }\r\n' +
+    '  // Initialize preset ETFs if no saved ETFs exist (fallback on page load)\r\n' +
+    '  if (!ETF_ASSETS.length) {\r\n' +
+    '    for (const etf of PRESET_ETFS) {\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym)) continue;\r\n' +
+    '      ETF_ASSETS.push({ ...etf });\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    "  if (currentView === 'etfs') renderETFSection();\r\n" +
+    '}\r\n' +
+    '// not already in MIDCAP_STOCKS (handles quarterly rebalancing without hardcoding)\r\n' +
+    'async function refreshIndexMembership() {\r\n' +
+    '  const INDICES = [\r\n' +
+    "    'NIFTY 50',\r\n" +
+    "    'NIFTY NEXT 50',\r\n" +
+    "    'NIFTY MIDCAP 150',\r\n" +
+    '  ];\r\n' +
+    '  let added = 0;\r\n' +
+    '  for (const index of INDICES) {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(`${PROXY}/nse/index-symbols?index=${encodeURIComponent(index)}`);\r\n' +
+    '      if (!res.ok) continue;\r\n' +
+    '      const json = await res.json();\r\n' +
+    '      for (const { sym, name } of (json.symbols || [])) {\r\n' +
+    '        if (!sym) continue;\r\n' +
+    '        if (MIDCAP_STOCKS.some(s => s.sym === sym)) continue;\r\n' +
+    '        // New symbol not in hardcoded list ΓÇö add it dynamically\r\n' +
+    "        const cap = index === 'NIFTY MIDCAP 150' ? 'midcap' : 'largecap';\r\n" +
+    "        MIDCAP_STOCKS.push({ sym, name: name || sym, sector: 'Other', cap });\r\n" +
+    '        added++;\r\n' +
+    '        console.log(`[index-membership] New symbol from "${index}": ${sym}`);\r\n' +
+    '      }\r\n' +
+    '    } catch(e) { console.warn(`[index-membership] ${index'... 403995 more characters
+  
+      at TestContext.<anonymous> (C:\data\project\stock-watcher\test\manual-trade-modal.test.js:21:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n//  CONFIG\r\n// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n// Adaptive refresh: 30s during market hours (9:15ΓÇô15:30 IST), 2 min outside\r\nfunction getRefreshInterval() {\r\n  const now = new Date();\r\n  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);\r\n  const day = ist.getUTCDay(); // 0=Sun, 6=Sat\r\n  if (day === 0 || day === 6) return 120; // weekend\r\n  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();\r\n  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;\r\n}\r\nconst PROXY = location.protocol === \'file:\' ? \'http://localhost:3001\' : location.origin;\r\nconst DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;\r\nconst ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;\r\nconst ETF_STORAGE_KEY = \'stock-watcher-etf-symbols\';\r\nconst ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;\r\nconst ETF_FAV_STORAGE_KEY = \'stock-watcher-etf-favorites\';\r\nconst STOCK_PREFS_ENDPOINT = `${PROXY}/stock-prefs`;\r\nconst STOCK_STORAGE_KEY = \'stock-watcher-stock-symbols\';\r\nconst STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;\r\nconst STOCK_FAV_STORAGE_KEY = \'stock-watcher-stock-favorites\';\r\nconst PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;\r\nconst PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;\r\nconst SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;\r\nconst SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;\r\nconst SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;\r\nconst SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;\r\nconst FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;\r\nconst SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;\r\nconst SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;\r\nconst SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;\r\nconst SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;\r\nconst BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;\r\nconst ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;\r\nconst SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;\r\nconst INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;\r\nconst REPLAY_FETCH_TIMEOUT_MS = 120000;\r\nconst TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;\r\nconst TRADE_SETTING_OVERRIDES_KEY = \'stock-watcher-trade-setting-overrides\';\r\nconst OPENAI_ENDPOINT = `${PROXY}/openai`;\r\nconst OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;\r\nconst DEBUG_INTRADAY_LOGS = false;\r\nconst DEBUG_SIM_LOGS = false;\r\nconst DEBUG_EVENT_LOGS = false;\r\n\r\nlet STOCK_FAVORITES = new Set();\r\nlet ETF_FAVORITES = new Set();\r\nlet tradeSettingOverrides = null;\r\nlet dashboardBootstrap = null;\r\nlet dashboardBootstrapLoaded = false;\r\n\r\nasync function loadDashboardBootstrap() {\r\n  if (dashboardBootstrapLoaded) return dashboardBootstrap;\r\n  dashboardBootstrapLoaded = true;\r\n  try {\r\n    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });\r\n    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);\r\n    const payload = await res.json();\r\n    dashboardBootstrap = payload && payload.ok ? payload : null;\r\n  } catch (e) {\r\n    console.warn(\'Dashboard bootstrap failed:\', e.message);\r\n    dashboardBootstrap = null;\r\n  }\r\n  return dashboardBootstrap;\r\n}\r\n\r\nfunction bootstrapArray(path, fallback = null) {\r\n  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);\r\n  return Array.isArray(value) ? value : fallback;\r\n}\r\n\r\nfunction loadSavedETFsFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(ETF_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveSavedETFsToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'ETF local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadFavoriteETFsFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(ETF_FAV_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveFavoriteETFsToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(ETF_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'ETF fav local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadSavedStocksFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(STOCK_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveSavedStocksToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'Stock local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadFavoriteStocksFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(STOCK_FAV_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveFavoriteStocksToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(STOCK_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'Stock fav local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nasync function loadFavoriteETFs() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'etfFavorites\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveFavoriteETFsToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(ETF_FAVS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'ETF favs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveFavoriteETFsToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved ETF favorites load failed:\', e.message);\r\n      saved = loadFavoriteETFsFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  ETF_FAVORITES = new Set(saved.filter(s => typeof s === \'string\').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n}\r\n\r\nasync function loadFavoriteStocks() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'stockFavorites\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveFavoriteStocksToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(STOCK_FAVS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'Stock favs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveFavoriteStocksToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved stock favorites load failed:\', e.message);\r\n      saved = loadFavoriteStocksFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  STOCK_FAVORITES = new Set(saved.filter(s => typeof s === \'string\').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n}\r\n\r\nasync function loadSavedETFs() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'etfs\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveSavedETFsToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(ETF_PREFS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'ETF prefs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveSavedETFsToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved ETFs load failed:\', e.message);\r\n      saved = loadSavedETFsFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  const newSymbols = [];\r\n  for (const rawSym of saved) {\r\n    // support stored formats: string or object { sym, sector, cap }\r\n    if (typeof rawSym === \'string\') {\r\n      const sym = rawSym.trim().toUpperCase();\r\n      if (!sym) continue;\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n      EXTRA_SYMBOLS.push(sym);\r\n      ETF_ASSETS.push({ sym, name: sym, sector: \'ETF\', cap: \'etf\' });\r\n      newSymbols.push(sym);\r\n    } else if (rawSym && typeof rawSym === \'object\' && rawSym.sym) {\r\n      const sym = String(rawSym.sym).trim().toUpperCase();\r\n      if (!sym) continue;\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n      EXTRA_SYMBOLS.push(sym);\r\n      ETF_ASSETS.push({ sym, name: rawSym.name||sym, sector: rawSym.sector||\'ETF\', cap: rawSym.cap||\'etf\' });\r\n      newSymbols.push(sym);\r\n    }\r\n  }\r\n  if (newSymbols.length && dataSource) {\r\n    await fetchAdditionalSymbols(newSymbols);\r\n  }\r\n  // Initialize preset ETFs if no saved ETFs exist (fallback on page load)\r\n  if (!ETF_ASSETS.length) {\r\n    for (const etf of PRESET_ETFS) {\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym)) continue;\r\n      ETF_ASSETS.push({ ...etf });\r\n    }\r\n  }\r\n  if (currentView === \'etfs\') renderETFSection();\r\n}\r\n// not already in MIDCAP_STOCKS (handles quarterly rebalancing without hardcoding)\r\nasync function refreshIndexMembership() {\r\n  const INDICES = [\r\n    \'NIFTY 50\',\r\n    \'NIFTY NEXT 50\',\r\n    \'NIFTY MIDCAP 150\',\r\n  ];\r\n  let added = 0;\r\n  for (const index of INDICES) {\r\n    try {\r\n      const res = await fetch(`${PROXY}/nse/index-symbols?index=${encodeURIComponent(index)}`);\r\n      if (!res.ok) continue;\r\n      const json = await res.json();\r\n      for (const { sym, name } of (json.symbols || [])) {\r\n        if (!sym) continue;\r\n        if (MIDCAP_STOCKS.some(s => s.sym === sym)) continue;\r\n        // New symbol not in hardcoded list ΓÇö add it dynamically\r\n        const cap = index === \'NIFTY MIDCAP 150\' ? \'midcap\' : \'largecap\';\r\n        MIDCAP_STOCKS.push({ sym, name: name || sym, sector: \'Other\', cap });\r\n        added++;\r\n        console.log(`[index-membership] New symbol from "${index}": ${sym}`);\r\n      }\r\n    } catch(e) { console.warn(`[index-membership] ${index'... 403995 more characters,
+    expected: /manual-trade-modal-body/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\manual-trade-modal.test.js:38:1
+Γ£û submitManualTrade calls loadPaperTrades after opening (0.3917ms)
+  AssertionError [ERR_ASSERTION]: submitManualTrade should call loadPaperTrades for reconciliation
+      at TestContext.<anonymous> (C:\data\project\stock-watcher\test\manual-trade-modal.test.js:41:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\manual-trade-modal.test.js:44:1
+Γ£û modal shows inline status message on error without closing (0.5249ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /manual-trade-status/. Input:
+  
+  '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n' +
+    '//  CONFIG\r\n' +
+    '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n' +
+    '// Adaptive refresh: 30s during market hours (9:15ΓÇô15:30 IST), 2 min outside\r\n' +
+    'function getRefreshInterval() {\r\n' +
+    '  const now = new Date();\r\n' +
+    '  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);\r\n' +
+    '  const day = ist.getUTCDay(); // 0=Sun, 6=Sat\r\n' +
+    '  if (day === 0 || day === 6) return 120; // weekend\r\n' +
+    '  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();\r\n' +
+    '  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;\r\n' +
+    '}\r\n' +
+    "const PROXY = location.protocol === 'file:' ? 'http://localhost:3001' : location.origin;\r\n" +
+    'const DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;\r\n' +
+    'const ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;\r\n' +
+    "const ETF_STORAGE_KEY = 'stock-watcher-etf-symbols';\r\n" +
+    'const ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;\r\n' +
+    "const ETF_FAV_STORAGE_KEY = 'stock-watcher-etf-favorites';\r\n" +
+    'const STOCK_PREFS_ENDPOINT = `${PROXY}/stock-prefs`;\r\n' +
+    "const STOCK_STORAGE_KEY = 'stock-watcher-stock-symbols';\r\n" +
+    'const STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;\r\n' +
+    "const STOCK_FAV_STORAGE_KEY = 'stock-watcher-stock-favorites';\r\n" +
+    'const PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;\r\n' +
+    'const PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;\r\n' +
+    'const SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;\r\n' +
+    'const SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;\r\n' +
+    'const SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;\r\n' +
+    'const SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;\r\n' +
+    'const FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;\r\n' +
+    'const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;\r\n' +
+    'const SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;\r\n' +
+    'const SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;\r\n' +
+    'const SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;\r\n' +
+    'const BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;\r\n' +
+    'const ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;\r\n' +
+    'const SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;\r\n' +
+    'const INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;\r\n' +
+    'const REPLAY_FETCH_TIMEOUT_MS = 120000;\r\n' +
+    'const TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;\r\n' +
+    "const TRADE_SETTING_OVERRIDES_KEY = 'stock-watcher-trade-setting-overrides';\r\n" +
+    'const OPENAI_ENDPOINT = `${PROXY}/openai`;\r\n' +
+    'const OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;\r\n' +
+    'const DEBUG_INTRADAY_LOGS = false;\r\n' +
+    'const DEBUG_SIM_LOGS = false;\r\n' +
+    'const DEBUG_EVENT_LOGS = false;\r\n' +
+    '\r\n' +
+    'let STOCK_FAVORITES = new Set();\r\n' +
+    'let ETF_FAVORITES = new Set();\r\n' +
+    'let tradeSettingOverrides = null;\r\n' +
+    'let dashboardBootstrap = null;\r\n' +
+    'let dashboardBootstrapLoaded = false;\r\n' +
+    '\r\n' +
+    'async function loadDashboardBootstrap() {\r\n' +
+    '  if (dashboardBootstrapLoaded) return dashboardBootstrap;\r\n' +
+    '  dashboardBootstrapLoaded = true;\r\n' +
+    '  try {\r\n' +
+    '    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });\r\n' +
+    '    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);\r\n' +
+    '    const payload = await res.json();\r\n' +
+    '    dashboardBootstrap = payload && payload.ok ? payload : null;\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Dashboard bootstrap failed:', e.message);\r\n" +
+    '    dashboardBootstrap = null;\r\n' +
+    '  }\r\n' +
+    '  return dashboardBootstrap;\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function bootstrapArray(path, fallback = null) {\r\n' +
+    '  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);\r\n' +
+    '  return Array.isArray(value) ? value : fallback;\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadSavedETFsFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(ETF_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveSavedETFsToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('ETF local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadFavoriteETFsFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(ETF_FAV_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveFavoriteETFsToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(ETF_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('ETF fav local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadSavedStocksFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(STOCK_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveSavedStocksToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Stock local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadFavoriteStocksFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(STOCK_FAV_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveFavoriteStocksToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(STOCK_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Stock fav local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadFavoriteETFs() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'etfFavorites']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveFavoriteETFsToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(ETF_FAVS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('ETF favs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveFavoriteETFsToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved ETF favorites load failed:', e.message);\r\n" +
+    '      saved = loadFavoriteETFsFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    "  ETF_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadFavoriteStocks() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'stockFavorites']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveFavoriteStocksToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(STOCK_FAVS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('Stock favs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveFavoriteStocksToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved stock favorites load failed:', e.message);\r\n" +
+    '      saved = loadFavoriteStocksFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    "  STOCK_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadSavedETFs() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'etfs']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveSavedETFsToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(ETF_PREFS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('ETF prefs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveSavedETFsToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved ETFs load failed:', e.message);\r\n" +
+    '      saved = loadSavedETFsFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    '  const newSymbols = [];\r\n' +
+    '  for (const rawSym of saved) {\r\n' +
+    '    // support stored formats: string or object { sym, sector, cap }\r\n' +
+    "    if (typeof rawSym === 'string') {\r\n" +
+    '      const sym = rawSym.trim().toUpperCase();\r\n' +
+    '      if (!sym) continue;\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n' +
+    '      EXTRA_SYMBOLS.push(sym);\r\n' +
+    "      ETF_ASSETS.push({ sym, name: sym, sector: 'ETF', cap: 'etf' });\r\n" +
+    '      newSymbols.push(sym);\r\n' +
+    "    } else if (rawSym && typeof rawSym === 'object' && rawSym.sym) {\r\n" +
+    '      const sym = String(rawSym.sym).trim().toUpperCase();\r\n' +
+    '      if (!sym) continue;\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n' +
+    '      EXTRA_SYMBOLS.push(sym);\r\n' +
+    "      ETF_ASSETS.push({ sym, name: rawSym.name||sym, sector: rawSym.sector||'ETF', cap: rawSym.cap||'etf' });\r\n" +
+    '      newSymbols.push(sym);\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (newSymbols.length && dataSource) {\r\n' +
+    '    await fetchAdditionalSymbols(newSymbols);\r\n' +
+    '  }\r\n' +
+    '  // Initialize preset ETFs if no saved ETFs exist (fallback on page load)\r\n' +
+    '  if (!ETF_ASSETS.length) {\r\n' +
+    '    for (const etf of PRESET_ETFS) {\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym)) continue;\r\n' +
+    '      ETF_ASSETS.push({ ...etf });\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    "  if (currentView === 'etfs') renderETFSection();\r\n" +
+    '}\r\n' +
+    '// not already in MIDCAP_STOCKS (handles quarterly rebalancing without hardcoding)\r\n' +
+    'async function refreshIndexMembership() {\r\n' +
+    '  const INDICES = [\r\n' +
+    "    'NIFTY 50',\r\n" +
+    "    'NIFTY NEXT 50',\r\n" +
+    "    'NIFTY MIDCAP 150',\r\n" +
+    '  ];\r\n' +
+    '  let added = 0;\r\n' +
+    '  for (const index of INDICES) {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(`${PROXY}/nse/index-symbols?index=${encodeURIComponent(index)}`);\r\n' +
+    '      if (!res.ok) continue;\r\n' +
+    '      const json = await res.json();\r\n' +
+    '      for (const { sym, name } of (json.symbols || [])) {\r\n' +
+    '        if (!sym) continue;\r\n' +
+    '        if (MIDCAP_STOCKS.some(s => s.sym === sym)) continue;\r\n' +
+    '        // New symbol not in hardcoded list ΓÇö add it dynamically\r\n' +
+    "        const cap = index === 'NIFTY MIDCAP 150' ? 'midcap' : 'largecap';\r\n" +
+    "        MIDCAP_STOCKS.push({ sym, name: name || sym, sector: 'Other', cap });\r\n" +
+    '        added++;\r\n' +
+    '        console.log(`[index-membership] New symbol from "${index}": ${sym}`);\r\n' +
+    '      }\r\n' +
+    '    } catch(e) { console.warn(`[index-membership] ${index'... 403995 more characters
+  
+      at TestContext.<anonymous> (C:\data\project\stock-watcher\test\manual-trade-modal.test.js:45:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n//  CONFIG\r\n// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n// Adaptive refresh: 30s during market hours (9:15ΓÇô15:30 IST), 2 min outside\r\nfunction getRefreshInterval() {\r\n  const now = new Date();\r\n  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);\r\n  const day = ist.getUTCDay(); // 0=Sun, 6=Sat\r\n  if (day === 0 || day === 6) return 120; // weekend\r\n  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();\r\n  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;\r\n}\r\nconst PROXY = location.protocol === \'file:\' ? \'http://localhost:3001\' : location.origin;\r\nconst DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;\r\nconst ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;\r\nconst ETF_STORAGE_KEY = \'stock-watcher-etf-symbols\';\r\nconst ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;\r\nconst ETF_FAV_STORAGE_KEY = \'stock-watcher-etf-favorites\';\r\nconst STOCK_PREFS_ENDPOINT = `${PROXY}/stock-prefs`;\r\nconst STOCK_STORAGE_KEY = \'stock-watcher-stock-symbols\';\r\nconst STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;\r\nconst STOCK_FAV_STORAGE_KEY = \'stock-watcher-stock-favorites\';\r\nconst PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;\r\nconst PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;\r\nconst SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;\r\nconst SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;\r\nconst SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;\r\nconst SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;\r\nconst FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;\r\nconst SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;\r\nconst SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;\r\nconst SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;\r\nconst SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;\r\nconst BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;\r\nconst ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;\r\nconst SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;\r\nconst INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;\r\nconst REPLAY_FETCH_TIMEOUT_MS = 120000;\r\nconst TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;\r\nconst TRADE_SETTING_OVERRIDES_KEY = \'stock-watcher-trade-setting-overrides\';\r\nconst OPENAI_ENDPOINT = `${PROXY}/openai`;\r\nconst OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;\r\nconst DEBUG_INTRADAY_LOGS = false;\r\nconst DEBUG_SIM_LOGS = false;\r\nconst DEBUG_EVENT_LOGS = false;\r\n\r\nlet STOCK_FAVORITES = new Set();\r\nlet ETF_FAVORITES = new Set();\r\nlet tradeSettingOverrides = null;\r\nlet dashboardBootstrap = null;\r\nlet dashboardBootstrapLoaded = false;\r\n\r\nasync function loadDashboardBootstrap() {\r\n  if (dashboardBootstrapLoaded) return dashboardBootstrap;\r\n  dashboardBootstrapLoaded = true;\r\n  try {\r\n    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });\r\n    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);\r\n    const payload = await res.json();\r\n    dashboardBootstrap = payload && payload.ok ? payload : null;\r\n  } catch (e) {\r\n    console.warn(\'Dashboard bootstrap failed:\', e.message);\r\n    dashboardBootstrap = null;\r\n  }\r\n  return dashboardBootstrap;\r\n}\r\n\r\nfunction bootstrapArray(path, fallback = null) {\r\n  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);\r\n  return Array.isArray(value) ? value : fallback;\r\n}\r\n\r\nfunction loadSavedETFsFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(ETF_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveSavedETFsToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'ETF local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadFavoriteETFsFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(ETF_FAV_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveFavoriteETFsToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(ETF_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'ETF fav local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadSavedStocksFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(STOCK_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveSavedStocksToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'Stock local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadFavoriteStocksFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(STOCK_FAV_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveFavoriteStocksToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(STOCK_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'Stock fav local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nasync function loadFavoriteETFs() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'etfFavorites\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveFavoriteETFsToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(ETF_FAVS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'ETF favs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveFavoriteETFsToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved ETF favorites load failed:\', e.message);\r\n      saved = loadFavoriteETFsFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  ETF_FAVORITES = new Set(saved.filter(s => typeof s === \'string\').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n}\r\n\r\nasync function loadFavoriteStocks() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'stockFavorites\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveFavoriteStocksToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(STOCK_FAVS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'Stock favs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveFavoriteStocksToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved stock favorites load failed:\', e.message);\r\n      saved = loadFavoriteStocksFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  STOCK_FAVORITES = new Set(saved.filter(s => typeof s === \'string\').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n}\r\n\r\nasync function loadSavedETFs() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'etfs\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveSavedETFsToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(ETF_PREFS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'ETF prefs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveSavedETFsToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved ETFs load failed:\', e.message);\r\n      saved = loadSavedETFsFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  const newSymbols = [];\r\n  for (const rawSym of saved) {\r\n    // support stored formats: string or object { sym, sector, cap }\r\n    if (typeof rawSym === \'string\') {\r\n      const sym = rawSym.trim().toUpperCase();\r\n      if (!sym) continue;\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n      EXTRA_SYMBOLS.push(sym);\r\n      ETF_ASSETS.push({ sym, name: sym, sector: \'ETF\', cap: \'etf\' });\r\n      newSymbols.push(sym);\r\n    } else if (rawSym && typeof rawSym === \'object\' && rawSym.sym) {\r\n      const sym = String(rawSym.sym).trim().toUpperCase();\r\n      if (!sym) continue;\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n      EXTRA_SYMBOLS.push(sym);\r\n      ETF_ASSETS.push({ sym, name: rawSym.name||sym, sector: rawSym.sector||\'ETF\', cap: rawSym.cap||\'etf\' });\r\n      newSymbols.push(sym);\r\n    }\r\n  }\r\n  if (newSymbols.length && dataSource) {\r\n    await fetchAdditionalSymbols(newSymbols);\r\n  }\r\n  // Initialize preset ETFs if no saved ETFs exist (fallback on page load)\r\n  if (!ETF_ASSETS.length) {\r\n    for (const etf of PRESET_ETFS) {\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym)) continue;\r\n      ETF_ASSETS.push({ ...etf });\r\n    }\r\n  }\r\n  if (currentView === \'etfs\') renderETFSection();\r\n}\r\n// not already in MIDCAP_STOCKS (handles quarterly rebalancing without hardcoding)\r\nasync function refreshIndexMembership() {\r\n  const INDICES = [\r\n    \'NIFTY 50\',\r\n    \'NIFTY NEXT 50\',\r\n    \'NIFTY MIDCAP 150\',\r\n  ];\r\n  let added = 0;\r\n  for (const index of INDICES) {\r\n    try {\r\n      const res = await fetch(`${PROXY}/nse/index-symbols?index=${encodeURIComponent(index)}`);\r\n      if (!res.ok) continue;\r\n      const json = await res.json();\r\n      for (const { sym, name } of (json.symbols || [])) {\r\n        if (!sym) continue;\r\n        if (MIDCAP_STOCKS.some(s => s.sym === sym)) continue;\r\n        // New symbol not in hardcoded list ΓÇö add it dynamically\r\n        const cap = index === \'NIFTY MIDCAP 150\' ? \'midcap\' : \'largecap\';\r\n        MIDCAP_STOCKS.push({ sym, name: name || sym, sector: \'Other\', cap });\r\n        added++;\r\n        console.log(`[index-membership] New symbol from "${index}": ${sym}`);\r\n      }\r\n    } catch(e) { console.warn(`[index-membership] ${index'... 403995 more characters,
+    expected: /manual-trade-status/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\manual-trade-modal.test.js:61:1
+Γ£û _autofillManualTradeFields clears fields before filling (stale-value safety) (0.5897ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /function _autofillManualTradeFields/. Input:
+  
+  '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n' +
+    '//  CONFIG\r\n' +
+    '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n' +
+    '// Adaptive refresh: 30s during market hours (9:15ΓÇô15:30 IST), 2 min outside\r\n' +
+    'function getRefreshInterval() {\r\n' +
+    '  const now = new Date();\r\n' +
+    '  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);\r\n' +
+    '  const day = ist.getUTCDay(); // 0=Sun, 6=Sat\r\n' +
+    '  if (day === 0 || day === 6) return 120; // weekend\r\n' +
+    '  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();\r\n' +
+    '  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;\r\n' +
+    '}\r\n' +
+    "const PROXY = location.protocol === 'file:' ? 'http://localhost:3001' : location.origin;\r\n" +
+    'const DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;\r\n' +
+    'const ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;\r\n' +
+    "const ETF_STORAGE_KEY = 'stock-watcher-etf-symbols';\r\n" +
+    'const ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;\r\n' +
+    "const ETF_FAV_STORAGE_KEY = 'stock-watcher-etf-favorites';\r\n" +
+    'const STOCK_PREFS_ENDPOINT = `${PROXY}/stock-prefs`;\r\n' +
+    "const STOCK_STORAGE_KEY = 'stock-watcher-stock-symbols';\r\n" +
+    'const STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;\r\n' +
+    "const STOCK_FAV_STORAGE_KEY = 'stock-watcher-stock-favorites';\r\n" +
+    'const PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;\r\n' +
+    'const PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;\r\n' +
+    'const SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;\r\n' +
+    'const SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;\r\n' +
+    'const SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;\r\n' +
+    'const SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;\r\n' +
+    'const FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;\r\n' +
+    'const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;\r\n' +
+    'const SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;\r\n' +
+    'const SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;\r\n' +
+    'const SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;\r\n' +
+    'const BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;\r\n' +
+    'const ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;\r\n' +
+    'const SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;\r\n' +
+    'const INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;\r\n' +
+    'const REPLAY_FETCH_TIMEOUT_MS = 120000;\r\n' +
+    'const TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;\r\n' +
+    "const TRADE_SETTING_OVERRIDES_KEY = 'stock-watcher-trade-setting-overrides';\r\n" +
+    'const OPENAI_ENDPOINT = `${PROXY}/openai`;\r\n' +
+    'const OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;\r\n' +
+    'const DEBUG_INTRADAY_LOGS = false;\r\n' +
+    'const DEBUG_SIM_LOGS = false;\r\n' +
+    'const DEBUG_EVENT_LOGS = false;\r\n' +
+    '\r\n' +
+    'let STOCK_FAVORITES = new Set();\r\n' +
+    'let ETF_FAVORITES = new Set();\r\n' +
+    'let tradeSettingOverrides = null;\r\n' +
+    'let dashboardBootstrap = null;\r\n' +
+    'let dashboardBootstrapLoaded = false;\r\n' +
+    '\r\n' +
+    'async function loadDashboardBootstrap() {\r\n' +
+    '  if (dashboardBootstrapLoaded) return dashboardBootstrap;\r\n' +
+    '  dashboardBootstrapLoaded = true;\r\n' +
+    '  try {\r\n' +
+    '    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });\r\n' +
+    '    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);\r\n' +
+    '    const payload = await res.json();\r\n' +
+    '    dashboardBootstrap = payload && payload.ok ? payload : null;\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Dashboard bootstrap failed:', e.message);\r\n" +
+    '    dashboardBootstrap = null;\r\n' +
+    '  }\r\n' +
+    '  return dashboardBootstrap;\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function bootstrapArray(path, fallback = null) {\r\n' +
+    '  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);\r\n' +
+    '  return Array.isArray(value) ? value : fallback;\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadSavedETFsFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(ETF_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveSavedETFsToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('ETF local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadFavoriteETFsFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(ETF_FAV_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveFavoriteETFsToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(ETF_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('ETF fav local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadSavedStocksFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(STOCK_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveSavedStocksToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Stock local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadFavoriteStocksFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(STOCK_FAV_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveFavoriteStocksToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(STOCK_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Stock fav local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadFavoriteETFs() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'etfFavorites']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveFavoriteETFsToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(ETF_FAVS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('ETF favs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveFavoriteETFsToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved ETF favorites load failed:', e.message);\r\n" +
+    '      saved = loadFavoriteETFsFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    "  ETF_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadFavoriteStocks() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'stockFavorites']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveFavoriteStocksToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(STOCK_FAVS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('Stock favs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveFavoriteStocksToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved stock favorites load failed:', e.message);\r\n" +
+    '      saved = loadFavoriteStocksFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    "  STOCK_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadSavedETFs() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'etfs']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveSavedETFsToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(ETF_PREFS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('ETF prefs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveSavedETFsToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved ETFs load failed:', e.message);\r\n" +
+    '      saved = loadSavedETFsFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    '  const newSymbols = [];\r\n' +
+    '  for (const rawSym of saved) {\r\n' +
+    '    // support stored formats: string or object { sym, sector, cap }\r\n' +
+    "    if (typeof rawSym === 'string') {\r\n" +
+    '      const sym = rawSym.trim().toUpperCase();\r\n' +
+    '      if (!sym) continue;\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n' +
+    '      EXTRA_SYMBOLS.push(sym);\r\n' +
+    "      ETF_ASSETS.push({ sym, name: sym, sector: 'ETF', cap: 'etf' });\r\n" +
+    '      newSymbols.push(sym);\r\n' +
+    "    } else if (rawSym && typeof rawSym === 'object' && rawSym.sym) {\r\n" +
+    '      const sym = String(rawSym.sym).trim().toUpperCase();\r\n' +
+    '      if (!sym) continue;\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n' +
+    '      EXTRA_SYMBOLS.push(sym);\r\n' +
+    "      ETF_ASSETS.push({ sym, name: rawSym.name||sym, sector: rawSym.sector||'ETF', cap: rawSym.cap||'etf' });\r\n" +
+    '      newSymbols.push(sym);\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (newSymbols.length && dataSource) {\r\n' +
+    '    await fetchAdditionalSymbols(newSymbols);\r\n' +
+    '  }\r\n' +
+    '  // Initialize preset ETFs if no saved ETFs exist (fallback on page load)\r\n' +
+    '  if (!ETF_ASSETS.length) {\r\n' +
+    '    for (const etf of PRESET_ETFS) {\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym)) continue;\r\n' +
+    '      ETF_ASSETS.push({ ...etf });\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    "  if (currentView === 'etfs') renderETFSection();\r\n" +
+    '}\r\n' +
+    '// not already in MIDCAP_STOCKS (handles quarterly rebalancing without hardcoding)\r\n' +
+    'async function refreshIndexMembership() {\r\n' +
+    '  const INDICES = [\r\n' +
+    "    'NIFTY 50',\r\n" +
+    "    'NIFTY NEXT 50',\r\n" +
+    "    'NIFTY MIDCAP 150',\r\n" +
+    '  ];\r\n' +
+    '  let added = 0;\r\n' +
+    '  for (const index of INDICES) {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(`${PROXY}/nse/index-symbols?index=${encodeURIComponent(index)}`);\r\n' +
+    '      if (!res.ok) continue;\r\n' +
+    '      const json = await res.json();\r\n' +
+    '      for (const { sym, name } of (json.symbols || [])) {\r\n' +
+    '        if (!sym) continue;\r\n' +
+    '        if (MIDCAP_STOCKS.some(s => s.sym === sym)) continue;\r\n' +
+    '        // New symbol not in hardcoded list ΓÇö add it dynamically\r\n' +
+    "        const cap = index === 'NIFTY MIDCAP 150' ? 'midcap' : 'largecap';\r\n" +
+    "        MIDCAP_STOCKS.push({ sym, name: name || sym, sector: 'Other', cap });\r\n" +
+    '        added++;\r\n' +
+    '        console.log(`[index-membership] New symbol from "${index}": ${sym}`);\r\n' +
+    '      }\r\n' +
+    '    } catch(e) { console.warn(`[index-membership] ${index'... 403995 more characters
+  
+      at TestContext.<anonymous> (C:\data\project\stock-watcher\test\manual-trade-modal.test.js:62:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n//  CONFIG\r\n// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n// Adaptive refresh: 30s during market hours (9:15ΓÇô15:30 IST), 2 min outside\r\nfunction getRefreshInterval() {\r\n  const now = new Date();\r\n  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);\r\n  const day = ist.getUTCDay(); // 0=Sun, 6=Sat\r\n  if (day === 0 || day === 6) return 120; // weekend\r\n  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();\r\n  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;\r\n}\r\nconst PROXY = location.protocol === \'file:\' ? \'http://localhost:3001\' : location.origin;\r\nconst DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;\r\nconst ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;\r\nconst ETF_STORAGE_KEY = \'stock-watcher-etf-symbols\';\r\nconst ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;\r\nconst ETF_FAV_STORAGE_KEY = \'stock-watcher-etf-favorites\';\r\nconst STOCK_PREFS_ENDPOINT = `${PROXY}/stock-prefs`;\r\nconst STOCK_STORAGE_KEY = \'stock-watcher-stock-symbols\';\r\nconst STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;\r\nconst STOCK_FAV_STORAGE_KEY = \'stock-watcher-stock-favorites\';\r\nconst PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;\r\nconst PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;\r\nconst SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;\r\nconst SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;\r\nconst SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;\r\nconst SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;\r\nconst FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;\r\nconst SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;\r\nconst SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;\r\nconst SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;\r\nconst SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;\r\nconst BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;\r\nconst ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;\r\nconst SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;\r\nconst INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;\r\nconst REPLAY_FETCH_TIMEOUT_MS = 120000;\r\nconst TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;\r\nconst TRADE_SETTING_OVERRIDES_KEY = \'stock-watcher-trade-setting-overrides\';\r\nconst OPENAI_ENDPOINT = `${PROXY}/openai`;\r\nconst OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;\r\nconst DEBUG_INTRADAY_LOGS = false;\r\nconst DEBUG_SIM_LOGS = false;\r\nconst DEBUG_EVENT_LOGS = false;\r\n\r\nlet STOCK_FAVORITES = new Set();\r\nlet ETF_FAVORITES = new Set();\r\nlet tradeSettingOverrides = null;\r\nlet dashboardBootstrap = null;\r\nlet dashboardBootstrapLoaded = false;\r\n\r\nasync function loadDashboardBootstrap() {\r\n  if (dashboardBootstrapLoaded) return dashboardBootstrap;\r\n  dashboardBootstrapLoaded = true;\r\n  try {\r\n    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });\r\n    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);\r\n    const payload = await res.json();\r\n    dashboardBootstrap = payload && payload.ok ? payload : null;\r\n  } catch (e) {\r\n    console.warn(\'Dashboard bootstrap failed:\', e.message);\r\n    dashboardBootstrap = null;\r\n  }\r\n  return dashboardBootstrap;\r\n}\r\n\r\nfunction bootstrapArray(path, fallback = null) {\r\n  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);\r\n  return Array.isArray(value) ? value : fallback;\r\n}\r\n\r\nfunction loadSavedETFsFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(ETF_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveSavedETFsToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'ETF local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadFavoriteETFsFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(ETF_FAV_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveFavoriteETFsToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(ETF_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'ETF fav local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadSavedStocksFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(STOCK_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveSavedStocksToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'Stock local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadFavoriteStocksFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(STOCK_FAV_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveFavoriteStocksToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(STOCK_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'Stock fav local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nasync function loadFavoriteETFs() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'etfFavorites\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveFavoriteETFsToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(ETF_FAVS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'ETF favs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveFavoriteETFsToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved ETF favorites load failed:\', e.message);\r\n      saved = loadFavoriteETFsFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  ETF_FAVORITES = new Set(saved.filter(s => typeof s === \'string\').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n}\r\n\r\nasync function loadFavoriteStocks() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'stockFavorites\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveFavoriteStocksToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(STOCK_FAVS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'Stock favs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveFavoriteStocksToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved stock favorites load failed:\', e.message);\r\n      saved = loadFavoriteStocksFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  STOCK_FAVORITES = new Set(saved.filter(s => typeof s === \'string\').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n}\r\n\r\nasync function loadSavedETFs() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'etfs\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveSavedETFsToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(ETF_PREFS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'ETF prefs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveSavedETFsToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved ETFs load failed:\', e.message);\r\n      saved = loadSavedETFsFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  const newSymbols = [];\r\n  for (const rawSym of saved) {\r\n    // support stored formats: string or object { sym, sector, cap }\r\n    if (typeof rawSym === \'string\') {\r\n      const sym = rawSym.trim().toUpperCase();\r\n      if (!sym) continue;\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n      EXTRA_SYMBOLS.push(sym);\r\n      ETF_ASSETS.push({ sym, name: sym, sector: \'ETF\', cap: \'etf\' });\r\n      newSymbols.push(sym);\r\n    } else if (rawSym && typeof rawSym === \'object\' && rawSym.sym) {\r\n      const sym = String(rawSym.sym).trim().toUpperCase();\r\n      if (!sym) continue;\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n      EXTRA_SYMBOLS.push(sym);\r\n      ETF_ASSETS.push({ sym, name: rawSym.name||sym, sector: rawSym.sector||\'ETF\', cap: rawSym.cap||\'etf\' });\r\n      newSymbols.push(sym);\r\n    }\r\n  }\r\n  if (newSymbols.length && dataSource) {\r\n    await fetchAdditionalSymbols(newSymbols);\r\n  }\r\n  // Initialize preset ETFs if no saved ETFs exist (fallback on page load)\r\n  if (!ETF_ASSETS.length) {\r\n    for (const etf of PRESET_ETFS) {\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym)) continue;\r\n      ETF_ASSETS.push({ ...etf });\r\n    }\r\n  }\r\n  if (currentView === \'etfs\') renderETFSection();\r\n}\r\n// not already in MIDCAP_STOCKS (handles quarterly rebalancing without hardcoding)\r\nasync function refreshIndexMembership() {\r\n  const INDICES = [\r\n    \'NIFTY 50\',\r\n    \'NIFTY NEXT 50\',\r\n    \'NIFTY MIDCAP 150\',\r\n  ];\r\n  let added = 0;\r\n  for (const index of INDICES) {\r\n    try {\r\n      const res = await fetch(`${PROXY}/nse/index-symbols?index=${encodeURIComponent(index)}`);\r\n      if (!res.ok) continue;\r\n      const json = await res.json();\r\n      for (const { sym, name } of (json.symbols || [])) {\r\n        if (!sym) continue;\r\n        if (MIDCAP_STOCKS.some(s => s.sym === sym)) continue;\r\n        // New symbol not in hardcoded list ΓÇö add it dynamically\r\n        const cap = index === \'NIFTY MIDCAP 150\' ? \'midcap\' : \'largecap\';\r\n        MIDCAP_STOCKS.push({ sym, name: name || sym, sector: \'Other\', cap });\r\n        added++;\r\n        console.log(`[index-membership] New symbol from "${index}": ${sym}`);\r\n      }\r\n    } catch(e) { console.warn(`[index-membership] ${index'... 403995 more characters,
+    expected: /function _autofillManualTradeFields/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\manual-trade-modal.test.js:74:1
+Γ£û symbol input uses datalist for searchable autocomplete (0.5401ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /mt-sym-list/. Input:
+  
+  '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n' +
+    '//  CONFIG\r\n' +
+    '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n' +
+    '// Adaptive refresh: 30s during market hours (9:15ΓÇô15:30 IST), 2 min outside\r\n' +
+    'function getRefreshInterval() {\r\n' +
+    '  const now = new Date();\r\n' +
+    '  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);\r\n' +
+    '  const day = ist.getUTCDay(); // 0=Sun, 6=Sat\r\n' +
+    '  if (day === 0 || day === 6) return 120; // weekend\r\n' +
+    '  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();\r\n' +
+    '  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;\r\n' +
+    '}\r\n' +
+    "const PROXY = location.protocol === 'file:' ? 'http://localhost:3001' : location.origin;\r\n" +
+    'const DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;\r\n' +
+    'const ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;\r\n' +
+    "const ETF_STORAGE_KEY = 'stock-watcher-etf-symbols';\r\n" +
+    'const ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;\r\n' +
+    "const ETF_FAV_STORAGE_KEY = 'stock-watcher-etf-favorites';\r\n" +
+    'const STOCK_PREFS_ENDPOINT = `${PROXY}/stock-prefs`;\r\n' +
+    "const STOCK_STORAGE_KEY = 'stock-watcher-stock-symbols';\r\n" +
+    'const STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;\r\n' +
+    "const STOCK_FAV_STORAGE_KEY = 'stock-watcher-stock-favorites';\r\n" +
+    'const PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;\r\n' +
+    'const PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;\r\n' +
+    'const SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;\r\n' +
+    'const SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;\r\n' +
+    'const SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;\r\n' +
+    'const SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;\r\n' +
+    'const FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;\r\n' +
+    'const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;\r\n' +
+    'const SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;\r\n' +
+    'const SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;\r\n' +
+    'const SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;\r\n' +
+    'const BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;\r\n' +
+    'const ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;\r\n' +
+    'const SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;\r\n' +
+    'const INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;\r\n' +
+    'const REPLAY_FETCH_TIMEOUT_MS = 120000;\r\n' +
+    'const TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;\r\n' +
+    "const TRADE_SETTING_OVERRIDES_KEY = 'stock-watcher-trade-setting-overrides';\r\n" +
+    'const OPENAI_ENDPOINT = `${PROXY}/openai`;\r\n' +
+    'const OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;\r\n' +
+    'const DEBUG_INTRADAY_LOGS = false;\r\n' +
+    'const DEBUG_SIM_LOGS = false;\r\n' +
+    'const DEBUG_EVENT_LOGS = false;\r\n' +
+    '\r\n' +
+    'let STOCK_FAVORITES = new Set();\r\n' +
+    'let ETF_FAVORITES = new Set();\r\n' +
+    'let tradeSettingOverrides = null;\r\n' +
+    'let dashboardBootstrap = null;\r\n' +
+    'let dashboardBootstrapLoaded = false;\r\n' +
+    '\r\n' +
+    'async function loadDashboardBootstrap() {\r\n' +
+    '  if (dashboardBootstrapLoaded) return dashboardBootstrap;\r\n' +
+    '  dashboardBootstrapLoaded = true;\r\n' +
+    '  try {\r\n' +
+    '    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });\r\n' +
+    '    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);\r\n' +
+    '    const payload = await res.json();\r\n' +
+    '    dashboardBootstrap = payload && payload.ok ? payload : null;\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Dashboard bootstrap failed:', e.message);\r\n" +
+    '    dashboardBootstrap = null;\r\n' +
+    '  }\r\n' +
+    '  return dashboardBootstrap;\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function bootstrapArray(path, fallback = null) {\r\n' +
+    '  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);\r\n' +
+    '  return Array.isArray(value) ? value : fallback;\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadSavedETFsFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(ETF_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveSavedETFsToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('ETF local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadFavoriteETFsFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(ETF_FAV_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveFavoriteETFsToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(ETF_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('ETF fav local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadSavedStocksFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(STOCK_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveSavedStocksToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Stock local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'function loadFavoriteStocksFromStorage() {\r\n' +
+    '  try {\r\n' +
+    '    const raw = localStorage.getItem(STOCK_FAV_STORAGE_KEY);\r\n' +
+    '    const parsed = raw ? JSON.parse(raw) : [];\r\n' +
+    '    return Array.isArray(parsed) ? parsed : [];\r\n' +
+    '  } catch (e) {\r\n' +
+    '    return [];\r\n' +
+    '  }\r\n' +
+    '}\r\n' +
+    'function saveFavoriteStocksToStorage(symbols) {\r\n' +
+    '  try {\r\n' +
+    '    localStorage.setItem(STOCK_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n' +
+    '  } catch (e) {\r\n' +
+    "    console.warn('Stock fav local save failed:', e.message);\r\n" +
+    '  }\r\n' +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadFavoriteETFs() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'etfFavorites']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveFavoriteETFsToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(ETF_FAVS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('ETF favs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveFavoriteETFsToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved ETF favorites load failed:', e.message);\r\n" +
+    '      saved = loadFavoriteETFsFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    "  ETF_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadFavoriteStocks() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'stockFavorites']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveFavoriteStocksToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(STOCK_FAVS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('Stock favs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveFavoriteStocksToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved stock favorites load failed:', e.message);\r\n" +
+    '      saved = loadFavoriteStocksFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    "  STOCK_FAVORITES = new Set(saved.filter(s => typeof s === 'string').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    'async function loadSavedETFs() {\r\n' +
+    '  let saved = [];\r\n' +
+    "  const boot = bootstrapArray(['prefs', 'etfs']);\r\n" +
+    '  if (boot) {\r\n' +
+    '    saved = boot;\r\n' +
+    '    saveSavedETFsToStorage(saved);\r\n' +
+    '  } else {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(ETF_PREFS_ENDPOINT);\r\n' +
+    "      if (!res.ok) throw new Error('ETF prefs endpoint unavailable');\r\n" +
+    '      const payload = await res.json();\r\n' +
+    '      if (Array.isArray(payload)) {\r\n' +
+    '        saved = payload;\r\n' +
+    '        saveSavedETFsToStorage(saved);\r\n' +
+    '      }\r\n' +
+    '    } catch (e) {\r\n' +
+    "      console.warn('Saved ETFs load failed:', e.message);\r\n" +
+    '      saved = loadSavedETFsFromStorage();\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (!Array.isArray(saved)) return;\r\n' +
+    '  const newSymbols = [];\r\n' +
+    '  for (const rawSym of saved) {\r\n' +
+    '    // support stored formats: string or object { sym, sector, cap }\r\n' +
+    "    if (typeof rawSym === 'string') {\r\n" +
+    '      const sym = rawSym.trim().toUpperCase();\r\n' +
+    '      if (!sym) continue;\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n' +
+    '      EXTRA_SYMBOLS.push(sym);\r\n' +
+    "      ETF_ASSETS.push({ sym, name: sym, sector: 'ETF', cap: 'etf' });\r\n" +
+    '      newSymbols.push(sym);\r\n' +
+    "    } else if (rawSym && typeof rawSym === 'object' && rawSym.sym) {\r\n" +
+    '      const sym = String(rawSym.sym).trim().toUpperCase();\r\n' +
+    '      if (!sym) continue;\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n' +
+    '      EXTRA_SYMBOLS.push(sym);\r\n' +
+    "      ETF_ASSETS.push({ sym, name: rawSym.name||sym, sector: rawSym.sector||'ETF', cap: rawSym.cap||'etf' });\r\n" +
+    '      newSymbols.push(sym);\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '  if (newSymbols.length && dataSource) {\r\n' +
+    '    await fetchAdditionalSymbols(newSymbols);\r\n' +
+    '  }\r\n' +
+    '  // Initialize preset ETFs if no saved ETFs exist (fallback on page load)\r\n' +
+    '  if (!ETF_ASSETS.length) {\r\n' +
+    '    for (const etf of PRESET_ETFS) {\r\n' +
+    '      if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym)) continue;\r\n' +
+    '      ETF_ASSETS.push({ ...etf });\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    "  if (currentView === 'etfs') renderETFSection();\r\n" +
+    '}\r\n' +
+    '// not already in MIDCAP_STOCKS (handles quarterly rebalancing without hardcoding)\r\n' +
+    'async function refreshIndexMembership() {\r\n' +
+    '  const INDICES = [\r\n' +
+    "    'NIFTY 50',\r\n" +
+    "    'NIFTY NEXT 50',\r\n" +
+    "    'NIFTY MIDCAP 150',\r\n" +
+    '  ];\r\n' +
+    '  let added = 0;\r\n' +
+    '  for (const index of INDICES) {\r\n' +
+    '    try {\r\n' +
+    '      const res = await fetch(`${PROXY}/nse/index-symbols?index=${encodeURIComponent(index)}`);\r\n' +
+    '      if (!res.ok) continue;\r\n' +
+    '      const json = await res.json();\r\n' +
+    '      for (const { sym, name } of (json.symbols || [])) {\r\n' +
+    '        if (!sym) continue;\r\n' +
+    '        if (MIDCAP_STOCKS.some(s => s.sym === sym)) continue;\r\n' +
+    '        // New symbol not in hardcoded list ΓÇö add it dynamically\r\n' +
+    "        const cap = index === 'NIFTY MIDCAP 150' ? 'midcap' : 'largecap';\r\n" +
+    "        MIDCAP_STOCKS.push({ sym, name: name || sym, sector: 'Other', cap });\r\n" +
+    '        added++;\r\n' +
+    '        console.log(`[index-membership] New symbol from "${index}": ${sym}`);\r\n' +
+    '      }\r\n' +
+    '    } catch(e) { console.warn(`[index-membership] ${index'... 403995 more characters
+  
+      at TestContext.<anonymous> (C:\data\project\stock-watcher\test\manual-trade-modal.test.js:75:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1201:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:831:18)
+      at Test.postRun (node:internal/test_runner/test:1330:19)
+      at Test.run (node:internal/test_runner/test:1258:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n//  CONFIG\r\n// ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ\r\n// Adaptive refresh: 30s during market hours (9:15ΓÇô15:30 IST), 2 min outside\r\nfunction getRefreshInterval() {\r\n  const now = new Date();\r\n  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);\r\n  const day = ist.getUTCDay(); // 0=Sun, 6=Sat\r\n  if (day === 0 || day === 6) return 120; // weekend\r\n  const hhmm = ist.getUTCHours() * 100 + ist.getUTCMinutes();\r\n  return (hhmm >= 915 && hhmm < 1530) ? 30 : 120;\r\n}\r\nconst PROXY = location.protocol === \'file:\' ? \'http://localhost:3001\' : location.origin;\r\nconst DASHBOARD_BOOTSTRAP_ENDPOINT = `${PROXY}/dashboard-bootstrap`;\r\nconst ETF_PREFS_ENDPOINT = `${PROXY}/etf-prefs`;\r\nconst ETF_STORAGE_KEY = \'stock-watcher-etf-symbols\';\r\nconst ETF_FAVS_ENDPOINT = `${PROXY}/etf-favs`;\r\nconst ETF_FAV_STORAGE_KEY = \'stock-watcher-etf-favorites\';\r\nconst STOCK_PREFS_ENDPOINT = `${PROXY}/stock-prefs`;\r\nconst STOCK_STORAGE_KEY = \'stock-watcher-stock-symbols\';\r\nconst STOCK_FAVS_ENDPOINT = `${PROXY}/stock-favs`;\r\nconst STOCK_FAV_STORAGE_KEY = \'stock-watcher-stock-favorites\';\r\nconst PAPER_TRADES_ENDPOINT = `${PROXY}/trade-execution`;\r\nconst PAPER_TRADES_STREAM_ENDPOINT = `${PAPER_TRADES_ENDPOINT}/stream`;\r\nconst SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;\r\nconst SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;\r\nconst SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;\r\nconst SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;\r\nconst FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;\r\nconst SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;\r\nconst SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;\r\nconst SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;\r\nconst SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;\r\nconst BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;\r\nconst ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;\r\nconst SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;\r\nconst INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;\r\nconst REPLAY_FETCH_TIMEOUT_MS = 120000;\r\nconst TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;\r\nconst TRADE_SETTING_OVERRIDES_KEY = \'stock-watcher-trade-setting-overrides\';\r\nconst OPENAI_ENDPOINT = `${PROXY}/openai`;\r\nconst OLLAMA_CHAT_ENDPOINT = `${PROXY}/ollama/chat`;\r\nconst DEBUG_INTRADAY_LOGS = false;\r\nconst DEBUG_SIM_LOGS = false;\r\nconst DEBUG_EVENT_LOGS = false;\r\n\r\nlet STOCK_FAVORITES = new Set();\r\nlet ETF_FAVORITES = new Set();\r\nlet tradeSettingOverrides = null;\r\nlet dashboardBootstrap = null;\r\nlet dashboardBootstrapLoaded = false;\r\n\r\nasync function loadDashboardBootstrap() {\r\n  if (dashboardBootstrapLoaded) return dashboardBootstrap;\r\n  dashboardBootstrapLoaded = true;\r\n  try {\r\n    const res = await fetch(DASHBOARD_BOOTSTRAP_ENDPOINT, { signal: AbortSignal.timeout(8000) });\r\n    if (!res.ok) throw new Error(`bootstrap HTTP ${res.status}`);\r\n    const payload = await res.json();\r\n    dashboardBootstrap = payload && payload.ok ? payload : null;\r\n  } catch (e) {\r\n    console.warn(\'Dashboard bootstrap failed:\', e.message);\r\n    dashboardBootstrap = null;\r\n  }\r\n  return dashboardBootstrap;\r\n}\r\n\r\nfunction bootstrapArray(path, fallback = null) {\r\n  const value = path.reduce((obj, key) => (obj && obj[key] != null ? obj[key] : null), dashboardBootstrap);\r\n  return Array.isArray(value) ? value : fallback;\r\n}\r\n\r\nfunction loadSavedETFsFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(ETF_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveSavedETFsToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(ETF_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'ETF local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadFavoriteETFsFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(ETF_FAV_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveFavoriteETFsToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(ETF_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'ETF fav local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadSavedStocksFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(STOCK_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveSavedStocksToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(STOCK_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'Stock local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nfunction loadFavoriteStocksFromStorage() {\r\n  try {\r\n    const raw = localStorage.getItem(STOCK_FAV_STORAGE_KEY);\r\n    const parsed = raw ? JSON.parse(raw) : [];\r\n    return Array.isArray(parsed) ? parsed : [];\r\n  } catch (e) {\r\n    return [];\r\n  }\r\n}\r\nfunction saveFavoriteStocksToStorage(symbols) {\r\n  try {\r\n    localStorage.setItem(STOCK_FAV_STORAGE_KEY, JSON.stringify(Array.isArray(symbols) ? symbols : []));\r\n  } catch (e) {\r\n    console.warn(\'Stock fav local save failed:\', e.message);\r\n  }\r\n}\r\n\r\nasync function loadFavoriteETFs() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'etfFavorites\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveFavoriteETFsToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(ETF_FAVS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'ETF favs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveFavoriteETFsToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved ETF favorites load failed:\', e.message);\r\n      saved = loadFavoriteETFsFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  ETF_FAVORITES = new Set(saved.filter(s => typeof s === \'string\').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n}\r\n\r\nasync function loadFavoriteStocks() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'stockFavorites\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveFavoriteStocksToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(STOCK_FAVS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'Stock favs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveFavoriteStocksToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved stock favorites load failed:\', e.message);\r\n      saved = loadFavoriteStocksFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  STOCK_FAVORITES = new Set(saved.filter(s => typeof s === \'string\').map(s => s.trim().toUpperCase()).filter(Boolean));\r\n}\r\n\r\nasync function loadSavedETFs() {\r\n  let saved = [];\r\n  const boot = bootstrapArray([\'prefs\', \'etfs\']);\r\n  if (boot) {\r\n    saved = boot;\r\n    saveSavedETFsToStorage(saved);\r\n  } else {\r\n    try {\r\n      const res = await fetch(ETF_PREFS_ENDPOINT);\r\n      if (!res.ok) throw new Error(\'ETF prefs endpoint unavailable\');\r\n      const payload = await res.json();\r\n      if (Array.isArray(payload)) {\r\n        saved = payload;\r\n        saveSavedETFsToStorage(saved);\r\n      }\r\n    } catch (e) {\r\n      console.warn(\'Saved ETFs load failed:\', e.message);\r\n      saved = loadSavedETFsFromStorage();\r\n    }\r\n  }\r\n  if (!Array.isArray(saved)) return;\r\n  const newSymbols = [];\r\n  for (const rawSym of saved) {\r\n    // support stored formats: string or object { sym, sector, cap }\r\n    if (typeof rawSym === \'string\') {\r\n      const sym = rawSym.trim().toUpperCase();\r\n      if (!sym) continue;\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n      EXTRA_SYMBOLS.push(sym);\r\n      ETF_ASSETS.push({ sym, name: sym, sector: \'ETF\', cap: \'etf\' });\r\n      newSymbols.push(sym);\r\n    } else if (rawSym && typeof rawSym === \'object\' && rawSym.sym) {\r\n      const sym = String(rawSym.sym).trim().toUpperCase();\r\n      if (!sym) continue;\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===sym) || ETF_ASSETS.some(e=>e.sym===sym) || EXTRA_SYMBOLS.includes(sym)) continue;\r\n      EXTRA_SYMBOLS.push(sym);\r\n      ETF_ASSETS.push({ sym, name: rawSym.name||sym, sector: rawSym.sector||\'ETF\', cap: rawSym.cap||\'etf\' });\r\n      newSymbols.push(sym);\r\n    }\r\n  }\r\n  if (newSymbols.length && dataSource) {\r\n    await fetchAdditionalSymbols(newSymbols);\r\n  }\r\n  // Initialize preset ETFs if no saved ETFs exist (fallback on page load)\r\n  if (!ETF_ASSETS.length) {\r\n    for (const etf of PRESET_ETFS) {\r\n      if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym)) continue;\r\n      ETF_ASSETS.push({ ...etf });\r\n    }\r\n  }\r\n  if (currentView === \'etfs\') renderETFSection();\r\n}\r\n// not already in MIDCAP_STOCKS (handles quarterly rebalancing without hardcoding)\r\nasync function refreshIndexMembership() {\r\n  const INDICES = [\r\n    \'NIFTY 50\',\r\n    \'NIFTY NEXT 50\',\r\n    \'NIFTY MIDCAP 150\',\r\n  ];\r\n  let added = 0;\r\n  for (const index of INDICES) {\r\n    try {\r\n      const res = await fetch(`${PROXY}/nse/index-symbols?index=${encodeURIComponent(index)}`);\r\n      if (!res.ok) continue;\r\n      const json = await res.json();\r\n      for (const { sym, name } of (json.symbols || [])) {\r\n        if (!sym) continue;\r\n        if (MIDCAP_STOCKS.some(s => s.sym === sym)) continue;\r\n        // New symbol not in hardcoded list ΓÇö add it dynamically\r\n        const cap = index === \'NIFTY MIDCAP 150\' ? \'midcap\' : \'largecap\';\r\n        MIDCAP_STOCKS.push({ sym, name: name || sym, sector: \'Other\', cap });\r\n        added++;\r\n        console.log(`[index-membership] New symbol from "${index}": ${sym}`);\r\n      }\r\n    } catch(e) { console.warn(`[index-membership] ${index'... 403995 more characters,
+    expected: /mt-sym-list/,
+    operator: 'match',
+    diff: 'simple'
+  }
