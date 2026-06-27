@@ -4792,9 +4792,16 @@ async function fetchIntradaySignal(sym) {
         if (daily.status !== 200) {
           daily = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
         }
-        const dailyResult = daily?.status === 200 ? JSON.parse(daily.body)?.chart?.result?.[0] : null;
-        // Backfill previousClose — explicitly null if unavailable (NOT closes[0])
-        skResult.meta.previousClose = dailyResult?.meta?.previousClose ?? null;
+        const dailyResult = daily?.status === 200
+          ? (() => { try { return JSON.parse(daily.body)?.chart?.result?.[0] ?? null; } catch (_) { return null; } })()
+          : null;
+        // Backfill previousClose from Yahoo daily. Use a non-zero sentinel if unavailable
+        // so buildIntradaySignal's `|| closes[0]` fallback is NOT triggered.
+        // We use the last close of the Sharekhan candles as a best-effort prev close only
+        // when Yahoo daily is completely unavailable — this is better than closes[0] (open proxy).
+        const skCloses = skResult.indicators?.quote?.[0]?.close || [];
+        const fallbackPrevClose = skCloses.length > 1 ? skCloses[skCloses.length - 2] : null;
+        skResult.meta.previousClose = dailyResult?.meta?.previousClose ?? fallbackPrevClose ?? undefined;
         const signal = buildIntradaySignal(sym, skResult, buildDailyTradeContext(dailyResult));
         if (signal) {
           signal.dataSource = 'sharekhan';
