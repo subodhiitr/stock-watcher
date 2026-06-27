@@ -288,6 +288,11 @@
           </tr></thead>
           <tbody id="etf-tbody"></tbody>
         </table>
+        <div id="etf-pagination" style="display:none;align-items:center;justify-content:center;gap:12px;padding:12px 0 4px;flex-wrap:wrap;">
+          <button class="btn" id="etf-pg-prev" onclick="etfPagePrev()" style="padding:5px 14px;font-size:13px">← Prev</button>
+          <span id="etf-pg-info" style="font-size:13px;color:var(--muted)"></span>
+          <button class="btn" id="etf-pg-next" onclick="etfPageNext()" style="padding:5px 14px;font-size:13px">Next →</button>
+        </div>
         <div id="etf-status-bar" class="status-bar">No ETFs loaded</div>
       </div>
     </div>

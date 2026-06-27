@@ -676,6 +676,34 @@ function _renderPaginationBar(filteredRows) {
   if (nextBtn) nextBtn.disabled = (stockPage + 1) >= pages;
 }
 
+// ── ETF table pagination ──────────────────────────────────────────────────
+const ETF_PAGE_SIZE = 25;
+let etfPage = 0; // 0-indexed current page
+let _lastFilteredETFRows = null;
+
+function etfPagePrev() { if (etfPage > 0) { etfPage--; renderETFSection(); } }
+function etfPageNext() {
+  if (_lastFilteredETFRows && (etfPage + 1) * ETF_PAGE_SIZE < _lastFilteredETFRows.length) { etfPage++; renderETFSection(); }
+}
+function etfPageReset() { etfPage = 0; }
+
+function _renderETFPaginationBar(filteredRows) {
+  const bar = document.getElementById('etf-pagination');
+  const info = document.getElementById('etf-pg-info');
+  const prevBtn = document.getElementById('etf-pg-prev');
+  const nextBtn = document.getElementById('etf-pg-next');
+  if (!bar) return;
+  const total = filteredRows.length;
+  const pages = Math.ceil(total / ETF_PAGE_SIZE);
+  if (pages <= 1) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  const from = etfPage * ETF_PAGE_SIZE + 1;
+  const to = Math.min((etfPage + 1) * ETF_PAGE_SIZE, total);
+  if (info) info.textContent = `${from}–${to} of ${total}  (page ${etfPage + 1}/${pages})`;
+  if (prevBtn) prevBtn.disabled = etfPage === 0;
+  if (nextBtn) nextBtn.disabled = (etfPage + 1) >= pages;
+}
+
 // scheduleTableRender — debounced renderTable for SSE streaming (coalesces per-symbol renders)
 let _tableRenderTimer = null;
 function scheduleTableRender() {
@@ -6421,6 +6449,7 @@ let etfSectorFilter = '';
 
 function setETFSectorFilter(sector) {
   etfSectorFilter = sector;
+  etfPageReset();
   renderETFSection();
 }
 
@@ -6451,17 +6480,20 @@ function setETFFilter(mode, el) {
     const allBtn = document.querySelector('#etf-controls-bar .filter-btn[onclick*="\'all\'"]');
     if (allBtn) allBtn.classList.remove('active');
   }
+  etfPageReset();
   renderETFSection();
 }
 
 function setETFSearch(value){
   etfSearch = String(value || '').trim().toLowerCase();
+  etfPageReset();
   renderETFSection();
 }
 
 function etfSortBy(col){
   if(etfSort.col===col) etfSort.dir *= -1;
   else { etfSort.col = col; etfSort.dir = -1; }
+  etfPageReset();
   renderETFSection();
 }
 
@@ -7910,12 +7942,22 @@ function renderETFSection(){
       : 'No ETFs match the selected filter combination.';
     tbody.innerHTML=`<tr><td colspan="14" style="text-align:center;padding:24px;color:var(--muted)">${note}</td></tr>`;
     if(status) status.textContent='0 ETFs loaded';
+    _lastFilteredETFRows = [];
+    _renderETFPaginationBar([]);
     return;
   }
+
+  // Store for pagination prev/next; clamp page if filter reduced total
+  _lastFilteredETFRows = rows;
+  const maxETFPage = Math.max(0, Math.ceil(rows.length / ETF_PAGE_SIZE) - 1);
+  if (etfPage > maxETFPage) etfPage = maxETFPage;
+  const pageRows = rows.slice(etfPage * ETF_PAGE_SIZE, (etfPage + 1) * ETF_PAGE_SIZE);
+  _renderETFPaginationBar(rows);
+
   if(status) status.textContent=`${rows.length} ETF${rows.length===1?'':'s'} loaded`;
   const sigLabels={buy:'🟢 BUY',watch:'🟡 WATCH',hold:'⬜ HOLD',sell:'🔴 SELL'};
-  // Build entire tbody as one HTML string — single DOM write instead of 326 appends
-  tbody.innerHTML = rows.map(row => {
+  // Build page rows as one HTML string — single DOM write
+  tbody.innerHTML = pageRows.map(row => {
     const d=row.data,chg=d?.change||0,price=d?.price||0,sig=getSignal(row,d),fav=isETFFavorite(row.sym);
     return `<tr>
       <td><button class="fav-btn ${fav?'active':''}" onclick="toggleETFFavorite('${row.sym}', event)">${fav?'★':'☆'}</button></td>
