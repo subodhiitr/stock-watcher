@@ -4,7 +4,7 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 
-const { buildScripCodeMap, loadScripCache, saveScripCache, normalizeSharekhanCandles } = require('../sharekhan-intraday');
+const { buildScripCodeMap, loadScripCache, saveScripCache, normalizeSharekhanCandles, fetchSharekhanIntraday } = require('../sharekhan-intraday');
 
 test('buildScripCodeMap extracts EQ scripts only and maps symbol → scripCode', () => {
   const masterData = [
@@ -120,4 +120,58 @@ test('normalizeSharekhanCandles deduplicates by timestamp (keeps last occurrence
   assert.equal(result.timestamp.length, 1);
   assert.equal(result.indicators.quote[0].open[0], 395.0);
   assert.equal(result.indicators.quote[0].volume[0], 15000);
+});
+
+test('fetchSharekhanIntraday returns normalized result when client returns candles', async () => {
+  const mockClient = {
+    getScripCode: async (sym) => sym === 'EXIDEIND' ? 676 : 0,
+    fetchRawCandles: async (exchange, code, interval) => [
+      { time: '2026-06-27T04:15:00.000Z', open: 390, high: 392, low: 389, close: 391, volume: 10000 },
+      { time: '2026-06-27T04:20:00.000Z', open: 391, high: 393, low: 390, close: 392, volume: 11000 },
+      { time: '2026-06-27T04:25:00.000Z', open: 392, high: 394, low: 391, close: 393, volume: 12000 },
+      { time: '2026-06-27T04:30:00.000Z', open: 393, high: 395, low: 392, close: 394, volume: 9000  },
+      { time: '2026-06-27T04:35:00.000Z', open: 394, high: 396, low: 393, close: 395, volume: 8000  },
+      { time: '2026-06-27T04:40:00.000Z', open: 395, high: 397, low: 394, close: 396, volume: 7000  },
+    ],
+  };
+  const result = await fetchSharekhanIntraday('EXIDEIND', mockClient);
+  assert.ok(result, 'must return result');
+  assert.equal(result.indicators.quote[0].close.length, 6);
+  assert.equal(result.meta.regularMarketPrice, 396);
+});
+
+test('fetchSharekhanIntraday returns null when scrip code not found', async () => {
+  const mockClient = {
+    getScripCode: async () => 0,
+    fetchRawCandles: async () => { throw new Error('should not be called'); },
+  };
+  const result = await fetchSharekhanIntraday('UNKNOWN', mockClient);
+  assert.equal(result, null);
+});
+
+test('fetchSharekhanIntraday returns null when API returns empty', async () => {
+  const mockClient = {
+    getScripCode: async () => 676,
+    fetchRawCandles: async () => [],
+  };
+  const result = await fetchSharekhanIntraday('EXIDEIND', mockClient);
+  assert.equal(result, null);
+});
+
+test('fetchSharekhanIntraday returns null on API error (triggers fallback)', async () => {
+  const mockClient = {
+    getScripCode: async () => 676,
+    fetchRawCandles: async () => { throw new Error('network error'); },
+  };
+  const result = await fetchSharekhanIntraday('EXIDEIND', mockClient);
+  assert.equal(result, null);
+});
+
+test('fetchSharekhanIntraday returns null when getScripCode throws (cold-start/outside hours)', async () => {
+  const mockClient = {
+    getScripCode: async () => { throw new Error('404 not found'); },
+    fetchRawCandles: async () => { throw new Error('should not be called'); },
+  };
+  const result = await fetchSharekhanIntraday('EXIDEIND', mockClient);
+  assert.equal(result, null);
 });

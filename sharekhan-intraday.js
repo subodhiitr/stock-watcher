@@ -111,4 +111,17 @@ function normalizeSharekhanCandles(sym, raw) {
   };
 }
 
-module.exports = { buildScripCodeMap, loadScripCache, saveScripCache, normalizeSharekhanCandles, SCRIP_CACHE_FILE };
+// Fetch 5-min intraday candles for sym using the provided client adapter.
+// Returns Yahoo-compatible result object or null (caller should fall back to Yahoo).
+async function fetchSharekhanIntraday(sym, client) {
+  try {
+    const code = await client.getScripCode(sym);
+    if (!code || code <= 0) return null;
+    const raw = await client.fetchRawCandles('NSE', code, '5');
+    return normalizeSharekhanCandles(sym, raw);
+  } catch (_) {
+    return null;
+  }
+}
+
+module.exports = { buildScripCodeMap, loadScripCache, saveScripCache, normalizeSharekhanCandles, fetchSharekhanIntraday, SCRIP_CACHE_FILE };
