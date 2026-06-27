@@ -356,7 +356,11 @@
     <div class="modal-card broker-portfolio" onclick="event.stopPropagation()">
       <div class="modal-header">
         <h3 id="broker-portfolio-modal-title">Broker Portfolio</h3>
-        <button class="btn" style="padding:6px 10px;font-size:12px;" onclick="closeBrokerPortfolioModal(event)">x</button>
+        <div class="broker-portfolio-tabs" style="display:flex;gap:6px;align-items:center;margin-left:16px;">
+          <button id="broker-tab-zerodha" class="btn broker-tab-btn active" onclick="setBrokerPortfolioTab('zerodha')">Zerodha</button>
+          <button id="broker-tab-sharekhan" class="btn broker-tab-btn" onclick="setBrokerPortfolioTab('sharekhan')">Sharekhan</button>
+        </div>
+        <button class="btn" style="padding:6px 10px;font-size:12px;margin-left:auto;" onclick="closeBrokerPortfolioModal(event)">x</button>
       </div>
       <div id="broker-portfolio-modal-body">
         <!-- populated dynamically -->

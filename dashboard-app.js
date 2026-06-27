@@ -891,6 +891,9 @@ let brokerMode = ['paper', 'zerodha_dry_run', 'zerodha_live', 'sharekhan_live'].
 let brokerConnectionStatus = null; // { mode, zerodha: { credentialsLoaded, clientsInitialized, pollerRunning, failureCount, isDisabled } }
 let brokerRefreshState = { busy:false, ok:null, message:'' };
 let brokerPortfolioState = { loading:false, ok:false, data:null, error:'' };
+let zerodhaPortfolioState = { loading:false, ok:false, data:null, error:'' };
+let sharekhanPortfolioState = { loading:false, ok:false, data:null, error:'' };
+let activeBrokerPortfolioTab = 'zerodha';
 let brokerPositionsPanelOpen = false;
 const COLUMN_PRESET_KEY = 'stock-watcher-column-preset';
 let columnPreset = localStorage.getItem(COLUMN_PRESET_KEY) || 'trading';
@@ -3661,17 +3664,20 @@ function renderBrokerPortfolioModal() {
   const body = document.getElementById('broker-portfolio-modal-body');
   if (!body) return;
 
-  if (brokerPortfolioState.loading) {
-    body.innerHTML = `<div style="color:var(--muted);padding:16px">Loading broker portfolio...</div>`;
+  const state = activeBrokerPortfolioTab === 'sharekhan' ? sharekhanPortfolioState : zerodhaPortfolioState;
+  const brokerLabel = activeBrokerPortfolioTab === 'sharekhan' ? 'Sharekhan' : 'Zerodha';
+
+  if (state.loading) {
+    body.innerHTML = `<div style="color:var(--muted);padding:16px">Loading ${brokerLabel} portfolio...</div>`;
     return;
   }
 
-  if (!brokerPortfolioState.ok || !brokerPortfolioState.data?.portfolio) {
-    body.innerHTML = `<div style="color:var(--red);padding:16px">${escapeHTML(brokerPortfolioState.error || 'Portfolio data not available')}</div>`;
+  if (!state.ok || !state.data?.portfolio) {
+    body.innerHTML = `<div style="color:var(--red);padding:16px">${escapeHTML(state.error || `${brokerLabel} portfolio data not available`)}</div>`;
     return;
   }
 
-  const p = brokerPortfolioState.data.portfolio;
+  const p = state.data.portfolio;
   const funds = p?.funds || {};
   const holdings = Array.isArray(p?.holdings?.list) ? p.holdings.list : [];
   const positions = Array.isArray(p?.positions?.list) ? p.positions.list : [];
@@ -3740,14 +3746,46 @@ async function openBrokerPortfolioModal() {
   const modal = document.getElementById('broker-portfolio-modal');
   if (modal) modal.style.display = 'flex';
   const title = document.getElementById('broker-portfolio-modal-title');
-  if (title) {
-    const brokerName = brokerMode === 'sharekhan_live' ? 'Sharekhan' : 'Zerodha';
-    title.textContent = `${brokerName} Portfolio`;
+  if (title) title.textContent = 'Broker Portfolio';
+  renderBrokerPortfolioModal();
+  // Fetch both brokers in parallel
+  await Promise.all([
+    fetchBrokerPortfolioFor('zerodha'),
+    fetchBrokerPortfolioFor('sharekhan'),
+  ]);
+}
+
+async function fetchBrokerPortfolioFor(broker) {
+  const isZerodha = broker === 'zerodha';
+  const setState = s => { if (isZerodha) zerodhaPortfolioState = s; else sharekhanPortfolioState = s; };
+  const canFetch = isZerodha
+    ? !!brokerConnectionStatus?.zerodha?.clientsInitialized
+    : !!brokerConnectionStatus?.sharekhan?.clientsInitialized;
+  if (!canFetch) {
+    setState({ loading:false, ok:false, data:null, error:`${isZerodha ? 'Zerodha' : 'Sharekhan'} client is not initialized` });
+    renderBrokerPortfolioModal();
+    return;
+  }
+  setState({ loading:true, ok:false, data:null, error:'' });
+  renderBrokerPortfolioModal();
+  try {
+    const endpoint = isZerodha ? ZERODHA_PORTFOLIO_ENDPOINT : SHAREKHAN_PORTFOLIO_ENDPOINT;
+    const res = await fetch(endpoint, { signal: AbortSignal.timeout(10000) });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.ok === false) throw new Error(payload.error || payload.hint || `HTTP ${res.status}`);
+    setState({ loading:false, ok:true, data:payload, error:'' });
+  } catch (e) {
+    setState({ loading:false, ok:false, data:null, error:e.message || `Could not fetch ${isZerodha ? 'Zerodha' : 'Sharekhan'} portfolio` });
   }
   renderBrokerPortfolioModal();
-  if (!brokerPortfolioState.ok && !brokerPortfolioState.loading) {
-    await pollBrokerPortfolioState();
-  }
+}
+
+function setBrokerPortfolioTab(tab) {
+  activeBrokerPortfolioTab = tab;
+  document.querySelectorAll('.broker-tab-btn').forEach(btn => btn.classList.remove('active'));
+  const active = document.getElementById(`broker-tab-${tab}`);
+  if (active) active.classList.add('active');
+  renderBrokerPortfolioModal();
 }
 
 function closeBrokerPortfolioModal(e) {
