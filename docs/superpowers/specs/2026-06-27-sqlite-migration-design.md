@@ -7,7 +7,7 @@
 
 ## Goal
 
-Replace JSON file storage for trade_txns, symbol universe, Sharekhan script codes, and fresh news with SQLite (`better-sqlite3`). Keep simulation snapshots as compressed `.json.gz` files. Result: atomic writes, queryable history, 15-day TTL for news, ~90% reduction in snapshot disk usage.
+Replace JSON file storage for trade_txns, stock/ETF universe, scripts master codes, and fresh news with SQLite (`better-sqlite3`). Keep simulation snapshots as compressed `.json.gz` files. Result: atomic writes, queryable history, 15-day TTL for news, ~90% reduction in snapshot disk usage.
 
 ---
 
@@ -18,6 +18,8 @@ Replace JSON file storage for trade_txns, symbol universe, Sharekhan script code
 - `simulation_universe.json` + `saved_stocks.json` → `symbols` table
 - `cache/sharekhan_scrip_codes.json` → `scripts_master` table
 - `cache/fresh_news/*.json` + `cache/fresh_stock_news.json` → `fresh_news` table
+- `etf_list_cache.json` + `etf_summary_cache.json` + `etf_holdings_cache.json` → ETF master/cache tables
+- `saved_etfs.json` + `saved_etf_favs.json` → ETF user list tables
 
 **Migrated to compressed files:**
 - `snapshots/simulation_snapshots_YYYY-MM-DD.json` → `snapshots/simulation_snapshots_YYYY-MM-DD.json.gz`
@@ -26,8 +28,8 @@ Replace JSON file storage for trade_txns, symbol universe, Sharekhan script code
 - `trade_settings.json` — tiny config, keep as-is
 - `broker_preferences.json` — tiny config, keep as-is
 - `simulation_runtime.json` — tiny operational state, keep as-is
-- `fundamentals_cache.json`, `etf_*.json` — out of scope
-- `saved_etfs.json`, `saved_etf_favs.json`, `saved_stock_favs.json` — out of scope
+- `fundamentals_cache.json` — out of scope
+- `saved_stock_favs.json` — out of scope
 
 ---
 
@@ -119,7 +121,66 @@ CREATE TABLE IF NOT EXISTS fresh_news (
   news_json   TEXT NOT NULL       -- full news array as JSON string
 );
 CREATE INDEX IF NOT EXISTS idx_fresh_news_symbol_date ON fresh_news (symbol, date);
-CREATE INDEX IF NOT EXISTS idx_fresh_news_expires     ON fresh_news (expires_at);
+
+
+-- ETF master universe
+CREATE TABLE IF NOT EXISTS etf_master (
+  symbol      TEXT PRIMARY KEY,
+  name        TEXT,
+  issuer      TEXT,
+  category    TEXT,
+  benchmark   TEXT,
+  source      TEXT,
+  updated_at  INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+);
+
+-- ETF codes master (same strategy as scripts_master)
+CREATE TABLE IF NOT EXISTS etf_codes_master (
+  symbol          TEXT PRIMARY KEY,
+  nse_code        TEXT,
+  yahoo_symbol    TEXT,
+  zerodha_token   INTEGER,
+  sharekhan_code  INTEGER,
+  updated_at      INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+);
+
+-- ETF daily NAV history
+CREATE TABLE IF NOT EXISTS etf_nav_daily (
+  symbol      TEXT NOT NULL,
+  date        TEXT NOT NULL,
+  nav         REAL,
+  close_price REAL,
+  premium_pct REAL,
+  updated_at  INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+  PRIMARY KEY (symbol, date)
+);
+
+-- ETF quote cache with TTL
+CREATE TABLE IF NOT EXISTS etf_quotes_cache (
+  symbol      TEXT PRIMARY KEY,
+  fetched_at  INTEGER NOT NULL,
+  expires_at  INTEGER NOT NULL,
+  quote_json  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_etf_quotes_expires ON etf_quotes_cache (expires_at);
+
+-- ETF holdings cache with TTL
+CREATE TABLE IF NOT EXISTS etf_holdings_cache (
+  symbol       TEXT PRIMARY KEY,
+  as_of_date   TEXT,
+  fetched_at   INTEGER NOT NULL,
+  expires_at   INTEGER NOT NULL,
+  holdings_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_etf_holdings_expires ON etf_holdings_cache (expires_at);
+
+-- ETF user lists (saved + favorites)
+CREATE TABLE IF NOT EXISTS etf_user_lists (
+  symbol      TEXT PRIMARY KEY,
+  is_saved    INTEGER NOT NULL DEFAULT 0,
+  is_favorite INTEGER NOT NULL DEFAULT 0,
+  updated_at  INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+);
 ```
 
 ---
@@ -148,9 +209,28 @@ listTrades(filters?)              // → [trade] — filters: { status, symbol, 
 countTrades()                     // → number
 
 // Fresh news
-getFreshNews(symbol, date)        // → news array | null (null if missing or expired)
+getFreshNews(symbol, date)           // → news array | null (null if missing or expired)
 saveFreshNews(symbol, date, newsArray) // upsert with 15-day TTL
-pruneFreshNews()                  // delete rows where expires_at < now
+pruneFreshNews()                     // delete rows where expires_at < now
+
+// ETF master + cache + user lists
+upsertEtfMaster(rows)                // bulk upsert ETF universe metadata
+getEtfMaster(symbol?)                // list all ETFs or one symbol
+upsertEtfCodes(rows)                 // bulk upsert per-source ETF codes
+saveEtfNavDaily(rows)                // bulk upsert NAV history
+getEtfNavHistory(symbol, from, to)
+saveEtfQuoteCache(symbol, quote, ttlMs)
+getEtfQuoteCache(symbol)             // null if expired
+pruneEtfQuoteCache()
+
+saveEtfHoldingsCache(symbol, payload, ttlMs)
+getEtfHoldingsCache(symbol)          // null if expired
+pruneEtfHoldingsCache()
+
+setEtfSaved(symbol, isSaved)
+setEtfFavorite(symbol, isFavorite)
+listSavedEtfs()
+listEtfFavorites()
 ```
 
 ---
@@ -175,9 +255,11 @@ One-time script, run manually: `node server/db-migrate.js`
 
 1. **trade_txns**: Read `paper_trades.json`. Store full original object in `raw_json` column.
 2. **Symbols**: Read `simulation_universe.json` (source='simulation') + `saved_stocks.json` (source='saved') → upsert into `symbols`.
-3. **Sharekhan scripts**: Read `cache/sharekhan_scrip_codes.json` → upsert into `scripts_master`.
+3. **Scripts master**: Read `cache/sharekhan_scrip_codes.json` → upsert sharekhan_code into `scripts_master`.
 4. **Fresh news**: Read all `cache/fresh_news/*.json` + `cache/fresh_stock_news.json` → insert into `fresh_news` with 15-day TTL from file mtime. Skip expired entries.
-5. **Snapshots**: For each `.json` in `snapshots/`, compress to `.json.gz`. Keep originals until verified.
+5. **ETF master/cache**: Read `etf_list_cache.json`, `etf_summary_cache.json`, `etf_holdings_cache.json` → upsert into `etf_master`, `etf_quotes_cache`, `etf_holdings_cache`.
+6. **ETF user lists**: Read `saved_etfs.json` + `saved_etf_favs.json` → upsert into `etf_user_lists`.
+7. **Snapshots**: For each `.json` in `snapshots/`, compress to `.json.gz`. Keep originals until verified.
 
 Script is idempotent — safe to run multiple times.
 
@@ -221,8 +303,8 @@ Expected compression ratio: ~95% (JSON text compresses extremely well).
 1. Install `better-sqlite3`
 2. Create `server/db.js`, `server/snapshot-store.js`
 3. Run `server/db-migrate.js` — populates DB from existing JSON files
-4. Update `ticker_proxy.js` one data type at a time (trade_txns first, then symbols, then news)
-5. Update `sharekhan-client.js` + `sharekhan-intraday.js` for scrip codes
+4. Update `ticker_proxy.js` one data type at a time (trade_txns → symbols/scripts_master → fresh_news → ETF tables)
+5. Update `sharekhan-client.js` + `sharekhan-intraday.js` for scripts_master lookups
 6. Update `backtest_simulation.js` for snapshot loading
 7. Verify all tests pass after each step
 8. After stability period (1 week): delete original JSON files
@@ -242,5 +324,5 @@ Expected compression ratio: ~95% (JSON text compresses extremely well).
 
 - No ORM — raw SQL via `better-sqlite3`
 - No migrations framework — schema versioning via a `schema_version` table with simple integer comparison
-- No ETF/fundamentals migration — out of scope
+- No fundamentals migration — out of scope
 - No real-time sync between DB and legacy JSON files after migration
