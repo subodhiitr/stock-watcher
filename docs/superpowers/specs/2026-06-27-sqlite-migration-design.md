@@ -16,7 +16,7 @@ Replace JSON file storage for trade_txns, symbol universe, Sharekhan script code
 **Migrated to SQLite:**
 - `paper_trades.json` → `trade_txns` table
 - `simulation_universe.json` + `saved_stocks.json` → `symbols` table
-- `cache/sharekhan_scrip_codes.json` → `sharekhan_scripts` table
+- `cache/sharekhan_scrip_codes.json` → `scripts_master` table
 - `cache/fresh_news/*.json` + `cache/fresh_stock_news.json` → `fresh_news` table
 
 **Migrated to compressed files:**
@@ -67,9 +67,10 @@ CREATE TABLE IF NOT EXISTS symbols (
   added_at  INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 );
 
--- Sharekhan master scripts (scrip code lookup)
-CREATE TABLE IF NOT EXISTS sharekhan_scripts (
-  symbol       TEXT PRIMARY KEY,
+-- Script master — broker-agnostic scrip code lookup (Sharekhan, future brokers)
+CREATE TABLE IF NOT EXISTS scripts_master (
+  symbol       TEXT NOT NULL,
+  broker       TEXT NOT NULL DEFAULT 'sharekhan',  -- 'sharekhan' | 'zerodha' | 'nse' etc.
   scrip_code   INTEGER NOT NULL,
   company_name TEXT,
   isin         TEXT,
@@ -77,7 +78,8 @@ CREATE TABLE IF NOT EXISTS sharekhan_scripts (
   inst_type    TEXT,
   lot_size     INTEGER,
   tick_size    REAL,
-  updated_at   INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  updated_at   INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+  PRIMARY KEY (symbol, broker)
 );
 
 -- Trade records
@@ -132,10 +134,10 @@ getSymbols()                      // → [{ symbol, name, sector, cap, source }]
 upsertSymbol(sym, name, sector, cap, source)
 rememberSymbols(symbolsArray)     // bulk upsert from simulation universe or saved stocks
 
-// Sharekhan scripts
-getScripCode(symbol)              // → number (0 if not found)
-upsertScripCodes(masterDataArray) // bulk upsert from Sharekhan master API response
-scripCodesUpdatedAt()             // → unix ms of last update (0 if never)
+// scripts_master (broker-agnostic scrip code lookup)
+getScripCode(symbol, broker?)         // → number (0 if not found); broker defaults to 'sharekhan'
+upsertScripCodes(masterDataArray, broker?)  // bulk upsert; broker defaults to 'sharekhan'
+scripCodesUpdatedAt(broker?)          // → unix ms of last update (0 if never)
 
 // trade_txns
 getTrade(id)                      // → trade object | null
@@ -172,7 +174,7 @@ One-time script, run manually: `node server/db-migrate.js`
 
 1. **trade_txns**: Read `paper_trades.json`. Store full original object in `raw_json` column.
 2. **Symbols**: Read `simulation_universe.json` (source='simulation') + `saved_stocks.json` (source='saved') → upsert into `symbols`.
-3. **Sharekhan scripts**: Read `cache/sharekhan_scrip_codes.json` → upsert into `sharekhan_scripts`.
+3. **Sharekhan scripts**: Read `cache/sharekhan_scrip_codes.json` → upsert into `scripts_master`.
 4. **Fresh news**: Read all `cache/fresh_news/*.json` + `cache/fresh_stock_news.json` → insert into `fresh_news` with 15-day TTL from file mtime. Skip expired entries.
 5. **Snapshots**: For each `.json` in `snapshots/`, compress to `.json.gz`. Keep originals until verified.
 
