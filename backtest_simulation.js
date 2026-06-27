@@ -6,6 +6,15 @@ const path = require('path');
 const TradeRules = require('./trade_rules');
 const SimulationEngine = require('./simulation_engine');
 
+// Dynamic import for ES module snapshot-store
+let snapshotStore = null;
+async function getSnapshotStore() {
+  if (!snapshotStore) {
+    snapshotStore = await import('./server/snapshot-store.js');
+  }
+  return snapshotStore;
+}
+
 const ROOT = __dirname;
 const SNAPSHOT_DIR = path.join(ROOT, 'snapshots');
 const DEFAULT_SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, 'simulation_snapshots.json');
@@ -190,7 +199,8 @@ function loadPortfolioAvailableCash(file) {
   }
 }
 
-function readSnapshots(file, day) {
+async function readSnapshots(file, day) {
+  const snapshotStoreModule = await getSnapshotStore();
   const dailyFiles = listDailySnapshotFiles();
   const files = file
     ? [file]
@@ -198,10 +208,26 @@ function readSnapshots(file, day) {
       ? dailyFiles
       : [DEFAULT_SNAPSHOT_FILE, LEGACY_SNAPSHOT_FILE].filter(snapshotFile => fs.existsSync(snapshotFile)));
   let snapshots = [];
+  
   for (const snapshotFile of files) {
-    const payload = JSON.parse(fs.readFileSync(snapshotFile, 'utf8'));
-    if (Array.isArray(payload.snapshots)) snapshots.push(...payload.snapshots);
+    // Extract date from file path pattern
+    const dailyMatch = snapshotFile.match(/simulation_snapshots_(\d{4}-\d{2}-\d{2})(?:\.json)?$/);
+    if (dailyMatch) {
+      const date = dailyMatch[1];
+      try {
+        const data = await snapshotStoreModule.loadSnapshotDay(date, SNAPSHOT_DIR);
+        if (data && data.snapshots) {
+          snapshots.push(...data.snapshots);
+        }
+      } catch (err) {
+        // Silently skip if snapshot not found
+        if (!err.message.includes('Snapshot not found')) {
+          throw err;
+        }
+      }
+    }
   }
+  
   snapshots = snapshots
     .filter(s => s && s.at && Array.isArray(s.candidates))
     .sort((a, b) => new Date(a.at) - new Date(b.at));
@@ -940,14 +966,14 @@ function printSweep(rows) {
   });
 }
 
-function main() {
+async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
     console.log(usage());
     return;
   }
   const settings = loadSettings(args);
-  const snapshots = readSnapshots(args.file, args.day);
+  const snapshots = await readSnapshots(args.file, args.day);
   if (!snapshots.length) {
     throw new Error(`No snapshots found${args.day ? ` for ${args.day}` : ''}${args.file ? ` in ${args.file}` : ''}`);
   }
@@ -964,7 +990,10 @@ function main() {
 
 if (require.main === module) {
   try {
-    main();
+    main().catch(err => {
+      console.error('Backtest failed:', err.stack || err.message);
+      process.exitCode = 1;
+    });
   } catch (e) {
     console.error('Backtest failed:', e.stack || e.message);
     process.exitCode = 1;
