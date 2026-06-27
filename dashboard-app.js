@@ -2638,7 +2638,7 @@ function buildNotificationBadgeCount() {
   const todayKey = getTradeDateKey();
   const dayPnl = (getPortfolioSummary().dayPnl[todayKey] ?? 0);
   if (Math.abs(dayPnl) > 0) count++;
-  count += Math.min(5, paperTrades.filter(isTradeToday).length);
+  count += Math.min(5, paperTrades.filter(t => isTradeToday(t) && (isOpenTrade(t) || isClosedTrade(t))).length);
   return Math.min(count, 12);
 }
 
@@ -2668,15 +2668,19 @@ function buildDashboardNotifications() {
     }
   });
   paperTrades
-    .filter(t => isTradeToday(t))
+    .filter(t => isTradeToday(t) && (isOpenTrade(t) || isClosedTrade(t)))
     .slice(-5)
     .reverse()
-    .forEach(t => items.push({
-      level:String(t.status).toLowerCase() === 'open' ? 'good' : (Number(t.pnl) >= 0 ? 'good' : 'danger'),
-      title:`${String(t.status || '').toUpperCase()} ${t.symbol}`,
-      text:[String(t.side || '').toUpperCase(), t.qty ? `${t.qty} qty` : '', t.pnl != null ? moneyINR(t.pnl) : moneyINR(t.entryPrice)].filter(Boolean).join(' | '),
-      at:now,
-    }));
+    .forEach(t => {
+      const isFailed = ['cancelled', 'rejected', 'timeout', 'failed'].includes(String(t?.broker?.status || '').toLowerCase());
+      const statusLabel = isFailed ? 'FAILED' : String(t.status || '').toUpperCase();
+      items.push({
+        level: isFailed ? 'danger' : isOpenTrade(t) ? 'good' : (Number(t.pnl) >= 0 ? 'good' : 'danger'),
+        title: `${statusLabel} ${t.symbol}`,
+        text: [String(t.side || '').toUpperCase(), t.qty ? `${t.qty} qty` : '', isFailed ? (t.broker?.error || 'broker order failed') : t.pnl != null ? moneyINR(t.pnl) : moneyINR(t.entryPrice)].filter(Boolean).join(' | '),
+        at: now,
+      });
+    });
   Object.entries(stockNewsCache).slice(-10).forEach(([key, value]) => {
     const sym = key.split('|')[0];
     const ev = (value.events || []).find(e => e?.type === 'Results' || /dividend|result|board/i.test(`${e?.type || ''} ${e?.title || ''}`));
