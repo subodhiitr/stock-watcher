@@ -124,12 +124,12 @@ def main():
     # 1. Load existing credentials
     props = load_properties(CREDS_FILE)
 
-    api_key     = props.get("SHAREKHAN_API_KEY", "").strip()
-    customer_id = props.get("SHAREKHAN_CUSTOMER_ID", "").strip()
-    secret_key  = props.get("SHAREKHAN_SECRET_KEY", "").strip()
-    version_id  = props.get("SHAREKHAN_VERSION_ID", "").strip()
-    vendor_key  = props.get("SHAREKHAN_VENDOR_KEY", "").strip()
-    access_token= props.get("SHAREKHAN_ACCESS_TOKEN", "").strip()
+    api_key     = (props.get("SHAREKHAN_API_KEY") or "").strip()
+    customer_id = (props.get("SHAREKHAN_CUSTOMER_ID") or props.get("SHAREKHAN_CLIENT_ID") or "").strip()
+    secret_key  = (props.get("SHAREKHAN_SECRET_KEY") or props.get("SHAREKHAN_API_SECRET") or "").strip()
+    version_id  = (props.get("SHAREKHAN_VERSION_ID") or "").strip()
+    vendor_key  = (props.get("SHAREKHAN_VENDOR_KEY") or "").strip()
+    access_token= (props.get("SHAREKHAN_ACCESS_TOKEN") or "").strip()
 
     # Strip placeholder values
     def is_placeholder(v):

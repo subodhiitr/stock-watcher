@@ -48,13 +48,13 @@ function loadSharekhanCredentials() {
   try {
     const content = fs.readFileSync(CREDS_FILE, 'utf8');
     const creds = parseCredentialsFile(content);
-    const apiKey = cleanValue(creds.SHAREKHAN_API_KEY);
-    const customerId = cleanValue(creds.SHAREKHAN_CUSTOMER_ID);
+    const apiKey      = cleanValue(creds.SHAREKHAN_API_KEY);
+    const customerId  = cleanValue(creds.SHAREKHAN_CUSTOMER_ID || creds.SHAREKHAN_CLIENT_ID);
     const accessToken = cleanValue(creds.SHAREKHAN_ACCESS_TOKEN);
-    const secretKey = cleanValue(creds.SHAREKHAN_SECRET_KEY);
+    const secretKey   = cleanValue(creds.SHAREKHAN_SECRET_KEY || creds.SHAREKHAN_API_SECRET);
     const requestToken = cleanValue(creds.SHAREKHAN_REQUEST_TOKEN);
-    const versionId = cleanValue(creds.SHAREKHAN_VERSION_ID);
-    const vendorKey = cleanValue(creds.SHAREKHAN_VENDOR_KEY);
+    const versionId   = cleanValue(creds.SHAREKHAN_VERSION_ID);
+    const vendorKey   = cleanValue(creds.SHAREKHAN_VENDOR_KEY);
 
     if (!apiKey) {
       console.error('[sharekhan-credentials] API key is missing in ' + CREDS_FILE);
