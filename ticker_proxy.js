@@ -6084,6 +6084,17 @@ async function proxyRequestHandler(req, res) {
         }
         saveEtfMetaCache();
         saveEtfSumCache();
+        // Write-back fresh Yahoo data to DB so it survives proxy restart
+        if (proxyDbReady) {
+          try {
+            const rows = stale.map(sym => {
+              const meta = etfMetaCache[sym] || {};
+              const oneM = etfSumCache[sym];
+              return { symbol: sym, sym, ...meta, oneMonthReturn: oneM?.oneMonthReturn ?? null };
+            }).filter(r => r.symbol);
+            if (rows.length) upsertEtfMaster(rows);
+          } catch (_) {}
+        }
       }
     } catch(e) { send({ error: e.message }); }
     if (!res.writableEnded) { res.write(`data: ${JSON.stringify({ done: true })}\n\n`); res.end(); }
@@ -6601,6 +6612,17 @@ async function proxyRequestHandler(req, res) {
         }
         saveEtfMetaCache();
         saveEtfSumCache();
+        // Write-back fresh Yahoo data to DB
+        if (proxyDbReady) {
+          try {
+            const rows = stale.map(sym => {
+              const meta = etfMetaCache[sym] || {};
+              const oneM = etfSumCache[sym];
+              return { symbol: sym, sym, ...meta, oneMonthReturn: oneM?.oneMonthReturn ?? null };
+            }).filter(r => r.symbol);
+            if (rows.length) upsertEtfMaster(rows);
+          } catch (_) {}
+        }
       } // end if (stale.length)
 
       // ── Background 1M return refresh ────────────────────────────────────────
@@ -6626,6 +6648,15 @@ async function proxyRequestHandler(req, res) {
             if (i + CONCURRENCY < staleOneMOnly.length) await new Promise(r => setTimeout(r, 300));
           }
           saveEtfSumCache();
+          // Write-back refreshed 1M returns to DB
+          if (proxyDbReady) {
+            try {
+              const rows = staleOneMOnly
+                .map(sym => ({ symbol: sym, sym, oneMonthReturn: etfSumCache[sym]?.oneMonthReturn ?? null }))
+                .filter(r => r.symbol && r.oneMonthReturn != null);
+              if (rows.length) upsertEtfMaster(rows);
+            } catch (_) {}
+          }
         })().catch(e => console.warn('[etf-cache] background 1M refresh failed:', e.message));
       }
 
