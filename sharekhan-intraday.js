@@ -37,4 +37,78 @@ function saveScripCache(map, cacheFile = SCRIP_CACHE_FILE) {
   } catch (_) {}
 }
 
-module.exports = { buildScripCodeMap, loadScripCache, saveScripCache, SCRIP_CACHE_FILE };
+// Parse a single candle from Sharekhan's response (handles multiple field name variants).
+function parseCandle(c) {
+  const time  = c.time || c.datetime || c.date || c.dt || null;
+  const open  = Number(c.open  ?? c.o ?? NaN);
+  const high  = Number(c.high  ?? c.h ?? NaN);
+  const low   = Number(c.low   ?? c.l ?? NaN);
+  const close = Number(c.close ?? c.c ?? NaN);
+  const vol   = Number(c.volume ?? c.vol ?? c.v ?? NaN);
+
+  let unixSec = null;
+  if (typeof time === 'number' && time > 1e9) {
+    unixSec = time > 1e12 ? Math.floor(time / 1000) : time;
+  } else if (typeof time === 'string' && time) {
+    const ms = Date.parse(time);
+    if (Number.isFinite(ms)) unixSec = Math.floor(ms / 1000);
+  }
+
+  if (!unixSec || !Number.isFinite(open) || !Number.isFinite(close)) return null;
+  return {
+    unixSec,
+    open,
+    high: Number.isFinite(high) ? high : close,
+    low:  Number.isFinite(low)  ? low  : close,
+    close,
+    vol: Number.isFinite(vol) ? vol : 0,
+  };
+}
+
+// Convert Sharekhan candle array/string into the Yahoo chart result shape
+// that buildIntradaySignal expects. Returns null if data is unusable.
+function normalizeSharekhanCandles(sym, raw) {
+  let candles = raw;
+  if (typeof raw === 'string') {
+    if (!raw.trim()) return null;
+    try { candles = JSON.parse(raw); } catch (_) { return null; }
+  }
+  if (candles && !Array.isArray(candles) && Array.isArray(candles.data)) candles = candles.data;
+  if (!Array.isArray(candles) || candles.length === 0) return null;
+
+  const parsed = candles.map(parseCandle).filter(Boolean);
+  if (parsed.length === 0) return null;
+
+  // Sort ascending by timestamp — Sharekhan may return any order
+  parsed.sort((a, b) => a.unixSec - b.unixSec);
+  // De-duplicate by timestamp (keep last occurrence)
+  const deduped = [];
+  const seen = new Set();
+  for (const c of parsed) {
+    if (seen.has(c.unixSec)) {
+      deduped[deduped.findIndex(x => x.unixSec === c.unixSec)] = c;
+    } else {
+      seen.add(c.unixSec);
+      deduped.push(c);
+    }
+  }
+
+  const timestamps = deduped.map(c => c.unixSec);
+  const opens      = deduped.map(c => c.open);
+  const highs      = deduped.map(c => c.high);
+  const lows       = deduped.map(c => c.low);
+  const closes     = deduped.map(c => c.close);
+  const volumes    = deduped.map(c => c.vol);
+
+  return {
+    meta: {
+      regularMarketPrice: closes[closes.length - 1],
+      regularMarketOpen:  opens[0],
+      previousClose:      null,  // backfilled from Yahoo daily by caller
+    },
+    timestamp: timestamps,
+    indicators: { quote: [{ open: opens, high: highs, low: lows, close: closes, volume: volumes }] },
+  };
+}
+
+module.exports = { buildScripCodeMap, loadScripCache, saveScripCache, normalizeSharekhanCandles, SCRIP_CACHE_FILE };
