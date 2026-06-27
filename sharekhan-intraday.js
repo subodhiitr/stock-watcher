@@ -18,22 +18,23 @@ function buildScripCodeMap(masterData = []) {
   return map;
 }
 
-function loadScripCache() {
+function loadScripCache(cacheFile = SCRIP_CACHE_FILE) {
   try {
-    if (!fs.existsSync(SCRIP_CACHE_FILE)) return null;
-    const raw = JSON.parse(fs.readFileSync(SCRIP_CACHE_FILE, 'utf8'));
+    if (!fs.existsSync(cacheFile)) return null;
+    const raw = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
     if (!raw || Date.now() - Number(raw.savedAt || 0) > SCRIP_CACHE_TTL) return null;
-    return new Map(Object.entries(raw.symbols || {}));
+    if (!raw.symbols || typeof raw.symbols !== 'object') return null;
+    return new Map(Object.entries(raw.symbols));
   } catch (_) { return null; }
 }
 
-function saveScripCache(map) {
+function saveScripCache(map, cacheFile = SCRIP_CACHE_FILE) {
   try {
-    const dir = path.dirname(SCRIP_CACHE_FILE);
+    const dir = path.dirname(cacheFile);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const symbols = Object.fromEntries([...map.entries()].map(([k, v]) => [k, v]));
-    fs.writeFileSync(SCRIP_CACHE_FILE, JSON.stringify({ savedAt: Date.now(), symbols }, null, 2), 'utf8');
+    fs.writeFileSync(cacheFile, JSON.stringify({ savedAt: Date.now(), symbols }, null, 2), 'utf8');
   } catch (_) {}
 }
 
-module.exports = { buildScripCodeMap, loadScripCache, saveScripCache };
+module.exports = { buildScripCodeMap, loadScripCache, saveScripCache, SCRIP_CACHE_FILE };
