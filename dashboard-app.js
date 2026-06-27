@@ -7777,13 +7777,25 @@ function applyETFListPayload(allEtfs, sourceLabel = 'server') {
   for (const etf of list) {
     if (!etf.sym) continue;
     if (MIDCAP_STOCKS.some(s=>s.sym===etf.sym) || ETF_ASSETS.some(s=>s.sym===etf.sym)) continue;
+    // Pre-populate etfData from the list payload (nav, returns, expense ratio, etc.)
+    const etfData = {};
+    if (etf.expRatio    != null) etfData.expenseRatio   = etf.expRatio;
+    if (etf.nav         != null) etfData.nav             = etf.nav;
+    if (etf.navPremium  != null) etfData.premium         = etf.navPremium;
+    if (etf.oneMonthReturn  != null) etfData.oneMonthReturn  = etf.oneMonthReturn;
+    if (etf.oneYearReturn   != null) etfData.oneYearReturn   = etf.oneYearReturn;
+    if (etf.threeYearReturn != null) etfData.threeYearReturn = etf.threeYearReturn;
+    if (etf.fiveYearReturn  != null) etfData.fiveYearReturn  = etf.fiveYearReturn;
+    if (etf.ytdReturn       != null) etfData.ytdReturn        = etf.ytdReturn;
+    if (etf.category        != null) etfData.category         = etf.category;
+    if (etf.fundFamily      != null) etfData.fundFamily        = etf.fundFamily;
     ETF_ASSETS.push({
       sym: etf.sym,
       name: etf.name || etf.sym,
       sector: etf.sector || 'ETF',
       cap: 'etf',
       fundFamily: etf.fundFamily || null,
-      etfData: etf.expRatio != null ? { expenseRatio: etf.expRatio } : undefined
+      etfData: Object.keys(etfData).length ? etfData : undefined
     });
     if (etf.price || etf.nav) {
       stockData[etf.sym] = Object.assign(stockData[etf.sym] || {}, {
