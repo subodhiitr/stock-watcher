@@ -67,6 +67,28 @@ test('listTrades filters by source', () => {
   assert.deepEqual(filtered.map((trade) => trade.id).sort(), ['trade-1', 'trade-3']);
 });
 
+test('listTrades filters by status', () => {
+  initDb(':memory:');
+
+  saveTrade({ id: 'trade-1', symbol: 'SBIN', status: 'open', source: 'simulation' });
+  saveTrade({ id: 'trade-2', symbol: 'INFY', status: 'closed', source: 'simulation' });
+  saveTrade({ id: 'trade-3', symbol: 'TCS', status: 'open', source: 'manual' });
+
+  const filtered = listTrades({ status: 'open' });
+  assert.deepEqual(filtered.map((trade) => trade.id).sort(), ['trade-1', 'trade-3']);
+});
+
+test('listTrades filters by symbol', () => {
+  initDb(':memory:');
+
+  saveTrade({ id: 'trade-1', symbol: 'SBIN', status: 'open' });
+  saveTrade({ id: 'trade-2', symbol: 'INFY', status: 'closed' });
+  saveTrade({ id: 'trade-3', symbol: 'SBIN', status: 'closed' });
+
+  const filtered = listTrades({ symbol: 'SBIN' });
+  assert.deepEqual(filtered.map((trade) => trade.id).sort(), ['trade-1', 'trade-3']);
+});
+
 test('updateTrade partially updates fields without dropping existing data', () => {
   initDb(':memory:');
 
