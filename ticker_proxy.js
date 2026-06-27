@@ -545,8 +545,9 @@ function loadPaperStateFile() {
       const dbPortfolio = loadPortfolioState() || defaultPaperPortfolio();
       const todayKey = getIstDateKey();
 
-      // Merge any trades from JSON that aren't in DB yet (transition safety net)
-      if (fs.existsSync(PAPER_TRADES_FILE)) {
+      // Merge any trades from JSON that aren't in DB yet (production transition safety net).
+      // Skip in test/memory mode (_dbPath===':memory:') to avoid test contamination.
+      if (_dbPath !== ':memory:' && fs.existsSync(PAPER_TRADES_FILE)) {
         try {
           const jsonRaw = JSON.parse(fs.readFileSync(PAPER_TRADES_FILE, 'utf8') || '{}');
           const jsonTrades = Array.isArray(jsonRaw) ? jsonRaw : (Array.isArray(jsonRaw?.trades) ? jsonRaw.trades : []);
@@ -589,17 +590,17 @@ function loadPaperStateFile() {
       };
     }
 
-    // Fallback: JSON file (used in tests and before proxy is initialized)
+    // Fallback: JSON file (used in tests when proxyDbReady=false)
     if (!fs.existsSync(PAPER_TRADES_FILE)) {
       fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: defaultPaperPortfolio(), trades: [] }, null, 2), 'utf8');
     }
     const raw = JSON.parse(fs.readFileSync(PAPER_TRADES_FILE, 'utf8') || '{}');
     const sourceTrades = Array.isArray(raw) ? raw : (Array.isArray(raw?.trades) ? raw.trades : []);
-    const normalized = normalizePaperState(raw);
-    if (JSON.stringify(sourceTrades) !== JSON.stringify(normalized.trades)) {
-      fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: normalized.portfolio, trades: normalized.trades }, null, 2), 'utf8');
+    const normalized2 = normalizePaperState(raw);
+    if (JSON.stringify(sourceTrades) !== JSON.stringify(normalized2.trades)) {
+      fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: normalized2.portfolio, trades: normalized2.trades }, null, 2), 'utf8');
     }
-    return normalized;
+    return normalized2;
   } catch (e) {
     console.warn('[paper-trades] Load error:', e.message);
     return { savedAt: Date.now(), portfolio: defaultPaperPortfolio(), trades: [] };
@@ -614,17 +615,15 @@ function savePaperStateFile(state) {
   try {
     const next = normalizePaperState(state || {});
     if (proxyDbReady) {
-      // Write each trade to DB
       for (const trade of next.trades) {
         try { saveTrade(trade); } catch (_) {}
       }
-      // Recompute all-time realized P&L from DB and persist with portfolio
       try {
         const realizedPnl = computeAllTimeRealizedPnl();
         savePortfolioState({ ...next.portfolio, realizedPnl });
       } catch (_) {}
     }
-    // Always write JSON backup (primary in tests, backup in production)
+    // JSON backup always written (primary in tests, backup in production)
     fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: next.portfolio, trades: next.trades }, null, 2), 'utf8');
   } catch (e) {
     console.warn('[paper-trades] Save error:', e.message);
@@ -7880,6 +7879,7 @@ async function initializeProxy() {
   try {
     initDb();
     proxyDbReady = true;
+    console.log('[db] SQLite initialized');
   } catch (e) {
     console.warn('[db] SQLite initialization failed, falling back to JSON storage:', e.message);
   }
@@ -8075,15 +8075,13 @@ module.exports = {
   __test__: {
     initializeSimulationRuntime,
     runSchedulerTick: runSimulationSchedulerTick,
-    // Allow tests to opt-in to DB mode with an in-memory database,
-    // avoiding contamination from the real stock-watcher.db file.
+    // DB is always initialized at module load. enableDbForTests re-initializes
+    // with a different path (e.g. ':memory:') if needed within a test.
     enableDbForTests(dbPath = ':memory:') {
       try {
         initDb(dbPath);
         proxyDbReady = true;
-      } catch (e) {
-        console.warn('[db] test DB init failed:', e.message);
-      }
+      } catch (e) { console.warn('[db] test DB init failed:', e.message); }
     },
     disableDbForTests() {
       proxyDbReady = false;
