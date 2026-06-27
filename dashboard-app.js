@@ -3758,14 +3758,6 @@ async function openBrokerPortfolioModal() {
 async function fetchBrokerPortfolioFor(broker) {
   const isZerodha = broker === 'zerodha';
   const setState = s => { if (isZerodha) zerodhaPortfolioState = s; else sharekhanPortfolioState = s; };
-  const canFetch = isZerodha
-    ? !!brokerConnectionStatus?.zerodha?.clientsInitialized
-    : !!brokerConnectionStatus?.sharekhan?.clientsInitialized;
-  if (!canFetch) {
-    setState({ loading:false, ok:false, data:null, error:`${isZerodha ? 'Zerodha' : 'Sharekhan'} client is not initialized` });
-    renderBrokerPortfolioModal();
-    return;
-  }
   setState({ loading:true, ok:false, data:null, error:'' });
   renderBrokerPortfolioModal();
   try {
