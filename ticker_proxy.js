@@ -65,6 +65,7 @@ const {
   rememberSymbols: dbRememberSymbols,
   upsertScripCodes,
   getFreshNews,
+  saveFreshNews: dbSaveFreshNews,
   loadPortfolioState,
   savePortfolioState,
 } = require('./server/db');
@@ -3661,6 +3662,22 @@ function writeFreshNewsDayEntry(entry) {
     index.days[dayEntry.date] = freshNewsDayMeta(dayEntry);
     pruneFreshNewsDayCache(index);
     saveFreshNewsIndex();
+    // Dual-write per-symbol news to DB when proxy DB is ready
+    if (proxyDbReady && Array.isArray(dayEntry.items) && dayEntry.date) {
+      try {
+        const bySymbol = new Map();
+        for (const item of dayEntry.items) {
+          if (!item?.symbol) continue;
+          if (!bySymbol.has(item.symbol)) bySymbol.set(item.symbol, []);
+          bySymbol.get(item.symbol).push(item);
+        }
+        for (const [symbol, items] of bySymbol) {
+          dbSaveFreshNews(symbol, dayEntry.date, items);
+        }
+      } catch (e) {
+        console.warn('[fresh-news-cache] DB dual-write error:', e.message);
+      }
+    }
   } catch(e) {
     console.warn(`[fresh-news-cache] Day save error ${entry?.date || ''}:`, e.message);
   }

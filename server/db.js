@@ -279,6 +279,11 @@ function readEtfMasterRow(row) {
 export function initDb(path = 'stock-watcher.db') {
   const db = new Database(path);
 
+  // Enable WAL mode for concurrent read+write (proxy + backtest running together)
+  // and set busy_timeout to avoid "database is locked" errors
+  db.pragma('journal_mode = WAL');
+  db.pragma('busy_timeout = 5000');
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_version (
       id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -361,6 +366,13 @@ export function initDb(path = 'stock-watcher.db') {
       data TEXT NOT NULL,
       updated_at INTEGER NOT NULL DEFAULT 0
     );
+
+    CREATE INDEX IF NOT EXISTS idx_trade_txns_symbol
+      ON trade_txns (json_extract(data, '$.symbol'));
+    CREATE INDEX IF NOT EXISTS idx_trade_txns_status
+      ON trade_txns (json_extract(data, '$.status'));
+    CREATE INDEX IF NOT EXISTS idx_trade_txns_opened_at
+      ON trade_txns (CAST(json_extract(data, '$.openedAt') AS INTEGER));
   `);
 
   activeDb = db;
