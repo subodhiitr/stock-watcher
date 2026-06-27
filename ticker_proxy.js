@@ -6651,6 +6651,28 @@ async function proxyRequestHandler(req, res) {
         return;
       }
       const portfolio = await sharekhanClientLive.getPortfolioState();
+      // Enrich holdings LTP from intraday cache (Sharekhan API has no live quote endpoint)
+      if (Array.isArray(portfolio?.holdings?.list)) {
+        let totalMarketValue = 0;
+        let totalInvested = 0;
+        let totalPnl = 0;
+        for (const h of portfolio.holdings.list) {
+          const cached = intradayLiveCache.get(String(h.symbol || '').toUpperCase());
+          if (cached?.price) {
+            h.ltp = Number(cached.price);
+            h.closePrice = Number(cached.prevClose || cached.close || h.closePrice || 0);
+            const prevClose = h.closePrice || h.ltp;
+            h.dayChangePct = prevClose ? +((h.ltp - prevClose) / prevClose * 100).toFixed(2) : 0;
+            h.marketValue = +(h.ltp * h.qty).toFixed(2);
+            h.pnl = +(h.marketValue - h.investedValue).toFixed(2);
+          }
+          totalMarketValue += h.marketValue || 0;
+          totalInvested += h.investedValue || 0;
+          totalPnl += h.pnl || 0;
+        }
+        portfolio.holdings.marketValue = +totalMarketValue.toFixed(2);
+        portfolio.positions.totalPnl = +totalPnl.toFixed(2);
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         ok: true,
