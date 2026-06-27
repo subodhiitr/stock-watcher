@@ -1,5 +1,5 @@
 {
-  "savedAt": 1782480469352,
+  "savedAt": 1782523721263,
   "portfolio": {
     "initialCapital": 500000,
     "capitalAdds": [
@@ -16,6 +16,132 @@
     ]
   },
   "trades": [
+    {
+      "id": "1782523721098-xlkkhk",
+      "status": "open",
+      "symbol": "ABB",
+      "name": "ABB India",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 6977,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 6977,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-27T01:28:41.098Z",
+      "executionMode": "zerodha_live",
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only",
+      "broker": {
+        "name": "zerodha",
+        "mode": "live",
+        "status": "failed",
+        "error": "MIS (intraday) are blocked as the markets are not open for trading today. Try placing an AMO order.",
+        "createdAt": "2026-06-27T01:28:41.098Z",
+        "audit": [
+          {
+            "at": "2026-06-27T01:28:41.098Z",
+            "event": "live_order_failed",
+            "error": "MIS (intraday) are blocked as the markets are not open for trading today. Try placing an AMO order."
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782523228295-a2ps95",
+      "status": "open",
+      "symbol": "ANANDRATHI",
+      "name": "Anand Rathi Wealth",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 1937.9,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 1937.9,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-27T01:20:28.295Z",
+      "executionMode": "zerodha_live",
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only",
+      "broker": {
+        "name": "zerodha",
+        "mode": "live",
+        "status": "failed",
+        "error": "IP (49.206.59.121) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+        "createdAt": "2026-06-27T01:20:28.295Z",
+        "audit": [
+          {
+            "at": "2026-06-27T01:20:28.295Z",
+            "event": "live_order_failed",
+            "error": "IP (49.206.59.121) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip"
+          }
+        ]
+      }
+    },
+    {
+      "id": "1782523002117-f185vq",
+      "status": "open",
+      "symbol": "ANTELOPUS",
+      "name": "ANTELOPUS",
+      "side": "buy",
+      "qty": 1,
+      "entryPrice": 805,
+      "target": null,
+      "stop": null,
+      "signal": null,
+      "score": null,
+      "rr": null,
+      "reservedCapital": 805,
+      "portfolioInitial": 2510000,
+      "source": "manual",
+      "assetType": "stock",
+      "setupType": null,
+      "setup": null,
+      "entryContext": null,
+      "notes": "",
+      "openedAt": "2026-06-27T01:16:42.117Z",
+      "executionMode": "zerodha_live",
+      "entryOwner": "manual",
+      "exitOwner": "manual",
+      "managedBySimulation": false,
+      "managementState": "manual_only",
+      "broker": {
+        "name": "zerodha",
+        "mode": "live",
+        "status": "failed",
+        "error": "IP (49.206.59.121) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+        "createdAt": "2026-06-27T01:16:42.117Z",
+        "audit": [
+          {
+            "at": "2026-06-27T01:16:42.117Z",
+            "event": "live_order_failed",
+            "error": "IP (49.206.59.121) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip"
+          }
+        ]
+      }
+    },
     {
       "id": "1782480469285-xs7gzt",
       "status": "open",

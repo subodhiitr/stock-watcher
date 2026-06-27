@@ -69,6 +69,7 @@ function parseArgs(argv) {
     else if (arg === '--auto-shorts') args.autoShorts = true;
     else if (arg === '--long-only') args.longOnly = true;
     else if (arg === '--short-only') args.shortOnly = true;
+    else if (arg === '--min-score') args.minScore = Number(next());
     else if (arg === '--short-min-score') args.shortMinScore = Number(next());
     else if (arg === '--capital') args.capital = Number(next());
     else if (arg === '--default-capital') args.defaultCapital = true;
@@ -108,6 +109,7 @@ function loadSettings(overrides) {
   if (Number.isFinite(overrides.maxNewPerCycle)) settings.SIMULATION_MAX_NEW_PER_CYCLE = overrides.maxNewPerCycle;
   if (Number.isFinite(overrides.niftyRegimePct)) settings.SIMULATION_MARKET_REGIME_NIFTY_PCT = overrides.niftyRegimePct;
   if (Number.isFinite(overrides.rsRegimePct)) settings.SIMULATION_MARKET_REGIME_RS_PCT = overrides.rsRegimePct;
+  if (Number.isFinite(overrides.minScore)) settings.SIMULATION_MIN_SCORE = overrides.minScore;
   if (Number.isFinite(overrides.shortMinScore)) settings.SIMULATION_SHORT_MIN_SCORE = overrides.shortMinScore;
   if (overrides.autoShorts) settings.SIMULATION_AUTO_SHORTS = true;
   if (overrides.shortOnly) settings.SIMULATION_AUTO_SHORTS = true;

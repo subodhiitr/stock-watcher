@@ -1,80 +1,6 @@
 {
-  "savedAt": 1782470162607,
+  "savedAt": 1782525405904,
   "entries": [
-    {
-      "key": "22 Jun 2026|report|2214f258fcf1cc32|b5b98ddb2857fdb2",
-      "savedAt": 1782113986778,
-      "hitAt": 1782113986778,
-      "payload": {
-        "ok": true,
-        "date": "22 Jun 2026",
-        "count": 0,
-        "result": {
-          "snapshots": 0,
-          "first": null,
-          "last": null,
-          "settings": {
-            "capital": 2510000,
-            "availableCash": 1708148.5,
-            "capitalSource": "paper_trades.json portfolio capital",
-            "capitalDetail": {
-              "initial": 500000,
-              "addedCapital": 2010000,
-              "capital": 2510000,
-              "realized": -4736,
-              "openExposure": 797115.5,
-              "cashAvailable": 1708148.5,
-              "tradeCount": 129
-            },
-            "maxOpen": 20,
-            "maxActiveOpen": 15,
-            "maxNewPerCycle": 4,
-            "firstHourMaxEntries": 2,
-            "dailyMaxTrades": 25,
-            "dailyMaxStops": 4,
-            "dailyMaxStopsWhenProfitBuffer": 8,
-            "dailyStopProfitBufferPct": 0.2,
-            "maxPositionExposure": 100000,
-            "replayMode": "long+short",
-            "shortMinScore": 45
-          },
-          "summary": {
-            "trades": 0,
-            "wins": 0,
-            "losses": 0,
-            "winRate": 0,
-            "gross": 0,
-            "fees": 0,
-            "net": 0,
-            "returnPct": 0,
-            "maxDrawdown": 0,
-            "maxDrawdownPct": 0,
-            "maxLossStreak": 0,
-            "currentLossStreak": 0
-          },
-          "trades": [],
-          "rejected": [],
-          "setupStats": [],
-          "quality": {
-            "summary": {
-              "trades": 0,
-              "wins": 0,
-              "losses": 0,
-              "winRate": 0,
-              "net": 0,
-              "avgHoldMin": 0,
-              "avgNetPct": 0
-            },
-            "bySetup": [],
-            "byExit": [],
-            "byHour": []
-          },
-          "dataQuality": [],
-          "top": [],
-          "bottom": []
-        }
-      }
-    },
     {
       "key": "22 Jun 2026|report|6badfe9d73bb0684|82ba6bfed10d2f92",
       "savedAt": 1782126937530,
@@ -925,152 +851,6 @@
             }
           ]
         }
-      }
-    },
-    {
-      "key": "22 Jun 2026|sweep|6badfe9d73bb0684|82ba6bfed10d2f92",
-      "savedAt": 1782127351718,
-      "hitAt": 1782127351718,
-      "payload": {
-        "ok": true,
-        "date": "22 Jun 2026",
-        "count": 0,
-        "result": {
-          "snapshots": 0,
-          "first": null,
-          "last": null,
-          "settings": {
-            "capital": 2510000,
-            "availableCash": 2506091.01,
-            "capitalSource": "paper_trades.json portfolio capital",
-            "capitalDetail": {
-              "initial": 500000,
-              "addedCapital": 2010000,
-              "capital": 2510000,
-              "realized": -3908.99,
-              "openExposure": 0,
-              "cashAvailable": 2506091.01,
-              "tradeCount": 136
-            },
-            "maxOpen": 20,
-            "maxActiveOpen": 15,
-            "maxNewPerCycle": 4,
-            "firstHourMaxEntries": 2,
-            "dailyMaxTrades": 25,
-            "dailyMaxStops": 4,
-            "dailyMaxStopsWhenProfitBuffer": 8,
-            "dailyStopProfitBufferPct": 0.2,
-            "maxPositionExposure": 100000,
-            "replayMode": "long+short",
-            "shortMinScore": 45
-          },
-          "summary": {
-            "trades": 0,
-            "wins": 0,
-            "losses": 0,
-            "winRate": 0,
-            "gross": 0,
-            "fees": 0,
-            "net": 0,
-            "returnPct": 0,
-            "maxDrawdown": 0,
-            "maxDrawdownPct": 0,
-            "maxLossStreak": 0,
-            "currentLossStreak": 0
-          },
-          "trades": [],
-          "rejected": [],
-          "setupStats": [],
-          "quality": {
-            "summary": {
-              "trades": 0,
-              "wins": 0,
-              "losses": 0,
-              "winRate": 0,
-              "net": 0,
-              "avgHoldMin": 0,
-              "avgNetPct": 0
-            },
-            "bySetup": [],
-            "byExit": [],
-            "byHour": []
-          },
-          "dataQuality": [],
-          "top": [],
-          "bottom": []
-        },
-        "sweepRows": [
-          {
-            "minScore": 60,
-            "topN": 10,
-            "perCycle": 4,
-            "firstHour": 2,
-            "trail": 0.4,
-            "trades": 0,
-            "winRate": 0,
-            "net": 0,
-            "drawdown": 0,
-            "maxDrawdown": 0,
-            "maxDrawdownPct": 0,
-            "lossStreak": 0
-          },
-          {
-            "minScore": 55,
-            "topN": 10,
-            "perCycle": 4,
-            "firstHour": 2,
-            "trail": 0.4,
-            "trades": 0,
-            "winRate": 0,
-            "net": 0,
-            "drawdown": 0,
-            "maxDrawdown": 0,
-            "maxDrawdownPct": 0,
-            "lossStreak": 0
-          },
-          {
-            "minScore": 60,
-            "topN": 15,
-            "perCycle": 4,
-            "firstHour": 2,
-            "trail": 0.4,
-            "trades": 0,
-            "winRate": 0,
-            "net": 0,
-            "drawdown": 0,
-            "maxDrawdown": 0,
-            "maxDrawdownPct": 0,
-            "lossStreak": 0
-          },
-          {
-            "minScore": 60,
-            "topN": 10,
-            "perCycle": 4,
-            "firstHour": 1,
-            "trail": 0.4,
-            "trades": 0,
-            "winRate": 0,
-            "net": 0,
-            "drawdown": 0,
-            "maxDrawdown": 0,
-            "maxDrawdownPct": 0,
-            "lossStreak": 0
-          },
-          {
-            "minScore": 60,
-            "topN": 10,
-            "perCycle": 4,
-            "firstHour": 3,
-            "trail": 0.4,
-            "trades": 0,
-            "winRate": 0,
-            "net": 0,
-            "drawdown": 0,
-            "maxDrawdown": 0,
-            "maxDrawdownPct": 0,
-            "lossStreak": 0
-          }
-        ]
       }
     },
     {
@@ -20073,6 +19853,287 @@
               "count": 10800
             }
           ],
+          "top": [],
+          "bottom": []
+        }
+      }
+    },
+    {
+      "key": "2026-06-27|report|v4|b327bd537855de83|cbfc02fc0d9fda05",
+      "savedAt": 1782525394547,
+      "hitAt": 1782525394547,
+      "payload": {
+        "ok": true,
+        "date": "2026-06-27",
+        "count": 0,
+        "result": {
+          "snapshots": 0,
+          "first": null,
+          "last": null,
+          "settings": {
+            "capital": 2510000,
+            "availableCash": 2502461,
+            "capitalSource": "paper_trades.json portfolio capital",
+            "capitalDetail": {
+              "initial": 500000,
+              "addedCapital": 2010000,
+              "capital": 2510000,
+              "realized": 10118.35,
+              "openExposure": 17657.35,
+              "cashAvailable": 2502461,
+              "tradeCount": 333
+            },
+            "maxOpen": 20,
+            "maxActiveOpen": 15,
+            "maxNewPerCycle": 4,
+            "firstHourMaxEntries": 2,
+            "dailyMaxTrades": 25,
+            "dailyMaxStops": 4,
+            "dailyMaxStopsWhenProfitBuffer": 8,
+            "dailyStopProfitBufferPct": 0.2,
+            "maxPositionExposure": 100000,
+            "replayMode": "long+short",
+            "shortMinScore": 45
+          },
+          "summary": {
+            "trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "winRate": 0,
+            "gross": 0,
+            "fees": 0,
+            "net": 0,
+            "returnPct": 0,
+            "maxDrawdown": 0,
+            "maxDrawdownPct": 0,
+            "maxLossStreak": 0,
+            "currentLossStreak": 0
+          },
+          "trades": [],
+          "rejected": [],
+          "setupStats": [],
+          "quality": {
+            "summary": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winRate": 0,
+              "net": 0,
+              "avgHoldMin": 0,
+              "avgNetPct": 0
+            },
+            "bySetup": [],
+            "byExit": [],
+            "byHour": []
+          },
+          "dataQuality": [],
+          "top": [],
+          "bottom": []
+        }
+      }
+    },
+    {
+      "key": "2026-06-25|report|v4|888f969da4af2980|cbfc02fc0d9fda05",
+      "savedAt": 1782525405904,
+      "hitAt": 1782525405904,
+      "payload": {
+        "ok": true,
+        "date": "2026-06-25",
+        "count": 20,
+        "result": {
+          "snapshots": 20,
+          "first": "2026-06-25T13:38:25.589Z",
+          "last": "2026-06-25T14:05:28.817Z",
+          "settings": {
+            "capital": 2510000,
+            "availableCash": 2502461,
+            "capitalSource": "paper_trades.json portfolio capital",
+            "capitalDetail": {
+              "initial": 500000,
+              "addedCapital": 2010000,
+              "capital": 2510000,
+              "realized": 10118.35,
+              "openExposure": 17657.35,
+              "cashAvailable": 2502461,
+              "tradeCount": 333
+            },
+            "maxOpen": 20,
+            "maxActiveOpen": 15,
+            "maxNewPerCycle": 4,
+            "firstHourMaxEntries": 2,
+            "dailyMaxTrades": 25,
+            "dailyMaxStops": 4,
+            "dailyMaxStopsWhenProfitBuffer": 8,
+            "dailyStopProfitBufferPct": 0.2,
+            "maxPositionExposure": 100000,
+            "replayMode": "long+short",
+            "shortMinScore": 45
+          },
+          "summary": {
+            "trades": 0,
+            "wins": 0,
+            "losses": 0,
+            "winRate": 0,
+            "gross": 0,
+            "fees": 0,
+            "net": 0,
+            "returnPct": 0,
+            "maxDrawdown": 0,
+            "maxDrawdownPct": 0,
+            "maxLossStreak": 0,
+            "currentLossStreak": 0
+          },
+          "trades": [],
+          "rejected": [
+            {
+              "symbol": "ONGC",
+              "side": "sell",
+              "setupType": "BREAKDOWN",
+              "rank": 7,
+              "score": -71,
+              "price": 233.1,
+              "reason": "breakdown needs 2 triggered below-VWAP snapshots | entry Near trigger",
+              "net": -82.68,
+              "movePct": 0
+            },
+            {
+              "symbol": "HINDZINC",
+              "side": "sell",
+              "setupType": "BREAKDOWN",
+              "rank": 8,
+              "score": -91,
+              "price": 518.05,
+              "reason": "breakdown needs 2 triggered below-VWAP snapshots | entry Near trigger",
+              "net": -82.68,
+              "movePct": 0
+            },
+            {
+              "symbol": "INFY",
+              "side": "sell",
+              "setupType": "BREAKDOWN",
+              "rank": 9,
+              "score": -69,
+              "price": 1041.2,
+              "reason": "breakdown needs 2 triggered below-VWAP snapshots",
+              "net": -82.67,
+              "movePct": 0
+            },
+            {
+              "symbol": "NTPC",
+              "side": "sell",
+              "setupType": "BREAKDOWN",
+              "rank": 10,
+              "score": -68,
+              "price": 352.05,
+              "reason": "breakdown needs 2 triggered below-VWAP snapshots",
+              "net": -82.67,
+              "movePct": 0
+            },
+            {
+              "symbol": "TMPV",
+              "side": "sell",
+              "setupType": "VWAP_REJECTION",
+              "rank": 11,
+              "score": -61,
+              "price": 353.2,
+              "reason": "entry Near trigger",
+              "net": -82.67,
+              "movePct": 0
+            },
+            {
+              "symbol": "ADANIPOWER",
+              "side": "sell",
+              "setupType": "CHASING",
+              "rank": 12,
+              "score": -41,
+              "price": 229.27,
+              "reason": "score 41 < 45 | setup CHASING not allowed",
+              "net": -82.67,
+              "movePct": 0
+            },
+            {
+              "symbol": "DRREDDY",
+              "side": "buy",
+              "setupType": "FRESH_BREAKOUT",
+              "rank": 1,
+              "score": 41,
+              "price": 1350.5,
+              "reason": "score 41 < 70 | fresh breakout needs 2 triggered above-VWAP snapshots | entry Near trigger",
+              "net": -82.66,
+              "movePct": 0
+            },
+            {
+              "symbol": "WIPRO",
+              "side": "buy",
+              "setupType": "LOW_VOLUME",
+              "rank": 2,
+              "score": 38,
+              "price": 175,
+              "reason": "score 38 < 70 | setup LOW_VOLUME not allowed | entry Wait",
+              "net": -82.65,
+              "movePct": 0
+            },
+            {
+              "symbol": "NESTLEIND",
+              "side": "buy",
+              "setupType": "FRESH_BREAKOUT",
+              "rank": 3,
+              "score": 62,
+              "price": 1402.6,
+              "reason": "score 62 < 70 | fresh breakout needs 2 triggered above-VWAP snapshots",
+              "net": -82.53,
+              "movePct": 0
+            },
+            {
+              "symbol": "TATACONSUM",
+              "side": "buy",
+              "setupType": "FRESH_BREAKOUT",
+              "rank": 4,
+              "score": 77,
+              "price": 1131.3,
+              "reason": "chasing 2% from trigger",
+              "net": -82.52,
+              "movePct": 0
+            },
+            {
+              "symbol": "PAYTM",
+              "side": "buy",
+              "setupType": "FRESH_BREAKOUT",
+              "rank": 5,
+              "score": 67,
+              "price": 1124.8,
+              "reason": "score 67 < 70 | chasing 2.18% from trigger",
+              "net": -82.32,
+              "movePct": 0
+            },
+            {
+              "symbol": "TITAN",
+              "side": "buy",
+              "setupType": "VWAP_PULLBACK_OR_HOLD",
+              "rank": 6,
+              "score": 41,
+              "price": 4291.3,
+              "reason": "score 41 < 70 | entry Wait",
+              "net": -82.22,
+              "movePct": 0
+            }
+          ],
+          "setupStats": [],
+          "quality": {
+            "summary": {
+              "trades": 0,
+              "wins": 0,
+              "losses": 0,
+              "winRate": 0,
+              "net": 0,
+              "avgHoldMin": 0,
+              "avgNetPct": 0
+            },
+            "bySetup": [],
+            "byExit": [],
+            "byHour": []
+          },
+          "dataQuality": [],
           "top": [],
           "bottom": []
         }
