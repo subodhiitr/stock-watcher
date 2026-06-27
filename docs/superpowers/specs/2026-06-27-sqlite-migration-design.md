@@ -67,19 +67,20 @@ CREATE TABLE IF NOT EXISTS symbols (
   added_at  INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 );
 
--- Script master — broker-agnostic scrip code lookup (Sharekhan, future brokers)
+-- Script master — one row per symbol, columns for each broker/exchange code
 CREATE TABLE IF NOT EXISTS scripts_master (
-  symbol       TEXT NOT NULL,
-  broker       TEXT NOT NULL DEFAULT 'sharekhan',  -- 'sharekhan' | 'zerodha' | 'nse' etc.
-  scrip_code   INTEGER NOT NULL,
-  company_name TEXT,
-  isin         TEXT,
-  industry     TEXT,
-  inst_type    TEXT,
-  lot_size     INTEGER,
-  tick_size    REAL,
-  updated_at   INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
-  PRIMARY KEY (symbol, broker)
+  symbol          TEXT PRIMARY KEY,
+  company_name    TEXT,
+  isin            TEXT,
+  industry        TEXT,
+  inst_type       TEXT,
+  lot_size        INTEGER,
+  tick_size       REAL,
+  sharekhan_code  INTEGER,    -- Sharekhan scrip code (scripCode from master API)
+  nse_code        TEXT,       -- NSE symbol code (future)
+  zerodha_token   INTEGER,    -- Zerodha instrument token (future)
+  yahoo_symbol    TEXT,       -- Yahoo Finance symbol e.g. 'EXIDEIND.NS' (future)
+  updated_at      INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 );
 
 -- Trade records
@@ -134,10 +135,10 @@ getSymbols()                      // → [{ symbol, name, sector, cap, source }]
 upsertSymbol(sym, name, sector, cap, source)
 rememberSymbols(symbolsArray)     // bulk upsert from simulation universe or saved stocks
 
-// scripts_master (broker-agnostic scrip code lookup)
-getScripCode(symbol, broker?)         // → number (0 if not found); broker defaults to 'sharekhan'
-upsertScripCodes(masterDataArray, broker?)  // bulk upsert; broker defaults to 'sharekhan'
-scripCodesUpdatedAt(broker?)          // → unix ms of last update (0 if never)
+// scripts_master (one row per symbol, all broker codes as columns)
+getScripCode(symbol, broker?)             // → number | null; broker: 'sharekhan'(default)|'zerodha'|'nse'
+upsertScripCodes(masterDataArray, broker?) // bulk upsert; broker defaults to 'sharekhan'
+scripCodesUpdatedAt(broker?)              // → unix ms of last update (0 if never)
 
 // trade_txns
 getTrade(id)                      // → trade object | null
