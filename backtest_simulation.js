@@ -28,6 +28,7 @@ Options:
   --max-active-open <n>      Override max active simulation open trades.
   --max-new-per-cycle <n>    Override max new entries per refresh cycle.
   --nifty-regime-pct <n>     Override Nifty market-regime threshold. Use 999 to effectively disable direct Nifty guard.
+  --rs-regime-pct <n>        Override RS (relative strength vs Nifty) threshold. Default 0.2. Use 999 to disable RS guard.
   --auto-shorts              Allow simulation replay to enter short/sell trades.
   --long-only                Replay only long/buy entries.
   --short-only               Replay only short/sell entries.
@@ -64,6 +65,7 @@ function parseArgs(argv) {
     else if (arg === '--max-active-open') args.maxActiveOpen = Number(next());
     else if (arg === '--max-new-per-cycle') args.maxNewPerCycle = Number(next());
     else if (arg === '--nifty-regime-pct') args.niftyRegimePct = Number(next());
+    else if (arg === '--rs-regime-pct') args.rsRegimePct = Number(next());
     else if (arg === '--auto-shorts') args.autoShorts = true;
     else if (arg === '--long-only') args.longOnly = true;
     else if (arg === '--short-only') args.shortOnly = true;
@@ -105,6 +107,7 @@ function loadSettings(overrides) {
   if (Number.isFinite(overrides.maxActiveOpen)) settings.SIMULATION_MAX_ACTIVE_OPEN = overrides.maxActiveOpen;
   if (Number.isFinite(overrides.maxNewPerCycle)) settings.SIMULATION_MAX_NEW_PER_CYCLE = overrides.maxNewPerCycle;
   if (Number.isFinite(overrides.niftyRegimePct)) settings.SIMULATION_MARKET_REGIME_NIFTY_PCT = overrides.niftyRegimePct;
+  if (Number.isFinite(overrides.rsRegimePct)) settings.SIMULATION_MARKET_REGIME_RS_PCT = overrides.rsRegimePct;
   if (Number.isFinite(overrides.shortMinScore)) settings.SIMULATION_SHORT_MIN_SCORE = overrides.shortMinScore;
   if (overrides.autoShorts) settings.SIMULATION_AUTO_SHORTS = true;
   if (overrides.shortOnly) settings.SIMULATION_AUTO_SHORTS = true;

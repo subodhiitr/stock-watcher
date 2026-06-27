@@ -129,7 +129,9 @@
     const existingBlock = String(candidate?.blockReason || candidate?.entryBlockReason || '');
     if (/^market regime conflict/i.test(existingBlock)) {
       const rawReasons = existingBlock.replace(/^market regime conflict:\s*/i, '').split(',').map(s => s.trim()).filter(Boolean);
-      const reasons = niftyThreshold >= 999 ? rawReasons.filter(reason => !/^Nifty\b/i.test(reason)) : rawReasons;
+      let reasons = rawReasons;
+      if (niftyThreshold >= 999) reasons = reasons.filter(r => !/^Nifty\b/i.test(r));
+      if (rsThreshold >= 999) reasons = reasons.filter(r => !/^RS\b/i.test(r));
       if (reasons.length) return { ok:false, reason:`market regime conflict: ${reasons.join(', ')}` };
     }
     const market = context.market || {};
