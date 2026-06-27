@@ -6956,6 +6956,7 @@ async function proxyRequestHandler(req, res) {
                 console.warn('[zerodha-live] Too many failures. Disabling zerodha_live mode, falling back to paper mode.');
                 setBrokerMode('paper');
               }
+              trade.status = 'failed';
               trade.broker = {
                 name: 'zerodha',
                 mode: 'live',
@@ -7000,6 +7001,7 @@ async function proxyRequestHandler(req, res) {
                 console.warn('[sharekhan-live] Too many failures. Disabling sharekhan_live mode, falling back to paper mode.');
                 setBrokerMode('paper');
               }
+              trade.status = 'failed';
               trade.broker = {
                 name: 'sharekhan',
                 mode: 'live',
