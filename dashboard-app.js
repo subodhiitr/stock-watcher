@@ -2166,7 +2166,6 @@ function getEffectiveSimulationStopLimit(netPnl, capital = getPortfolioCapital()
 }
 
 function getPortfolioSummary() {
-  let realized = 0;
   let unrealized = 0;
   let openExposure = 0;
   const dayPnl = {};
@@ -2178,6 +2177,12 @@ function getPortfolioSummary() {
     ? portfolioState.capitalAdds.reduce((sum, item) => sum + (Number(item?.amount) || 0), 0)
     : 0;
   const capital = +(baseCapital + addedCapital).toFixed(2);
+
+  // Use server-provided pre-aggregated all-time realized P&L when available.
+  // Falls back to summing visible closed trades (used in tests / before server provides it).
+  const serverRealizedPnl = Number.isFinite(Number(portfolioState?.realizedPnl)) ? Number(portfolioState.realizedPnl) : null;
+  let realized = serverRealizedPnl !== null ? serverRealizedPnl : 0;
+
   for (const trade of paperTrades) {
     if (isOpenTrade(trade)) {
       openExposure += paperTradeExposure(trade);
@@ -2190,7 +2195,9 @@ function getPortfolioSummary() {
       let pnl = Number(trade.pnl);
       if (!Number.isFinite(pnl)) pnl = Number(computeClosedPaperPnl(trade));
       if (Number.isFinite(pnl)) {
-        realized += pnl;
+        // Only accumulate into realized when server didn't provide the aggregate
+        if (serverRealizedPnl === null) realized += pnl;
+        // Always build per-day breakdown (paperTrades only contains today's closed trades)
         const key = getTradeDateKey(trade.closedAt || trade.openedAt);
         dayPnl[key] = (dayPnl[key] || 0) + pnl;
       }
@@ -2278,6 +2285,7 @@ function applyPaperTradesState(payload, { trackNewTrades = false } = {}) {
     portfolioState = {
       initialCapital: Number(payload.portfolio.initialCapital) || PORTFOLIO_FALLBACK_INITIAL_CAPITAL,
       capitalAdds: Array.isArray(payload.portfolio.capitalAdds) ? payload.portfolio.capitalAdds : [],
+      realizedPnl: Number.isFinite(Number(payload.portfolio.realizedPnl)) ? +Number(payload.portfolio.realizedPnl).toFixed(2) : null,
     };
   }
 

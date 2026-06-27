@@ -61,6 +61,7 @@ const {
   listTrades,
   deleteTrade,
   getTradesUpdatedAt,
+  computeAllTimeRealizedPnl,
   rememberSymbols: dbRememberSymbols,
   upsertScripCodes,
   getFreshNews,
@@ -497,18 +498,35 @@ function normalizePaperState(raw) {
 function loadPaperStateFile() {
   try {
     if (proxyDbReady) {
-      const dbTrades = listTrades();
-      const dbPortfolio = loadPortfolioState();
-      const portfolio = dbPortfolio || defaultPaperPortfolio();
-      const raw = { savedAt: Date.now(), portfolio, trades: dbTrades };
-      const normalized = normalizePaperState(raw);
-      // Persist any ownership normalization changes back to DB
-      if (JSON.stringify(dbTrades) !== JSON.stringify(normalized.trades)) {
-        for (const trade of normalized.trades) {
-          try { saveTrade(trade); } catch (_) {}
+      const allTrades = listTrades();
+      const dbPortfolio = loadPortfolioState() || defaultPaperPortfolio();
+      const todayKey = getIstDateKey();
+
+      // Only load open trades + today's closed trades — all-time realized P&L is pre-aggregated
+      const filteredTrades = allTrades.filter(t => {
+        if (String(t.status || '').toLowerCase() === 'open') return true;
+        // Include closed/failed trades from today (IST) for day P&L breakdown
+        const tradeDate = toIstDayKey(t.closedAt || t.openedAt || '');
+        return tradeDate === todayKey;
+      });
+
+      const ownershipContext = getTradeOwnershipContext();
+      const normalized = normalizeTradeCollectionOwnership(filteredTrades, ownershipContext);
+
+      // Check if any ownership normalization changes need flushing back to DB
+      for (let i = 0; i < filteredTrades.length; i++) {
+        if (JSON.stringify(filteredTrades[i]) !== JSON.stringify(normalized[i])) {
+          try { saveTrade(normalized[i]); } catch (_) {}
         }
       }
-      return normalized;
+
+      // Portfolio includes pre-aggregated all-time realized P&L
+      const realizedPnl = computeAllTimeRealizedPnl();
+      return {
+        savedAt: Date.now(),
+        portfolio: { ...dbPortfolio, realizedPnl },
+        trades: normalized,
+      };
     }
 
     // Fallback: JSON file (used in tests and before proxy is initialized)
@@ -536,11 +554,15 @@ function savePaperStateFile(state) {
   try {
     const next = normalizePaperState(state || {});
     if (proxyDbReady) {
-      // Primary: write each trade and portfolio to SQLite
+      // Write each trade to DB
       for (const trade of next.trades) {
         try { saveTrade(trade); } catch (_) {}
       }
-      try { savePortfolioState(next.portfolio); } catch (_) {}
+      // Recompute all-time realized P&L from DB and persist with portfolio
+      try {
+        const realizedPnl = computeAllTimeRealizedPnl();
+        savePortfolioState({ ...next.portfolio, realizedPnl });
+      } catch (_) {}
     }
     // Always write JSON backup (primary in tests, backup in production)
     fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: next.portfolio, trades: next.trades }, null, 2), 'utf8');

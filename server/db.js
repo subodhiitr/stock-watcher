@@ -532,6 +532,16 @@ export function getTradesUpdatedAt() {
   return row?.ts ?? 0;
 }
 
+export function computeAllTimeRealizedPnl() {
+  const db = requireDb();
+  const row = db.prepare(`
+    SELECT COALESCE(SUM(CAST(json_extract(data, '$.pnl') AS REAL)), 0) AS total
+    FROM trade_txns
+    WHERE json_extract(data, '$.status') = 'closed'
+  `).get();
+  return +(row?.total ?? 0);
+}
+
 export function saveFreshNews(symbol, date, newsArray, ttlMs = FIFTEEN_DAYS_MS) {
   if (!symbol || !date) {
     return null;
