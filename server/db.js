@@ -591,6 +591,13 @@ export function pruneFreshNews() {
   return result.changes ?? 0;
 }
 
+// upsertEtfCodes — bulk upsert per-source ETF broker/exchange codes.
+// Delegates to upsertScripCodes since ETF codes use the same scripts_master table structure.
+// broker: 'sharekhan' | 'zerodha' | 'nse' | 'yahoo'
+export function upsertEtfCodes(rows, broker = 'sharekhan') {
+  return upsertScripCodes(rows, broker);
+}
+
 export function upsertEtfMaster(rows) {
   const db = requireDb();
   const prepared = getPrepared(db);
