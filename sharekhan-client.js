@@ -184,10 +184,11 @@ class SharekhanClient {
       : (Array.isArray(holdingsPayload) ? holdingsPayload : []);
 
     const holdingsList = holdings.map(h => {
-      const qty = this.toNum(h.quantity || h.qty || h.holdingQty);
+      // Sharekhan API uses: dp (available qty), holdPrice (avg price), invstQty, aval, cncqty
+      const qty = this.toNum(h.dp || h.aval || h.quantity || h.qty || h.holdingQty);
+      const avgPrice = this.toNum(h.holdPrice || h.avgPrice || h.averagePrice || h.avg_cost || h.costPrice);
       const ltp = this.toNum(h.ltp || h.lastPrice || h.last_price);
-      const avgPrice = this.toNum(h.avgPrice || h.averagePrice || h.avg_cost || h.costPrice);
-      const marketValue = this.toNum(h.marketValue || (qty * ltp));
+      const marketValue = this.toNum(h.marketValue || (qty * ltp) || (qty * avgPrice));
       const investedValue = this.toNum(h.investedValue || (qty * avgPrice));
       const pnl = this.toNum(h.pnl || h.unrealizedPnl || (marketValue - investedValue));
       return {
@@ -195,7 +196,7 @@ class SharekhanClient {
         exchange: String(h.exchange || 'NC'),
         isin: String(h.isin || ''),
         qty,
-        t1Qty: this.toNum(h.t1Qty || h.t1_quantity),
+        t1Qty: this.toNum(h.t1Qty || h.t1_quantity || h.invstQty),
         avgPrice,
         ltp,
         closePrice: this.toNum(h.closePrice || h.close_price),
@@ -207,8 +208,9 @@ class SharekhanClient {
     });
 
     const holdingsValue = holdingsList.reduce((sum, h) => sum + this.toNum(h.marketValue), 0);
-    const availableCash = this.toNum(fundRow.availableCash || fundRow.available || fundRow.netAvailable || fundRow.cash);
-    const utilizedMargin = this.toNum(fundRow.utilized || fundRow.marginUsed || fundRow.blockedAmount);
+    // Sharekhan API uses: currentCashBalance, intradayMarginCash, limitAgainstShares
+    const availableCash = this.toNum(fundRow.currentCashBalance || fundRow.availableCash || fundRow.available || fundRow.netAvailable || fundRow.cash);
+    const utilizedMargin = this.toNum(fundRow.intradayMarginCash || fundRow.utilized || fundRow.marginUsed || fundRow.blockedAmount);
     const netEquity = this.toNum(fundRow.netEquity || fundRow.net || availableCash);
 
     return {
