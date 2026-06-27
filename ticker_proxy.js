@@ -8018,6 +8018,19 @@ module.exports = {
   __test__: {
     initializeSimulationRuntime,
     runSchedulerTick: runSimulationSchedulerTick,
+    // Allow tests to opt-in to DB mode with an in-memory database,
+    // avoiding contamination from the real stock-watcher.db file.
+    enableDbForTests(dbPath = ':memory:') {
+      try {
+        initDb(dbPath);
+        proxyDbReady = true;
+      } catch (e) {
+        console.warn('[db] test DB init failed:', e.message);
+      }
+    },
+    disableDbForTests() {
+      proxyDbReady = false;
+    },
     setSchedulerTickInputs(inputs) {
       simulationSchedulerTestInputs = inputs && typeof inputs === 'object' ? inputs : null;
     },
