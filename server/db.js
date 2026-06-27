@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 
 const INITIAL_SCHEMA_VERSION = 1;
 const SOURCE_SAVED = 'saved';
+const FIFTEEN_DAYS_MS = 15 * 24 * 60 * 60 * 1000;
 const BROKER_COLUMN_MAP = {
   sharekhan: 'sharekhan_code',
   nse: 'nse_code',
@@ -93,6 +94,96 @@ function getPrepared(db) {
         updated_at = excluded.updated_at
     `),
     countTrades: db.prepare('SELECT COUNT(*) AS count FROM trade_txns'),
+    upsertFreshNews: db.prepare(`
+      INSERT INTO fresh_news (symbol, news_date, news_json, expires_at, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(symbol, news_date) DO UPDATE SET
+        news_json = excluded.news_json,
+        expires_at = excluded.expires_at,
+        updated_at = excluded.updated_at
+    `),
+    getFreshNewsRow: db.prepare(`
+      SELECT symbol, news_date, news_json, expires_at
+      FROM fresh_news
+      WHERE symbol = ? AND news_date = ?
+    `),
+    deleteFreshNewsRow: db.prepare(`
+      DELETE FROM fresh_news
+      WHERE symbol = ? AND news_date = ?
+    `),
+    pruneFreshNewsRows: db.prepare('DELETE FROM fresh_news WHERE expires_at <= ?'),
+    getEtfMasterRow: db.prepare(`
+      SELECT symbol, data, is_saved, is_favorite
+      FROM etf_master
+      WHERE symbol = ?
+    `),
+    upsertEtfMasterRow: db.prepare(`
+      INSERT INTO etf_master (symbol, data, is_saved, is_favorite, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(symbol) DO UPDATE SET
+        data = excluded.data,
+        is_saved = excluded.is_saved,
+        is_favorite = excluded.is_favorite,
+        updated_at = excluded.updated_at
+    `),
+    listSavedEtfRows: db.prepare(`
+      SELECT symbol, data, is_saved, is_favorite
+      FROM etf_master
+      WHERE is_saved = 1
+      ORDER BY symbol ASC
+    `),
+    listFavoriteEtfRows: db.prepare(`
+      SELECT symbol, data, is_saved, is_favorite
+      FROM etf_master
+      WHERE is_favorite = 1
+      ORDER BY symbol ASC
+    `),
+    upsertEtfNavDailyRow: db.prepare(`
+      INSERT INTO etf_nav_daily (symbol, nav_date, nav, data, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(symbol, nav_date) DO UPDATE SET
+        nav = excluded.nav,
+        data = excluded.data,
+        updated_at = excluded.updated_at
+    `),
+    getEtfNavHistoryRows: db.prepare(`
+      SELECT symbol, nav_date AS date, nav, data
+      FROM etf_nav_daily
+      WHERE symbol = ?
+        AND (? IS NULL OR nav_date >= ?)
+        AND (? IS NULL OR nav_date <= ?)
+      ORDER BY nav_date ASC
+    `),
+    upsertEtfQuoteCache: db.prepare(`
+      INSERT INTO etf_quote_cache (symbol, payload, expires_at, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(symbol) DO UPDATE SET
+        payload = excluded.payload,
+        expires_at = excluded.expires_at,
+        updated_at = excluded.updated_at
+    `),
+    getEtfQuoteCacheRow: db.prepare(`
+      SELECT symbol, payload, expires_at
+      FROM etf_quote_cache
+      WHERE symbol = ?
+    `),
+    deleteEtfQuoteCacheRow: db.prepare('DELETE FROM etf_quote_cache WHERE symbol = ?'),
+    pruneEtfQuoteCacheRows: db.prepare('DELETE FROM etf_quote_cache WHERE expires_at <= ?'),
+    upsertEtfHoldingsCache: db.prepare(`
+      INSERT INTO etf_holdings_cache (symbol, payload, expires_at, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(symbol) DO UPDATE SET
+        payload = excluded.payload,
+        expires_at = excluded.expires_at,
+        updated_at = excluded.updated_at
+    `),
+    getEtfHoldingsCacheRow: db.prepare(`
+      SELECT symbol, payload, expires_at
+      FROM etf_holdings_cache
+      WHERE symbol = ?
+    `),
+    deleteEtfHoldingsCacheRow: db.prepare('DELETE FROM etf_holdings_cache WHERE symbol = ?'),
+    pruneEtfHoldingsCacheRows: db.prepare('DELETE FROM etf_holdings_cache WHERE expires_at <= ?'),
     getScripCodeStmtByBroker: {},
     scripCodesUpdatedAtByBroker: {},
     upsertScripCodesTxByBroker: {}
@@ -157,6 +248,34 @@ function parseTradeRow(row) {
   return JSON.parse(row.data);
 }
 
+function parseJson(value, fallback = null) {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function toSqliteBool(value) {
+  return value ? 1 : 0;
+}
+
+function readEtfMasterRow(row) {
+  if (!row) {
+    return null;
+  }
+  const data = parseJson(row.data, {}) ?? {};
+  return {
+    ...data,
+    symbol: row.symbol ?? data.symbol ?? null,
+    isSaved: row.is_saved === 1,
+    isFavorite: row.is_favorite === 1
+  };
+}
+
 export function initDb(path = 'stock-watcher.db') {
   const db = new Database(path);
 
@@ -194,6 +313,46 @@ export function initDb(path = 'stock-watcher.db') {
       id TEXT PRIMARY KEY,
       data TEXT NOT NULL,
       created_at INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS fresh_news (
+      symbol TEXT NOT NULL,
+      news_date TEXT NOT NULL,
+      news_json TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (symbol, news_date)
+    );
+
+    CREATE TABLE IF NOT EXISTS etf_master (
+      symbol TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      is_saved INTEGER NOT NULL DEFAULT 0 CHECK (is_saved IN (0, 1)),
+      is_favorite INTEGER NOT NULL DEFAULT 0 CHECK (is_favorite IN (0, 1)),
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS etf_nav_daily (
+      symbol TEXT NOT NULL,
+      nav_date TEXT NOT NULL,
+      nav REAL,
+      data TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (symbol, nav_date)
+    );
+
+    CREATE TABLE IF NOT EXISTS etf_quote_cache (
+      symbol TEXT PRIMARY KEY,
+      payload TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS etf_holdings_cache (
+      symbol TEXT PRIMARY KEY,
+      payload TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL DEFAULT 0
     );
   `);
@@ -327,4 +486,237 @@ export function countTrades() {
   const prepared = getPrepared(db);
   const row = prepared.countTrades.get();
   return row?.count ?? 0;
+}
+
+export function saveFreshNews(symbol, date, newsArray, ttlMs = FIFTEEN_DAYS_MS) {
+  if (!symbol || !date) {
+    return null;
+  }
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const now = Date.now();
+  const expiresAt = now + (Number.isFinite(ttlMs) ? ttlMs : FIFTEEN_DAYS_MS);
+  const payload = Array.isArray(newsArray) ? newsArray : [];
+  prepared.upsertFreshNews.run(symbol, String(date), JSON.stringify(payload), expiresAt, now);
+  return payload;
+}
+
+export function getFreshNews(symbol, date) {
+  if (!symbol || !date) {
+    return null;
+  }
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const row = prepared.getFreshNewsRow.get(symbol, String(date));
+  if (!row) {
+    return null;
+  }
+  if (row.expires_at <= Date.now()) {
+    prepared.deleteFreshNewsRow.run(symbol, String(date));
+    return null;
+  }
+  return parseJson(row.news_json, []);
+}
+
+export function pruneFreshNews() {
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const result = prepared.pruneFreshNewsRows.run(Date.now());
+  return result.changes ?? 0;
+}
+
+export function upsertEtfMaster(rows) {
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const list = Array.isArray(rows) ? rows : [];
+  const tx = db.transaction((items) => {
+    for (const item of items) {
+      if (!item?.symbol) {
+        continue;
+      }
+      const symbol = String(item.symbol);
+      const existing = prepared.getEtfMasterRow.get(symbol);
+      const existingData = parseJson(existing?.data, {}) ?? {};
+      const mergedData = { ...existingData, ...item, symbol };
+      const isSaved = item.isSaved === undefined ? (existing?.is_saved ?? 0) : toSqliteBool(item.isSaved);
+      const isFavorite = item.isFavorite === undefined ? (existing?.is_favorite ?? 0) : toSqliteBool(item.isFavorite);
+      prepared.upsertEtfMasterRow.run(symbol, JSON.stringify(mergedData), isSaved, isFavorite, Date.now());
+    }
+  });
+  tx(list);
+}
+
+export function getEtfMaster(symbol) {
+  if (!symbol) {
+    return null;
+  }
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  return readEtfMasterRow(prepared.getEtfMasterRow.get(String(symbol)));
+}
+
+export function saveEtfNavDaily(rows) {
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const list = Array.isArray(rows) ? rows : [];
+  const tx = db.transaction((items) => {
+    for (const item of items) {
+      if (!item?.symbol) {
+        continue;
+      }
+      const symbol = String(item.symbol);
+      const navDateRaw = item.date ?? item.nav_date ?? item.as_of ?? item.asOf;
+      if (!navDateRaw) {
+        continue;
+      }
+      const navDate = String(navDateRaw);
+      const nav = item.nav ?? null;
+      const payload = { ...item, symbol, date: navDate, nav };
+      prepared.upsertEtfNavDailyRow.run(symbol, navDate, nav, JSON.stringify(payload), Date.now());
+    }
+  });
+  tx(list);
+}
+
+export function getEtfNavHistory(symbol, from, to) {
+  if (!symbol) {
+    return [];
+  }
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const fromValue = from ?? null;
+  const toValue = to ?? null;
+  return prepared.getEtfNavHistoryRows.all(String(symbol), fromValue, fromValue, toValue, toValue).map((row) => {
+    const payload = parseJson(row.data, {}) ?? {};
+    return {
+      ...payload,
+      symbol: row.symbol,
+      date: row.date,
+      nav: payload.nav ?? row.nav
+    };
+  });
+}
+
+export function saveEtfQuoteCache(symbol, payload, ttlMs) {
+  if (!symbol) {
+    return null;
+  }
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const now = Date.now();
+  const ttl = Number.isFinite(ttlMs) ? ttlMs : 0;
+  prepared.upsertEtfQuoteCache.run(String(symbol), JSON.stringify(payload ?? null), now + ttl, now);
+  return payload ?? null;
+}
+
+export function getEtfQuoteCache(symbol) {
+  if (!symbol) {
+    return null;
+  }
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const row = prepared.getEtfQuoteCacheRow.get(String(symbol));
+  if (!row) {
+    return null;
+  }
+  if (row.expires_at <= Date.now()) {
+    prepared.deleteEtfQuoteCacheRow.run(String(symbol));
+    return null;
+  }
+  return parseJson(row.payload, null);
+}
+
+export function pruneEtfQuoteCache() {
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const result = prepared.pruneEtfQuoteCacheRows.run(Date.now());
+  return result.changes ?? 0;
+}
+
+export function saveEtfHoldingsCache(symbol, payload, ttlMs) {
+  if (!symbol) {
+    return null;
+  }
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const now = Date.now();
+  const ttl = Number.isFinite(ttlMs) ? ttlMs : 0;
+  prepared.upsertEtfHoldingsCache.run(String(symbol), JSON.stringify(payload ?? null), now + ttl, now);
+  return payload ?? null;
+}
+
+export function getEtfHoldingsCache(symbol) {
+  if (!symbol) {
+    return null;
+  }
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const row = prepared.getEtfHoldingsCacheRow.get(String(symbol));
+  if (!row) {
+    return null;
+  }
+  if (row.expires_at <= Date.now()) {
+    prepared.deleteEtfHoldingsCacheRow.run(String(symbol));
+    return null;
+  }
+  return parseJson(row.payload, null);
+}
+
+export function pruneEtfHoldingsCache() {
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const result = prepared.pruneEtfHoldingsCacheRows.run(Date.now());
+  return result.changes ?? 0;
+}
+
+export function setEtfSaved(symbol, isSaved) {
+  if (!symbol) {
+    return null;
+  }
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const target = String(symbol);
+  const existing = prepared.getEtfMasterRow.get(target);
+  const existingData = parseJson(existing?.data, {}) ?? {};
+  const mergedData = { ...existingData, symbol: target };
+  prepared.upsertEtfMasterRow.run(
+    target,
+    JSON.stringify(mergedData),
+    toSqliteBool(isSaved),
+    existing?.is_favorite ?? 0,
+    Date.now()
+  );
+  return getEtfMaster(target);
+}
+
+export function setEtfFavorite(symbol, isFavorite) {
+  if (!symbol) {
+    return null;
+  }
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const target = String(symbol);
+  const existing = prepared.getEtfMasterRow.get(target);
+  const existingData = parseJson(existing?.data, {}) ?? {};
+  const mergedData = { ...existingData, symbol: target };
+  prepared.upsertEtfMasterRow.run(
+    target,
+    JSON.stringify(mergedData),
+    existing?.is_saved ?? 0,
+    toSqliteBool(isFavorite),
+    Date.now()
+  );
+  return getEtfMaster(target);
+}
+
+export function listSavedEtfs() {
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  return prepared.listSavedEtfRows.all().map((row) => readEtfMasterRow(row)).filter(Boolean);
+}
+
+export function listEtfFavorites() {
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  return prepared.listFavoriteEtfRows.all().map((row) => readEtfMasterRow(row)).filter(Boolean);
 }

@@ -1,6 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { initDb, saveTrade, getTrade, updateTrade, listTrades, countTrades } from '../server/db.js';
+import {
+  initDb,
+  saveTrade,
+  getTrade,
+  updateTrade,
+  listTrades,
+  countTrades,
+  saveFreshNews,
+  getFreshNews,
+  pruneFreshNews,
+  upsertEtfMaster,
+  getEtfMaster,
+  saveEtfNavDaily,
+  getEtfNavHistory,
+  saveEtfQuoteCache,
+  getEtfQuoteCache,
+  pruneEtfQuoteCache,
+  saveEtfHoldingsCache,
+  getEtfHoldingsCache,
+  pruneEtfHoldingsCache,
+  setEtfSaved,
+  setEtfFavorite,
+  listSavedEtfs,
+  listEtfFavorites
+} from '../server/db.js';
 
 test('saveTrade preserves existing fields when absent in later payload', () => {
   initDb(':memory:');
@@ -114,4 +138,67 @@ test('updateTrade partially updates fields without dropping existing data', () =
   assert.equal(stored.exitPrice, 745.1);
   assert.equal(stored.qty, 10);
   assert.equal(stored.symbol, 'SBIN');
+});
+
+test('getFreshNews returns null when expired', () => {
+  const db = initDb(':memory:');
+  saveFreshNews('SBIN', '2026-06-20', [{ headline: 'SBI rally' }], -1);
+  assert.equal(getFreshNews('SBIN', '2026-06-20'), null);
+
+  saveFreshNews('SBIN', '2026-06-20', [{ headline: 'SBI rally' }], -1);
+  pruneFreshNews();
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM fresh_news').get().count, 0);
+});
+
+test('ETF caches return null when expired and prune removes rows', () => {
+  const db = initDb(':memory:');
+  saveEtfQuoteCache('NIFTYBEES', { price: 248.1 }, -1);
+  saveEtfHoldingsCache('NIFTYBEES', { holdings: [{ symbol: 'RELIANCE', weight: 10.2 }] }, -1);
+
+  assert.equal(getEtfQuoteCache('NIFTYBEES'), null);
+  assert.equal(getEtfHoldingsCache('NIFTYBEES'), null);
+
+  saveEtfQuoteCache('MON100', { price: 154.4 }, -1);
+  saveEtfHoldingsCache('MON100', { holdings: [{ symbol: 'AAPL', weight: 8.5 }] }, -1);
+  pruneEtfQuoteCache();
+  pruneEtfHoldingsCache();
+
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM etf_quote_cache').get().count, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM etf_holdings_cache').get().count, 0);
+});
+
+test('ETF master/list/history APIs return expected rows', () => {
+  initDb(':memory:');
+  upsertEtfMaster([
+    { symbol: 'NIFTYBEES', name: 'Nippon India ETF Nifty 50', exchange: 'NSE' },
+    { symbol: 'GOLDBEES', name: 'Nippon India ETF Gold BeES', exchange: 'NSE' }
+  ]);
+
+  setEtfSaved('NIFTYBEES', true);
+  setEtfFavorite('GOLDBEES', true);
+
+  const master = getEtfMaster('NIFTYBEES');
+  assert.equal(master.symbol, 'NIFTYBEES');
+  assert.equal(master.name, 'Nippon India ETF Nifty 50');
+  assert.equal(master.isSaved, true);
+
+  const saved = listSavedEtfs().map((row) => row.symbol);
+  const favorites = listEtfFavorites().map((row) => row.symbol);
+  assert.deepEqual(saved, ['NIFTYBEES']);
+  assert.deepEqual(favorites, ['GOLDBEES']);
+
+  saveEtfNavDaily([
+    { symbol: 'NIFTYBEES', date: '2026-06-20', nav: 251.1 },
+    { symbol: 'NIFTYBEES', date: '2026-06-21', nav: 252.3 },
+    { symbol: 'GOLDBEES', date: '2026-06-21', nav: 65.8 }
+  ]);
+
+  const history = getEtfNavHistory('NIFTYBEES', '2026-06-20', '2026-06-21');
+  assert.deepEqual(
+    history.map((row) => ({ symbol: row.symbol, date: row.date, nav: row.nav })),
+    [
+      { symbol: 'NIFTYBEES', date: '2026-06-20', nav: 251.1 },
+      { symbol: 'NIFTYBEES', date: '2026-06-21', nav: 252.3 }
+    ]
+  );
 });
