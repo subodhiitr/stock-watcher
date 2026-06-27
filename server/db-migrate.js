@@ -190,8 +190,11 @@ function migrateEtfs(db, fixturesDir) {
                 (etfListData?.stocks && Array.isArray(etfListData.stocks)) ? etfListData.stocks :
                 Object.values(etfListData).filter(v => v && typeof v === 'object' && (v.symbol || v.sym));
 
-  let etfSummary = loadJson(etfSummaryPath, []);
-  if (!Array.isArray(etfSummary)) etfSummary = Object.values(etfSummary).filter(v => v && typeof v === 'object');
+  // etf_summary_cache.json is {SYMBOL: {oneMonthReturn, savedAt, version}} keyed by symbol
+  let etfSummaryRaw = loadJson(etfSummaryPath, {});
+  let etfSummary = Array.isArray(etfSummaryRaw)
+    ? etfSummaryRaw
+    : Object.entries(etfSummaryRaw).map(([sym, v]) => ({ ...v, symbol: sym })).filter(v => v?.symbol);
 
   let etfHoldings = loadJson(etfHoldingsPath, []);
   if (!Array.isArray(etfHoldings)) etfHoldings = Object.values(etfHoldings).filter(v => v && typeof v === 'object');
@@ -212,7 +215,7 @@ function migrateEtfs(db, fixturesDir) {
       etfsMap.set(sym, {
         symbol: sym,
         name: etf.name || null,
-        data: JSON.stringify(etf.data || {}),
+        data: JSON.stringify({ ...etf, symbol: sym }),
         is_saved: 0,
         is_favorite: 0
       });
