@@ -5996,6 +5996,7 @@ async function proxyRequestHandler(req, res) {
     const now = Date.now();
     try {
       const etfListForSum = loadEtfListDataMap();
+      const stale = [];
 
       for (const sym of symbols) {
         const meta = etfMetaCache[sym];
