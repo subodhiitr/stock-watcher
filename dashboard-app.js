@@ -2176,13 +2176,13 @@ function getPortfolioSummary() {
     : 0;
   const capital = +(baseCapital + addedCapital).toFixed(2);
   for (const trade of paperTrades) {
-    const status = String(trade.status || '').toLowerCase();
-    if (status === 'open') {
+    if (isOpenTrade(trade)) {
       openExposure += paperTradeExposure(trade);
       const pnl = getPaperTradePnl(trade, getCurrentTradePrice(trade.symbol));
       if (pnl) unrealized += pnl.pnl;
       continue;
     }
+    const status = String(trade.status || '').toLowerCase();
     if (status === 'closed') {
       let pnl = Number(trade.pnl);
       if (!Number.isFinite(pnl)) pnl = Number(computeClosedPaperPnl(trade));
@@ -2913,8 +2913,8 @@ function renderPortfolioModal() {
     const breakdown = pnlObj?.chargeBreakup || livePnl?.chargeBreakup || {};
     const grossPnl = Number.isFinite(Number(pnlObj?.grossPnl)) ? Number(pnlObj.grossPnl) : null;
     const costTitle = `Brokerage ${moneyINR(breakdown.brokerage)} | STT ${moneyINR(breakdown.stt)} | Txn ${moneyINR(breakdown.transaction)} | GST ${moneyINR(breakdown.gst)} | SEBI ${moneyINR(breakdown.sebi)} | Stamp ${moneyINR(breakdown.stamp)}`;
-    return `<tr>
-      <td>${escapeHTML(trade.status || '--')}</td>
+    return `<tr${!isOpen && !isClosedTrade(trade) ? ' style="opacity:.5"' : ''}>
+      <td>${escapeHTML(isOpenTrade(trade) ? 'open' : isClosedTrade(trade) ? 'closed' : `open (broker ${trade.broker?.status || 'failed'}`)}</td>
       <td>${escapeHTML(trade.source === 'simulation' ? 'Sim' : 'Manual')}</td>
       <td title="${escapeHTML(brokerOrder)}">${escapeHTML(brokerLabel)}</td>
       <td>${escapeHTML(trade.symbol || '--')}</td>
