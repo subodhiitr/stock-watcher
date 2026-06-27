@@ -14,6 +14,13 @@ const BROKER_UPDATED_AT_COLUMN_MAP = {
   zerodha: 'zerodha_updated_at',
   yahoo: 'yahoo_updated_at'
 };
+const TRADE_FILTERS = {
+  id: 'id',
+  symbol: "json_extract(data, '$.symbol')",
+  status: "json_extract(data, '$.status')",
+  strategy: "json_extract(data, '$.strategy')",
+  side: "json_extract(data, '$.side')"
+};
 
 let activeDb = null;
 const preparedByDb = new WeakMap();
@@ -72,6 +79,15 @@ function getPrepared(db) {
     upsertSymbolTx: db.transaction((symbol, name, sector, cap, source) => {
       prepared.upsertSymbol.run(symbol, name ?? null, sector ?? null, cap ?? null, normalizeSource(source), Date.now());
     }),
+    getTradeRow: db.prepare('SELECT data FROM trade_txns WHERE id = ?'),
+    upsertTrade: db.prepare(`
+      INSERT INTO trade_txns (id, data, created_at, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        data = excluded.data,
+        updated_at = excluded.updated_at
+    `),
+    countTrades: db.prepare('SELECT COUNT(*) AS count FROM trade_txns'),
     getScripCodeStmtByBroker: {},
     scripCodesUpdatedAtByBroker: {},
     upsertScripCodesTxByBroker: {}
@@ -116,6 +132,26 @@ function assertSupportedBroker(broker) {
   }
 }
 
+function normalizeTradePatch(fields) {
+  if (!fields || typeof fields !== 'object') {
+    return {};
+  }
+  const normalized = {};
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined) {
+      normalized[key] = value;
+    }
+  }
+  return normalized;
+}
+
+function parseTradeRow(row) {
+  if (!row?.data) {
+    return null;
+  }
+  return JSON.parse(row.data);
+}
+
 export function initDb(path = 'stock-watcher.db') {
   const db = new Database(path);
 
@@ -147,6 +183,13 @@ export function initDb(path = 'stock-watcher.db') {
       zerodha_updated_at INTEGER NOT NULL DEFAULT 0,
       nse_updated_at INTEGER NOT NULL DEFAULT 0,
       yahoo_updated_at INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS trade_txns (
+      id TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL DEFAULT 0
     );
   `);
 
@@ -198,4 +241,76 @@ export function scripCodesUpdatedAt(broker = 'sharekhan') {
   const prepared = getPrepared(db);
   const row = prepared.scripCodesUpdatedAtByBroker[broker].get();
   return row?.updated_at ?? 0;
+}
+
+export function saveTrade(trade) {
+  const patch = normalizeTradePatch(trade);
+  if (!patch.id) {
+    return null;
+  }
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const existing = prepared.getTradeRow.get(patch.id);
+  const existingTrade = parseTradeRow(existing) ?? {};
+  const merged = { ...existingTrade, ...patch, id: patch.id };
+  const now = Date.now();
+  prepared.upsertTrade.run(patch.id, JSON.stringify(merged), now, now);
+  return merged;
+}
+
+export function updateTrade(id, fields) {
+  if (!id) {
+    return null;
+  }
+  const patch = normalizeTradePatch(fields);
+  delete patch.id;
+  return saveTrade({ id, ...patch });
+}
+
+export function getTrade(id) {
+  if (!id) {
+    return null;
+  }
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  return parseTradeRow(prepared.getTradeRow.get(id));
+}
+
+export function listTrades(filters = {}) {
+  const db = requireDb();
+  const clauses = [];
+  const params = [];
+
+  for (const [key, value] of Object.entries(filters || {})) {
+    if (!(key in TRADE_FILTERS) || value === undefined) {
+      continue;
+    }
+    const column = TRADE_FILTERS[key];
+    if (Array.isArray(value)) {
+      if (!value.length) {
+        continue;
+      }
+      const placeholders = value.map(() => '?').join(', ');
+      clauses.push(`${column} IN (${placeholders})`);
+      params.push(...value);
+      continue;
+    }
+    clauses.push(`${column} = ?`);
+    params.push(value);
+  }
+
+  let sql = 'SELECT data FROM trade_txns';
+  if (clauses.length) {
+    sql += ` WHERE ${clauses.join(' AND ')}`;
+  }
+  sql += ' ORDER BY updated_at DESC';
+
+  return db.prepare(sql).all(...params).map((row) => parseTradeRow(row)).filter(Boolean);
+}
+
+export function countTrades() {
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const row = prepared.countTrades.get();
+  return row?.count ?? 0;
 }
