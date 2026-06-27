@@ -1,5 +1,6 @@
 const { SharekhanApi } = require('sharekhan-api/lib');
-const { buildScripCodeMap, loadScripCache, saveScripCache } = require('./sharekhan-intraday');
+const { buildScripCodeMap } = require('./sharekhan-intraday');
+const { getScripCode, upsertScripCodes } = require('./server/db');
 
 class SharekhanClient {
   constructor(config = {}) {
@@ -79,14 +80,7 @@ class SharekhanClient {
     const now = Date.now();
     // Return early if in-memory cache is fresh
     if (this.symbolCodeCache.size && now - this.symbolCacheUpdatedAt < this.symbolCacheTtlMs) return;
-    // Try file cache first (avoids API call on every server start)
-    const fileCached = loadScripCache();
-    if (fileCached && fileCached.size) {
-      this.symbolCodeCache = fileCached;
-      this.symbolCacheUpdatedAt = now;
-      return;
-    }
-    // Fetch from master endpoint (works any time)
+    // Fetch from master endpoint
     try {
       const result = await this.withAuthRetry(() => this.client.getActiveScriptOfDay(exchange));
       const payload = this.parseResponse(result);
@@ -97,7 +91,12 @@ class SharekhanClient {
       if (nextMap.size) {
         this.symbolCodeCache = nextMap;
         this.symbolCacheUpdatedAt = now;
-        saveScripCache(nextMap);
+        // Save to DB: convert Map to array of {symbol, sharekhan_code}
+        const rows = Array.from(nextMap.entries()).map(([symbol, code]) => ({
+          symbol,
+          sharekhan_code: code
+        }));
+        upsertScripCodes(rows, 'sharekhan');
       }
     } catch (_) {}
   }
@@ -105,6 +104,21 @@ class SharekhanClient {
   async resolveScripCode(symbol, exchange = 'NC') {
     const clean = String(symbol || '').trim().toUpperCase().replace(/\.NS$/i, '');
     if (!clean) return 0;
+    
+    // Check in-memory cache first
+    const cached = this.symbolCodeCache.get(clean);
+    if (cached) return Number(cached);
+    
+    // Check DB cache second
+    const dbCode = getScripCode(clean, 'sharekhan');
+    if (dbCode) {
+      // Populate in-memory cache for future use
+      this.symbolCodeCache.set(clean, dbCode);
+      this.symbolCacheUpdatedAt = Date.now();
+      return Number(dbCode);
+    }
+    
+    // If not in memory or DB, try to fetch from API
     await this.ensureSymbolCodeMap(exchange);
     return Number(this.symbolCodeCache.get(clean) || 0);
   }
