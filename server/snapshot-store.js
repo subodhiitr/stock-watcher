@@ -34,9 +34,11 @@ export async function saveSnapshotDay(date, data, snapshotDir = DEFAULT_SNAPSHOT
  */
 export async function loadSnapshotDay(date, snapshotDir = DEFAULT_SNAPSHOT_DIR) {
   const gzPath = path.join(snapshotDir, `snapshot-${date}.json.gz`);
-  const legacyPath = path.join(snapshotDir, `snapshot-${date}.json`);
+  const legacyJsonPath = path.join(snapshotDir, `snapshot-${date}.json`);
+  const legacySimPath = path.join(snapshotDir, `simulation_snapshots_${date}.json.gz`);
+  const legacySimJsonPath = path.join(snapshotDir, `simulation_snapshots_${date}.json`);
 
-  // Try compressed first
+  // Try snapshot-{date}.json.gz first (snapshot-store standard)
   try {
     const compressed = await fsPromises.readFile(gzPath);
     const decompressed = await gunzip(compressed);
@@ -49,13 +51,34 @@ export async function loadSnapshotDay(date, snapshotDir = DEFAULT_SNAPSHOT_DIR) 
     if (err.code !== 'ENOENT') throw err;
   }
 
-  // Fall back to legacy uncompressed
+  // Try simulation_snapshots_{date}.json.gz (legacy compressed)
   try {
-    const jsonStr = await fsPromises.readFile(legacyPath, 'utf-8');
+    const compressed = await fsPromises.readFile(legacySimPath);
+    const decompressed = await gunzip(compressed);
+    return JSON.parse(decompressed.toString());
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
+
+  // Try snapshot-{date}.json (legacy uncompressed, snapshot-store naming)
+  try {
+    const jsonStr = await fsPromises.readFile(legacyJsonPath, 'utf-8');
     try {
       return JSON.parse(jsonStr);
     } catch (parseErr) {
       throw new Error(`Failed to parse legacy snapshot for date ${date}: ${parseErr.message}`);
+    }
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
+
+  // Try simulation_snapshots_{date}.json (legacy uncompressed, production naming)
+  try {
+    const jsonStr = await fsPromises.readFile(legacySimJsonPath, 'utf-8');
+    try {
+      return JSON.parse(jsonStr);
+    } catch (parseErr) {
+      throw new Error(`Failed to parse legacy simulation snapshot for date ${date}: ${parseErr.message}`);
     }
   } catch (err) {
     if (err.code === 'ENOENT') {
@@ -75,19 +98,17 @@ export async function listSnapshotDays(snapshotDir = DEFAULT_SNAPSHOT_DIR) {
     const files = await fsPromises.readdir(snapshotDir);
     const dateSet = new Set();
 
-    // Extract dates from both .gz and .json files
     for (const file of files) {
-      const gzMatch = file.match(/^snapshot-(\d{4}-\d{2}-\d{2})\.json\.gz$/);
-      const jsonMatch = file.match(/^snapshot-(\d{4}-\d{2}-\d{2})\.json$/);
-
-      if (gzMatch) {
-        dateSet.add(gzMatch[1]);
-      } else if (jsonMatch) {
-        dateSet.add(jsonMatch[1]);
-      }
+      // snapshot-YYYY-MM-DD.json.gz  (snapshot-store standard)
+      // snapshot-YYYY-MM-DD.json     (legacy snapshot-store uncompressed)
+      // simulation_snapshots_YYYY-MM-DD.json.gz  (legacy compressed)
+      // simulation_snapshots_YYYY-MM-DD.json     (legacy production uncompressed)
+      const match =
+        file.match(/^snapshot-(\d{4}-\d{2}-\d{2})\.json(?:\.gz)?$/) ||
+        file.match(/^simulation_snapshots_(\d{4}-\d{2}-\d{2})\.json(?:\.gz)?$/);
+      if (match) dateSet.add(match[1]);
     }
 
-    // Sort descending
     return Array.from(dateSet).sort().reverse();
   } catch (err) {
     if (err.code === 'ENOENT') {

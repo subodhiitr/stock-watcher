@@ -22,7 +22,18 @@ function loadJson(filePath, defaultValue = null) {
  */
 function migrateTrades(db, fixturesDir) {
   const tradesPath = path.join(fixturesDir, 'paper_trades.json');
-  const trades = loadJson(tradesPath, []);
+  const tradesData = loadJson(tradesPath, {});
+  
+  // Handle both array and object formats
+  let trades = [];
+  if (Array.isArray(tradesData)) {
+    trades = tradesData;
+  } else if (Array.isArray(tradesData?.trades)) {
+    // Top-level trades array: { savedAt, portfolio: {...}, trades: [...] }
+    trades = tradesData.trades;
+  } else if (tradesData?.portfolio?.trades && Array.isArray(tradesData.portfolio.trades)) {
+    trades = tradesData.portfolio.trades;
+  }
 
   const upsertTrade = db.prepare(`
     INSERT INTO trade_txns (id, data, created_at, updated_at)
@@ -47,29 +58,41 @@ function migrateTrades(db, fixturesDir) {
 function migrateSymbols(db, fixturesDir) {
   const simulationPath = path.join(fixturesDir, 'simulation_universe.json');
   const savedPath = path.join(fixturesDir, 'saved_stocks.json');
+  const etfListPath = path.join(fixturesDir, 'etf_list_cache.json');
 
   const simulationData = loadJson(simulationPath, { symbols: [] });
   const savedStocks = loadJson(savedPath, []);
 
-  // Collect all symbols with their sources
+  // Build a set of known ETF symbols so we can exclude them from the stocks table.
+  // ETFs have their own etf_master table and must not pollute the symbols table.
+  const etfListData = loadJson(etfListPath, {});
+  const etfList = Array.isArray(etfListData) ? etfListData :
+                  (etfListData?.etfs && Array.isArray(etfListData.etfs)) ? etfListData.etfs :
+                  (etfListData?.stocks && Array.isArray(etfListData.stocks)) ? etfListData.stocks : [];
+  const etfSymbols = new Set(etfList.map(e => e?.symbol || e?.sym).filter(Boolean));
+
+  // Also check the DB's etf_master for any ETFs already migrated
+  const etfMasterRows = db.prepare('SELECT symbol FROM etf_master').all();
+  for (const row of etfMasterRows) etfSymbols.add(row.symbol);
+
+  // Collect all stock symbols (excluding ETFs) with their sources
   const symbolsMap = new Map();
 
-  // Process simulation universe symbols
+  // Process simulation universe symbols — skip ETFs
   if (Array.isArray(simulationData.symbols)) {
     for (const symbol of simulationData.symbols) {
-      if (symbol) {
+      if (symbol && !etfSymbols.has(symbol)) {
         symbolsMap.set(symbol, { symbol, source: 'simulation' });
       }
     }
   }
 
-  // Process saved stocks (may override or merge with simulation)
+  // Process saved stocks — skip ETFs
   if (Array.isArray(savedStocks)) {
     for (const stock of savedStocks) {
-      if (stock?.sym) {
+      if (stock?.sym && !etfSymbols.has(stock.sym)) {
         const existing = symbolsMap.get(stock.sym);
         if (existing && existing.source === 'simulation') {
-          // Merge: already in simulation, add saved info and set source to both
           Object.assign(existing, {
             name: stock.name || existing.name,
             sector: stock.sector || existing.sector,
@@ -77,7 +100,6 @@ function migrateSymbols(db, fixturesDir) {
             source: 'both'
           });
         } else {
-          // New symbol or saved-only
           symbolsMap.set(stock.sym, {
             symbol: stock.sym,
             name: stock.name || null,
@@ -123,7 +145,15 @@ function migrateSymbols(db, fixturesDir) {
  */
 function migrateScriptCodes(db, fixturesDir) {
   const codesPath = path.join(fixturesDir, 'cache', 'sharekhan_scrip_codes.json');
-  const codes = loadJson(codesPath, []);
+  const codesData = loadJson(codesPath, {});
+  
+  // Handle object with symbols key
+  let codes = [];
+  if (codesData?.symbols && typeof codesData.symbols === 'object') {
+    codes = Object.entries(codesData.symbols).map(([symbol, code]) => ({ symbol, code }));
+  } else if (Array.isArray(codesData)) {
+    codes = codesData;
+  }
 
   const upsertCode = db.prepare(`
     INSERT INTO scripts_master (symbol, sharekhan_code, sharekhan_updated_at)
@@ -134,9 +164,11 @@ function migrateScriptCodes(db, fixturesDir) {
   `);
 
   const now = Date.now();
-  for (const code of codes) {
-    if (code?.symbol && code.sharekhan_code !== undefined) {
-      upsertCode.run(code.symbol, code.sharekhan_code, now);
+  for (const entry of codes) {
+    // Support both {symbol, code} (from object map) and {symbol, sharekhan_code} (array format)
+    const code = entry?.sharekhan_code ?? entry?.code;
+    if (entry?.symbol && code !== undefined && code !== null) {
+      upsertCode.run(entry.symbol, Number(code), now);
     }
   }
 }
@@ -152,20 +184,33 @@ function migrateEtfs(db, fixturesDir) {
   const savedEtfFavsPath = path.join(fixturesDir, 'saved_etf_favs.json');
 
   // Load all ETF data
-  const etfList = loadJson(etfListPath, []);
-  const etfSummary = loadJson(etfSummaryPath, []);
-  const etfHoldings = loadJson(etfHoldingsPath, []);
-  const savedEtfs = loadJson(savedEtfsPath, []);
-  const savedEtfFavs = loadJson(savedEtfFavsPath, []);
+  let etfListData = loadJson(etfListPath, {});
+  let etfList = Array.isArray(etfListData) ? etfListData : 
+                (etfListData?.etfs && Array.isArray(etfListData.etfs)) ? etfListData.etfs :
+                (etfListData?.stocks && Array.isArray(etfListData.stocks)) ? etfListData.stocks :
+                Object.values(etfListData).filter(v => v && typeof v === 'object' && (v.symbol || v.sym));
+
+  let etfSummary = loadJson(etfSummaryPath, []);
+  if (!Array.isArray(etfSummary)) etfSummary = Object.values(etfSummary).filter(v => v && typeof v === 'object');
+
+  let etfHoldings = loadJson(etfHoldingsPath, []);
+  if (!Array.isArray(etfHoldings)) etfHoldings = Object.values(etfHoldings).filter(v => v && typeof v === 'object');
+
+  let savedEtfs = loadJson(savedEtfsPath, []);
+  if (!Array.isArray(savedEtfs)) savedEtfs = Object.values(savedEtfs).filter(v => v && typeof v === 'object');
+
+  let savedEtfFavs = loadJson(savedEtfFavsPath, []);
+  if (!Array.isArray(savedEtfFavs)) savedEtfFavs = Object.values(savedEtfFavs).filter(v => v && typeof v === 'object');
 
   // Build map of all ETFs
   const etfsMap = new Map();
 
   // Collect from etf_list_cache
   for (const etf of etfList) {
-    if (etf?.symbol) {
-      etfsMap.set(etf.symbol, {
-        symbol: etf.symbol,
+    const sym = etf?.symbol || etf?.sym;
+    if (sym) {
+      etfsMap.set(sym, {
+        symbol: sym,
         name: etf.name || null,
         data: JSON.stringify(etf.data || {}),
         is_saved: 0,
@@ -281,6 +326,9 @@ function migrateFreshNews(db, fixturesDir) {
         const fileTime = stats.mtimeMs;
         const expiresAt = fileTime + FIFTEEN_DAYS_MS;
 
+        // Skip already-expired entries during migration
+        if (expiresAt <= now) continue;
+
         try {
           const content = fs.readFileSync(filePath, 'utf-8');
           const data = JSON.parse(content);
@@ -316,11 +364,14 @@ function migrateFreshNews(db, fixturesDir) {
 
       for (const [symbol, symbolData] of Object.entries(data || {})) {
         const newsDate = symbolData?.news?.[0]?.date || new Date().toISOString().split('T')[0];
+        const entryExpiresAt = expiresAt;
+        // Skip already-expired entries during migration
+        if (entryExpiresAt <= now) continue;
         upsertFreshNews.run(
           symbol,
           newsDate,
           JSON.stringify(symbolData),
-          expiresAt,
+          entryExpiresAt,
           now
         );
       }
@@ -331,8 +382,66 @@ function migrateFreshNews(db, fixturesDir) {
 }
 
 /**
- * Migrate snapshots from cache/snapshots/*.json to snapshots/*.json.gz
- * Compresses each snapshot using saveSnapshotDay from snapshot-store
+ * Migrate portfolio metadata (initialCapital, capitalAdds) from paper_trades.json
+ * Stores as JSON in a portfolio_state key-value table row
+ */
+function migratePortfolio(db, fixturesDir) {
+  const tradesPath = path.join(fixturesDir, 'paper_trades.json');
+  const tradesData = loadJson(tradesPath, {});
+
+  // Portfolio lives at top-level .portfolio (not inside trades array)
+  let portfolio = null;
+  if (!Array.isArray(tradesData) && tradesData?.portfolio && typeof tradesData.portfolio === 'object') {
+    portfolio = tradesData.portfolio;
+  }
+
+  if (!portfolio) return;
+
+  db.prepare(`
+    INSERT INTO portfolio_state (key, data, updated_at)
+    VALUES ('default', ?, ?)
+    ON CONFLICT(key) DO UPDATE SET
+      data = excluded.data,
+      updated_at = excluded.updated_at
+  `).run(JSON.stringify(portfolio), Date.now());
+}
+
+/**
+ * Migrate ETF holdings from etf_holdings_cache.json into etf_holdings_cache table
+ * Uses a 30-day TTL since holdings data is relatively stable
+ */
+function migrateEtfHoldings(db, fixturesDir) {
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+  const holdingsPath = path.join(fixturesDir, 'etf_holdings_cache.json');
+  let holdings = loadJson(holdingsPath, []);
+  if (!Array.isArray(holdings)) {
+    holdings = Object.values(holdings).filter(v => v && typeof v === 'object');
+  }
+
+  const upsert = db.prepare(`
+    INSERT INTO etf_holdings_cache (symbol, payload, expires_at, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(symbol) DO UPDATE SET
+      payload = excluded.payload,
+      expires_at = excluded.expires_at,
+      updated_at = excluded.updated_at
+  `);
+
+  const now = Date.now();
+  const expiresAt = now + THIRTY_DAYS_MS;
+  for (const entry of holdings) {
+    const sym = entry?.symbol || entry?.sym;
+    if (sym) {
+      upsert.run(sym, JSON.stringify(entry), expiresAt, now);
+    }
+  }
+}
+
+/**
+ * Migrate snapshots from snapshots/*.json to snapshots/*.json.gz
+ * Supports both naming conventions:
+ *   - snapshot-YYYY-MM-DD.json  (snapshot-store standard)
+ *   - simulation_snapshots_YYYY-MM-DD.json  (legacy production naming)
  */
 async function migrateSnapshots(fixturesDir) {
   const snapshotsDir = path.join(fixturesDir, 'snapshots');
@@ -354,8 +463,10 @@ async function migrateSnapshots(fixturesDir) {
         const content = fs.readFileSync(filePath, 'utf-8');
         const data = JSON.parse(content);
 
-        // Extract date from filename (snapshot-YYYY-MM-DD.json)
-        const dateMatch = file.match(/^snapshot-(\d{4}-\d{2}-\d{2})\.json$/);
+        // Support both snapshot-YYYY-MM-DD.json and simulation_snapshots_YYYY-MM-DD.json
+        const dateMatch =
+          file.match(/^snapshot-(\d{4}-\d{2}-\d{2})\.json$/) ||
+          file.match(/^simulation_snapshots_(\d{4}-\d{2}-\d{2})\.json$/);
         if (dateMatch) {
           const date = dateMatch[1];
           await saveSnapshotDay(date, data, snapshotsDir);
@@ -373,10 +484,140 @@ async function migrateSnapshots(fixturesDir) {
  * Run complete migration
  */
 export async function runMigration(db, fixturesDir) {
-  migrateTrades(db, fixturesDir);
-  migrateSymbols(db, fixturesDir);
-  migrateScriptCodes(db, fixturesDir);
-  migrateEtfs(db, fixturesDir);
-  migrateFreshNews(db, fixturesDir);
-  await migrateSnapshots(fixturesDir);
+  console.log('🔄 Starting migration...');
+  try {
+    console.log('  → Migrating trades...');
+    migrateTrades(db, fixturesDir);
+    const tradeCount = db.prepare('SELECT COUNT(*) as cnt FROM trade_txns').get();
+    console.log(`    ✅ Trades: ${tradeCount.cnt} rows`);
+  } catch (e) {
+    console.error('  ❌ Trade migration failed:', e.message);
+  }
+  
+  try {
+    console.log('  → Migrating symbols...');
+    migrateSymbols(db, fixturesDir);
+    const symbolCount = db.prepare('SELECT COUNT(*) as cnt FROM symbols').get();
+    console.log(`    ✅ Symbols: ${symbolCount.cnt} rows`);
+  } catch (e) {
+    console.error('  ❌ Symbol migration failed:', e.message);
+  }
+  
+  try {
+    console.log('  → Migrating scripts...');
+    migrateScriptCodes(db, fixturesDir);
+    const scriptCount = db.prepare('SELECT COUNT(*) as cnt FROM scripts_master').get();
+    console.log(`    ✅ Scripts: ${scriptCount.cnt} rows`);
+  } catch (e) {
+    console.error('  ❌ Script migration failed:', e.message);
+  }
+  
+  try {
+    console.log('  → Migrating ETFs...');
+    migrateEtfs(db, fixturesDir);
+    const etfCount = db.prepare('SELECT COUNT(*) as cnt FROM etf_master').get();
+    console.log(`    ✅ ETFs: ${etfCount.cnt} rows`);
+  } catch (e) {
+    console.error('  ❌ ETF migration failed:', e.message);
+  }
+  
+  try {
+    console.log('  → Migrating news...');
+    migrateFreshNews(db, fixturesDir);
+    const newsCount = db.prepare('SELECT COUNT(*) as cnt FROM fresh_news').get();
+    console.log(`    ✅ News: ${newsCount.cnt} rows`);
+  } catch (e) {
+    console.error('  ❌ News migration failed:', e.message);
+  }
+  
+  try {
+    console.log('  → Migrating portfolio state...');
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS portfolio_state (
+        key TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        updated_at INTEGER NOT NULL DEFAULT 0
+      )
+    `).run();
+    migratePortfolio(db, fixturesDir);
+    const portfolioRow = db.prepare("SELECT data FROM portfolio_state WHERE key = 'default'").get();
+    console.log(`    ✅ Portfolio: ${portfolioRow ? 'migrated' : 'not found (array-format source skipped)'}`);
+  } catch (e) {
+    console.error('  ❌ Portfolio migration failed:', e.message);
+  }
+
+  try {
+    console.log('  → Migrating ETF holdings...');
+    migrateEtfHoldings(db, fixturesDir);
+    const holdingsCount = db.prepare('SELECT COUNT(*) as cnt FROM etf_holdings_cache').get();
+    console.log(`    ✅ ETF holdings: ${holdingsCount.cnt} rows`);
+  } catch (e) {
+    console.error('  ❌ ETF holdings migration failed:', e.message);
+  }
+
+  try {
+    console.log('  → Migrating snapshots...');
+    await migrateSnapshots(fixturesDir);
+    console.log('    ✅ Snapshots migrated');
+  } catch (e) {
+    console.error('  ❌ Snapshot migration failed:', e.message);
+  }
+  
+  console.log('✅ Migration phase complete!');
+}
+
+// Execute migration when run as script
+const isCli = process.argv[1]?.endsWith('db-migrate.js');
+if (isCli || import.meta.url === `file://${process.argv[1]}`) {
+  console.log('🚀 Starting migration script...');
+  (async () => {
+    const Database = (await import('better-sqlite3')).default;
+    const db = new Database('stock-watcher.db');
+    console.log('✅ Database opened');
+    
+    // Initialize schema first
+    const initSql = `
+      CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, applied_at INTEGER);
+      CREATE TABLE IF NOT EXISTS trade_txns (id TEXT PRIMARY KEY, data TEXT, created_at INTEGER, updated_at INTEGER);
+      CREATE TABLE IF NOT EXISTS symbols (symbol TEXT PRIMARY KEY, name TEXT, sector TEXT, cap TEXT, source TEXT, updated_at INTEGER);
+      CREATE TABLE IF NOT EXISTS scripts_master (symbol TEXT PRIMARY KEY, sharekhan_code INTEGER, zerodha_token INTEGER, nse_code TEXT, yahoo_symbol TEXT, sharekhan_updated_at INTEGER NOT NULL DEFAULT 0, zerodha_updated_at INTEGER NOT NULL DEFAULT 0, nse_updated_at INTEGER NOT NULL DEFAULT 0, yahoo_updated_at INTEGER NOT NULL DEFAULT 0);
+      CREATE TABLE IF NOT EXISTS etf_master (symbol TEXT PRIMARY KEY, data TEXT, is_saved INTEGER DEFAULT 0, is_favorite INTEGER DEFAULT 0, updated_at INTEGER);
+      CREATE TABLE IF NOT EXISTS fresh_news (symbol TEXT, news_date TEXT, news_json TEXT, expires_at INTEGER, updated_at INTEGER, PRIMARY KEY (symbol, news_date));
+      CREATE TABLE IF NOT EXISTS etf_holdings_cache (symbol TEXT PRIMARY KEY, payload TEXT, expires_at INTEGER, updated_at INTEGER);
+      CREATE TABLE IF NOT EXISTS etf_nav_daily (symbol TEXT, nav_date TEXT, nav REAL, data TEXT, updated_at INTEGER, PRIMARY KEY (symbol, nav_date));
+      CREATE TABLE IF NOT EXISTS etf_quote_cache (symbol TEXT PRIMARY KEY, payload TEXT, expires_at INTEGER, updated_at INTEGER);
+      CREATE TABLE IF NOT EXISTS portfolio_state (key TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL DEFAULT 0);
+    `;
+    
+    for (const stmt of initSql.split(';')) {
+      if (stmt.trim()) {
+        try {
+          db.exec(stmt);
+        } catch (e) {
+          // Table might already exist
+        }
+      }
+    }
+    console.log('✅ Schema initialized');
+    
+    // Insert schema version if not exists
+    const schemaCheck = db.prepare('SELECT COUNT(*) as cnt FROM schema_version').get();
+    if (schemaCheck.cnt === 0) {
+      db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (1, ?)').run(Date.now());
+    }
+    
+    // Run migration
+    const fixturesDir = 'fixtures';
+    console.log('');
+    try {
+      await runMigration(db, fixturesDir);
+      console.log('');
+      console.log('✅ Migration completed successfully');
+    } catch (error) {
+      console.error('❌ Migration failed:', error.message);
+      process.exit(1);
+    } finally {
+      db.close();
+    }
+  })();
 }

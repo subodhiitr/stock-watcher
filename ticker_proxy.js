@@ -58,9 +58,14 @@ const ConfirmationPoller = require('./zerodha-confirmation-poller');
 const {
   initDb,
   saveTrade,
+  listTrades,
+  deleteTrade,
+  getTradesUpdatedAt,
   rememberSymbols: dbRememberSymbols,
   upsertScripCodes,
   getFreshNews,
+  loadPortfolioState,
+  savePortfolioState,
 } = require('./server/db');
 const PORT  = 3001;
 const USER_OPENAI_PROPERTIES = path.join(os.homedir(), 'openai.properties');
@@ -491,6 +496,22 @@ function normalizePaperState(raw) {
 
 function loadPaperStateFile() {
   try {
+    if (proxyDbReady) {
+      const dbTrades = listTrades();
+      const dbPortfolio = loadPortfolioState();
+      const portfolio = dbPortfolio || defaultPaperPortfolio();
+      const raw = { savedAt: Date.now(), portfolio, trades: dbTrades };
+      const normalized = normalizePaperState(raw);
+      // Persist any ownership normalization changes back to DB
+      if (JSON.stringify(dbTrades) !== JSON.stringify(normalized.trades)) {
+        for (const trade of normalized.trades) {
+          try { saveTrade(trade); } catch (_) {}
+        }
+      }
+      return normalized;
+    }
+
+    // Fallback: JSON file (used in tests and before proxy is initialized)
     if (!fs.existsSync(PAPER_TRADES_FILE)) {
       fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: defaultPaperPortfolio(), trades: [] }, null, 2), 'utf8');
     }
@@ -514,6 +535,14 @@ function loadPaperTradesFile() {
 function savePaperStateFile(state) {
   try {
     const next = normalizePaperState(state || {});
+    if (proxyDbReady) {
+      // Primary: write each trade and portfolio to SQLite
+      for (const trade of next.trades) {
+        try { saveTrade(trade); } catch (_) {}
+      }
+      try { savePortfolioState(next.portfolio); } catch (_) {}
+    }
+    // Always write JSON backup (primary in tests, backup in production)
     fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: next.portfolio, trades: next.trades }, null, 2), 'utf8');
   } catch (e) {
     console.warn('[paper-trades] Save error:', e.message);
@@ -2077,7 +2106,8 @@ function fileMtime(file) {
 function replaySnapshotVersion(day, mode) {
   const files = mode === 'autotune' ? listSimulationSnapshotFiles() : [getSimulationSnapshotFile(day)];
   const versionParts = files.map(file => `${path.basename(file)}:${fileMtime(file)}`);
-  versionParts.push(`paper:${fileMtime(PAPER_TRADES_FILE)}`);
+  const paperVersion = proxyDbReady ? String(getTradesUpdatedAt()) : String(fileMtime(PAPER_TRADES_FILE));
+  versionParts.push(`paper:${paperVersion}`);
   return stableHash(versionParts);
 }
 
@@ -7376,6 +7406,9 @@ async function proxyRequestHandler(req, res) {
             res.end(JSON.stringify({ error: 'Only closed trades can be deleted', code: 'TRADE_NOT_CLOSED' }));
             return;
           }
+          if (proxyDbReady && id) {
+            try { deleteTrade(id); } catch (_) {}
+          }
           const next = trades.filter(t => t.id !== id);
           savePaperTradesFile(next);
           broadcastPaperTradeState('delete');
@@ -7710,20 +7743,17 @@ async function proxyRequestHandler(req, res) {
 }
 
 let proxyInitialized = false;
+let proxyDbReady = false;
 
 async function initializeProxy() {
   if (proxyInitialized) return;
   proxyInitialized = true;
-  
-  // Initialize SQLite database
   try {
-    initDb('stock-watcher.db');
-    console.log('[db] SQLite database initialized at stock-watcher.db');
+    initDb();
+    proxyDbReady = true;
   } catch (e) {
-    console.error('[db] Failed to initialize SQLite database:', e.message);
-    process.exit(1);
+    console.warn('[db] SQLite initialization failed, falling back to JSON storage:', e.message);
   }
-  
   await initializeSimulationRuntime();
   await Promise.all([warmNSESession(), refreshYahooCrumb()]);
   

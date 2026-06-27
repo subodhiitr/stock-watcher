@@ -1,5 +1,4 @@
-const Database = require('better-sqlite3');
-
+import Database from 'better-sqlite3';
 
 const INITIAL_SCHEMA_VERSION = 1;
 const SOURCE_SAVED = 'saved';
@@ -277,7 +276,7 @@ function readEtfMasterRow(row) {
   };
 }
 
-function initDb(path = 'stock-watcher.db') {
+export function initDb(path = 'stock-watcher.db') {
   const db = new Database(path);
 
   db.exec(`
@@ -356,24 +355,55 @@ function initDb(path = 'stock-watcher.db') {
       expires_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS portfolio_state (
+      key TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
   `);
 
   activeDb = db;
   return db;
 }
 
-function getSchemaVersion(db = requireDb()) {
+export function getSchemaVersion(db = requireDb()) {
   const row = getPrepared(db).getSchemaVersion.get();
   return row?.version ?? 0;
 }
 
-function rememberSymbols(rows) {
+export function getSymbols() {
+  const db = requireDb();
+  return db.prepare('SELECT symbol, name, sector, cap, source FROM symbols ORDER BY symbol ASC').all();
+}
+
+export function rememberSymbols(rows) {
   const db = requireDb();
   const prepared = getPrepared(db);
   prepared.rememberSymbolsTx(Array.isArray(rows) ? rows : []);
 }
 
-function upsertSymbol(symbol, name, sector, cap, source) {
+export function savePortfolioState(portfolio) {
+  if (!portfolio || typeof portfolio !== 'object') return null;
+  const db = requireDb();
+  db.prepare(`
+    INSERT INTO portfolio_state (key, data, updated_at)
+    VALUES ('default', ?, ?)
+    ON CONFLICT(key) DO UPDATE SET
+      data = excluded.data,
+      updated_at = excluded.updated_at
+  `).run(JSON.stringify(portfolio), Date.now());
+  return portfolio;
+}
+
+export function loadPortfolioState() {
+  const db = requireDb();
+  const row = db.prepare("SELECT data FROM portfolio_state WHERE key = 'default'").get();
+  if (!row) return null;
+  try { return JSON.parse(row.data); } catch { return null; }
+}
+
+export function upsertSymbol(symbol, name, sector, cap, source) {
   if (!symbol) {
     return;
   }
@@ -382,14 +412,14 @@ function upsertSymbol(symbol, name, sector, cap, source) {
   prepared.upsertSymbolTx(symbol, name, sector, cap, source);
 }
 
-function upsertScripCodes(rows, broker = 'sharekhan') {
+export function upsertScripCodes(rows, broker = 'sharekhan') {
   assertSupportedBroker(broker);
   const db = requireDb();
   const prepared = getPrepared(db);
   prepared.upsertScripCodesTxByBroker[broker](Array.isArray(rows) ? rows : []);
 }
 
-function getScripCode(symbol, broker = 'sharekhan') {
+export function getScripCode(symbol, broker = 'sharekhan') {
   if (!symbol) {
     return null;
   }
@@ -400,7 +430,7 @@ function getScripCode(symbol, broker = 'sharekhan') {
   return row?.code ?? null;
 }
 
-function scripCodesUpdatedAt(broker = 'sharekhan') {
+export function scripCodesUpdatedAt(broker = 'sharekhan') {
   assertSupportedBroker(broker);
   const db = requireDb();
   const prepared = getPrepared(db);
@@ -408,7 +438,7 @@ function scripCodesUpdatedAt(broker = 'sharekhan') {
   return row?.updated_at ?? 0;
 }
 
-function saveTrade(trade) {
+export function saveTrade(trade) {
   const patch = normalizeTradePatch(trade);
   if (!patch.id) {
     return null;
@@ -423,7 +453,7 @@ function saveTrade(trade) {
   return merged;
 }
 
-function updateTrade(id, fields) {
+export function updateTrade(id, fields) {
   if (!id) {
     return null;
   }
@@ -432,7 +462,7 @@ function updateTrade(id, fields) {
   return saveTrade({ id, ...patch });
 }
 
-function getTrade(id) {
+export function getTrade(id) {
   if (!id) {
     return null;
   }
@@ -441,7 +471,7 @@ function getTrade(id) {
   return parseTradeRow(prepared.getTradeRow.get(id));
 }
 
-function listTrades(filters = {}) {
+export function listTrades(filters = {}) {
   const db = requireDb();
   const clauses = [];
   const params = [];
@@ -482,14 +512,27 @@ function listTrades(filters = {}) {
   return db.prepare(sql).all(...params).map((row) => parseTradeRow(row)).filter(Boolean);
 }
 
-function countTrades() {
+export function countTrades() {
   const db = requireDb();
   const prepared = getPrepared(db);
   const row = prepared.countTrades.get();
   return row?.count ?? 0;
 }
 
-function saveFreshNews(symbol, date, newsArray, ttlMs = FIFTEEN_DAYS_MS) {
+export function deleteTrade(id) {
+  if (!id) return 0;
+  const db = requireDb();
+  const result = db.prepare('DELETE FROM trade_txns WHERE id = ?').run(String(id));
+  return result.changes ?? 0;
+}
+
+export function getTradesUpdatedAt() {
+  const db = requireDb();
+  const row = db.prepare('SELECT COALESCE(MAX(updated_at), 0) AS ts FROM trade_txns').get();
+  return row?.ts ?? 0;
+}
+
+export function saveFreshNews(symbol, date, newsArray, ttlMs = FIFTEEN_DAYS_MS) {
   if (!symbol || !date) {
     return null;
   }
@@ -502,7 +545,7 @@ function saveFreshNews(symbol, date, newsArray, ttlMs = FIFTEEN_DAYS_MS) {
   return payload;
 }
 
-function getFreshNews(symbol, date) {
+export function getFreshNews(symbol, date) {
   if (!symbol || !date) {
     return null;
   }
@@ -519,14 +562,14 @@ function getFreshNews(symbol, date) {
   return parseJson(row.news_json, []);
 }
 
-function pruneFreshNews() {
+export function pruneFreshNews() {
   const db = requireDb();
   const prepared = getPrepared(db);
   const result = prepared.pruneFreshNewsRows.run(Date.now());
   return result.changes ?? 0;
 }
 
-function upsertEtfMaster(rows) {
+export function upsertEtfMaster(rows) {
   const db = requireDb();
   const prepared = getPrepared(db);
   const list = Array.isArray(rows) ? rows : [];
@@ -547,7 +590,7 @@ function upsertEtfMaster(rows) {
   tx(list);
 }
 
-function getEtfMaster(symbol) {
+export function getEtfMaster(symbol) {
   if (!symbol) {
     return null;
   }
@@ -556,7 +599,7 @@ function getEtfMaster(symbol) {
   return readEtfMasterRow(prepared.getEtfMasterRow.get(String(symbol)));
 }
 
-function saveEtfNavDaily(rows) {
+export function saveEtfNavDaily(rows) {
   const db = requireDb();
   const prepared = getPrepared(db);
   const list = Array.isArray(rows) ? rows : [];
@@ -579,7 +622,7 @@ function saveEtfNavDaily(rows) {
   tx(list);
 }
 
-function getEtfNavHistory(symbol, from, to) {
+export function getEtfNavHistory(symbol, from, to) {
   if (!symbol) {
     return [];
   }
@@ -598,7 +641,7 @@ function getEtfNavHistory(symbol, from, to) {
   });
 }
 
-function saveEtfQuoteCache(symbol, payload, ttlMs) {
+export function saveEtfQuoteCache(symbol, payload, ttlMs) {
   if (!symbol) {
     return null;
   }
@@ -610,7 +653,7 @@ function saveEtfQuoteCache(symbol, payload, ttlMs) {
   return payload ?? null;
 }
 
-function getEtfQuoteCache(symbol) {
+export function getEtfQuoteCache(symbol) {
   if (!symbol) {
     return null;
   }
@@ -627,14 +670,14 @@ function getEtfQuoteCache(symbol) {
   return parseJson(row.payload, null);
 }
 
-function pruneEtfQuoteCache() {
+export function pruneEtfQuoteCache() {
   const db = requireDb();
   const prepared = getPrepared(db);
   const result = prepared.pruneEtfQuoteCacheRows.run(Date.now());
   return result.changes ?? 0;
 }
 
-function saveEtfHoldingsCache(symbol, payload, ttlMs) {
+export function saveEtfHoldingsCache(symbol, payload, ttlMs) {
   if (!symbol) {
     return null;
   }
@@ -646,7 +689,7 @@ function saveEtfHoldingsCache(symbol, payload, ttlMs) {
   return payload ?? null;
 }
 
-function getEtfHoldingsCache(symbol) {
+export function getEtfHoldingsCache(symbol) {
   if (!symbol) {
     return null;
   }
@@ -663,14 +706,14 @@ function getEtfHoldingsCache(symbol) {
   return parseJson(row.payload, null);
 }
 
-function pruneEtfHoldingsCache() {
+export function pruneEtfHoldingsCache() {
   const db = requireDb();
   const prepared = getPrepared(db);
   const result = prepared.pruneEtfHoldingsCacheRows.run(Date.now());
   return result.changes ?? 0;
 }
 
-function setEtfSaved(symbol, isSaved) {
+export function setEtfSaved(symbol, isSaved) {
   if (!symbol) {
     return null;
   }
@@ -690,7 +733,7 @@ function setEtfSaved(symbol, isSaved) {
   return getEtfMaster(target);
 }
 
-function setEtfFavorite(symbol, isFavorite) {
+export function setEtfFavorite(symbol, isFavorite) {
   if (!symbol) {
     return null;
   }
@@ -710,55 +753,14 @@ function setEtfFavorite(symbol, isFavorite) {
   return getEtfMaster(target);
 }
 
-function listSavedEtfs() {
+export function listSavedEtfs() {
   const db = requireDb();
   const prepared = getPrepared(db);
   return prepared.listSavedEtfRows.all().map((row) => readEtfMasterRow(row)).filter(Boolean);
 }
 
-function listEtfFavorites() {
+export function listEtfFavorites() {
   const db = requireDb();
   const prepared = getPrepared(db);
   return prepared.listFavoriteEtfRows.all().map((row) => readEtfMasterRow(row)).filter(Boolean);
 }
-module.exports = {
-  requireDb,
-  normalizeSource,
-  getPrepared,
-  assertSupportedBroker,
-  normalizeTradePatch,
-  parseTradeRow,
-  parseJson,
-  toSqliteBool,
-  readEtfMasterRow,
-  initDb,
-  getSchemaVersion,
-  rememberSymbols,
-  upsertSymbol,
-  upsertScripCodes,
-  getScripCode,
-  scripCodesUpdatedAt,
-  saveTrade,
-  updateTrade,
-  getTrade,
-  listTrades,
-  countTrades,
-  saveFreshNews,
-  getFreshNews,
-  pruneFreshNews,
-  upsertEtfMaster,
-  getEtfMaster,
-  saveEtfNavDaily,
-  getEtfNavHistory,
-  saveEtfQuoteCache,
-  getEtfQuoteCache,
-  pruneEtfQuoteCache,
-  saveEtfHoldingsCache,
-  getEtfHoldingsCache,
-  pruneEtfHoldingsCache,
-  setEtfSaved,
-  setEtfFavorite,
-  listSavedEtfs,
-  listEtfFavorites,
-};
-

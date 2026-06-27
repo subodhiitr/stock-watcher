@@ -101,7 +101,8 @@ function getDailySnapshotFile(day) {
 function listDailySnapshotFiles() {
   try {
     return fs.existsSync(SNAPSHOT_DIR) ? fs.readdirSync(SNAPSHOT_DIR)
-      .filter(name => /^simulation_snapshots_\d{4}-\d{2}-\d{2}\.json$/.test(name))
+      .filter(name => /^simulation_snapshots_\d{4}-\d{2}-\d{2}\.json(?:\.gz)?$/.test(name) ||
+                      /^snapshot-\d{4}-\d{2}-\d{2}\.json(?:\.gz)?$/.test(name))
       .map(name => path.join(SNAPSHOT_DIR, name))
       .sort() : [];
   } catch (_) {
@@ -211,7 +212,8 @@ async function readSnapshots(file, day) {
   
   for (const snapshotFile of files) {
     // Extract date from file path pattern
-    const dailyMatch = snapshotFile.match(/simulation_snapshots_(\d{4}-\d{2}-\d{2})(?:\.json)?$/);
+    const dailyMatch = snapshotFile.match(/simulation_snapshots_(\d{4}-\d{2}-\d{2})(?:\.json(?:\.gz)?)?$/) ||
+                       snapshotFile.match(/snapshot-(\d{4}-\d{2}-\d{2})(?:\.json(?:\.gz)?)?$/);
     if (dailyMatch) {
       const date = dailyMatch[1];
       try {
