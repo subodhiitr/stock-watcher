@@ -55,6 +55,13 @@ const KiteClient = require('./zerodha-kite-client');
 const SharekhanClient = require('./sharekhan-client');
 const { fetchSharekhanIntraday } = require('./sharekhan-intraday');
 const ConfirmationPoller = require('./zerodha-confirmation-poller');
+const {
+  initDb,
+  saveTrade,
+  rememberSymbols: dbRememberSymbols,
+  upsertScripCodes,
+  getFreshNews,
+} = require('./server/db');
 const PORT  = 3001;
 const USER_OPENAI_PROPERTIES = path.join(os.homedir(), 'openai.properties');
 const SAVED_ETF_FILE = path.join(__dirname, 'saved_etfs.json');
@@ -520,6 +527,93 @@ function savePaperTradesFile(trades) {
     savePaperStateFile(state);
   } catch (e) {
     console.warn('[paper-trades] Save error:', e.message);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SQLite Persistence Functions for ticker_proxy
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Remember a trade by persisting it to SQLite.
+ * @param {Object} trade - Trade object with id, symbol, qty, status, etc.
+ */
+function rememberTrade(trade) {
+  if (!trade || typeof trade !== 'object') {
+    return;
+  }
+  try {
+    saveTrade(trade);
+  } catch (e) {
+    console.warn('[ticker-proxy] Error saving trade to sqlite:', e.message);
+  }
+}
+
+/**
+ * Remember symbols by persisting them to SQLite along with script codes.
+ * @param {Array} symbols - Array of symbol objects with symbol, name, sector, cap, etc.
+ */
+function rememberSymbols(symbols) {
+  if (!Array.isArray(symbols)) {
+    return;
+  }
+  try {
+    // Persist symbols to the symbols table
+    dbRememberSymbols(symbols);
+
+    // Extract sharekhan codes if present and upsert them
+    const scripCodes = symbols
+      .filter(s => s && s.symbol && s.sharekhan_code !== undefined)
+      .map(s => ({ symbol: s.symbol, sharekhan_code: s.sharekhan_code }));
+
+    if (scripCodes.length > 0) {
+      upsertScripCodes(scripCodes, 'sharekhan');
+    }
+
+    // Handle other broker codes if present
+    const nseCodesArray = symbols
+      .filter(s => s && s.symbol && s.nse_code !== undefined)
+      .map(s => ({ symbol: s.symbol, nse_code: s.nse_code }));
+
+    if (nseCodesArray.length > 0) {
+      upsertScripCodes(nseCodesArray, 'nse');
+    }
+
+    const zerodhaCodesArray = symbols
+      .filter(s => s && s.symbol && s.zerodha_token !== undefined)
+      .map(s => ({ symbol: s.symbol, zerodha_token: s.zerodha_token }));
+
+    if (zerodhaCodesArray.length > 0) {
+      upsertScripCodes(zerodhaCodesArray, 'zerodha');
+    }
+
+    const yahooCodesArray = symbols
+      .filter(s => s && s.symbol && s.yahoo_symbol !== undefined)
+      .map(s => ({ symbol: s.symbol, yahoo_symbol: s.yahoo_symbol }));
+
+    if (yahooCodesArray.length > 0) {
+      upsertScripCodes(yahooCodesArray, 'yahoo');
+    }
+  } catch (e) {
+    console.warn('[ticker-proxy] Error saving symbols to sqlite:', e.message);
+  }
+}
+
+/**
+ * Load cached news from SQLite by symbol and date.
+ * @param {string} symbol - Stock symbol
+ * @param {string} date - Date string (e.g., '2024-01-15')
+ * @returns {Array|null} Array of news articles or null if not found/expired
+ */
+function loadCachedNews(symbol, date) {
+  if (!symbol || !date) {
+    return null;
+  }
+  try {
+    return getFreshNews(symbol, date);
+  } catch (e) {
+    console.warn('[ticker-proxy] Error loading cached news from sqlite:', e.message);
+    return null;
   }
 }
 
@@ -7806,6 +7900,9 @@ module.exports = {
   initializeProxy,
   proxyRequestHandler,
   startProxyServer,
+  rememberTrade,
+  rememberSymbols,
+  loadCachedNews,
   __test__: {
     initializeSimulationRuntime,
     runSchedulerTick: runSimulationSchedulerTick,
