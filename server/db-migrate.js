@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { saveSnapshotDay } from './snapshot-store.js';
 
 /**
  * Load JSON file safely, returns empty object/array if not found
@@ -248,11 +249,134 @@ function migrateEtfs(db, fixturesDir) {
 }
 
 /**
+ * Migrate fresh news from cache files into fresh_news table
+ * Reads from cache/fresh_news/*.json and cache/fresh_stock_news.json
+ * Sets expires_at based on file mtime + 15 days TTL
+ */
+function migrateFreshNews(db, fixturesDir) {
+  const FIFTEEN_DAYS_MS = 15 * 24 * 60 * 60 * 1000;
+  const freshNewsDir = path.join(fixturesDir, 'cache', 'fresh_news');
+  const stockNewsPath = path.join(fixturesDir, 'cache', 'fresh_stock_news.json');
+
+  const upsertFreshNews = db.prepare(`
+    INSERT INTO fresh_news (symbol, news_date, news_json, expires_at, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(symbol, news_date) DO UPDATE SET
+      news_json = excluded.news_json,
+      expires_at = excluded.expires_at,
+      updated_at = excluded.updated_at
+  `);
+
+  const now = Date.now();
+
+  // Process individual symbol files from cache/fresh_news/*.json
+  if (fs.existsSync(freshNewsDir)) {
+    try {
+      const files = fs.readdirSync(freshNewsDir);
+      for (const file of files) {
+        if (!file.endsWith('.json')) continue;
+
+        const filePath = path.join(freshNewsDir, file);
+        const stats = fs.statSync(filePath);
+        const fileTime = stats.mtimeMs;
+        const expiresAt = fileTime + FIFTEEN_DAYS_MS;
+
+        try {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          const data = JSON.parse(content);
+          
+          if (data?.symbol) {
+            const newsDate = data.news?.[0]?.date || new Date().toISOString().split('T')[0];
+            upsertFreshNews.run(
+              data.symbol,
+              newsDate,
+              JSON.stringify(data),
+              expiresAt,
+              now
+            );
+          }
+        } catch (err) {
+          console.warn(`Failed to process fresh_news file ${file}:`, err.message);
+        }
+      }
+    } catch (err) {
+      console.warn(`Failed to read fresh_news directory:`, err.message);
+    }
+  }
+
+  // Process aggregated stock news file
+  if (fs.existsSync(stockNewsPath)) {
+    try {
+      const stats = fs.statSync(stockNewsPath);
+      const fileTime = stats.mtimeMs;
+      const expiresAt = fileTime + FIFTEEN_DAYS_MS;
+
+      const content = fs.readFileSync(stockNewsPath, 'utf-8');
+      const data = JSON.parse(content);
+
+      for (const [symbol, symbolData] of Object.entries(data || {})) {
+        const newsDate = symbolData?.news?.[0]?.date || new Date().toISOString().split('T')[0];
+        upsertFreshNews.run(
+          symbol,
+          newsDate,
+          JSON.stringify(symbolData),
+          expiresAt,
+          now
+        );
+      }
+    } catch (err) {
+      console.warn(`Failed to process fresh_stock_news.json:`, err.message);
+    }
+  }
+}
+
+/**
+ * Migrate snapshots from cache/snapshots/*.json to snapshots/*.json.gz
+ * Compresses each snapshot using saveSnapshotDay from snapshot-store
+ */
+async function migrateSnapshots(fixturesDir) {
+  const snapshotsDir = path.join(fixturesDir, 'snapshots');
+  
+  if (!fs.existsSync(snapshotsDir)) {
+    return;
+  }
+
+  try {
+    const files = fs.readdirSync(snapshotsDir);
+    
+    for (const file of files) {
+      if (!file.endsWith('.json')) continue;
+      if (file.endsWith('.json.gz')) continue;
+
+      const filePath = path.join(snapshotsDir, file);
+
+      try {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const data = JSON.parse(content);
+
+        // Extract date from filename (snapshot-YYYY-MM-DD.json)
+        const dateMatch = file.match(/^snapshot-(\d{4}-\d{2}-\d{2})\.json$/);
+        if (dateMatch) {
+          const date = dateMatch[1];
+          await saveSnapshotDay(date, data, snapshotsDir);
+        }
+      } catch (err) {
+        console.warn(`Failed to compress snapshot ${file}:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.warn(`Failed to read snapshots directory:`, err.message);
+  }
+}
+
+/**
  * Run complete migration
  */
-export function runMigration(db, fixturesDir) {
+export async function runMigration(db, fixturesDir) {
   migrateTrades(db, fixturesDir);
   migrateSymbols(db, fixturesDir);
   migrateScriptCodes(db, fixturesDir);
   migrateEtfs(db, fixturesDir);
+  migrateFreshNews(db, fixturesDir);
+  await migrateSnapshots(fixturesDir);
 }
