@@ -452,7 +452,7 @@ function normalizePaperState(raw) {
   return { savedAt: raw?.savedAt || Date.now(), portfolio: { initialCapital, capitalAdds }, trades };
 }
 
-function loadPaperStateFile({ asOf = null } = {}) {
+function loadPaperStateFile({ asOf = null, includeAll = false } = {}) {
   try {
     if (proxyDbReady) {
       const allTrades = listTrades();
@@ -462,11 +462,13 @@ function loadPaperStateFile({ asOf = null } = {}) {
       // asOf allows the scheduler to pass its tick time for accurate day-stats.
       // All-time realized P&L is pre-aggregated separately via computeAllTimeRealizedPnl()
       const dayKey = asOf ? toIstDayKey(asOf) : getIstDateKey();
-      const filteredTrades = allTrades.filter(t => {
-        if (String(t.status || '').toLowerCase() === 'open') return true;
-        const tradeDate = toIstDayKey(t.closedAt || t.openedAt || '');
-        return tradeDate === dayKey;
-      });
+      const filteredTrades = includeAll
+        ? allTrades
+        : allTrades.filter(t => {
+            if (String(t.status || '').toLowerCase() === 'open') return true;
+            const tradeDate = toIstDayKey(t.closedAt || t.openedAt || '');
+            return tradeDate === dayKey;
+          });
       const ownershipContext = getTradeOwnershipContext();
       const normalized = normalizeTradeCollectionOwnership(filteredTrades, ownershipContext);
 
@@ -7225,7 +7227,8 @@ async function proxyRequestHandler(req, res) {
   // /trade-execution (/paper-trades alias) -- local paper trading journal for locked intraday entries
   if (pathname === TRADE_EXECUTION_PATH || pathname === PAPER_TRADES_ALIAS_PATH) {
     if (req.method === 'GET') {
-      const state = loadPaperStateFile();
+      const includeAll = searchParams.get('scope') === 'all' || searchParams.get('all') === '1';
+      const state = loadPaperStateFile({ includeAll });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, trades: state.trades, portfolio: state.portfolio }));
       return;
