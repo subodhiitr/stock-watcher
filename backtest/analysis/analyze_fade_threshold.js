@@ -1,18 +1,30 @@
 #!/usr/bin/env node
-/**
- * Analyze fade-exit threshold effectiveness against snapshot data
- * Tests: 2 bars vs 3 bars vs 4 bars
- */
-
 const fs = require('fs');
 const path = require('path');
-const SimulationEngine = require('./simulation_engine');
+const zlib = require('zlib');
 
-const SNAPSHOT_FILE = path.join(__dirname, 'snapshots/simulation_snapshots_2026-06-25.json');
+const SNAPSHOT_DIR = path.join(__dirname, '../../snapshots');
+const SNAPSHOT_DATE = '2026-06-25';
+
+function loadSnapshotDaySync(date, dir) {
+  const candidates = [
+    [path.join(dir, `snapshot-${date}.json.gz`), true],
+    [path.join(dir, `simulation_snapshots_${date}.json.gz`), true],
+    [path.join(dir, `simulation_snapshots_${date}.json`), false],
+    [path.join(dir, `snapshot-${date}.json`), false],
+  ];
+  for (const [filePath, isGz] of candidates) {
+    if (fs.existsSync(filePath)) {
+      const buf = fs.readFileSync(filePath);
+      return JSON.parse(isGz ? zlib.gunzipSync(buf).toString() : buf.toString('utf8'));
+    }
+  }
+  throw new Error(`Snapshot not found for date ${date}`);
+}
 
 function loadSnapshots() {
   try {
-    const data = JSON.parse(fs.readFileSync(SNAPSHOT_FILE, 'utf8'));
+    const data = loadSnapshotDaySync(SNAPSHOT_DATE, SNAPSHOT_DIR);
     return (data.snapshots || []).sort((a, b) => new Date(a.at) - new Date(b.at));
   } catch (e) {
     console.error('Failed to load snapshots:', e.message);
@@ -27,7 +39,7 @@ function analyzeFadeExitThresholds() {
     return;
   }
 
-  console.log(`\n📊 Analyzing ${snapshots.length} snapshots for fade-exit effectiveness\n`);
+  console.log(`\n≡ƒôè Analyzing ${snapshots.length} snapshots for fade-exit effectiveness\n`);
 
   // Track trades across snapshots
   const tradeHistory = {};
@@ -119,8 +131,8 @@ function analyzeFadeExitThresholds() {
   const prevented3to4 = stats3Bar - stats4Bar;
 
   console.log(`\nTrades prevented from exiting:`);
-  console.log(`  2→3 bars: ${prevented2to3} trades (${((prevented2to3 / stats2Bar) * 100).toFixed(1)}% reduction)`);
-  console.log(`  3→4 bars: ${prevented3to4} trades (${((prevented3to4 / stats3Bar) * 100).toFixed(1)}% reduction)`);
+  console.log(`  2ΓåÆ3 bars: ${prevented2to3} trades (${((prevented2to3 / stats2Bar) * 100).toFixed(1)}% reduction)`);
+  console.log(`  3ΓåÆ4 bars: ${prevented3to4} trades (${((prevented3to4 / stats3Bar) * 100).toFixed(1)}% reduction)`);
 
   // Show distribution
   console.log('\nDetailed breakdown (sample trades):');
@@ -128,7 +140,7 @@ function analyzeFadeExitThresholds() {
     console.log(`  ${t.symbol} | Life: ${t.lifespan}s | 2-bar: ${t.deteriorations2} | 3-bar: ${t.deteriorations3} | 4-bar: ${t.deteriorations4}`);
   });
 
-  console.log('\n✅ Recommendation:');
+  console.log('\nΓ£à Recommendation:');
   if (prevented2to3 > prevented3to4 * 1.5) {
     console.log('  Use 3-bar threshold: Good filter rate without over-holding');
   } else if (prevented3to4 > prevented2to3 * 0.5) {

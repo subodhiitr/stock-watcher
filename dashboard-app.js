@@ -270,6 +270,9 @@ async function refreshIndexMembership() {
 }
 
 async function loadSavedStocks() {
+  // localStorage was already merged into MIDCAP_STOCKS synchronously at startup.
+  // This function syncs the authoritative server list, adds any new symbols, and
+  // updates localStorage so future page loads also get them synchronously.
   let saved = [];
   const boot = bootstrapArray(['prefs', 'stocks']);
   if (boot) {
@@ -292,7 +295,6 @@ async function loadSavedStocks() {
   if (!Array.isArray(saved)) return;
   const newSymbols = [];
   for (const rawSym of saved) {
-    // Support both plain strings and objects { sym, sector, cap }
     const sym = typeof rawSym === 'string'
       ? rawSym.trim().toUpperCase()
       : String(rawSym?.sym || '').trim().toUpperCase();
@@ -300,13 +302,12 @@ async function loadSavedStocks() {
     const name   = typeof rawSym === 'string' ? sym : (rawSym?.name || sym);
     const sector = rawSym?.sector || 'Custom';
     const cap    = rawSym?.cap    || 'custom';
-    if (MIDCAP_STOCKS.some(s=>s.sym===sym) || STOCK_ASSETS.some(e=>e.sym===sym) || STOCK_EXTRA_SYMBOLS.includes(sym)) continue;
-    STOCK_EXTRA_SYMBOLS.push(sym);
-    STOCK_ASSETS.push({ sym, name, sector, cap });
+    if (MIDCAP_STOCKS.some(s=>s.sym===sym)) continue;
+    MIDCAP_STOCKS.push({ sym, name, sector, cap });
     newSymbols.push(sym);
   }
   if (newSymbols.length && dataSource) {
-    await fetchAdditionalSymbols(STOCK_ASSETS.map(e=>e.sym));
+    await fetchAdditionalSymbols(newSymbols);
   }
 }
 
@@ -368,7 +369,7 @@ function toggleETFFavorite(sym, event) {
 }
 
 // cap: 'large' = Nifty 100 (Nifty 50 + Nifty Next 50), 'mid' = Nifty Midcap 150
-const MIDCAP_STOCKS = [
+let MIDCAP_STOCKS = [
   // ── NIFTY 50 (Large Cap) ──────────────────────────────────────────
   {sym:'RELIANCE',   name:'Reliance Industries',      sector:'Energy',       cap:'large'},
   {sym:'TCS',        name:'Tata Consultancy Svcs',    sector:'IT',           cap:'large'},
@@ -620,6 +621,28 @@ const MIDCAP_STOCKS = [
   {sym:'ZEEL',       name:'Zee Entertainment',        sector:'Media',        cap:'mid'},
 ];
 
+// Synchronously merge saved/custom stocks from localStorage into MIDCAP_STOCKS so
+// the full universe is available before any event handler (including Connect button)
+// can fire. loadSavedStocks() will later sync from server and add anything new.
+(function _mergeLocalSavedStocks() {
+  try {
+    const raw = localStorage.getItem(STOCK_STORAGE_KEY);
+    const saved = Array.isArray(JSON.parse(raw || '[]')) ? JSON.parse(raw || '[]') : [];
+    for (const rawSym of saved) {
+      const sym = typeof rawSym === 'string'
+        ? rawSym.trim().toUpperCase()
+        : String(rawSym?.sym || '').trim().toUpperCase();
+      if (!sym || MIDCAP_STOCKS.some(s => s.sym === sym)) continue;
+      MIDCAP_STOCKS.push({
+        sym,
+        name:   typeof rawSym === 'string' ? sym : (rawSym?.name || sym),
+        sector: rawSym?.sector || 'Custom',
+        cap:    rawSym?.cap    || 'custom',
+      });
+    }
+  } catch (e) { /* localStorage unavailable — safe to skip */ }
+})();
+
 // ═══════════════════════════════════
 //  STATE
 // ═══════════════════════════════════
@@ -636,13 +659,23 @@ let stockFilters   = new Set(); // empty = show all; multi-select AND logic
 let activeSetupCard = null;     // tracks which setup card is currently selected
 let currentSort    = { col:'change', dir:-1 };
 let etfFilters     = new Set(); // empty = show all; multi-select AND logic
-let _etfRenderTimer = null;
-// scheduleETFRender — coalesces background batch re-renders to ≤1 per 400ms.
-// Direct user interactions (sector select, filter click) call renderETFSection() immediately.
+
+// ── Unified render scheduler ──────────────────────────────────────────────
+// Replaces 5 separate debounce timers with one consistent mechanism.
+// Usage: scheduleRender('etfs', () => renderETFSection(), 400)
+const _renderTimers = {};
+function scheduleRender(key, fn, delayMs = 0) {
+  clearTimeout(_renderTimers[key]);
+  _renderTimers[key] = delayMs > 0
+    ? setTimeout(() => { delete _renderTimers[key]; fn(); }, delayMs)
+    : requestIdleCallback
+      ? (requestIdleCallback(() => { delete _renderTimers[key]; fn(); }, { timeout: 150 }), null)
+      : setTimeout(() => { delete _renderTimers[key]; fn(); }, 0);
+}
+
 function scheduleETFRender() {
-  if (currentView !== 'etfs') return; // don't re-render ETF table when on stock tab
-  if (_etfRenderTimer) return;
-  _etfRenderTimer = setTimeout(() => { _etfRenderTimer = null; renderETFSection(); }, 400);
+  if (currentView !== 'etfs') return;
+  scheduleRender('etf-section', () => renderETFSection(), 400);
 }
 
 // ── Stock table pagination ────────────────────────────────────────────────
@@ -705,11 +738,8 @@ function _renderETFPaginationBar(filteredRows) {
 }
 
 // scheduleTableRender — debounced renderTable for SSE streaming (coalesces per-symbol renders)
-let _tableRenderTimer = null;
 function scheduleTableRender() {
-  if (_tableRenderTimer) return;
-  _tableRenderTimer = setTimeout(() => {
-    _tableRenderTimer = null;
+  scheduleRender('table', () => {
     renderTable();
     if (currentView === 'etfs') renderETFSection();
     if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
@@ -750,13 +780,8 @@ function _renderRowsChunked(tbody, rows, onDone) {
 }
 
 // scheduleSectorRender — debounced renderSectors for batch refresh loops (coalesces per-batch calls)
-let _sectorRenderTimer = null;
 function scheduleSectorRender() {
-  if (_sectorRenderTimer) return;
-  _sectorRenderTimer = setTimeout(() => {
-    _sectorRenderTimer = null;
-    renderSectors();
-  }, 500);
+  scheduleRender('sectors', () => renderSectors(), 500);
 }
 
 // openSSEStream — opens an EventSource to a streaming endpoint, calling onData for each parsed event.
@@ -790,14 +815,17 @@ const simulationPreviousSignalCandidates = new Map(); // sym -> previous refresh
 const INTRADAY_STALE_MS = 5 * 60 * 1000;
 let paperTrades = [];      // local paper trades loaded from proxy JSON file
 let openTradesBySym = new Map(); // sym → open trade (O(1) lookup, rebuilt on any paperTrades mutation)
+let historicalDayPnl = {};  // day → pnl, fetched from /portfolio/day-pnl, covers all dates
 let paperTradesLoaded = false;
 let paperTradesLoading = null;
 let paperTradesStream = null;
 let paperTradesStreamReconnectTimer = null;
+let paperTradesStreamReconnectAttempt = 0;
 let tradeSettingsSyncRetryTimer = null;
 let tradeSettingsSyncInFlight = false;
 let intradayLiveStream = null;
 let intradayLiveStreamReconnectTimer = null;
+let intradayLiveStreamReconnectAttempt = 0;
 let intradayLiveStreamKey = '';
 let etfSort        = { col:'change', dir:-1 };
 let etfSearch      = '';
@@ -806,21 +834,22 @@ let activeSectors  = new Set();   // sectors clicked in heatmap, empty = show al
 let EXTRA_SYMBOLS = []; // user-added ETF/custom symbols (keeps track to avoid duplicates)
 let ETF_ASSETS = [];
 let etfListLoaded = false; // true when loaded from /etf-list (NSE batch)
-let STOCK_EXTRA_SYMBOLS = [];
-let STOCK_ASSETS = [];
+let STOCK_ASSETS = []; // Deprecated: kept only for backward compat; use MIDCAP_STOCKS + isCustomStock()
 const sectorTrendCache = {};
 let serverSectorTrend = {}; // last sector trend received from server SSE
 let sectorTileData = {};    // sectorName → { avg, count, total } for partial tile updates
 const sparklineFallbackCache = {}; // sym:direction → html (stable fallback bars, no re-render flicker)
 
-// O(1) asset lookup — auto-rebuilds when MIDCAP_STOCKS/STOCK_ASSETS/ETF_ASSETS grow or reset
+// True when a stock is a user-saved custom entry (not part of the hardcoded universe)
+function isCustomStock(s) { return s.cap === 'custom' || s.sector === 'Custom'; }
+
+// O(1) asset lookup — auto-rebuilds when MIDCAP_STOCKS/ETF_ASSETS grow or reset
 const _assetMap = new Map();
 function getAssetBySymbol(sym) {
-  const total = MIDCAP_STOCKS.length + STOCK_ASSETS.length + ETF_ASSETS.length;
+  const total = MIDCAP_STOCKS.length + ETF_ASSETS.length;
   if (_assetMap.size !== total) {
     _assetMap.clear();
     for (const s of MIDCAP_STOCKS) _assetMap.set(s.sym, s);
-    for (const s of STOCK_ASSETS) _assetMap.set(s.sym, s);
     for (const s of ETF_ASSETS) _assetMap.set(s.sym, s);
   }
   return _assetMap.get(sym) || null;
@@ -837,14 +866,11 @@ function rebuildOpenTradesMap() {
 }
 
 // Debounced renderTopActionBar — coalesces rapid calls from partial row updates
-let _topBarTimer = null;
 function scheduleTopActionBar() {
-  clearTimeout(_topBarTimer);
-  _topBarTimer = setTimeout(() => renderTopActionBar(), 150);
+  scheduleRender('top-bar', () => renderTopActionBar(), 150);
 }
 
 // Debounced notification panel rebuild — expensive (iterates 220 rows + news cache)
-// renderTopActionBar only updates the badge count; full panel rebuilds are throttled to 3s
 let _notifTimer = null;
 function scheduleNotificationPanel() {
   clearTimeout(_notifTimer);
@@ -1134,7 +1160,7 @@ function applyYahooQuotes(quotes) {
 
 async function fetchYahooStocks(firstLoad = false) {
   const symbols = MIDCAP_STOCKS.map(s=>s.sym);
-  const totalRefreshUniverse = MIDCAP_STOCKS.length + STOCK_ASSETS.length;
+  const totalRefreshUniverse = MIDCAP_STOCKS.length;
   if (firstLoad) {
     document.getElementById('loading-msg').textContent = 'Fetching Yahoo Finance data…';
     document.getElementById('loading-sub').textContent = 'Source: query1.finance.yahoo.com/v8/finance/chart (crumb-free)';
@@ -1467,13 +1493,6 @@ async function fetchAll() {
     // Only fetch ETF prices when the ETF tab is active. Metadata/NAV details load
     // in the secondary queue so the stock table becomes usable first.
     const etfSymsToFetch = currentView === 'etfs' ? ETF_ASSETS.map(e=>e.sym) : [];
-    const baseCount = MIDCAP_STOCKS.length;
-    const totalStockProgress = baseCount + STOCK_ASSETS.length;
-    await fetchAdditionalSymbols(STOCK_ASSETS.map(e=>e.sym), {
-      force: true,
-      progressOffset: baseCount,
-      progressTotal: totalStockProgress,
-    });
     await yieldToBrowser();
     if (etfSymsToFetch.length) {
       await fetchAdditionalSymbols(etfSymsToFetch, { force: true });
@@ -1491,7 +1510,7 @@ async function fetchAll() {
       (dataSource === 'yahoo' ? 'Yahoo Finance' : dataSource === 'nse' ? 'NSE Direct' : 'AI');
     lastDashboardRefreshAt = Date.now();
     document.getElementById('status-bar').className = 'success';
-    const stockUniverse = [...MIDCAP_STOCKS, ...STOCK_ASSETS];
+    const stockUniverse = MIDCAP_STOCKS;
     const loaded = stockUniverse.filter(s => stockData[s.sym] && stockData[s.sym].price > 0).length;
     document.getElementById('status-bar').textContent = `✓ ${loaded}/${stockUniverse.length} stocks loaded`;
     renderTopActionBar();
@@ -1537,7 +1556,7 @@ function queueSecondaryDashboardLoads(firstLoad = false) {
   if (secondaryLoadActive || !dataSource) return;
   secondaryLoadActive = true;
   const baseDelay = firstLoad ? 700 : 150;
-  const stockSyms = [...MIDCAP_STOCKS.map(s=>s.sym), ...STOCK_ASSETS.map(s=>s.sym)];
+  const stockSyms = MIDCAP_STOCKS.map(s=>s.sym);
   const etfSymsToFetch = currentView === 'etfs' ? ETF_ASSETS.map(e=>e.sym) : [];
   const allSyms = [...new Set([...stockSyms, ...etfSymsToFetch])];
 
@@ -1565,7 +1584,7 @@ function queueSecondaryDashboardLoads(firstLoad = false) {
     fundamentalsBackgroundStarted = true;
     scheduleWork(() => {
       const needsMeta = stockSyms.filter(sym => {
-        const asset = MIDCAP_STOCKS.find(s=>s.sym===sym) || STOCK_ASSETS.find(s=>s.sym===sym);
+        const asset = MIDCAP_STOCKS.find(s=>s.sym===sym);
         return !asset?.fund?.computed?.pe;
       });
       if (needsMeta.length) fetchSymbolMetadata(needsMeta).catch(e => console.warn('bg metadata failed', e));
@@ -1640,7 +1659,7 @@ function toggleSector(name) {
     else { stockFilters.clear(); }
   }
   renderSectors();
-  if (!document.getElementById('filter-all')) renderTable();
+  renderTable();
   if (activeSectors.size) document.getElementById('main-section').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
@@ -1845,16 +1864,15 @@ async function fetchIntradaySignals(symbols) {
     } catch (e) {
       console.warn('intraday live SSE init failed', e.message);
       if (!intradayLiveStreamReconnectTimer) {
-        intradayLiveStreamReconnectTimer = setTimeout(() => {
-          intradayLiveStreamReconnectTimer = null;
-          connect();
-        }, 3000);
+        const delay = Math.min(1000 * Math.pow(2, intradayLiveStreamReconnectAttempt++), 30000);
+        intradayLiveStreamReconnectTimer = setTimeout(() => { intradayLiveStreamReconnectTimer = null; connect(); }, delay);
       }
       return;
     }
 
     intradayLiveStream.onmessage = (event) => {
       try {
+        intradayLiveStreamReconnectAttempt = 0; // reset backoff on success
         const payload = JSON.parse(event.data || '{}');
         const data = payload?.data && typeof payload.data === 'object' ? payload.data : null;
         if (!data) return;
@@ -1892,10 +1910,8 @@ async function fetchIntradaySignals(symbols) {
       try { intradayLiveStream?.close(); } catch (_) {}
       intradayLiveStream = null;
       if (!intradayLiveStreamReconnectTimer) {
-        intradayLiveStreamReconnectTimer = setTimeout(() => {
-          intradayLiveStreamReconnectTimer = null;
-          connect();
-        }, 3000);
+        const delay = Math.min(1000 * Math.pow(2, intradayLiveStreamReconnectAttempt++), 30000);
+        intradayLiveStreamReconnectTimer = setTimeout(() => { intradayLiveStreamReconnectTimer = null; connect(); }, delay);
       }
     };
   };
@@ -2103,12 +2119,6 @@ function getManualPaperQty(sym, suggestion) {
   return Math.floor(Number(raw));
 }
 
-function getTradeDateKey(value) {
-  const d = value ? new Date(value) : new Date();
-  if (Number.isNaN(d.getTime())) return 'Unknown';
-  return d.toLocaleDateString('en-IN', { year:'numeric', month:'short', day:'2-digit' });
-}
-
 function getTradeDateISO(value) {
   const d = value ? new Date(value) : new Date();
   if (Number.isNaN(d.getTime())) return '';
@@ -2160,8 +2170,10 @@ function getIstMinutes(value = Date.now()) {
 }
 
 function isTradeToday(trade) {
-  const todayKey = getTradeDateKey();
-  return getTradeDateKey(trade?.openedAt) === todayKey || getTradeDateKey(trade?.closedAt) === todayKey;
+  const todayKey = getTradeDateISO();
+  const openedKey = trade?.openedAt ? getTradeDateISO(trade.openedAt) : null;
+  const closedKey = trade?.closedAt ? getTradeDateISO(trade.closedAt) : null;
+  return openedKey === todayKey || closedKey === todayKey;
 }
 
 function getTodaysSimulationTrades() {
@@ -2185,7 +2197,7 @@ function getSimulationSafetySummary() {
     state:simulationState,
     dayStats:getSimulationDayStats(),
     cashAvailable:summary.cashAvailable,
-    sameDay:(a, b) => getTradeDateKey(a) === getTradeDateKey(b),
+    sameDay:(a, b) => getTradeDateISO(a) === getTradeDateISO(b),
   });
 }
 
@@ -2225,11 +2237,15 @@ function getPortfolioSummary() {
       if (Number.isFinite(pnl)) {
         // Only accumulate into realized when server didn't provide the aggregate
         if (serverRealizedPnl === null) realized += pnl;
-        // Always build per-day breakdown (paperTrades only contains today's closed trades)
-        const key = getTradeDateKey(trade.closedAt || trade.openedAt);
+        // Build per-day breakdown for today's visible closed trades (ISO key matches historicalDayPnl)
+        const key = getTradeDateISO(trade.closedAt || trade.openedAt);
         dayPnl[key] = (dayPnl[key] || 0) + pnl;
       }
     }
+  }
+  // Merge server-provided historical day P&L (covers all past dates)
+  for (const [day, pnl] of Object.entries(historicalDayPnl)) {
+    if (!(day in dayPnl)) dayPnl[day] = pnl;  // today's local data takes precedence
   }
   const totalPnl = realized + unrealized;
   return {
@@ -2247,9 +2263,9 @@ function getPortfolioSummary() {
 }
 
 function todaysClosedPnl() {
-  const key = getTradeDateKey();
+  const key = getTradeDateISO();
   return paperTrades
-    .filter(t => String(t.status || '').toLowerCase() === 'closed' && getTradeDateKey(t.closedAt || t.openedAt) === key)
+    .filter(t => String(t.status || '').toLowerCase() === 'closed' && getTradeDateISO(t.closedAt || t.openedAt) === key)
     .reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
 }
 
@@ -2308,6 +2324,10 @@ function applyPaperTradesState(payload, { trackNewTrades = false } = {}) {
   paperTrades = payload.trades;
   rebuildOpenTradesMap();
   paperTradesLoaded = true;
+
+  if (payload.dayPnl && typeof payload.dayPnl === 'object') {
+    historicalDayPnl = payload.dayPnl;
+  }
 
   if (payload.portfolio && typeof payload.portfolio === 'object') {
     portfolioState = {
@@ -2387,16 +2407,15 @@ function subscribePaperTradesStream() {
     } catch (e) {
       console.warn('paper-trades SSE init failed', e.message);
       if (!paperTradesStreamReconnectTimer) {
-        paperTradesStreamReconnectTimer = setTimeout(() => {
-          paperTradesStreamReconnectTimer = null;
-          connect();
-        }, 3000);
+        const delay = Math.min(1000 * Math.pow(2, paperTradesStreamReconnectAttempt++), 30000);
+        paperTradesStreamReconnectTimer = setTimeout(() => { paperTradesStreamReconnectTimer = null; connect(); }, delay);
       }
       return;
     }
 
     paperTradesStream.onmessage = (event) => {
       try {
+        paperTradesStreamReconnectAttempt = 0; // reset backoff on successful message
         const payload = JSON.parse(event.data || '{}');
         const runtimePayload = getSimulationRuntimePayload(payload);
         if (runtimePayload) applySimulationRuntimeStatus(runtimePayload);
@@ -2412,10 +2431,8 @@ function subscribePaperTradesStream() {
       try { paperTradesStream?.close(); } catch (_) {}
       paperTradesStream = null;
       if (!paperTradesStreamReconnectTimer) {
-        paperTradesStreamReconnectTimer = setTimeout(() => {
-          paperTradesStreamReconnectTimer = null;
-          connect();
-        }, 3000);
+        const delay = Math.min(1000 * Math.pow(2, paperTradesStreamReconnectAttempt++), 30000);
+        paperTradesStreamReconnectTimer = setTimeout(() => { paperTradesStreamReconnectTimer = null; connect(); }, delay);
       }
     };
   };
@@ -2656,7 +2673,7 @@ function markNewSimulationTradesSeen() {
 function getDashboardHealthItems() {
   const items = [];
   if (!dataSource) items.push('No data source connected');
-  const allSymbols = [...MIDCAP_STOCKS, ...STOCK_ASSETS];
+  const allSymbols = MIDCAP_STOCKS;
   const priced = allSymbols.filter(s => Number(stockData[s.sym]?.price) > 0).length;
   if (dataSource && priced < Math.max(5, Math.floor(allSymbols.length * 0.5))) items.push(`Only ${priced}/${allSymbols.length} stock prices loaded`);
   const intradayValues = Object.values(intradayData || {});
@@ -2678,7 +2695,7 @@ function buildNotificationBadgeCount() {
   const newSim = getNewSimulationOpenTrades();
   if (newSim.length) count++;
   if (simulationState === 'running' || simulationState === 'settling') count++;
-  const todayKey = getTradeDateKey();
+  const todayKey = getTradeDateISO();
   const dayPnl = (getPortfolioSummary().dayPnl[todayKey] ?? 0);
   if (Math.abs(dayPnl) > 0) count++;
   count += Math.min(5, paperTrades.filter(t => isTradeToday(t) && (isOpenTrade(t) || isClosedTrade(t) || ['failed'].includes(String(t?.status || '').toLowerCase()) || ['cancelled','rejected','timeout','failed'].includes(String(t?.broker?.status || '').toLowerCase()))).length);
@@ -2778,12 +2795,12 @@ function renderTopActionBar() {
   pruneNewSimulationTradeKeys();
   const newOpenTrades = getNewSimulationOpenTrades();
   const newEventTrades = getNewSimulationEventTrades();
-  const todayKey = getTradeDateKey();
+  const todayKey = getTradeDateISO();
   const dayPnl = summary.dayPnl[todayKey] ?? 0;
   const tabSyms = new Set(
     currentView === 'etfs'
       ? ETF_ASSETS.map(e => e.sym)
-      : [...MIDCAP_STOCKS, ...STOCK_ASSETS].map(s => s.sym)
+      : MIDCAP_STOCKS.map(s => s.sym)
   );
   const intradayValues = Object.entries(intradayData || {})
     .filter(([sym]) => tabSyms.has(sym))
@@ -2981,14 +2998,20 @@ function renderPortfolioModal() {
     </tr>`;
   }).join('') : `<tr><td colspan="16" style="color:var(--muted);text-align:center;padding:16px">No transactions today</td></tr>`;
   const dayRows = Object.entries(summary.dayPnl).length ? Object.entries(summary.dayPnl)
-    .map(([day, pnl]) => `<tr><td>${escapeHTML(day)}</td><td class="portfolio-pnl ${portfolioValueClass(pnl)}">${moneyINR(pnl)}</td></tr>`)
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([day, pnl]) => {
+      const label = day.match(/^\d{4}-\d{2}-\d{2}$/)
+        ? new Date(day + 'T12:00:00Z').toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: '2-digit' })
+        : escapeHTML(day);
+      return `<tr><td>${label}</td><td class="portfolio-pnl ${portfolioValueClass(pnl)}">${moneyINR(pnl)}</td></tr>`;
+    })
     .join('') : `<tr><td colspan="2" style="color:var(--muted);text-align:center;padding:16px">No closed trades yet</td></tr>`;
 
   body.innerHTML = `
     <div class="portfolio-capital-row">
       <div>
         <div class="portfolio-section-title" style="margin:0 0 4px">Capital</div>
-        <div style="font-size:11px;color:var(--muted)">Add funds to paper portfolio; saved in paper_trades.json.</div>
+        <div style="font-size:11px;color:var(--muted)">Add funds to paper portfolio.</div>
       </div>
       <div class="portfolio-capital-actions">
         <input id="portfolio-add-capital-input" class="portfolio-capital-input" type="number" min="1" step="1000" placeholder="Amount" />
@@ -3079,6 +3102,8 @@ async function openPortfolioModal() {
     body.innerHTML = `<div style="color:var(--muted);padding:16px">Loading portfolio...</div>`;
     await loadPaperTrades();
   }
+  // Always refresh historical day P&L when modal opens
+  loadHistoricalDayPnl().then(() => renderPortfolioModal());
   renderPortfolioModal();
   updateZerodhaConfirmationsTable();
 }
@@ -3102,7 +3127,6 @@ function _populateManualTradeModal(initialSym = '') {
   if (!body) return;
   const allSyms = [
     ...MIDCAP_STOCKS.map(s => s.sym),
-    ...STOCK_ASSETS.map(s => s.sym),
     ...ETF_ASSETS.map(s => s.sym),
   ].sort();
   const initBroker = escapeHTML(normalizeManualTradeBrokerMode(brokerMode));
@@ -4364,8 +4388,7 @@ function getSimulationExitReason(trade, price) {
 function getSimulationCandidates() {
   const universe = [
     ...MIDCAP_STOCKS.map((s, i) => ({ ...s, rank:i + 1, data:stockData[s.sym] || null })),
-    ...STOCK_ASSETS.map((s, i) => ({ ...s, rank:MIDCAP_STOCKS.length + i + 1, data:stockData[s.sym] || null })),
-    ...ETF_ASSETS.map((s, i) => ({ ...s, rank:MIDCAP_STOCKS.length + STOCK_ASSETS.length + i + 1, data:stockData[s.sym] || null, cap:'etf' })),
+    ...ETF_ASSETS.map((s, i) => ({ ...s, rank:MIDCAP_STOCKS.length + i + 1, data:stockData[s.sym] || null, cap:'etf' })),
   ];
   const candidates = universe
     .map(row => {
@@ -4511,8 +4534,7 @@ function updateSetupOutcome(symbol, side, setupType, price, target, stop) {
 function buildSimulationSnapshotCandidates(limit = 30, lowestLimit = 30) {
   const universe = [
     ...MIDCAP_STOCKS.map((s, i) => ({ ...s, rank:i + 1, data:stockData[s.sym] || null })),
-    ...STOCK_ASSETS.map((s, i) => ({ ...s, rank:MIDCAP_STOCKS.length + i + 1, data:stockData[s.sym] || null })),
-    ...ETF_ASSETS.map((s, i) => ({ ...s, rank:MIDCAP_STOCKS.length + STOCK_ASSETS.length + i + 1, data:stockData[s.sym] || null, cap:'etf' })),
+    ...ETF_ASSETS.map((s, i) => ({ ...s, rank:MIDCAP_STOCKS.length + i + 1, data:stockData[s.sym] || null, cap:'etf' })),
   ];
   const candidates = universe
     .map(row => {
@@ -4822,11 +4844,13 @@ function summarizeReplaySetupPerformance(trades) {
     .sort((a, b) => b.net - a.net);
 }
 
-function compareReplayWithActual(day, replayTrades) {
+function compareReplayWithActual(day, replayTrades, actualTradesOverride) {
   const replayDay = normalizeReplayDay(day);
-  const actual = paperTrades
-    .filter(t => t.source === 'simulation' && normalizeReplayDay(t.closedAt || t.openedAt) === replayDay)
-    .filter(t => String(t.status || '').toLowerCase() === 'closed');
+  const actual = Array.isArray(actualTradesOverride)
+    ? actualTradesOverride
+    : paperTrades
+        .filter(t => t.source === 'simulation' && normalizeReplayDay(t.closedAt || t.openedAt) === replayDay)
+        .filter(t => String(t.status || '').toLowerCase() === 'closed');
   const parity = SimulationEngine.summarizeReplayParity(actual, replayTrades || []);
   const outcome = summarizeOutcomeParity(actual, replayTrades || []);
   // Calculate actual net P&L from closed simulation trades
@@ -5052,7 +5076,7 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
   const realizedPnl = () => trades.filter(isClosedTrade).reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
   const openExposure = () => openTrades().reduce((sum, t) => sum + ((Number(t.entryPrice) || 0) * (Number(t.qty) || 0)), 0);
   const cashAvailable = () => capital + realizedPnl() - openExposure();
-  const sameDay = (a, b) => getTradeDateKey(a) === getTradeDateKey(b);
+  const sameDay = (a, b) => getTradeDateISO(a) === getTradeDateISO(b);
   const dayStats = at => TradeRules.buildDayStats(trades, at, settings, { sameDay });
   const entryBlockReason = (sym, setupType, at) => TradeRules.getEntryBlockReason(sym, setupType, at, dayStats(at), settings);
   const replayClock = value => {
@@ -5452,14 +5476,15 @@ function renderReplayReport(day, snapshots, result, opts = {}) {
   const modal = document.getElementById('replay-modal');
   const body = document.getElementById('replay-modal-body');
   if (modal) modal.style.display = 'flex';
-  const compare = compareReplayWithActual(day, result.trades || []);
+  const compare = compareReplayWithActual(day, result.trades || [], opts.actualTrades);
   const outcome = compare.outcome || { rows:[], parityPct:0, matched:0, outcomes:0, actualOnly:0, replayOnly:0, netDiff:0, absNetDeviation:0 };
   const sweepRows = opts.sweepRows || [];
   const autoTuneRows = opts.autoTuneRows || [];
   const bestRows = autoTuneRows.length ? autoTuneRows : sweepRows;
+  const actualTrades = Array.isArray(opts.actualTrades) ? opts.actualTrades : (lastReplayDebugResult?.actualTrades || undefined);
   const quality = result.quality || SimulationEngine.summarizeTradeQuality(result.trades || [], getSimulationEngineSettings());
   const hints = buildReplayImprovementHints(compare, quality, getSimulationEngineSettings());
-  lastReplayDebugResult = { day, snapshots, result, compare, sweepRows, autoTuneRows, quality };
+  lastReplayDebugResult = { day, snapshots, result, compare, sweepRows, autoTuneRows, quality, actualTrades };
   if (body) body.innerHTML = `
     <div class="replay-toolbar">
       <label>Replay date <input id="replay-date-input" class="text-input replay-date-input" type="date" value="${escapeHTML(normalizeReplayDay(day))}" /></label>
@@ -5558,17 +5583,15 @@ async function runReplayToday(dayOverride = null) {
     const res = await fetch(`${SIM_REPLAY_ENDPOINT}?day=${encodeURIComponent(day)}`, { signal:AbortSignal.timeout(REPLAY_FETCH_TIMEOUT_MS) });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok || payload.ok === false) throw new Error(payload.error || `replay HTTP ${res.status}`);
-    renderReplayReport(day, [], payload.result || { snapshots:0, summary:{}, trades:[], rejected:[], setupStats:[] });
+    renderReplayReport(day, [], payload.result || { snapshots:0, summary:{}, trades:[], rejected:[], setupStats:[] }, { actualTrades: payload.actualTrades });
   } catch (e) {
     if (body) body.innerHTML = `<div style="color:var(--red);padding:16px">${escapeHTML(e.message || String(e))}</div>`;
   }
 }
 
 async function startReplayJob(day, mode) {
-  const res = await fetch(SIM_REPLAY_JOB_ENDPOINT, {
+  const res = await fetch(`${SIM_REPLAY_JOB_ENDPOINT}?day=${encodeURIComponent(day)}&mode=${encodeURIComponent(mode)}`, {
     method:'POST',
-    headers:{ 'Content-Type':'application/json' },
-    body:JSON.stringify({ day, mode }),
     signal:AbortSignal.timeout(15000),
   });
   const payload = await res.json().catch(() => ({}));
@@ -5612,7 +5635,7 @@ async function runReplaySweepForCurrent() {
     if (cachedRes.ok && cachedPayload.ok !== false && cachedPayload.cached && Array.isArray(cachedPayload.sweepRows) && cachedPayload.sweepRows.length) {
       const el = document.getElementById(progressId);
       if (el) el.textContent = `Loaded post-market deep sweep cache (${cachedPayload.sweepRows.length} rows).`;
-      renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows:cachedPayload.sweepRows || [], autoTuneRows:lastReplayDebugResult.autoTuneRows });
+      renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows:cachedPayload.sweepRows || [], autoTuneRows:lastReplayDebugResult.autoTuneRows, actualTrades:lastReplayDebugResult.actualTrades });
       return;
     }
     const el = document.getElementById(progressId);
@@ -5623,7 +5646,7 @@ async function runReplaySweepForCurrent() {
       if (el) el.textContent = `Settings sweep ${update.status}${update.cached ? ' (cached)' : update.reused ? ' (reused)' : update.workerPid ? ` (worker ${update.workerPid})` : ''}... ${update.id}`;
     });
     const sweepRows = payload.sweepRows || [];
-    renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows, autoTuneRows:lastReplayDebugResult.autoTuneRows });
+    renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows, autoTuneRows:lastReplayDebugResult.autoTuneRows, actualTrades:lastReplayDebugResult.actualTrades });
   } catch (e) {
     const el = document.getElementById(progressId);
     if (el) el.textContent = `Sweep failed: ${e.message || String(e)}`;
@@ -5646,7 +5669,7 @@ async function runReplayAutoTune5D() {
       if (el) el.textContent = `5D auto tune ${update.status}${update.cached ? ' (cached)' : update.reused ? ' (reused)' : update.workerPid ? ` (worker ${update.workerPid})` : ''}... ${update.id}`;
     });
     const autoTuneRows = payload.autoTuneRows || [];
-    renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows:lastReplayDebugResult.sweepRows, autoTuneRows });
+    renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows:lastReplayDebugResult.sweepRows, autoTuneRows, actualTrades:lastReplayDebugResult.actualTrades });
   } catch (e) {
     if (statusBox) statusBox.innerHTML = `<div class="replay-note" style="color:var(--red)">Auto tune failed: ${escapeHTML(e.message || String(e))}</div>`;
   } finally {
@@ -5916,13 +5939,24 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
   }
 }
 
+async function loadHistoricalDayPnl() {
+  try {
+    const res = await fetch(`${PROXY}/portfolio/day-pnl`, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return;
+    const data = await res.json().catch(() => null);
+    if (data?.ok && data.dayPnl && typeof data.dayPnl === 'object') {
+      historicalDayPnl = data.dayPnl;
+    }
+  } catch (_) {}
+}
+
 async function loadPaperTrades(forceServer = false, trackNewTrades = false) {
   if (paperTradesLoading) return paperTradesLoading;
   paperTradesLoading = (async () => {
   try {
     let payload = null;
     if (!forceServer && !paperTradesLoaded && dashboardBootstrap && Array.isArray(dashboardBootstrap.trades)) {
-      payload = { trades:dashboardBootstrap.trades, portfolio:dashboardBootstrap.portfolio };
+      payload = { trades:dashboardBootstrap.trades, portfolio:dashboardBootstrap.portfolio, dayPnl:dashboardBootstrap.dayPnl };
     } else {
       const res = await fetch(PAPER_TRADES_ENDPOINT, { signal: AbortSignal.timeout(5000) });
       if (!res.ok) throw new Error('paper-trades HTTP ' + res.status);
@@ -6358,7 +6392,7 @@ function healthHTML(data){
 }
 
 function getHealthScore(sym){
-  const asset = MIDCAP_STOCKS.find(s=>s.sym===sym) || STOCK_ASSETS.find(s=>s.sym===sym) || null;
+  const asset = MIDCAP_STOCKS.find(s=>s.sym===sym) || null;
   return computeHealthScore(asset);
 }
 
@@ -6555,10 +6589,7 @@ function handleStockSearchInput(input) {
 }
 
 function getAllStockRows() {
-  return [
-    ...MIDCAP_STOCKS.map((s,i)=>({...s,rank:i+1,data:stockData[s.sym]||null})),
-    ...STOCK_ASSETS.map((s,i)=>({...s,rank:MIDCAP_STOCKS.length+i+1,data:stockData[s.sym]||null}))
-  ];
+  return MIDCAP_STOCKS.map((s,i)=>({...s,rank:i+1,data:stockData[s.sym]||null}));
 }
 
 function hasEventRiskForSymbol(sym) {
@@ -6818,13 +6849,13 @@ function renderTable(options = {}) {
 }
 
 function updateStatsBar() {
-  const allD=[...MIDCAP_STOCKS.map(s=>stockData[s.sym]), ...STOCK_ASSETS.map(s=>stockData[s.sym])].filter(Boolean);
+  const allD=MIDCAP_STOCKS.map(s=>stockData[s.sym]).filter(Boolean);
   const gainersEl = document.getElementById('stat-gainers');
   const losersEl = document.getElementById('stat-losers');
   const signalsEl = document.getElementById('stat-signals');
   if (gainersEl) gainersEl.textContent=allD.filter(d=>(d.change||0)>0).length+' gainers';
   if (losersEl) losersEl.textContent=allD.filter(d=>(d.change||0)<0).length+' losers';
-  if (signalsEl) signalsEl.textContent=[...MIDCAP_STOCKS, ...STOCK_ASSETS].filter(s=>getSignal(s,stockData[s.sym])==='buy').length+' buy signals';
+  if (signalsEl) signalsEl.textContent=MIDCAP_STOCKS.filter(s=>getSignal(s,stockData[s.sym])==='buy').length+' buy signals';
 }
 
 function renderStockRowHTML(row) {
@@ -6832,7 +6863,7 @@ function renderStockRowHTML(row) {
   const d=row.data,chg=d?.change||0,price=d?.price||0,sig=getSignal(row,d);
   return `<tr data-sym="${escapeHTML(row.sym)}">
       <td data-label=""><button class="fav-btn ${isStockFavorite(row.sym)?'active':''}" onclick="toggleStockFavorite('${row.sym}', event)">${isStockFavorite(row.sym)?'★':'☆'}</button></td>
-      <td data-label="Stock" data-open-symbol="${escapeHTML(row.sym)}" onclick="openFundModal('${escapeHTML(row.sym)}')" style="cursor:pointer"><div class="stock-name-cell" title="Open stock details"><button class="stock-name-link" type="button" data-open-symbol="${escapeHTML(row.sym)}"><span class="stock-symbol">${escapeHTML(row.sym)}</span><span class="stock-fullname">${escapeHTML(row.name)}</span></button>${STOCK_EXTRA_SYMBOLS.includes(row.sym)?'<button class="stock-edit-btn" onclick="event.stopPropagation();openStockMetadataModal(\''+escapeHTML(row.sym)+'\')">edit</button>':''}</div></td>
+      <td data-label="Stock" data-open-symbol="${escapeHTML(row.sym)}" onclick="openFundModal('${escapeHTML(row.sym)}')" style="cursor:pointer"><div class="stock-name-cell" title="Open stock details"><button class="stock-name-link" type="button" data-open-symbol="${escapeHTML(row.sym)}"><span class="stock-symbol">${escapeHTML(row.sym)}</span><span class="stock-fullname">${escapeHTML(row.name)}</span></button>${isCustomStock(row)?'<button class="stock-edit-btn" onclick="event.stopPropagation();openStockMetadataModal(\''+escapeHTML(row.sym)+'\')">edit</button>':''}</div></td>
       <td data-label="Sector"><div class="sector-cell"><span class="sector-badge">${escapeHTML(row.sector)}</span><span class="sector-badge cap-badge" style="background:${row.cap==='large'?'rgba(14,165,233,.15)':row.cap==='mid'?'rgba(167,139,250,.15)':row.cap==='etf'?'rgba(167,139,250,.06)':'rgba(167,139,250,.06)'};color:${row.cap==='large'?'var(--accent2)':row.cap==='mid'?'var(--accent3)':row.cap==='etf'?'var(--muted)':'var(--muted)'}">${row.cap==='large'?'L-Cap':row.cap==='mid'?'M-Cap':row.cap==='etf'?'ETF':'Custom'}</span></div></td>
       <td data-label="Price" class="price-cell"><div class="price-stack"><span>${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</span><span class="chg-cell ${chg>=0?'up':'down'}">${d?(chg>=0?'▲ +':'▼ ')+chg.toFixed(2)+'%':'--'}</span><span class="range-mini">${d&&d.low52&&d.high52?'52W ₹'+d.low52.toLocaleString('en-IN',{maximumFractionDigits:0})+'–₹'+d.high52.toLocaleString('en-IN',{maximumFractionDigits:0}):'52W --'}</span></div></td>
       <td data-label="Volume" class="hide-mobile hide-1200" style="font-size:12px;color:var(--muted)">${d?.volume?(d.volume/100000).toFixed(1)+'L':'--'}</td>
@@ -7225,11 +7256,9 @@ async function addCustomSymbol(){
 }
 
 async function saveUserStocks() {
-  // Build payload with metadata when available
-  const payload = STOCK_EXTRA_SYMBOLS.map(sym => {
-    const entry = STOCK_ASSETS.find(s => s.sym === sym) || { sym };
-    return { sym: String(sym).trim().toUpperCase(), name: entry.name || sym, sector: entry.sector || null, cap: entry.cap || null };
-  });
+  const payload = MIDCAP_STOCKS.filter(isCustomStock).map(s =>
+    ({ sym: String(s.sym).trim().toUpperCase(), name: s.name || s.sym, sector: s.sector || null, cap: s.cap || null })
+  );
   saveSavedStocksToStorage(payload);
   try {
     await fetch(STOCK_PREFS_ENDPOINT, {
@@ -7247,9 +7276,8 @@ async function addCustomStockSymbol(){
   if(!input) return;
   const sym = input.value.trim().toUpperCase();
   if(!sym) return;
-  if (MIDCAP_STOCKS.some(s=>s.sym===sym) || STOCK_ASSETS.some(s=>s.sym===sym) || STOCK_EXTRA_SYMBOLS.includes(sym)) { input.value=''; alert('Symbol already present'); return; }
-  STOCK_EXTRA_SYMBOLS.push(sym);
-  STOCK_ASSETS.push({ sym, name: sym, sector: 'Custom', cap: 'custom' });
+  if (MIDCAP_STOCKS.some(s=>s.sym===sym)) { input.value=''; alert('Symbol already present'); return; }
+  MIDCAP_STOCKS.push({ sym, name: sym, sector: 'Custom', cap: 'custom' });
   input.value='';
   if (dataSource) await fetchAdditionalSymbols([sym]);
   // Try to fetch sector + marketCap metadata and merge
@@ -7296,7 +7324,7 @@ function applyFundMeta(sym, m) {
   asset.fund.computed.peg = peg;
 }
 
-// Fetch fundamentals for any symbols — works for MIDCAP_STOCKS, STOCK_ASSETS, ETF_ASSETS
+// Fetch fundamentals for any symbols — works for MIDCAP_STOCKS, ETF_ASSETS
 // Uses SSE streaming so health scores and price targets appear as each symbol resolves,
 // falling back to parallel batch requests if SSE is unavailable.
 async function fetchSymbolMetadata(symbols){
@@ -7340,9 +7368,8 @@ let editingStockSymbol = null;
 
 function openStockMetadataModal(sym){
   if(!sym) return;
-  const idx = STOCK_ASSETS.findIndex(s=>s.sym===sym);
-  if(idx===-1) return;
-  const cur = STOCK_ASSETS[idx];
+  const cur = MIDCAP_STOCKS.find(s=>s.sym===sym);
+  if(!cur) return;
   editingStockSymbol = sym;
   document.getElementById('meta-symbol').value = sym;
   document.getElementById('meta-sector').value = cur.sector || 'Custom';
@@ -7360,10 +7387,10 @@ function saveStockMetadata(){
   if(!editingStockSymbol) return;
   const sector = document.getElementById('meta-sector').value.trim() || 'Custom';
   const cap = document.getElementById('meta-cap').value;
-  const idx = STOCK_ASSETS.findIndex(s=>s.sym===editingStockSymbol);
-  if(idx===-1) return closeStockMetaModal();
-  STOCK_ASSETS[idx].sector = sector;
-  STOCK_ASSETS[idx].cap = cap;
+  const asset = MIDCAP_STOCKS.find(s=>s.sym===editingStockSymbol);
+  if(!asset) return closeStockMetaModal();
+  asset.sector = sector;
+  asset.cap = cap;
   saveUserStocks();
   closeStockMetaModal();
   renderDashboard();
@@ -8227,6 +8254,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   await loadDashboardBootstrap();
+  // Merge saved/custom stocks into MIDCAP_STOCKS immediately so renderTable
+  // always sees the full universe, regardless of when the user clicks Connect.
+  await loadSavedStocks();
   await Promise.all([
     loadTradeSettingOverridesFromServer(),
     loadFavoriteETFs(),
@@ -8235,7 +8265,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderTopActionBar();
   await Promise.all([
     loadSavedETFs(),
-    loadSavedStocks(),
     loadPaperTrades(),
   ]);
   subscribePaperTradesStream();
@@ -8380,7 +8409,7 @@ function addChatMsg(role, html){
 function buildFundamentalsContext(){
   // Build a compact snapshot of all stocks with available fundamentals
   const rows = [];
-  const allAssets = [...MIDCAP_STOCKS, ...STOCK_ASSETS];
+  const allAssets = MIDCAP_STOCKS;
   for(const asset of allAssets){
     const d = stockData[asset.sym];
     const f = asset.fund;

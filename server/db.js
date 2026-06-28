@@ -1,8 +1,25 @@
 import Database from 'better-sqlite3';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import nodePath from 'node:path';
+
+const __dirname = nodePath.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_DB_PATH = nodePath.join(__dirname, '..', 'stock-watcher.db');
 
 const INITIAL_SCHEMA_VERSION = 1;
 const SOURCE_SAVED = 'saved';
 const FIFTEEN_DAYS_MS = 15 * 24 * 60 * 60 * 1000;
+
+function toIstDayKeyFromIso(iso) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date(iso));
+    const pick = type => parts.find(p => p.type === type)?.value;
+    return `${pick('year')}-${pick('month')}-${pick('day')}`;
+  } catch { return null; }
+}
 const BROKER_COLUMN_MAP = {
   sharekhan: 'sharekhan_code',
   nse: 'nse_code',
@@ -52,6 +69,21 @@ function getPrepared(db) {
 
   const prepared = {
     getSchemaVersion: db.prepare('SELECT version FROM schema_version WHERE id = 1'),
+    listFavoriteStockRows: db.prepare(
+      `SELECT symbol, name, sector, cap, source FROM symbols WHERE is_favorite = 1 ORDER BY symbol ASC`
+    ),
+    setStockFavoriteBulkTx: db.transaction((symbols) => {
+      const now = Date.now();
+      db.prepare('UPDATE symbols SET is_favorite = 0, updated_at = ? WHERE is_favorite = 1').run(now);
+      const stmt = db.prepare(`
+        INSERT INTO symbols (symbol, is_favorite, updated_at)
+        VALUES (?, 1, ?)
+        ON CONFLICT(symbol) DO UPDATE SET is_favorite = 1, updated_at = excluded.updated_at
+      `);
+      for (const sym of symbols) {
+        if (sym) stmt.run(String(sym).toUpperCase(), now);
+      }
+    }),
     upsertSymbol: db.prepare(`
       INSERT INTO symbols (symbol, name, sector, cap, source, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -86,12 +118,23 @@ function getPrepared(db) {
       prepared.upsertSymbol.run(symbol, name ?? null, sector ?? null, cap ?? null, normalizeSource(source), Date.now());
     }),
     getTradeRow: db.prepare('SELECT data FROM trade_txns WHERE id = ?'),
+    getKvRow: db.prepare('SELECT value FROM kv_store WHERE key = ?'),
+    setKv: db.prepare(`INSERT INTO kv_store (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`),
+    getJsonCache: db.prepare('SELECT data, expires_at FROM json_cache WHERE key = ?'),
+    setJsonCache: db.prepare(`INSERT INTO json_cache (key, data, expires_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at, updated_at = excluded.updated_at`),
+    deleteJsonCache: db.prepare('DELETE FROM json_cache WHERE key = ?'),
     upsertTrade: db.prepare(`
       INSERT INTO trade_txns (id, data, created_at, updated_at)
       VALUES (?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         data = excluded.data,
         updated_at = excluded.updated_at
+    `),
+    getDayPnlRows: db.prepare('SELECT date, pnl FROM day_pnl ORDER BY date DESC'),
+    upsertDayPnl: db.prepare(`
+      INSERT INTO day_pnl (date, pnl, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(date) DO UPDATE SET pnl = excluded.pnl, updated_at = excluded.updated_at
     `),
     countTrades: db.prepare('SELECT COUNT(*) AS count FROM trade_txns'),
     upsertFreshNews: db.prepare(`
@@ -276,7 +319,7 @@ function readEtfMasterRow(row) {
   };
 }
 
-export function initDb(path = 'stock-watcher.db') {
+export function initDb(path = DEFAULT_DB_PATH) {
   const db = new Database(path);
 
   // Enable WAL mode for concurrent read+write (proxy + backtest running together)
@@ -361,6 +404,25 @@ export function initDb(path = 'stock-watcher.db') {
       updated_at INTEGER NOT NULL DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS day_pnl (
+      date TEXT PRIMARY KEY,
+      pnl REAL NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS kv_store (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS json_cache (
+      key TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      expires_at INTEGER NOT NULL DEFAULT 9999999999999,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS portfolio_state (
       key TEXT PRIMARY KEY,
       data TEXT NOT NULL,
@@ -376,6 +438,21 @@ export function initDb(path = 'stock-watcher.db') {
   `);
 
   activeDb = db;
+
+  // Migrate existing DBs: add is_favorite to symbols if missing
+  try { db.exec('ALTER TABLE symbols ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0 CHECK (is_favorite IN (0, 1))'); } catch (_) {}
+  // Ensure new tables exist (for DBs created before kv_store/json_cache were added)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS kv_store (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS json_cache (key TEXT PRIMARY KEY, data TEXT NOT NULL, expires_at INTEGER NOT NULL DEFAULT 9999999999999, updated_at INTEGER NOT NULL DEFAULT 0);
+  `);
+
+  // Seed day_pnl from existing trades if table is empty
+  const dayPnlCount = db.prepare('SELECT COUNT(*) AS n FROM day_pnl').get()?.n ?? 0;
+  if (dayPnlCount === 0) {
+    try { rebuildDayPnl(); } catch (_) {}
+  }
+
   return db;
 }
 
@@ -413,7 +490,7 @@ export function saveSimulationSymbols(symbols) {
   const normalized = [...new Set((Array.isArray(symbols) ? symbols : [])
     .map(s => String(s || '').trim().toUpperCase()).filter(s => /^[A-Z0-9_.-]+$/.test(s)))];
   const tx = db.transaction(() => {
-    // Rows that are 'both' stay but lose simulation source → become 'saved'
+    // Rows that are 'both' stay but lose simulation source ΓåÆ become 'saved'
     db.prepare("UPDATE symbols SET source = 'saved', updated_at = ? WHERE source = 'both'").run(Date.now());
     // Delete rows that were simulation-only
     db.prepare("DELETE FROM symbols WHERE source = 'simulation'").run();
@@ -558,7 +635,36 @@ export function saveTrade(trade) {
   const merged = { ...existingTrade, ...patch, id: patch.id };
   const now = Date.now();
   prepared.upsertTrade.run(patch.id, JSON.stringify(merged), now, now);
+
+  // Update day_pnl when a closed trade with pnl is saved
+  if (String(merged.status || '').toLowerCase() === 'closed' && Number.isFinite(Number(merged.pnl))) {
+    const iso = merged.closedAt || merged.openedAt;
+    const date = iso ? toIstDayKeyFromIso(iso) : null;
+    if (date) recomputeDayPnlForDate(db, prepared, date);
+    // If the trade previously had a different close date, recompute that too
+    const prevIso = existingTrade.closedAt || existingTrade.openedAt;
+    const prevDate = prevIso ? toIstDayKeyFromIso(prevIso) : null;
+    if (prevDate && prevDate !== date) recomputeDayPnlForDate(db, prepared, prevDate);
+  }
+
   return merged;
+}
+
+function recomputeDayPnlForDate(db, prepared, date) {
+  // Sum all closed trades whose IST date matches
+  const allClosed = db.prepare(
+    `SELECT data FROM trade_txns WHERE json_extract(data, '$.status') = 'closed'`
+  ).all();
+  let total = 0;
+  for (const row of allClosed) {
+    const t = parseTradeRow(row);
+    if (!t) continue;
+    const pnl = Number(t.pnl);
+    if (!Number.isFinite(pnl)) continue;
+    const iso = t.closedAt || t.openedAt;
+    if (iso && toIstDayKeyFromIso(iso) === date) total = +(total + pnl).toFixed(2);
+  }
+  prepared.upsertDayPnl.run(date, total, Date.now());
 }
 
 export function updateTrade(id, fields) {
@@ -650,6 +756,41 @@ export function computeAllTimeRealizedPnl() {
   return +(row?.total ?? 0);
 }
 
+export function getDayPnl() {
+  const db = requireDb();
+  const rows = getPrepared(db).getDayPnlRows.all();
+  const result = {};
+  for (const row of rows) result[row.date] = row.pnl;
+  return result;
+}
+
+export function rebuildDayPnl() {
+  const db = requireDb();
+  const prepared = getPrepared(db);
+  const allClosed = db.prepare(
+    `SELECT data FROM trade_txns WHERE json_extract(data, '$.status') = 'closed'`
+  ).all();
+  const byDate = {};
+  for (const row of allClosed) {
+    const t = parseTradeRow(row);
+    if (!t) continue;
+    const pnl = Number(t.pnl);
+    if (!Number.isFinite(pnl)) continue;
+    const iso = t.closedAt || t.openedAt;
+    if (!iso) continue;
+    const date = toIstDayKeyFromIso(iso);
+    if (!date) continue;
+    byDate[date] = +((byDate[date] || 0) + pnl).toFixed(2);
+  }
+  const now = Date.now();
+  db.transaction(() => {
+    for (const [date, pnl] of Object.entries(byDate)) {
+      prepared.upsertDayPnl.run(date, pnl, now);
+    }
+  })();
+  return byDate;
+}
+
 export function saveFreshNews(symbol, date, newsArray, ttlMs = FIFTEEN_DAYS_MS) {
   if (!symbol || !date) {
     return null;
@@ -687,7 +828,7 @@ export function pruneFreshNews() {
   return result.changes ?? 0;
 }
 
-// upsertEtfCodes — bulk upsert per-source ETF broker/exchange codes.
+// upsertEtfCodes ΓÇö bulk upsert per-source ETF broker/exchange codes.
 // Delegates to upsertScripCodes since ETF codes use the same scripts_master table structure.
 // broker: 'sharekhan' | 'zerodha' | 'nse' | 'yahoo'
 export function upsertEtfCodes(rows, broker = 'sharekhan') {
@@ -888,4 +1029,52 @@ export function listEtfFavorites() {
   const db = requireDb();
   const prepared = getPrepared(db);
   return prepared.listFavoriteEtfRows.all().map((row) => readEtfMasterRow(row)).filter(Boolean);
+}
+
+export function getStockFavoriteSymbols() {
+  const db = requireDb();
+  return getPrepared(db).listFavoriteStockRows.all().map(r => r.symbol);
+}
+
+export function setStockFavoriteBulk(symbols) {
+  const db = requireDb();
+  getPrepared(db).setStockFavoriteBulkTx(Array.isArray(symbols) ? symbols : []);
+}
+
+// ΓöÇΓöÇ kv_store: simple key-value for broker_preferences, trade_settings, etc. ΓöÇ
+
+export function kvGet(key) {
+  const db = requireDb();
+  const row = getPrepared(db).getKvRow.get(key);
+  if (!row) return null;
+  return parseJson(row.value, null);
+}
+
+export function kvSet(key, value) {
+  const db = requireDb();
+  getPrepared(db).setKv.run(key, JSON.stringify(value), Date.now());
+}
+
+// ΓöÇΓöÇ json_cache: generic JSON blob cache with TTL ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+export function jsonCacheGet(key) {
+  const db = requireDb();
+  const row = getPrepared(db).getJsonCache.get(key);
+  if (!row) return null;
+  if (row.expires_at <= Date.now()) {
+    getPrepared(db).deleteJsonCache.run(key);
+    return null;
+  }
+  return parseJson(row.data, null);
+}
+
+export function jsonCacheSet(key, data, ttlMs = null) {
+  const db = requireDb();
+  const expiresAt = ttlMs ? Date.now() + ttlMs : 9999999999999;
+  getPrepared(db).setJsonCache.run(key, JSON.stringify(data), expiresAt, Date.now());
+}
+
+export function jsonCacheDelete(key) {
+  const db = requireDb();
+  getPrepared(db).deleteJsonCache.run(key);
 }

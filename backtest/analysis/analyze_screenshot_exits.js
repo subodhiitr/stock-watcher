@@ -6,6 +6,36 @@
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
+
+const SNAPSHOT_DIR = path.join(__dirname, '../../snapshots');
+const SNAPSHOT_DATE = '2026-06-25';
+
+function loadSnapshotDaySync(date, dir) {
+  const candidates = [
+    [path.join(dir, `snapshot-${date}.json.gz`), true],
+    [path.join(dir, `simulation_snapshots_${date}.json.gz`), true],
+    [path.join(dir, `simulation_snapshots_${date}.json`), false],
+    [path.join(dir, `snapshot-${date}.json`), false],
+  ];
+  for (const [filePath, isGz] of candidates) {
+    if (fs.existsSync(filePath)) {
+      const buf = fs.readFileSync(filePath);
+      return JSON.parse(isGz ? zlib.gunzipSync(buf).toString() : buf.toString('utf8'));
+    }
+  }
+  throw new Error(`Snapshot not found for date ${date}`);
+}
+
+function loadSnapshots() {
+  try {
+    const data = loadSnapshotDaySync(SNAPSHOT_DATE, SNAPSHOT_DIR);
+    return (data.snapshots || []).sort((a, b) => new Date(a.at) - new Date(b.at));
+  } catch (e) {
+    console.error('Failed to load snapshots:', e.message);
+    return [];
+  }
+}
 
 // Trades from screenshot (visible exits)
 const screenshotTrades = [
@@ -23,18 +53,6 @@ const screenshotTrades = [
   { symbol: 'IEX', entry: 3353.6, live: 3355.15, exitReason: 'Simulation confirmed stop', pnl: -519.71 },
 ];
 
-const SNAPSHOT_FILE = path.join(__dirname, 'snapshots/simulation_snapshots_2026-06-25.json');
-
-function loadSnapshots() {
-  try {
-    const data = JSON.parse(fs.readFileSync(SNAPSHOT_FILE, 'utf8'));
-    return (data.snapshots || []).sort((a, b) => new Date(a.at) - new Date(b.at));
-  } catch (e) {
-    console.error('Failed to load snapshots:', e.message);
-    return [];
-  }
-}
-
 function analyzeExitCompliance() {
   const snapshots = loadSnapshots();
   if (!snapshots.length) {
@@ -42,7 +60,7 @@ function analyzeExitCompliance() {
     return;
   }
 
-  console.log(`\n📊 RECENT EXIT ANALYSIS (From Screenshot)`);
+  console.log(`\n≡ƒôè RECENT EXIT ANALYSIS (From Screenshot)`);
   console.log(`Last snapshot: ${snapshots[snapshots.length - 1].at}\n`);
 
   // Separate by exit type
@@ -58,11 +76,11 @@ function analyzeExitCompliance() {
   // ============================================
   // KEY METRICS
   // ============================================
-  console.log(`📈 COMPARING WITH PREVIOUS SESSIONS:\n`);
+  console.log(`≡ƒôê COMPARING WITH PREVIOUS SESSIONS:\n`);
 
   console.log(`Signal Deterioration (FADE) Exits:`);
   fadeExits.forEach(t => {
-    const pnlStr = t.pnl >= 0 ? `✅ +${t.pnl}` : `❌ ${t.pnl}`;
+    const pnlStr = t.pnl >= 0 ? `Γ£à +${t.pnl}` : `Γ¥î ${t.pnl}`;
     console.log(`  ${t.symbol.padEnd(12)} | ${pnlStr.padEnd(12)} (Entry: ${t.entry}, Live: ${t.live})`);
   });
 
@@ -75,7 +93,7 @@ function analyzeExitCompliance() {
   console.log(`\n---`);
   console.log(`\nConfirmed Stop Exits:`);
   stopExits.forEach(t => {
-    const pnlStr = t.pnl >= 0 ? `✅ +${t.pnl}` : `❌ ${t.pnl}`;
+    const pnlStr = t.pnl >= 0 ? `Γ£à +${t.pnl}` : `Γ¥î ${t.pnl}`;
     console.log(`  ${t.symbol.padEnd(12)} | ${pnlStr.padEnd(12)} (Entry: ${t.entry}, Live: ${t.live})`);
   });
 
@@ -88,40 +106,40 @@ function analyzeExitCompliance() {
   // ============================================
   // ANALYSIS & VERIFICATION
   // ============================================
-  console.log(`\n\n🔍 VERIFICATION: Is 3-Bar Rule Being Applied?\n`);
+  console.log(`\n\n≡ƒöì VERIFICATION: Is 3-Bar Rule Being Applied?\n`);
 
-  console.log(`Expected Behavior (with score ≥70 + 3-bar fade threshold):`);
-  console.log(`  ✓ Fewer signal deterioration exits (should be quick, high-quality exits)`);
-  console.log(`  ✓ Higher win rate on fades (targeting only score ≥70 entries)`);
-  console.log(`  ✓ Fewer confirmed stops (weak score 60-70 entries are now filtered)\n`);
+  console.log(`Expected Behavior (with score ΓëÑ70 + 3-bar fade threshold):`);
+  console.log(`  Γ£ô Fewer signal deterioration exits (should be quick, high-quality exits)`);
+  console.log(`  Γ£ô Higher win rate on fades (targeting only score ΓëÑ70 entries)`);
+  console.log(`  Γ£ô Fewer confirmed stops (weak score 60-70 entries are now filtered)\n`);
 
   console.log(`What We See:`);
-  console.log(`  • Signal deterioration exits: ${fadeExits.length}/12 (${(fadeExits.length/12*100).toFixed(0)}%)`);
-  console.log(`  • Fade average PnL: ${fadeAvgPnL.toFixed(2)} Rs`);
-  console.log(`  • Fade win rate: ${fadeWinRate.toFixed(1)}%`);
-  console.log(`  • Confirmed stops: ${stopExits.length}/12 (${(stopExits.length/12*100).toFixed(0)}%)`);
-  console.log(`  • Stop average PnL: ${stopAvgPnL.toFixed(2)} Rs\n`);
+  console.log(`  ΓÇó Signal deterioration exits: ${fadeExits.length}/12 (${(fadeExits.length/12*100).toFixed(0)}%)`);
+  console.log(`  ΓÇó Fade average PnL: ${fadeAvgPnL.toFixed(2)} Rs`);
+  console.log(`  ΓÇó Fade win rate: ${fadeWinRate.toFixed(1)}%`);
+  console.log(`  ΓÇó Confirmed stops: ${stopExits.length}/12 (${(stopExits.length/12*100).toFixed(0)}%)`);
+  console.log(`  ΓÇó Stop average PnL: ${stopAvgPnL.toFixed(2)} Rs\n`);
 
   // ============================================
   // INTERPRETATION
   // ============================================
-  console.log(`📋 INTERPRETATION:\n`);
+  console.log(`≡ƒôï INTERPRETATION:\n`);
 
   const totalPnL = screenshotTrades.reduce((s, t) => s + t.pnl, 0);
   const avgPnL = totalPnL / screenshotTrades.length;
 
   if (fadeWinRate > 50 && stopAvgPnL < -500) {
-    console.log(`✅ Settings are WORKING:`);
-    console.log(`   • 3-bar threshold is filtering noise (high fade win rate)`);
-    console.log(`   • Score ≥70 is preventing weak entries (stops are fewer but deep)`);
+    console.log(`Γ£à Settings are WORKING:`);
+    console.log(`   ΓÇó 3-bar threshold is filtering noise (high fade win rate)`);
+    console.log(`   ΓÇó Score ΓëÑ70 is preventing weak entries (stops are fewer but deep)`);
   } else if (fadeWinRate < 30 && stopAvgPnL > -300) {
-    console.log(`⚠️  Settings may NOT be applied yet:`);
-    console.log(`   • Old data still showing (high stop count, low fade win rate)`);
-    console.log(`   • Wait 5-10 more minutes for new cycle with applied settings`);
+    console.log(`ΓÜá∩╕Å  Settings may NOT be applied yet:`);
+    console.log(`   ΓÇó Old data still showing (high stop count, low fade win rate)`);
+    console.log(`   ΓÇó Wait 5-10 more minutes for new cycle with applied settings`);
   } else {
-    console.log(`🔄 Mixed signals - transition phase:`);
-    console.log(`   • Some trades using old settings, some using new`);
-    console.log(`   • Give it another cycle to stabilize`);
+    console.log(`≡ƒöä Mixed signals - transition phase:`);
+    console.log(`   ΓÇó Some trades using old settings, some using new`);
+    console.log(`   ΓÇó Give it another cycle to stabilize`);
   }
 
   console.log(`\nTotal PnL (all 12 trades): ${totalPnL.toFixed(2)} Rs (${(totalPnL > 0 ? '+' : '')}${(totalPnL/12).toFixed(2)} per trade)`);
@@ -130,7 +148,7 @@ function analyzeExitCompliance() {
   console.log(`Next steps:`);
   console.log(`1. Wait 10 more minutes for next batch of exits`);
   console.log(`2. Check if confirmed stops DECREASE (vs screenshot baseline)`);
-  console.log(`3. Verify fade exits have ≥3 bars of weakness before exiting`);
+  console.log(`3. Verify fade exits have ΓëÑ3 bars of weakness before exiting`);
 }
 
 analyzeExitCompliance();

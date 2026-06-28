@@ -62,6 +62,8 @@ const {
   deleteTrade,
   getTradesUpdatedAt,
   computeAllTimeRealizedPnl,
+  getDayPnl,
+  rebuildDayPnl,
   rememberSymbols: dbRememberSymbols,
   getSavedStockSymbols,
   getSimulationSymbols,
@@ -77,23 +79,23 @@ const {
   setEtfSavedBulk,
   setEtfFavoriteBulk,
   upsertEtfMaster,
+  getStockFavoriteSymbols,
+  setStockFavoriteBulk,
+  kvGet,
+  kvSet,
+  jsonCacheGet,
+  jsonCacheSet,
 } = require('./server/db');
 const PORT  = 3001;
 const USER_OPENAI_PROPERTIES = path.join(os.homedir(), 'openai.properties');
-const SAVED_ETF_FILE = path.join(__dirname, 'saved_etfs.json');
-const SAVED_STOCK_FILE = path.join(__dirname, 'saved_stocks.json');
-const SAVED_ETF_FAV_FILE  = path.join(__dirname, 'saved_etf_favs.json');
-const ETF_LIST_CACHE_FILE  = path.join(__dirname, 'etf_list_cache.json');
+const APP_CACHE_DIR        = path.join(__dirname, 'cache');
 const ETF_LIST_CACHE_TTL   = 24 * 60 * 60 * 1000;        // 24 hours (NSE price/nav batch)
-const ETF_META_TTL         = 30 * 24 * 60 * 60 * 1000;   // 30 days (static: TER, family, 1Y/3Y/5Y — stored in etf_list_cache.json under "meta" key)
-const FUND_CACHE_FILE      = path.join(__dirname, 'fundamentals_cache.json');
+const ETF_META_TTL         = 30 * 24 * 60 * 60 * 1000;   // 30 days (static: TER, family, 1Y/3Y/5Y)
 const FUND_CACHE_TTL       = 30 * 24 * 60 * 60 * 1000;   // 30 days (mostly static fundamentals)
-const ETF_SUM_CACHE_FILE   = path.join(__dirname, 'etf_summary_cache.json');
 const ETF_1M_RETURN_TTL    = 24 * 60 * 60 * 1000;        // 24 hours (1M return — base shifts daily)
-const ETF_SUM_CACHE_VERSION = 3;                          // v3: 1M-return-only cache (static fields moved to etf_list_cache meta)
-const NSE_IDX_CACHE_FILE   = path.join(__dirname, 'nse_index_cache.json');
+const ETF_SUM_CACHE_VERSION = 3;                          // v3: 1M-return-only cache
 const NSE_IDX_CACHE_TTL    = 24 * 60 * 60 * 1000;        // 24 hours
-const SAVED_STOCK_FAV_FILE = path.join(__dirname, 'saved_stock_favs.json');
+const REPLAY_CACHE_TTL     = 7 * 24 * 60 * 60 * 1000;    // 7 days (replay results
 const PAPER_TRADES_FILE    = process.env.PAPER_TRADES_FILE || path.join(__dirname, 'paper_trades.json');
 const TRADE_EXECUTION_PATH = '/trade-execution';
 const PAPER_TRADES_ALIAS_PATH = '/paper-trades';
@@ -102,20 +104,20 @@ const PAPER_TRADES_ALIAS_STREAM_PATH = `${PAPER_TRADES_ALIAS_PATH}/stream`;
 const PAPER_TRADES_DEPRECATION_WARNING = '/paper-trades will be removed next minor release';
 const SIMULATION_RUNTIME_FILE = process.env.SIMULATION_RUNTIME_FILE || path.join(__dirname, 'simulation_runtime.json');
 const REPLAY_WORKER_FILE   = path.join(__dirname, 'replay_worker.js');
-const APP_CACHE_DIR        = path.join(__dirname, 'cache');
-const REPLAY_CACHE_FILE    = path.join(APP_CACHE_DIR, 'replay_results.json');
-const FRESH_NEWS_CACHE_FILE = path.join(APP_CACHE_DIR, 'fresh_stock_news.json'); // legacy combined cache
-const FRESH_NEWS_CACHE_DIR  = path.join(APP_CACHE_DIR, 'fresh_news');
-const FRESH_NEWS_CACHE_INDEX_FILE = path.join(FRESH_NEWS_CACHE_DIR, 'index.json');
-const TRADE_SETTINGS_FILE  = process.env.TRADE_SETTINGS_FILE || path.join(__dirname, 'trade_settings.json');
+// JSON files kept for one-time migration only (read on first DB init if kv_store is empty)
 const BROKER_PREFS_FILE    = path.join(__dirname, 'broker_preferences.json');
+const TRADE_SETTINGS_FILE  = process.env.TRADE_SETTINGS_FILE || path.join(__dirname, 'trade_settings.json');
+const SIMULATION_UNIVERSE_FILE = process.env.SIMULATION_UNIVERSE_FILE || path.join(__dirname, 'simulation_universe.json');
+// Snapshot and fresh-news files (large binary archives — legitimately file-based)
 const SIM_SNAPSHOT_DIR     = path.join(__dirname, 'snapshots');
 const SIM_SNAPSHOT_FILE    = path.join(SIM_SNAPSHOT_DIR, 'simulation_snapshots.json');
 const SIM_SNAPSHOT_LEGACY_FILE = path.join(__dirname, 'simulation_snapshots.json');
 const SIM_SNAPSHOT_PREFIX  = 'simulation_snapshots';
 const SIM_SNAPSHOT_RETENTION_DAYS = 30;
-const SIM_SNAPSHOT_TTL     = SIM_SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000; // keep strategy replay data
-const SIMULATION_UNIVERSE_FILE = process.env.SIMULATION_UNIVERSE_FILE || path.join(__dirname, 'simulation_universe.json');
+const SIM_SNAPSHOT_TTL     = SIM_SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+const FRESH_NEWS_CACHE_FILE = path.join(APP_CACHE_DIR, 'fresh_stock_news.json'); // legacy combined cache
+const FRESH_NEWS_CACHE_DIR  = path.join(APP_CACHE_DIR, 'fresh_news');
+const FRESH_NEWS_CACHE_INDEX_FILE = path.join(FRESH_NEWS_CACHE_DIR, 'index.json');
 const INTRADAY_LIVE_REFRESH_MARKET_SEC = 60;
 const INTRADAY_LIVE_REFRESH_OFF_HOURS_SEC = 15 * 60;
 const SIMULATION_MARKET_CACHE_TTL_MS = 60 * 1000;
@@ -192,9 +194,7 @@ const VALID_BROKER_MODES = new Set(['paper', 'zerodha_dry_run', 'zerodha_live', 
 
 function loadBrokerModePreference() {
   try {
-    if (!fs.existsSync(BROKER_PREFS_FILE)) return 'paper';
-    const parsed = JSON.parse(fs.readFileSync(BROKER_PREFS_FILE, 'utf8') || '{}');
-    const mode = String(parsed?.mode || '').toLowerCase();
+    const mode = String(kvGet('broker_mode') || '').toLowerCase();
     return VALID_BROKER_MODES.has(mode) ? mode : 'paper';
   } catch (e) {
     console.warn('[broker-prefs] Could not load broker preferences:', e.message);
@@ -205,7 +205,7 @@ function loadBrokerModePreference() {
 function saveBrokerModePreference(mode) {
   try {
     if (!VALID_BROKER_MODES.has(mode)) return false;
-    fs.writeFileSync(BROKER_PREFS_FILE, JSON.stringify({ mode, updatedAt: Date.now() }, null, 2), 'utf8');
+    kvSet('broker_mode', mode);
     return true;
   } catch (e) {
     console.warn('[broker-prefs] Could not save broker preferences:', e.message);
@@ -224,7 +224,7 @@ function setBrokerMode(mode) {
 }
 
 // Broker integrations
-let brokerMode = loadBrokerModePreference(); // paper, zerodha_dry_run, zerodha_live, sharekhan_live
+let brokerMode = 'paper'; // initialized from DB after initDb() in initializeProxy()
 let zerodhaCredentials = null;
 let kiteClientLive = null;
 let kiteClientDry = null;
@@ -250,203 +250,116 @@ function parseExplicitINav(item) {
 }
 
 function loadSavedETFsFile() {
-  try {
-    if (proxyDbReady) return getEtfSavedSymbols();
-    if (!fs.existsSync(SAVED_ETF_FILE)) fs.writeFileSync(SAVED_ETF_FILE, '[]', 'utf8');
-    const content = fs.readFileSync(SAVED_ETF_FILE, 'utf8');
-    return JSON.parse(content || '[]');
-  } catch (e) {
-    return [];
-  }
+  try { return getEtfSavedSymbols(); } catch (e) { return []; }
 }
 function saveSavedETFsFile(symbols) {
-  try {
-    if (proxyDbReady) {
-      setEtfSavedBulk(symbols);
-    }
-    fs.writeFileSync(SAVED_ETF_FILE, JSON.stringify(Array.isArray(symbols) ? symbols : [], null, 2), 'utf8');
-  } catch (e) {
-    console.warn('[proxy] Could not save ETF prefs:', e.message);
-  }
+  try { setEtfSavedBulk(symbols); } catch (e) { console.warn('[proxy] Could not save ETF prefs:', e.message); }
 }
 
 function loadSavedStocksFile() {
-  try {
-    if (proxyDbReady) return getSavedStockSymbols();
-    if (!fs.existsSync(SAVED_STOCK_FILE)) fs.writeFileSync(SAVED_STOCK_FILE, '[]', 'utf8');
-    const content = fs.readFileSync(SAVED_STOCK_FILE, 'utf8');
-    return JSON.parse(content || '[]');
-  } catch (e) {
-    return [];
-  }
+  try { return getSavedStockSymbols(); } catch (e) { return []; }
 }
 function saveSavedStocksFile(symbols) {
   try {
-    if (proxyDbReady && Array.isArray(symbols)) {
-      // symbols is [{sym, name, sector, cap}] or [string]
-      const rows = symbols.map(s => typeof s === 'string'
-        ? { symbol: s, source: 'saved' }
-        : { symbol: s.sym || s.symbol, name: s.name || null, sector: s.sector || null, cap: s.cap || null, source: 'saved' }
-      ).filter(r => r.symbol);
-      dbRememberSymbols(rows);
-    }
-    fs.writeFileSync(SAVED_STOCK_FILE, JSON.stringify(Array.isArray(symbols) ? symbols : [], null, 2), 'utf8');
-  } catch (e) {
-    console.warn('[proxy] Could not save stock prefs:', e.message);
-  }
+    if (!Array.isArray(symbols)) return;
+    const rows = symbols.map(s => typeof s === 'string'
+      ? { symbol: s, source: 'saved' }
+      : { symbol: s.sym || s.symbol, name: s.name || null, sector: s.sector || null, cap: s.cap || null, source: 'saved' }
+    ).filter(r => r.symbol);
+    dbRememberSymbols(rows);
+  } catch (e) { console.warn('[proxy] Could not save stock prefs:', e.message); }
 }
 
-// ── Fundamentals cache (per-symbol, 7-day TTL) ──────────────────────────────
-// Structure: { [SYM]: { data: {...}, savedAt: timestamp } }
+// ── Fundamentals cache (per-symbol, 30d TTL) ────────────────────────────────
 let fundCache = {};
 function loadFundCache() {
   try {
-    if (fs.existsSync(FUND_CACHE_FILE)) {
-      fundCache = JSON.parse(fs.readFileSync(FUND_CACHE_FILE, 'utf8')) || {};
-      const count = Object.keys(fundCache).length;
-      if (count) console.log(`[fund-cache] Loaded ${count} cached fundamentals from file`);
-    }
+    fundCache = jsonCacheGet('fund_cache') || {};
+    const count = Object.keys(fundCache).length;
+    if (count) console.log(`[fund-cache] Loaded ${count} cached fundamentals`);
   } catch(e) { console.warn('[fund-cache] Load error:', e.message); fundCache = {}; }
 }
 function saveFundCache() {
-  try {
-    fs.writeFileSync(FUND_CACHE_FILE, JSON.stringify(fundCache, null, 2), 'utf8');
-  } catch(e) { console.warn('[fund-cache] Save error:', e.message); }
+  try { jsonCacheSet('fund_cache', fundCache, FUND_CACHE_TTL); }
+  catch(e) { console.warn('[fund-cache] Save error:', e.message); }
 }
-loadFundCache();
 
 // ── ETF summary cache (1M return only, 24h TTL) ─────────────────────────────
-// Static fields (TER, category, fundFamily, 1Y/3Y/5Y) now live in etf_list_cache.json under "meta".
-// Structure: { [SYM]: { oneMonthReturn: number, savedAt: timestamp, version: 3 } }
 let etfSumCache = {};
 function loadEtfSumCache() {
   try {
-    if (fs.existsSync(ETF_SUM_CACHE_FILE)) {
-      const raw = JSON.parse(fs.readFileSync(ETF_SUM_CACHE_FILE, 'utf8')) || {};
-      const count = Object.keys(raw).length;
-      // Version 3 = 1M-only format. Any older cache (v2 mixed format) is cleared.
-      const isCurrent = count === 0 || Object.values(raw).some(e => e.version === ETF_SUM_CACHE_VERSION);
-      if (!isCurrent) {
-        console.log('[etf-sum-cache] Old mixed-format cache detected (pre-v3) — clearing');
-        fs.unlinkSync(ETF_SUM_CACHE_FILE);
-        etfSumCache = {};
-      } else {
-        etfSumCache = raw;
-        if (count) console.log(`[etf-sum-cache] Loaded ${count} cached 1M returns`);
-      }
+    const raw = jsonCacheGet('etf_sum_cache') || {};
+    const count = Object.keys(raw).length;
+    const isCurrent = count === 0 || Object.values(raw).some(e => e.version === ETF_SUM_CACHE_VERSION);
+    if (!isCurrent) {
+      console.log('[etf-sum-cache] Old cache format detected — clearing');
+      etfSumCache = {};
+    } else {
+      etfSumCache = raw;
+      if (count) console.log(`[etf-sum-cache] Loaded ${count} cached 1M returns`);
     }
   } catch(e) { console.warn('[etf-sum-cache] Load error:', e.message); etfSumCache = {}; }
 }
 function saveEtfSumCache() {
-  try { fs.writeFileSync(ETF_SUM_CACHE_FILE, JSON.stringify(etfSumCache, null, 2), 'utf8'); }
+  try { jsonCacheSet('etf_sum_cache', etfSumCache, ETF_1M_RETURN_TTL); }
   catch(e) { console.warn('[etf-sum-cache] Save error:', e.message); }
 }
-loadEtfSumCache();
 
 // ── ETF meta cache (static fields: TER, category, fundFamily, 1Y/3Y/5Y — 30d TTL) ──
-// Stored inside etf_list_cache.json as a top-level "meta" dict so we don't need
-// a separate file.  Loaded on startup and written back whenever a symbol is fetched.
-// Structure: { [SYM]: { expenseRatio, category, fundFamily, ytdReturn, oneYearReturn,
-//                        threeYearReturn, fiveYearReturn, savedAt } }
 let etfMetaCache = {};
 function loadEtfMetaCache() {
   try {
-    if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
-      const raw = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8')) || {};
-      etfMetaCache = raw.meta || {};
-      const count = Object.keys(etfMetaCache).length;
-      if (count) console.log(`[etf-meta-cache] Loaded ${count} static ETF records from etf_list_cache.json`);
-    }
+    etfMetaCache = jsonCacheGet('etf_meta_cache') || {};
+    const count = Object.keys(etfMetaCache).length;
+    if (count) console.log(`[etf-meta-cache] Loaded ${count} static ETF records`);
   } catch(e) { console.warn('[etf-meta-cache] Load error:', e.message); etfMetaCache = {}; }
 }
 function saveEtfMetaCache() {
-  try {
-    // Merge into existing etf_list_cache.json without overwriting the etfs array
-    let existing = {};
-    if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
-      existing = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8')) || {};
-    }
-    existing.meta = etfMetaCache;
-    fs.writeFileSync(ETF_LIST_CACHE_FILE, JSON.stringify(existing, null, 2), 'utf8');
-  } catch(e) { console.warn('[etf-meta-cache] Save error:', e.message); }
+  try { jsonCacheSet('etf_meta_cache', etfMetaCache, ETF_META_TTL); }
+  catch(e) { console.warn('[etf-meta-cache] Save error:', e.message); }
 }
-loadEtfMetaCache();
 
 function getETFExpenseRatio(sym) {
   const key = String(sym || '').toUpperCase();
   return etfMetaCache[key]?.expenseRatio ?? STATIC_TER[key] ?? null;
 }
 
-// Returns a {sym → etfObject} map from DB (when ready) or etf_list_cache.json fallback
+// Returns a {sym → etfObject} map from DB
 function loadEtfListDataMap() {
   const map = {};
-  try {
-    if (proxyDbReady) {
-      for (const e of listAllEtfs()) map[e.sym || e.symbol] = e;
-      return map;
-    }
-    if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
-      const cached = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8'));
-      for (const e of (cached.etfs || [])) map[e.sym] = e;
-    }
-  } catch(_) {}
+  try { for (const e of listAllEtfs()) map[e.sym || e.symbol] = e; }
+  catch(e) { console.warn('[etf-list-map] Load error:', e.message); }
   return map;
 }
-
 
 // ── NSE index membership cache (per-index, 24h TTL) ─────────────────────────
 let nseIdxCache = {};
 function loadNseIdxCache() {
   try {
-    if (fs.existsSync(NSE_IDX_CACHE_FILE)) {
-      nseIdxCache = JSON.parse(fs.readFileSync(NSE_IDX_CACHE_FILE, 'utf8')) || {};
-      const count = Object.keys(nseIdxCache).length;
-      if (count) console.log(`[nse-idx-cache] Loaded ${count} cached index lists`);
-    }
+    nseIdxCache = jsonCacheGet('nse_idx_cache') || {};
+    const count = Object.keys(nseIdxCache).length;
+    if (count) console.log(`[nse-idx-cache] Loaded ${count} cached index lists`);
   } catch(e) { console.warn('[nse-idx-cache] Load error:', e.message); nseIdxCache = {}; }
 }
 function saveNseIdxCache() {
-  try { fs.writeFileSync(NSE_IDX_CACHE_FILE, JSON.stringify(nseIdxCache, null, 2), 'utf8'); }
+  try { jsonCacheSet('nse_idx_cache', nseIdxCache, NSE_IDX_CACHE_TTL); }
   catch(e) { console.warn('[nse-idx-cache] Save error:', e.message); }
 }
-loadNseIdxCache();
 
 function loadSavedETFFavsFile() {
-  try {
-    if (proxyDbReady) return getEtfFavoriteSymbols();
-    if (!fs.existsSync(SAVED_ETF_FAV_FILE)) fs.writeFileSync(SAVED_ETF_FAV_FILE, '[]', 'utf8');
-    const content = fs.readFileSync(SAVED_ETF_FAV_FILE, 'utf8');
-    return JSON.parse(content || '[]');
-  } catch (e) {
-    return [];
-  }
+  try { return getEtfFavoriteSymbols(); } catch (e) { return []; }
 }
 function saveSavedETFFavsFile(symbols) {
-  try {
-    if (proxyDbReady) {
-      setEtfFavoriteBulk(symbols);
-    }
-    fs.writeFileSync(SAVED_ETF_FAV_FILE, JSON.stringify(Array.isArray(symbols) ? symbols : [], null, 2), 'utf8');
-  } catch (e) {
-    console.warn('[proxy] Could not save ETF favorites:', e.message);
-  }
+  try { setEtfFavoriteBulk(symbols); }
+  catch (e) { console.warn('[proxy] Could not save ETF favorites:', e.message); }
 }
 
 function loadSavedStockFavsFile() {
-  try {
-    if (!fs.existsSync(SAVED_STOCK_FAV_FILE)) fs.writeFileSync(SAVED_STOCK_FAV_FILE, '[]', 'utf8');
-    const content = fs.readFileSync(SAVED_STOCK_FAV_FILE, 'utf8');
-    return JSON.parse(content || '[]');
-  } catch (e) {
-    return [];
-  }
+  try { return getStockFavoriteSymbols(); } catch (e) { return []; }
 }
 function saveSavedStockFavsFile(symbols) {
-  try {
-    fs.writeFileSync(SAVED_STOCK_FAV_FILE, JSON.stringify(Array.isArray(symbols) ? symbols : [], null, 2), 'utf8');
-  } catch (e) {
-    console.warn('[proxy] Could not save stock favorites:', e.message);
-  }
+  try { setStockFavoriteBulk(Array.isArray(symbols) ? symbols : []); }
+  catch (e) { console.warn('[proxy] Could not save stock favorites:', e.message); }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -538,48 +451,28 @@ function normalizePaperState(raw) {
   return { savedAt: raw?.savedAt || Date.now(), portfolio: { initialCapital, capitalAdds }, trades };
 }
 
-function loadPaperStateFile() {
+function loadPaperStateFile({ asOf = null } = {}) {
   try {
     if (proxyDbReady) {
       const allTrades = listTrades();
       const dbPortfolio = loadPortfolioState() || defaultPaperPortfolio();
-      const todayKey = getIstDateKey();
 
-      // Merge any trades from JSON that aren't in DB yet (production transition safety net).
-      // Skip JSON→DB sync when PAPER_TRADES_FILE is a fixture path (test mode).
-      // In production PAPER_TRADES_FILE is the default path at project root.
-      const isTestFixture = !!process.env.PAPER_TRADES_FILE;
-      if (!isTestFixture && fs.existsSync(PAPER_TRADES_FILE)) {
-        try {
-          const jsonRaw = JSON.parse(fs.readFileSync(PAPER_TRADES_FILE, 'utf8') || '{}');
-          const jsonTrades = Array.isArray(jsonRaw) ? jsonRaw : (Array.isArray(jsonRaw?.trades) ? jsonRaw.trades : []);
-          const dbIds = new Set(allTrades.map(t => t.id));
-          const missingFromDb = jsonTrades.filter(t => t?.id && !dbIds.has(t.id));
-          if (missingFromDb.length) {
-            console.log(`[paper-trades] Syncing ${missingFromDb.length} trades from JSON to DB`);
-            for (const t of missingFromDb) {
-              try { saveTrade(t); } catch (_) {}
-            }
-            allTrades.push(...missingFromDb);
-          }
-        } catch (_) {}
-      }
-
-      // Only load open trades + today's closed trades — all-time realized P&L is pre-aggregated
+      // Load open trades + same-day closed trades (keeps SSE payload small).
+      // asOf allows the scheduler to pass its tick time for accurate day-stats.
+      // All-time realized P&L is pre-aggregated separately via computeAllTimeRealizedPnl()
+      const dayKey = asOf ? toIstDayKey(asOf) : getIstDateKey();
       const filteredTrades = allTrades.filter(t => {
         if (String(t.status || '').toLowerCase() === 'open') return true;
-        // Include closed/failed trades from today (IST) for day P&L breakdown
         const tradeDate = toIstDayKey(t.closedAt || t.openedAt || '');
-        return tradeDate === todayKey;
+        return tradeDate === dayKey;
       });
-
       const ownershipContext = getTradeOwnershipContext();
       const normalized = normalizeTradeCollectionOwnership(filteredTrades, ownershipContext);
 
       // Check if any ownership normalization changes need flushing back to DB
       for (let i = 0; i < filteredTrades.length; i++) {
         if (JSON.stringify(filteredTrades[i]) !== JSON.stringify(normalized[i])) {
-          try { saveTrade(normalized[i]); } catch (_) {}
+          try { saveTrade(normalized[i]); } catch (e) { console.warn('[paper-trades] Ownership flush failed:', e.message); }
         }
       }
 
@@ -592,15 +485,19 @@ function loadPaperStateFile() {
       };
     }
 
-    // Fallback: JSON file (used in tests when proxyDbReady=false)
-    if (!fs.existsSync(PAPER_TRADES_FILE)) {
-      fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: defaultPaperPortfolio(), trades: [] }, null, 2), 'utf8');
+    // Fallback: JSON file for tests (proxyDbReady=false, PAPER_TRADES_FILE set via env)
+    const testFile = process.env.PAPER_TRADES_FILE;
+    if (!testFile) {
+      return { savedAt: Date.now(), portfolio: defaultPaperPortfolio(), trades: [] };
     }
-    const raw = JSON.parse(fs.readFileSync(PAPER_TRADES_FILE, 'utf8') || '{}');
+    if (!fs.existsSync(testFile)) {
+      fs.writeFileSync(testFile, JSON.stringify({ savedAt: Date.now(), portfolio: defaultPaperPortfolio(), trades: [] }, null, 2), 'utf8');
+    }
+    const raw = JSON.parse(fs.readFileSync(testFile, 'utf8') || '{}');
     const sourceTrades = Array.isArray(raw) ? raw : (Array.isArray(raw?.trades) ? raw.trades : []);
     const normalized2 = normalizePaperState(raw);
     if (JSON.stringify(sourceTrades) !== JSON.stringify(normalized2.trades)) {
-      fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: normalized2.portfolio, trades: normalized2.trades }, null, 2), 'utf8');
+      fs.writeFileSync(testFile, JSON.stringify({ savedAt: Date.now(), portfolio: normalized2.portfolio, trades: normalized2.trades }, null, 2), 'utf8');
     }
     return normalized2;
   } catch (e) {
@@ -618,15 +515,18 @@ function savePaperStateFile(state) {
     const next = normalizePaperState(state || {});
     if (proxyDbReady) {
       for (const trade of next.trades) {
-        try { saveTrade(trade); } catch (_) {}
+        try { saveTrade(trade); } catch (e) { console.warn('[paper-trades] Save trade failed:', trade?.id, e.message); }
       }
       try {
         const realizedPnl = computeAllTimeRealizedPnl();
         savePortfolioState({ ...next.portfolio, realizedPnl });
-      } catch (_) {}
+      } catch (e) { console.warn('[paper-trades] Save portfolio state failed:', e.message); }
+      return;
     }
-    // JSON backup always written (primary in tests, backup in production)
-    fs.writeFileSync(PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: next.portfolio, trades: next.trades }, null, 2), 'utf8');
+    // JSON fallback for tests (proxyDbReady=false, PAPER_TRADES_FILE set via env)
+    if (process.env.PAPER_TRADES_FILE) {
+      fs.writeFileSync(process.env.PAPER_TRADES_FILE, JSON.stringify({ savedAt: Date.now(), portfolio: next.portfolio, trades: next.trades }, null, 2), 'utf8');
+    }
   } catch (e) {
     console.warn('[paper-trades] Save error:', e.message);
   }
@@ -744,6 +644,7 @@ function buildPaperTradeStreamPayload(reason = 'update') {
     ok: true,
     reason,
     ...state,
+    dayPnl: proxyDbReady ? getDayPnl() : {},
     simulationRuntime: getSimulationRuntimeStatus(),
     sentAt: Date.now(),
   };
@@ -860,15 +761,8 @@ function readSchedulerTickInput() {
 }
 
 function loadSimulationUniverseState() {
-  try {
-    if (proxyDbReady) return getSimulationSymbols();
-    if (!fs.existsSync(SIMULATION_UNIVERSE_FILE)) return [];
-    const parsed = JSON.parse(fs.readFileSync(SIMULATION_UNIVERSE_FILE, 'utf8') || '{}');
-    return Array.isArray(parsed.symbols) ? parsed.symbols : [];
-  } catch (error) {
-    console.warn('[simulation-universe] Load error:', error.message);
-    return [];
-  }
+  try { return getSimulationSymbols(); }
+  catch (error) { console.warn('[simulation-universe] Load error:', error.message); return []; }
 }
 
 function saveSimulationUniverseState(symbols) {
@@ -876,10 +770,7 @@ function saveSimulationUniverseState(symbols) {
     const normalized = [...new Set((Array.isArray(symbols) ? symbols : [])
       .map(sym => String(sym || '').trim().toUpperCase())
       .filter(sym => /^[A-Z0-9_.-]+$/.test(sym)))];
-    if (proxyDbReady) {
-      dbSaveSimulationSymbols(normalized);
-    }
-    fs.writeFileSync(SIMULATION_UNIVERSE_FILE, JSON.stringify({ savedAt: Date.now(), symbols: normalized }, null, 2), 'utf8');
+    dbSaveSimulationSymbols(normalized);
     return normalized;
   } catch (error) {
     console.warn('[simulation-universe] Save error:', error.message);
@@ -1152,7 +1043,7 @@ async function getSimulationMarketContext() {
       simulationMarketCache = { fetchedAt: now, indices };
       return { indices };
     }
-  } catch (_) {}
+  } catch (e) { console.warn('[market-cache] Context fetch failed:', e.message); }
   return { indices: simulationMarketCache.indices || {} };
 }
 
@@ -1282,7 +1173,7 @@ async function buildServerSimulationAnalysisPayload(source = 'server-analysis') 
   const candidates = Array.isArray(tickInput?.candidates) ? tickInput.candidates : [];
   const market = tickInput?.market || {};
   const sectorTrend = tickInput?.sectorTrend || {};
-  const trades = loadPaperStateFile().trades || [];
+  const trades = loadPaperStateFile({ asOf: at }).trades || [];
   const openTrades = trades.filter(trade => trade?.status === 'open');
   const openSymbols = new Set(openTrades.map(trade => String(trade?.symbol || '').toUpperCase()).filter(Boolean));
   const dayStats = TradeRules.buildDayStats(trades, at, settings, { sameDay: sameIstDay });
@@ -1353,12 +1244,13 @@ async function runSimulationSchedulerTick() {
         return { ok: true, skipped: true, state: runtime.state };
       }
 
-      const state = loadPaperStateFile();
-      const settings = loadTradeSettingsFile().overrides || {};
+      const settingsRaw = loadTradeSettingsFile().overrides || {};
+      const settings = settingsRaw;
       const tickInput = await readSchedulerTickInputAsync(settings);
       const inputAtIso = String(tickInput?.at || new Date().toISOString());
       const useInputClock = !!(simulationSchedulerTestInputs && typeof simulationSchedulerTestInputs === 'object');
       const schedulerAtIso = useInputClock ? inputAtIso : new Date().toISOString();
+      const state = loadPaperStateFile({ asOf: schedulerAtIso });
       const autoStopAfterMarket = runtime.state === 'running' && shouldAutoStopSimulation(schedulerAtIso);
       const eodSettlement = isSimulationEodSettlementTime(schedulerAtIso);
       const ownershipContext = getTradeOwnershipContext(runtime.state, settings);
@@ -1383,7 +1275,7 @@ async function runSimulationSchedulerTick() {
           let quotes = {};
           try {
             quotes = (await yahooQuote(missingSymbols))?.quotes || {};
-          } catch (_) {}
+          } catch (e) { console.warn('[scheduler] Yahoo quote fallback failed:', e.message); }
           for (const sym of missingSymbols) {
             const trade = openBySymbol.get(sym);
             if (!trade) continue;
@@ -1651,16 +1543,12 @@ function ensureDir(dir) {
 
 function loadTradeSettingsFile() {
   try {
-    if (!fs.existsSync(TRADE_SETTINGS_FILE)) {
-      fs.writeFileSync(TRADE_SETTINGS_FILE, JSON.stringify({ savedAt:Date.now(), overrides:{} }, null, 2), 'utf8');
-    }
-    const raw = JSON.parse(fs.readFileSync(TRADE_SETTINGS_FILE, 'utf8') || '{}');
-    return raw && typeof raw === 'object' && raw.overrides && typeof raw.overrides === 'object'
-      ? { savedAt:raw.savedAt || Date.now(), overrides:raw.overrides }
-      : { savedAt:Date.now(), overrides:{} };
+    const val = kvGet('trade_settings');
+    if (val && typeof val === 'object' && val.overrides) return val;
+    return { savedAt: Date.now(), overrides: {} };
   } catch (e) {
     console.warn('[trade-settings] Load error:', e.message);
-    return { savedAt:Date.now(), overrides:{} };
+    return { savedAt: Date.now(), overrides: {} };
   }
 }
 
@@ -1671,27 +1559,18 @@ function saveTradeSettingsFile(overrides) {
     if (Number.isFinite(n)) clean[key] = n;
     else if (typeof value === 'boolean') clean[key] = value;
   }
-  fs.writeFileSync(TRADE_SETTINGS_FILE, JSON.stringify({ savedAt:Date.now(), overrides:clean }, null, 2), 'utf8');
+  try { kvSet('trade_settings', { savedAt: Date.now(), overrides: clean }); }
+  catch(e) { console.warn('[trade-settings] Save error:', e.message); }
   return clean;
 }
 
 function readEtfListCacheSummary() {
   try {
-    if (proxyDbReady) {
-      const etfs = listAllEtfs();
-      return { savedAt: Date.now(), count: etfs.length, etfs };
-    }
-    if (!fs.existsSync(ETF_LIST_CACHE_FILE)) return { savedAt:null, count:0, etfs:[] };
-    const cached = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8') || '{}');
-    const etfs = Array.isArray(cached.etfs) ? cached.etfs : [];
-    return {
-      savedAt: cached.savedAt || null,
-      count: etfs.length,
-      etfs,
-    };
+    const etfs = listAllEtfs();
+    return { savedAt: Date.now(), count: etfs.length, etfs };
   } catch (e) {
     console.warn('[bootstrap] ETF cache read failed:', e.message);
-    return { savedAt:null, count:0, etfs:[] };
+    return { savedAt: null, count: 0, etfs: [] };
   }
 }
 
@@ -1711,6 +1590,7 @@ function buildDashboardBootstrap() {
     },
     portfolio:paper.portfolio,
     trades:paper.trades,
+    dayPnl: proxyDbReady ? getDayPnl() : {},
     tradeSettings,
     etfListCache:{
       savedAt:etfCache.savedAt,
@@ -1734,11 +1614,11 @@ function getIstDateKey(value = Date.now()) {
 }
 
 function getSimulationSnapshotFile(dateKey = getIstDateKey()) {
-  return path.join(SIM_SNAPSHOT_DIR, `${SIM_SNAPSHOT_PREFIX}_${dateKey}.json`);
+  return path.join(SIM_SNAPSHOT_DIR, `${SIM_SNAPSHOT_PREFIX}_${dateKey}.json.gz`);
 }
 
 function isSimulationSnapshotFileName(name) {
-  return /^simulation_snapshots_\d{4}-\d{2}-\d{2}\.json$/.test(String(name || ''));
+  return /^simulation_snapshots_\d{4}-\d{2}-\d{2}\.json(?:\.gz)?$/.test(String(name || ''));
 }
 
 function listSimulationSnapshotFiles() {
@@ -1756,12 +1636,20 @@ function listSimulationSnapshotFiles() {
 }
 
 function loadSimulationSnapshotsFile(dateKey = null) {
-  const file = dateKey ? getSimulationSnapshotFile(dateKey) : SIM_SNAPSHOT_FILE;
+  // Try compressed (.json.gz) first, fall back to uncompressed (.json)
+  const gzFile = dateKey ? getSimulationSnapshotFile(dateKey) : null;
+  const legacyFile = dateKey
+    ? path.join(SIM_SNAPSHOT_DIR, `${SIM_SNAPSHOT_PREFIX}_${dateKey}.json`)
+    : SIM_SNAPSHOT_FILE;
+  const file = (gzFile && fs.existsSync(gzFile)) ? gzFile
+    : (fs.existsSync(legacyFile) ? legacyFile : null);
   try {
-    if (!fs.existsSync(file)) {
+    if (!file) {
       return { savedAt: Date.now(), retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: dateKey || null, snapshots: [] };
     }
-    const raw = JSON.parse(fs.readFileSync(file, 'utf8') || '{}');
+    const buf = fs.readFileSync(file);
+    const text = file.endsWith('.gz') ? zlib.gunzipSync(buf).toString() : buf.toString('utf8');
+    const raw = JSON.parse(text || '{}');
     return {
       savedAt: Number(raw.savedAt) || Date.now(),
       retentionDays: SIM_SNAPSHOT_RETENTION_DAYS,
@@ -1778,7 +1666,9 @@ function loadAllSimulationSnapshots() {
   const all = [];
   for (const file of listSimulationSnapshotFiles()) {
     try {
-      const raw = JSON.parse(fs.readFileSync(file, 'utf8') || '{}');
+      const buf = fs.readFileSync(file);
+      const text = file.endsWith('.gz') ? zlib.gunzipSync(buf).toString() : buf.toString('utf8');
+      const raw = JSON.parse(text || '{}');
       if (Array.isArray(raw.snapshots)) all.push(...raw.snapshots);
     } catch (e) {
       console.warn('[simulation-snapshots] Load file error:', path.basename(file), e.message);
@@ -1813,7 +1703,8 @@ function saveSimulationSnapshotsFile(state, dateKey = getIstDateKey()) {
     const snapshots = pruneSimulationSnapshots(state?.snapshots || []);
     if (!fs.existsSync(SIM_SNAPSHOT_DIR)) fs.mkdirSync(SIM_SNAPSHOT_DIR, { recursive: true });
     const file = getSimulationSnapshotFile(dateKey);
-    fs.writeFileSync(file, JSON.stringify({ savedAt: Date.now(), retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: dateKey, snapshots }, null, 2), 'utf8');
+    const payload = JSON.stringify({ savedAt: Date.now(), retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: dateKey, snapshots });
+    fs.writeFileSync(file, zlib.gzipSync(payload));
     pruneSimulationSnapshotFiles();
     return snapshots;
   } catch (e) {
@@ -2223,9 +2114,8 @@ function getCachedReplay(key) {
 
 function persistReplayCacheFile() {
   try {
-    ensureDir(APP_CACHE_DIR);
     const entries = [...replayResultCache.entries()].map(([key, value]) => ({ key, ...value }));
-    fs.writeFileSync(REPLAY_CACHE_FILE, JSON.stringify({ savedAt:Date.now(), entries }, null, 2), 'utf8');
+    jsonCacheSet('replay_results', { savedAt: Date.now(), entries }, REPLAY_CACHE_TTL);
   } catch (e) {
     console.warn('[replay-cache] Save error:', e.message);
   }
@@ -2233,15 +2123,15 @@ function persistReplayCacheFile() {
 
 function loadReplayCacheFile() {
   try {
-    if (!fs.existsSync(REPLAY_CACHE_FILE)) return;
-    const raw = JSON.parse(fs.readFileSync(REPLAY_CACHE_FILE, 'utf8') || '{}');
+    const raw = jsonCacheGet('replay_results');
+    if (!raw) return;
     const entries = Array.isArray(raw.entries) ? raw.entries : [];
     for (const entry of entries) {
       if (!entry?.key || !entry.payload) continue;
       replayResultCache.set(entry.key, {
-        savedAt:Number(entry.savedAt) || Date.now(),
-        hitAt:Number(entry.hitAt) || Number(entry.savedAt) || Date.now(),
-        payload:entry.payload,
+        savedAt: Number(entry.savedAt) || Date.now(),
+        hitAt: Number(entry.hitAt) || Number(entry.savedAt) || Date.now(),
+        payload: entry.payload,
       });
     }
   } catch (e) {
@@ -2259,13 +2149,31 @@ function setCachedReplay(key, payload) {
   return payload;
 }
 
-loadReplayCacheFile();
-
 function readReplaySnapshotsForDay(day) {
   const state = loadSimulationSnapshotsFile(day);
   return pruneSimulationSnapshots(state.snapshots || [])
     .filter(s => !day || getIstDateKey(s.at) === day)
     .sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
+}
+
+function loadActualTradesForDay(day) {
+  if (!day) return [];
+  try {
+    if (proxyDbReady) {
+      return listTrades({ source: 'simulation', status: 'closed' }).filter(t => {
+        return toIstDayKey(t.closedAt || t.openedAt || '') === day;
+      });
+    }
+    // JSON fallback: filter from in-memory state
+    return loadPaperStateFile().trades.filter(t =>
+      t.source === 'simulation' &&
+      String(t.status || '').toLowerCase() === 'closed' &&
+      toIstDayKey(t.closedAt || t.openedAt || '') === day
+    );
+  } catch (e) {
+    console.warn('[replay] loadActualTradesForDay error:', e.message);
+    return [];
+  }
 }
 
 function buildReplayResponse(day, options = {}) {
@@ -2281,6 +2189,7 @@ function buildReplayResponse(day, options = {}) {
     date:day,
     count:snapshots.length,
     result,
+    actualTrades:loadActualTradesForDay(day),
   };
   if (options.sweep) {
     response.sweepRows = runQuickReplaySweep(snapshots, settings, 5);
@@ -2328,6 +2237,7 @@ function buildReplayDeepSweepResponse(day, options = {}) {
     date:day,
     count:snapshots.length,
     result,
+    actualTrades:loadActualTradesForDay(day),
     sweepRows:runDeepReplaySweep(snapshots, settings, 20),
     deepSweep:true,
   };
@@ -2728,11 +2638,13 @@ function buildSharekhanLiveOrder(payload, trade, phase = 'entry', scripCode = 0)
   };
 }
 
-function readJsonBody(req) {
+function readJsonBody(req, timeoutMs = 5000) {
   return new Promise((resolve, reject) => {
     const chunks = [];
+    const timer = setTimeout(() => resolve({}), timeoutMs);
     req.on('data', chunk => chunks.push(chunk));
     req.on('end', () => {
+      clearTimeout(timer);
       try {
         const body = Buffer.concat(chunks).toString('utf8');
         resolve(body ? JSON.parse(body) : {});
@@ -2740,7 +2652,7 @@ function readJsonBody(req) {
         reject(e);
       }
     });
-    req.on('error', reject);
+    req.on('error', (e) => { clearTimeout(timer); reject(e); });
   });
 }
 
@@ -2850,7 +2762,7 @@ async function getOllamaModel(preferred) {
     const tags = await ollamaRequest('/api/tags', 'GET', null, 5000);
     const first = Array.isArray(tags.models) ? tags.models[0] : null;
     if (first?.name) return first.name;
-  } catch (_) {}
+  } catch (e) { console.warn('[ollama] Could not detect model:', e.message); }
   return 'llama3.1';
 }
 
@@ -5803,39 +5715,23 @@ async function proxyRequestHandler(req, res) {
   // /etf-list  -- return full NSE ETF list (all ~300+ ETFs) with NAV, price, 52W from NSE batch
   if (pathname === '/etf-list') {
     try {
-      // Serve from cache if fresh and has fundFamily (invalidate old cache that predates this field)
-      if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
-        const cached = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8'));
-        const hasFundFamily = (cached.etfs || []).some(e => e.fundFamily != null);
-        if (!hasFundFamily) {
-          console.log('[etf-list] cache predates fundFamily — deleting for re-fetch');
-          fs.unlinkSync(ETF_LIST_CACHE_FILE);
-        } else if (Date.now() - (cached.savedAt || 0) < ETF_LIST_CACHE_TTL) {
-          let patchedFamily = false;
-          for (const etf of (cached.etfs || [])) {
-            if (etf?.sym && etf.fundFamily == null) {
-              const family = lookupAMC(etf.sym);
-              if (family) { etf.fundFamily = family; patchedFamily = true; }
-            }
-            if (etf?.sym && etf.expRatio == null && getETFExpenseRatio(etf.sym) != null) {
-              etf.expRatio = getETFExpenseRatio(etf.sym);
-              patchedFamily = true;
-            }
-          }
-          if (patchedFamily) {
-            try {
-              fs.writeFileSync(ETF_LIST_CACHE_FILE, JSON.stringify(cached, null, 2), 'utf8');
-            } catch(e) {
-              console.warn('[etf-list] cache family patch save failed:', e.message);
-            }
-          }
-          console.log(`[etf-list] serving ${cached.etfs.length} ETFs from cache (age ${Math.round((Date.now()-cached.savedAt)/60000)}m)`);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, count: cached.etfs.length, etfs: cached.etfs, fromCache: true }));
-          return;
-        } else {
-          console.log('[etf-list] cache stale, refreshing from NSE…');
+      // Serve from DB cache if fresh
+      const cachedEtfs = listAllEtfs();
+      const cacheAge = cachedEtfs.length ? (Date.now() - (cachedEtfs[0]?.updatedAt || 0)) : Infinity;
+      if (cachedEtfs.length && cacheAge < ETF_LIST_CACHE_TTL) {
+        // Patch any missing fundFamily/expRatio in-memory
+        let patched = false;
+        for (const etf of cachedEtfs) {
+          if (etf?.sym && etf.fundFamily == null) { const f = lookupAMC(etf.sym); if (f) { etf.fundFamily = f; patched = true; } }
+          if (etf?.sym && etf.expRatio == null && getETFExpenseRatio(etf.sym) != null) { etf.expRatio = getETFExpenseRatio(etf.sym); patched = true; }
         }
+        if (patched) {
+          try { upsertEtfMaster(cachedEtfs.map(e => ({ ...e, symbol: e.sym }))); } catch(e) { console.warn('[etf-list] patch upsert failed:', e.message); }
+        }
+        console.log(`[etf-list] serving ${cachedEtfs.length} ETFs from DB cache (age ${Math.round(cacheAge/60000)}m)`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, count: cachedEtfs.length, etfs: cachedEtfs, fromCache: true }));
+        return;
       }
 
       // Fetch fresh from NSE — retry up to 3 times on ECONNRESET
@@ -5871,31 +5767,21 @@ async function proxyRequestHandler(req, res) {
         return { sym, name, sector, fundFamily, price, nav, navPremium, high52, low52, volume, aum, expRatio, chg, chgPct };
       }).filter(e => e.sym);
 
-      // Persist to cache file and DB
-      fs.writeFileSync(ETF_LIST_CACHE_FILE, JSON.stringify({ savedAt: Date.now(), etfs, meta: etfMetaCache }, null, 2), 'utf8');
-      if (proxyDbReady) {
-        try { upsertEtfMaster(etfs.map(e => ({ ...e, symbol: e.sym }))); } catch (_) {}
-      }
-      console.log(`[etf-list] fetched ${etfs.length} ETFs from NSE, saved to cache`);
+      // Persist to DB
+      try { upsertEtfMaster(etfs.map(e => ({ ...e, symbol: e.sym }))); } catch (e) { console.warn('[etf-list] Master upsert failed:', e.message); }
+      console.log(`[etf-list] fetched ${etfs.length} ETFs from NSE, saved to DB`);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, count: etfs.length, etfs }));
     } catch(e) {
       console.warn('[etf-list] NSE fetch error:', e.message);
-      // Try to serve stale cache — DB first, then JSON file
+      // Serve stale DB cache on error
       try {
-        const staleEtfs = proxyDbReady ? listAllEtfs() : null;
+        const staleEtfs = listAllEtfs();
         if (staleEtfs && staleEtfs.length) {
           console.warn(`[etf-list] serving stale DB cache (${staleEtfs.length} ETFs) after error`);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, count: staleEtfs.length, etfs: staleEtfs, fromCache: true, stale: true }));
-          return;
-        }
-        if (fs.existsSync(ETF_LIST_CACHE_FILE)) {
-          const cached = JSON.parse(fs.readFileSync(ETF_LIST_CACHE_FILE, 'utf8'));
-          console.warn(`[etf-list] serving stale JSON cache (age ${Math.round((Date.now()-cached.savedAt)/60000)}m) after error`);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, count: cached.etfs.length, etfs: cached.etfs, fromCache: true, stale: true }));
           return;
         }
       } catch(_) {}
@@ -6111,7 +5997,7 @@ async function proxyRequestHandler(req, res) {
               return { symbol: sym, sym, ...meta, oneMonthReturn: oneM?.oneMonthReturn ?? null };
             }).filter(r => r.symbol);
             if (rows.length) upsertEtfMaster(rows);
-          } catch (_) {}
+          } catch (e) { console.warn('[etf-cache] ETF master upsert failed:', e.message); }
         }
       }
     } catch(e) { send({ error: e.message }); }
@@ -6639,7 +6525,7 @@ async function proxyRequestHandler(req, res) {
               return { symbol: sym, sym, ...meta, oneMonthReturn: oneM?.oneMonthReturn ?? null };
             }).filter(r => r.symbol);
             if (rows.length) upsertEtfMaster(rows);
-          } catch (_) {}
+          } catch (e) { console.warn('[etf-cache] ETF master upsert failed:', e.message); }
         }
       } // end if (stale.length)
 
@@ -6673,7 +6559,7 @@ async function proxyRequestHandler(req, res) {
                 .map(sym => ({ symbol: sym, sym, oneMonthReturn: etfSumCache[sym]?.oneMonthReturn ?? null }))
                 .filter(r => r.symbol && r.oneMonthReturn != null);
               if (rows.length) upsertEtfMaster(rows);
-            } catch (_) {}
+          } catch (e) { console.warn('[etf-cache] ETF master upsert failed:', e.message); }
           }
         })().catch(e => console.warn('[etf-cache] background 1M refresh failed:', e.message));
       }
@@ -6925,6 +6811,36 @@ async function proxyRequestHandler(req, res) {
       res.end(JSON.stringify({ error: e.message }));
       return;
     }
+  }
+
+  // /portfolio/day-pnl -- Historical day-wise P&L from DB (all closed trades, grouped by IST date)
+  if (pathname === '/portfolio/day-pnl') {
+    if (req.method === 'POST') {
+      // Rebuild the day_pnl table from all closed trades
+      try {
+        const dayPnl = proxyDbReady ? rebuildDayPnl() : {};
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+        res.end(JSON.stringify({ ok: true, rebuilt: true, dayPnl }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: e.message }));
+      }
+      return;
+    }
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed' }));
+      return;
+    }
+    try {
+      const dayPnl = proxyDbReady ? getDayPnl() : {};
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
+      res.end(JSON.stringify({ ok: true, dayPnl }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: e.message }));
+    }
+    return;
   }
 
   // /sharekhan-portfolio -- Live Sharekhan portfolio snapshot
@@ -7537,7 +7453,7 @@ async function proxyRequestHandler(req, res) {
             return;
           }
           if (proxyDbReady && id) {
-            try { deleteTrade(id); } catch (_) {}
+            try { deleteTrade(id); } catch (e) { console.warn('[trades] Delete failed:', id, e.message); }
           }
           const next = trades.filter(t => t.id !== id);
           savePaperTradesFile(next);
@@ -7590,11 +7506,18 @@ async function proxyRequestHandler(req, res) {
   if (pathname === '/simulation-replay/jobs') {
     if (req.method === 'POST') {
       try {
-        let payload = {};
-        try { payload = await readJsonBody(req); } catch (_) { payload = {}; }
-        const day = String(payload.day || searchParams.get('day') || getIstDateKey()).trim();
-        const mode = replayModeFromParams({ mode:payload.mode || searchParams.get('mode') });
-        const job = createReplayJob(day, mode);
+        // Read from query params first (more reliable via Remix proxy), then body
+        let day = searchParams.get('day') || '';
+        let mode = searchParams.get('mode') || '';
+        if (!day || !mode) {
+          let payload = {};
+          try { payload = await readJsonBody(req, 3000); } catch (_) { payload = {}; }
+          day = day || String(payload.day || '').trim();
+          mode = mode || String(payload.mode || '').trim();
+        }
+        day = day || getIstDateKey();
+        const jobMode = replayModeFromParams({ mode });
+        const job = createReplayJob(day, jobMode);
         res.writeHead(202, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok:true, job:compactReplayJob(job), jobs:compactReplayJobHistory() }));
       } catch(e) {
@@ -7882,8 +7805,77 @@ async function initializeProxy() {
     initDb();
     proxyDbReady = true;
     console.log('[db] SQLite initialized');
+
+    // ── One-time migrations from JSON → DB ───────────────────────────────────
+    if (!kvGet('broker_mode') && fs.existsSync(BROKER_PREFS_FILE)) {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(BROKER_PREFS_FILE, 'utf8') || '{}');
+        const mode = String(parsed?.mode || '').toLowerCase();
+        if (VALID_BROKER_MODES.has(mode)) { kvSet('broker_mode', mode); console.log('[db] Migrated broker_mode from JSON'); }
+      } catch (_) {}
+    }
+    if (!kvGet('trade_settings') && fs.existsSync(TRADE_SETTINGS_FILE)) {
+      try {
+        const raw = JSON.parse(fs.readFileSync(TRADE_SETTINGS_FILE, 'utf8') || '{}');
+        if (raw?.overrides) { kvSet('trade_settings', raw); console.log('[db] Migrated trade_settings from JSON'); }
+      } catch (_) {}
+    }
+    // Seed fund_cache from JSON file if DB cache is empty
+    if (!jsonCacheGet('fund_cache')) {
+      const jsonFile = path.join(APP_CACHE_DIR, 'fundamentals_cache.json');
+      if (fs.existsSync(jsonFile)) {
+        try {
+          const data = JSON.parse(fs.readFileSync(jsonFile, 'utf8') || '{}');
+          if (data && Object.keys(data).length) {
+            jsonCacheSet('fund_cache', data, FUND_CACHE_TTL);
+            console.log(`[db] Migrated fund_cache from JSON (${Object.keys(data).length} entries)`);
+          }
+        } catch (_) {}
+      }
+    }
+    // Seed etf_sum_cache from JSON file if DB cache is empty
+    if (!jsonCacheGet('etf_sum_cache')) {
+      const jsonFile = path.join(APP_CACHE_DIR, 'etf_summary_cache.json');
+      if (fs.existsSync(jsonFile)) {
+        try {
+          const data = JSON.parse(fs.readFileSync(jsonFile, 'utf8') || '{}');
+          if (data && Object.keys(data).length) {
+            jsonCacheSet('etf_sum_cache', data, ETF_1M_RETURN_TTL);
+            console.log(`[db] Migrated etf_sum_cache from JSON (${Object.keys(data).length} entries)`);
+          }
+        } catch (_) {}
+      }
+    }
+    // Seed etf_meta_cache from etf_list_cache.json meta section if DB cache is empty
+    if (!jsonCacheGet('etf_meta_cache')) {
+      const jsonFile = path.join(APP_CACHE_DIR, 'etf_list_cache.json');
+      if (fs.existsSync(jsonFile)) {
+        try {
+          const raw = JSON.parse(fs.readFileSync(jsonFile, 'utf8') || '{}');
+          const meta = raw?.meta;
+          if (meta && Object.keys(meta).length) {
+            jsonCacheSet('etf_meta_cache', meta, ETF_META_TTL);
+            console.log(`[db] Migrated etf_meta_cache from JSON (${Object.keys(meta).length} entries)`);
+          }
+          // Also seed etf_master from the etfs array if DB is empty
+          const etfs = raw?.etfs;
+          if (Array.isArray(etfs) && etfs.length && listAllEtfs().length === 0) {
+            try { upsertEtfMaster(etfs.map(e => ({ ...e, symbol: e.sym || e.symbol }))); console.log(`[db] Migrated ${etfs.length} ETFs from etf_list_cache.json`); } catch (_) {}
+          }
+        } catch (_) {}
+      }
+    }
+
+    // ── Load all in-memory caches from DB ────────────────────────────────────
+    loadFundCache();
+    loadEtfSumCache();
+    loadEtfMetaCache();
+    loadNseIdxCache();
+    loadReplayCacheFile();
+    brokerMode = loadBrokerModePreference();
+    console.log(`[db] Caches loaded: fund=${Object.keys(fundCache).length} etfSum=${Object.keys(etfSumCache).length} etfMeta=${Object.keys(etfMetaCache).length} nseIdx=${Object.keys(nseIdxCache).length}`);
   } catch (e) {
-    console.warn('[db] SQLite initialization failed, falling back to JSON storage:', e.message);
+    console.warn('[db] SQLite initialization failed:', e.message);
   }
   await initializeSimulationRuntime();
   await Promise.all([warmNSESession(), refreshYahooCrumb()]);
@@ -8099,6 +8091,18 @@ module.exports = {
       });
     },
     getPaperTradesForRuntime() {
+      if (proxyDbReady) {
+        const trades = listTrades();
+        const ownershipContext = getTradeOwnershipContext();
+        const normalized = normalizeTradeCollectionOwnership(trades, ownershipContext);
+        // Flush ownership changes back to DB (same as loadPaperStateFile does)
+        for (let i = 0; i < trades.length; i++) {
+          if (JSON.stringify(trades[i]) !== JSON.stringify(normalized[i])) {
+            try { saveTrade(normalized[i]); } catch (e) { console.warn('[trades] Ownership save failed:', normalized[i]?.id, e.message); }
+          }
+        }
+        return normalized;
+      }
       return loadPaperStateFile().trades;
     },
     buildServerCandidateFromIntradayForTests(sym, setup, settings = {}, meta = null, asOf = null) {

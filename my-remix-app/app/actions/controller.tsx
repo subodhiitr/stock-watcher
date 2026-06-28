@@ -50,15 +50,15 @@ async function dashboardResponse(options: { view?: 'stocks' | 'etfs'; action?: '
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
 <title>NSE Midcap Dashboard</title>
-<link rel="preload" href="/dashboard.css?v=20260620-30" as="style">
-<link rel="stylesheet" href="/dashboard.css?v=20260620-30">
+<link rel="preload" href="/dashboard.css?v=20260628-30" as="style">
+<link rel="stylesheet" href="/dashboard.css?v=20260628-30">
 </head>
 <body>
 ${body}
 <script>window.__DASHBOARD_ROUTE__=${bootScript};</script>
-<script defer src="/trade_rules.js?v=20260620-25"></script>
-<script defer src="/simulation_engine.js?v=20260620-25"></script>
-<script defer src="/dashboard-app.js?v=20260620-35"></script>
+<script defer src="/trade_rules.js?v=20260628-25"></script>
+<script defer src="/simulation_engine.js?v=20260628-25"></script>
+<script defer src="/dashboard-app.js?v=20260628-42"></script>
 </body>
 </html>`
 
@@ -81,11 +81,11 @@ export default createController(routes, {
       return rootFileResponse(
         'dashboard-app.js',
         'application/javascript; charset=utf-8',
-        'public, max-age=60',
+        'public, max-age=3600',
       )
     },
     dashboardCss() {
-      return rootFileResponse('dashboard.css', 'text/css; charset=utf-8', 'public, max-age=60')
+      return rootFileResponse('dashboard.css', 'text/css; charset=utf-8', 'public, max-age=3600')
     },
     home() {
       return dashboardResponse()
@@ -106,14 +106,14 @@ export default createController(routes, {
       return rootFileResponse(
         'simulation_engine.js',
         'application/javascript; charset=utf-8',
-        'public, max-age=60',
+        'public, max-age=3600',
       )
     },
     tradeRules() {
       return rootFileResponse(
         'trade_rules.js',
         'application/javascript; charset=utf-8',
-        'public, max-age=60',
+        'public, max-age=3600',
       )
     },
     stocks() {

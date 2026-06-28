@@ -1,16 +1,30 @@
 #!/usr/bin/env node
-/**
- * Detailed P&L impact analysis for fade-exit thresholds
- */
-
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
-const SNAPSHOT_FILE = path.join(__dirname, 'snapshots/simulation_snapshots_2026-06-25.json');
+const SNAPSHOT_DIR = path.join(__dirname, '../../snapshots');
+const SNAPSHOT_DATE = '2026-06-25';
+
+function loadSnapshotDaySync(date, dir) {
+  const candidates = [
+    [path.join(dir, `snapshot-${date}.json.gz`), true],
+    [path.join(dir, `simulation_snapshots_${date}.json.gz`), true],
+    [path.join(dir, `simulation_snapshots_${date}.json`), false],
+    [path.join(dir, `snapshot-${date}.json`), false],
+  ];
+  for (const [filePath, isGz] of candidates) {
+    if (fs.existsSync(filePath)) {
+      const buf = fs.readFileSync(filePath);
+      return JSON.parse(isGz ? zlib.gunzipSync(buf).toString() : buf.toString('utf8'));
+    }
+  }
+  throw new Error(`Snapshot not found for date ${date}`);
+}
 
 function loadSnapshots() {
   try {
-    const data = JSON.parse(fs.readFileSync(SNAPSHOT_FILE, 'utf8'));
+    const data = loadSnapshotDaySync(SNAPSHOT_DATE, SNAPSHOT_DIR);
     return (data.snapshots || []).sort((a, b) => new Date(a.at) - new Date(b.at));
   } catch (e) {
     console.error('Failed to load snapshots:', e.message);
@@ -25,7 +39,7 @@ function analyzeDetailedImpact() {
     return;
   }
 
-  console.log(`\n💰 Detailed P&L Impact Analysis\n`);
+  console.log(`\n≡ƒÆ░ Detailed P&L Impact Analysis\n`);
 
   // Track trades and their prices
   const tradeTimeline = {};
@@ -155,27 +169,27 @@ function analyzeDetailedImpact() {
   // Sample losing trades with weak signals
   console.log('\n\nLoser Trades with Weak Signal Streaks:');
   losses.filter(t => t.maxConsecWeak >= 2).slice(0, 8).forEach(t => {
-    const action2 = t.wouldExitAt2Bar ? '✓' : '✗';
-    const action3 = t.wouldExitAt3Bar ? '✓' : '✗';
-    const action4 = t.wouldExitAt4Bar ? '✓' : '✗';
+    const action2 = t.wouldExitAt2Bar ? 'Γ£ô' : 'Γ£ù';
+    const action3 = t.wouldExitAt3Bar ? 'Γ£ô' : 'Γ£ù';
+    const action4 = t.wouldExitAt4Bar ? 'Γ£ô' : 'Γ£ù';
     console.log(`  ${t.symbol.padEnd(10)} | PnL: ${t.pnlPct.padEnd(7)}% | Max Streak: ${t.maxConsecWeak} | 2: ${action2} | 3: ${action3} | 4: ${action4}`);
   });
 
-  console.log('\n\n📈 Recommendation:');
+  console.log('\n\n≡ƒôê Recommendation:');
   const prevented23 = stats['2-bar'].count - stats['3-bar'].count;
   const prevented34 = stats['3-bar'].count - stats['4-bar'].count;
   
   if (prevented23 === 0 && prevented34 === 0) {
-    console.log('  ⚠️  Very minimal difference between thresholds');
-    console.log('  → Use 3-bar for slightly better filters, or stick with 2-bar');
+    console.log('  ΓÜá∩╕Å  Very minimal difference between thresholds');
+    console.log('  ΓåÆ Use 3-bar for slightly better filters, or stick with 2-bar');
   } else if (prevented34 > prevented23) {
-    console.log('  ✅ Use 4-bar threshold:');
-    console.log(`     • Prevents ${prevented34} additional whipsaws vs 3-bar`);
-    console.log(`     • Minimal reduction in legitimate exits`);
+    console.log('  Γ£à Use 4-bar threshold:');
+    console.log(`     ΓÇó Prevents ${prevented34} additional whipsaws vs 3-bar`);
+    console.log(`     ΓÇó Minimal reduction in legitimate exits`);
   } else {
-    console.log('  ✅ Use 3-bar threshold:');
-    console.log(`     • Prevents ${prevented23} whipsaws vs 2-bar`);
-    console.log(`     • Still responsive to real signal breakdown`);
+    console.log('  Γ£à Use 3-bar threshold:');
+    console.log(`     ΓÇó Prevents ${prevented23} whipsaws vs 2-bar`);
+    console.log(`     ΓÇó Still responsive to real signal breakdown`);
   }
 }
 

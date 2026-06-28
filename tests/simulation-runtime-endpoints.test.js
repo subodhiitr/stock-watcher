@@ -21,6 +21,7 @@ function loadProxyWithFixture(fixtureName) {
   process.env.TRADE_SETTINGS_FILE = path.join(fixtureDir, 'trade_settings.json');
   delete require.cache[require.resolve(PROXY_MODULE_PATH)];
   const proxy = require(PROXY_MODULE_PATH);
+  proxy.__test__.enableDbForTests();
   loadedProxies.add(proxy);
   return proxy;
 }

@@ -23,6 +23,47 @@ const DAILY_SNAPSHOT_PREFIX = 'simulation_snapshots';
 const PAPER_TRADES_FILE = path.join(ROOT, 'paper_trades.json');
 const TRADE_SETTINGS_FILE = path.join(ROOT, 'trade_settings.json');
 
+// Try to load trade setting overrides from DB (if available), else fall back to JSON file
+function loadTradeSettingOverrides(file) {
+  // Try DB directly via better-sqlite3
+  try {
+    const Database = require('better-sqlite3');
+    const dbPath = path.join(ROOT, 'stock-watcher.db');
+    if (fs.existsSync(dbPath)) {
+      const db = new Database(dbPath, { readonly: true });
+      const row = db.prepare("SELECT value FROM kv_store WHERE key = 'trade_settings'").get();
+      db.close();
+      if (row?.value) {
+        const val = JSON.parse(row.value);
+        if (val?.overrides && typeof val.overrides === 'object') {
+          const clean = {};
+          for (const [key, value] of Object.entries(val.overrides)) {
+            if (!(key in DEFAULTS)) continue;
+            if (typeof value === 'boolean') clean[key] = value;
+            else { const n = Number(value); if (Number.isFinite(n)) clean[key] = n; }
+          }
+          return clean;
+        }
+      }
+    }
+  } catch (_) {}
+  // Fall back to JSON file
+  try {
+    if (!fs.existsSync(file)) return {};
+    const raw = JSON.parse(fs.readFileSync(file, 'utf8') || '{}');
+    const overrides = raw && typeof raw === 'object' && raw.overrides && typeof raw.overrides === 'object' ? raw.overrides : {};
+    const clean = {};
+    for (const [key, value] of Object.entries(overrides)) {
+      if (!(key in DEFAULTS)) continue;
+      if (typeof value === 'boolean') clean[key] = value;
+      else { const n = Number(value); if (Number.isFinite(n)) clean[key] = n; }
+    }
+    return clean;
+  } catch (_) {
+    return {};
+  }
+}
+
 const DEFAULTS = TradeRules.DEFAULT_SETTINGS;
 
 function usage() {
@@ -138,26 +179,6 @@ function loadSettings(overrides) {
     settings.PORTFOLIO_CAPITAL_SOURCE = overrides.defaultCapital ? 'dashboard default' : 'dashboard default; saved portfolio unavailable';
   }
   return settings;
-}
-
-function loadTradeSettingOverrides(file) {
-  try {
-    if (!fs.existsSync(file)) return {};
-    const raw = JSON.parse(fs.readFileSync(file, 'utf8') || '{}');
-    const overrides = raw && typeof raw === 'object' && raw.overrides && typeof raw.overrides === 'object' ? raw.overrides : {};
-    const clean = {};
-    for (const [key, value] of Object.entries(overrides)) {
-      if (!(key in DEFAULTS)) continue;
-      if (typeof value === 'boolean') clean[key] = value;
-      else {
-        const n = Number(value);
-        if (Number.isFinite(n)) clean[key] = n;
-      }
-    }
-    return clean;
-  } catch (_) {
-    return {};
-  }
 }
 
 function loadPortfolioAvailableCash(file) {

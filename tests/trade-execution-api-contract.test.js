@@ -20,6 +20,7 @@ function loadProxyWithFixture(fixtureName) {
   process.env.PAPER_TRADES_FILE = path.join(fixtureDir, 'paper_trades.json');
   delete require.cache[require.resolve(PROXY_MODULE_PATH)];
   const proxy = require(PROXY_MODULE_PATH);
+  proxy.__test__.enableDbForTests();
   loadedProxies.add(proxy);
   return proxy;
 }

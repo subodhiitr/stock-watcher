@@ -25,6 +25,7 @@ function loadProxyWithFixture(fixtureName, { autoManualExits = false } = {}) {
   }, null, 2), 'utf8');
   delete require.cache[require.resolve(PROXY_MODULE_PATH)];
   const proxy = require(PROXY_MODULE_PATH);
+  proxy.__test__.enableDbForTests();
   loadedProxies.add(proxy);
   return { proxy, fixtureDir };
 }
@@ -86,27 +87,24 @@ test.afterEach(() => {
 test.after(() => {
   fs.rmSync(FIXTURE_ROOT, { recursive: true, force: true });
   delete process.env.SIMULATION_RUNTIME_FILE;
-  delete process.env.PAPER_TRADES_FILE;
   delete process.env.TRADE_SETTINGS_FILE;
 });
 
 test('legacy manual trades are backfilled with default ownership on load', () => {
-  const { proxy, fixtureDir } = loadProxyWithFixture('legacy-manual-backfill', { autoManualExits: false });
-  const paperPath = path.join(fixtureDir, 'paper_trades.json');
-  fs.writeFileSync(paperPath, JSON.stringify({
-    savedAt: Date.now(),
-    portfolio: { initialCapital: 500000, capitalAdds: [] },
-    trades: [{
-      id: 'legacy-manual-1',
-      status: 'open',
-      symbol: 'INFY',
-      side: 'buy',
-      qty: 1,
-      entryPrice: 100,
-      source: 'manual'
-    }]
-  }, null, 2), 'utf8');
+  const { proxy } = loadProxyWithFixture('legacy-manual-backfill', { autoManualExits: false });
 
+  // Seed a trade without ownership fields ΓÇö simulates a legacy trade
+  proxy.__test__.setPaperTradesForRuntime([{
+    id: 'legacy-manual-1',
+    status: 'open',
+    symbol: 'INFY',
+    side: 'buy',
+    qty: 1,
+    entryPrice: 100,
+    source: 'manual'
+  }]);
+
+  // First load normalizes ownership and persists back to DB
   const [trade] = proxy.__test__.getPaperTradesForRuntime();
 
   assert.equal(trade.entryOwner, 'manual');
@@ -114,11 +112,12 @@ test('legacy manual trades are backfilled with default ownership on load', () =>
   assert.equal(trade.managedBySimulation, false);
   assert.equal(trade.managementState, 'manual_only');
 
-  const persisted = JSON.parse(fs.readFileSync(paperPath, 'utf8'));
-  assert.equal(persisted.trades[0].entryOwner, 'manual');
-  assert.equal(persisted.trades[0].exitOwner, 'manual');
-  assert.equal(persisted.trades[0].managedBySimulation, false);
-  assert.equal(persisted.trades[0].managementState, 'manual_only');
+  // Second load reads the normalized trade from DB
+  const [persisted] = proxy.__test__.getPaperTradesForRuntime();
+  assert.equal(persisted.entryOwner, 'manual');
+  assert.equal(persisted.exitOwner, 'manual');
+  assert.equal(persisted.managedBySimulation, false);
+  assert.equal(persisted.managementState, 'manual_only');
 });
 
 test('SIMULATION_AUTO_MANUAL_EXITS=false keeps manual trades manual_only during running and settling', async () => {
