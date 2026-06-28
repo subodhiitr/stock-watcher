@@ -944,7 +944,7 @@ let brokerMode = ['paper', 'zerodha_dry_run', 'zerodha_live', 'sharekhan_live'].
   : 'paper';
 let brokerConnectionStatus = null; // { mode, zerodha: { credentialsLoaded, clientsInitialized, pollerRunning, failureCount, isDisabled } }
 let brokerRefreshState = { busy:false, ok:null, message:'' };
-let brokerPortfolioState = { loading:false, ok:false, data:null, error:'' };
+var brokerPortfolioState = { loading:false, ok:false, data:null, error:'' };
 let zerodhaPortfolioState = { loading:false, ok:false, data:null, error:'' };
 let sharekhanPortfolioState = { loading:false, ok:false, data:null, error:'' };
 let activeBrokerPortfolioTab = 'zerodha';
@@ -3445,6 +3445,40 @@ async function setDailyMaxTradesOverride(valueStr) {
   }
 }
 
+async function setPositionCapOverride(valueStr) {
+  const current = loadTradeSettingOverrides();
+  const value = Math.round(Number(valueStr));
+  if (Number.isFinite(value) && value >= 10000 && value <= 10000000) {
+    await saveTradeSettingOverrides({ ...current, MAX_POSITION_EXPOSURE: value });
+    if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+  }
+}
+
+function clearPositionCapOverride() {
+  const current = loadTradeSettingOverrides();
+  const next = { ...current };
+  delete next.MAX_POSITION_EXPOSURE;
+  saveTradeSettingOverrides(next);
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+}
+
+async function setMinNetProfitOverride(valueStr) {
+  const current = loadTradeSettingOverrides();
+  const value = +Number(valueStr).toFixed(2);
+  if (Number.isFinite(value) && value >= 0 && value <= 10) {
+    await saveTradeSettingOverrides({ ...current, SIMULATION_MIN_NET_PROFIT_PCT: value });
+    if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+  }
+}
+
+function clearMinNetProfitOverride() {
+  const current = loadTradeSettingOverrides();
+  const next = { ...current };
+  delete next.SIMULATION_MIN_NET_PROFIT_PCT;
+  saveTradeSettingOverrides(next);
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+}
+
 async function setMaxOpenTradesOverride(valueStr) {
   const current = loadTradeSettingOverrides();
   const value = Math.round(Number(valueStr));
@@ -3542,6 +3576,12 @@ function renderSettingsModal() {
     const maxOpenTradesValue = Number.isFinite(maxOpenTradesOverride)
       ? Math.round(maxOpenTradesOverride)
       : Math.round(Number(effective.SIMULATION_MAX_OPEN) || Number(defaults.SIMULATION_MAX_OPEN) || 0);
+    const positionCapOverrideRaw = overrides.MAX_POSITION_EXPOSURE;
+    const positionCapOverride = Number.isFinite(Number(positionCapOverrideRaw)) ? Number(positionCapOverrideRaw) : null;
+    const positionCapValue = Number.isFinite(positionCapOverride) ? positionCapOverride : Number(effective.MAX_POSITION_EXPOSURE) || Number(defaults.MAX_POSITION_EXPOSURE) || 0;
+    const minNetProfitOverrideRaw = overrides.SIMULATION_MIN_NET_PROFIT_PCT;
+    const minNetProfitOverride = Number.isFinite(Number(minNetProfitOverrideRaw)) ? Number(minNetProfitOverrideRaw) : null;
+    const minNetProfitValue = Number.isFinite(minNetProfitOverride) ? minNetProfitOverride : Number(effective.SIMULATION_MIN_NET_PROFIT_PCT ?? defaults.SIMULATION_MIN_NET_PROFIT_PCT ?? 1);
     const liveBroker = brokerMode === 'sharekhan_live' ? 'sharekhan' : 'zerodha';
     const brokerStatus = liveBroker === 'sharekhan' ? brokerConnectionStatus?.sharekhan : brokerConnectionStatus?.zerodha;
     const autoRenewConfigured = !!brokerStatus?.autoRenewConfigured;
@@ -3561,8 +3601,8 @@ function renderSettingsModal() {
     body.innerHTML = `
     <div class="settings-summary">
       <div class="settings-card"><div class="label">Portfolio capital</div><div class="value">${moneyINR(effective.PORTFOLIO_INITIAL_CAPITAL)}</div></div>
-      <div class="settings-card"><div class="label">Per position cap</div><div class="value">${moneyINR(effective.MAX_POSITION_EXPOSURE)}</div></div>
-      <div class="settings-card"><div class="label">Minimum net profit</div><div class="value">${formatSettingValue(effective.SIMULATION_MIN_NET_PROFIT_PCT, 'SIMULATION_MIN_NET_PROFIT_PCT')}</div></div>
+      <div class="settings-card"><div class="label">Per position cap</div><div class="value ${Number.isFinite(positionCapOverride) ? 'up' : ''}">${moneyINR(positionCapValue)}</div><div style="margin-top:8px"><input type="number" step="1000" min="10000" max="10000000" value="${Math.round(positionCapValue)}" onchange="setPositionCapOverride(this.value)" style="width:100px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(positionCapOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(positionCapOverride) ? ` <button class="btn" type="button" onclick="clearPositionCapOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
+      <div class="settings-card"><div class="label">Minimum net profit</div><div class="value ${Number.isFinite(minNetProfitOverride) ? 'up' : ''}">${minNetProfitValue.toFixed(2)}%</div><div style="margin-top:8px"><input type="number" step="0.1" min="0" max="10" value="${minNetProfitValue.toFixed(2)}" onchange="setMinNetProfitOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(minNetProfitOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(minNetProfitOverride) ? ` <button class="btn" type="button" onclick="clearMinNetProfitOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Minimum net profit % required after brokerage charges.</div></div>
       <div class="settings-card"><div class="label">Max open trades</div><div class="value ${Number.isFinite(maxOpenTradesOverride) ? 'up' : ''}">${maxOpenTradesValue}</div><div style="margin-top:8px"><input type="number" step="1" min="1" max="100" value="${maxOpenTradesValue}" onchange="setMaxOpenTradesOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(maxOpenTradesOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(maxOpenTradesOverride) ? ` <button class="btn" type="button" onclick="clearMaxOpenTradesOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
       <div class="settings-card"><div class="label">Daily max trades</div><div class="value ${Number.isFinite(dailyMaxTradesOverride) ? 'up' : ''}">${dailyMaxTradesValue}</div><div style="margin-top:8px"><input type="number" step="1" min="1" max="200" value="${dailyMaxTradesValue}" onchange="setDailyMaxTradesOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(dailyMaxTradesOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(dailyMaxTradesOverride) ? ` <button class="btn" type="button" onclick="clearDailyMaxTradesOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
       <div class="settings-card"><div class="label">${liveBroker === 'sharekhan' ? 'Sharekhan token' : 'Zerodha token'}</div><div class="value ${brokerRefreshState.ok === false ? 'down' : (brokerRefreshState.ok ? 'up' : '')}">${autoRenewConfigured ? 'Auto-renew ready' : 'Refresh token missing'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="refreshZerodhaTokenFromSettings()" ${brokerRefreshState.busy || !autoRenewConfigured ? 'disabled' : ''}>${brokerRefreshState.busy ? 'Refreshing...' : 'Refresh token now'}</button><span style="margin-left:8px; font-size:11px">Last refresh: ${escapeHTML(lastRefreshAt)}</span></div><div style="margin-top:6px; font-size:11px; color:${brokerRefreshState.ok === false ? 'var(--red)' : 'var(--muted)'}">${escapeHTML(refreshHint)}</div></div>
@@ -3664,6 +3704,46 @@ function formatBrokerPillMoney(v) {
   return `${n < 0 ? '-' : ''}₹${compact.replace('-', '')}`;
 }
 
+function normalizeBrokerPortfolioSlice(entry) {
+  if (!entry || !entry.ok || !entry.data) return null;
+  const p = entry.data?.portfolio || {};
+  return {
+    openCount: Number(p?.positions?.openCount || 0),
+    dayPnl: Number(p?.positions?.dayPnl || 0),
+    availableCash: Number(p?.funds?.availableCash || 0),
+    holdingsCount: Number(p?.holdings?.count || 0),
+    asOf: Number(p?.asOf || 0),
+  };
+}
+
+function aggregateBrokerPortfolioState(brokerStates) {
+  const states = brokerStates && typeof brokerStates === 'object' ? brokerStates : {};
+  const slices = {};
+  let combinedOpenCount = 0;
+  let combinedDayPnl = 0;
+  let partial = false;
+  let anyOk = false;
+  for (const [broker, entry] of Object.entries(states)) {
+    const slice = normalizeBrokerPortfolioSlice(entry);
+    if (slice) {
+      slices[broker] = { ok: true, ...slice, error: null };
+      combinedOpenCount += slice.openCount;
+      combinedDayPnl += slice.dayPnl;
+      anyOk = true;
+    } else {
+      slices[broker] = { ok: false, error: entry?.error || null };
+      if (anyOk || Object.keys(states).length > 1) partial = true;
+    }
+  }
+  if (anyOk && Object.values(states).some(e => !e?.ok)) partial = true;
+  return {
+    combinedOpenCount,
+    combinedDayPnl: +combinedDayPnl.toFixed(2),
+    partialAvailability: partial,
+    ...slices,
+  };
+}
+
 function updateBrokerPortfolioPill() {
   const pill = document.getElementById('broker-portfolio-pill');
   if (!pill) return;
@@ -3677,14 +3757,53 @@ function updateBrokerPortfolioPill() {
     return;
   }
 
-  if (!brokerPortfolioState.ok || !brokerPortfolioState.data?.portfolio) {
+  // Combined multi-broker format: either pre-aggregated or needs computation from broker slices
+  const d = brokerPortfolioState.data;
+  const brokerKeys = d ? ['zerodha', 'sharekhan'].filter(b => d[b] != null) : [];
+  const hasBrokerSlices = brokerKeys.length > 0;
+  const hasPreAggregated = d && Number.isFinite(d.combinedOpenCount) && Number.isFinite(d.combinedDayPnl);
+
+  if (brokerPortfolioState.ok && hasBrokerSlices) {
+    let combinedOpenCount = hasPreAggregated ? d.combinedOpenCount : 0;
+    let combinedDayPnl = hasPreAggregated ? d.combinedDayPnl : 0;
+    let partial = false;
+    const brokerTitles = [];
+
+    for (const b of brokerKeys) {
+      const s = d[b];
+      const label = b.charAt(0).toUpperCase() + b.slice(1);
+      if (!s.ok) {
+        partial = true;
+        brokerTitles.push(`${label}: ${s.error || 'unavailable'}`);
+        continue;
+      }
+      const p = s.portfolio || {};
+      const openCount = Number(p?.positions?.openCount ?? s.openCount ?? 0);
+      const dayPnl = Number(p?.positions?.dayPnl ?? s.dayPnl ?? 0);
+      if (!hasPreAggregated) {
+        combinedOpenCount += openCount;
+        combinedDayPnl += dayPnl;
+      }
+      brokerTitles.push(`${label}: Open ${openCount} · Day ${dayPnl >= 0 ? '+' : ''}₹${Math.abs(dayPnl).toLocaleString('en-IN')}`);
+    }
+
+    const sign = combinedDayPnl >= 0 ? '+' : '-';
+    pill.textContent = `Brokers Open ${combinedOpenCount} · Day ${sign}₹${Math.abs(combinedDayPnl).toLocaleString('en-IN')}`;
+    const titleParts = [...brokerTitles];
+    if (partial) titleParts.push('partial availability');
+    pill.title = titleParts.join(' | ');
+    pill.classList.add(combinedDayPnl >= 0 && !partial ? 'live' : 'warn');
+    return;
+  }
+
+  if (!brokerPortfolioState.ok || !d?.portfolio) {
     pill.textContent = `${brokerName} N/A`;
     pill.title = brokerPortfolioState.error || `${brokerName} portfolio is unavailable.`;
     pill.classList.add('down');
     return;
   }
 
-  const p = brokerPortfolioState.data.portfolio;
+  const p = d.portfolio;
   const cash = Number(p?.funds?.availableCash || 0);
   const dayPnl = Number(p?.positions?.dayPnl || 0);
   const openCount = Number(p?.positions?.openCount || 0);

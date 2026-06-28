@@ -2164,7 +2164,6 @@ function loadActualTradesForDay(day) {
         return toIstDayKey(t.closedAt || t.openedAt || '') === day;
       });
     }
-    // JSON fallback: filter from in-memory state
     return loadPaperStateFile().trades.filter(t =>
       t.source === 'simulation' &&
       String(t.status || '').toLowerCase() === 'closed' &&
@@ -8075,6 +8074,14 @@ module.exports = {
       try {
         initDb(dbPath);
         proxyDbReady = true;
+        // Re-seed trade_settings from the JSON file if set (env var may differ per test)
+        const settingsFile = process.env.TRADE_SETTINGS_FILE;
+        if (settingsFile && fs.existsSync(settingsFile)) {
+          try {
+            const raw = JSON.parse(fs.readFileSync(settingsFile, 'utf8') || '{}');
+            if (raw?.overrides) kvSet('trade_settings', raw);
+          } catch (_) {}
+        }
       } catch (e) { console.warn('[db] test DB init failed:', e.message); }
     },
     disableDbForTests() {

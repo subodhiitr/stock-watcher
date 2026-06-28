@@ -137,7 +137,7 @@ test('SIMULATION_AUTO_MANUAL_EXITS=false keeps manual trades manual_only during 
   assert.equal(started.statusCode, 200);
 
   proxy.__test__.setSchedulerTickInputs({
-    at: '2026-06-24T10:30:00.000Z',
+    at: '2026-06-24T04:30:00.000Z',
     candidates: [],
     exitBySymbol: {
       INFY: { symbol: 'INFY', action: 'close', reason: 'Target hit', exitPrice: 110 }
@@ -179,7 +179,7 @@ test('SIMULATION_AUTO_MANUAL_EXITS=true transitions eligible manual trades to si
   const started = await request(proxy, { method: 'POST', path: '/simulation/start', body: {} });
   assert.equal(started.statusCode, 200);
 
-  proxy.__test__.setSchedulerTickInputs({ at: '2026-06-24T10:35:00.000Z', candidates: [] });
+  proxy.__test__.setSchedulerTickInputs({ at: '2026-06-24T04:35:00.000Z', candidates: [] });
   await proxy.__test__.runSchedulerTick();
 
   let [trade] = proxy.__test__.getPaperTradesForRuntime();
@@ -193,7 +193,7 @@ test('SIMULATION_AUTO_MANUAL_EXITS=true transitions eligible manual trades to si
   assert.equal(stopping.statusCode, 200);
   assert.equal(stopping.json.state, 'settling');
 
-  proxy.__test__.setSchedulerTickInputs({ at: '2026-06-24T10:36:00.000Z', candidates: [] });
+  proxy.__test__.setSchedulerTickInputs({ at: '2026-06-24T04:36:00.000Z', candidates: [] });
   await proxy.__test__.runSchedulerTick();
 
   [trade] = proxy.__test__.getPaperTradesForRuntime();

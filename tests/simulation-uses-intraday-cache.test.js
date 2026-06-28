@@ -7,8 +7,8 @@ const PROXY_PATH = path.join(__dirname, '..', 'ticker_proxy.js');
 
 test('scheduler candidate builder uses intraday cache instead of direct fetches', () => {
   const source = fs.readFileSync(PROXY_PATH, 'utf8');
-  assert.match(source, /function buildSchedulerCandidatesFromIntradayCache\(settings,\s*symbolMetaBySymbol\s*=\s*null\)/);
-  const start = source.indexOf('function buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol = null)');
+  assert.match(source, /function buildSchedulerCandidatesFromIntradayCache\(settings,\s*symbolMetaBySymbol\s*=\s*null/);
+  const start = source.indexOf('function buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol = null');
   const body = source.slice(start, start + 1200);
   assert.doesNotMatch(body, /fetchIntradaySignal\(/);
 });
