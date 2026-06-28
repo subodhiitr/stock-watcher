@@ -68,6 +68,14 @@ test('loadSettings reads replay capital and available cash from SQLite portfolio
     tradeCount: 2,
   });
 
+  test('loadSettings enables ETF simulation from replay override', () => {
+    delete require.cache[require.resolve('../backtest_simulation.js')];
+    const Backtest = require('../backtest_simulation.js');
+
+    assert.equal(Backtest.loadSettings({}).SIMULATION_ENABLE_ETF, false);
+    assert.equal(Backtest.loadSettings({ enableEtf: true }).SIMULATION_ENABLE_ETF, true);
+  });
+
   if (previousDbPath === undefined) {
     delete process.env.STOCK_WATCHER_DB_PATH;
   } else {

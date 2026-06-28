@@ -39,3 +39,12 @@ test('scheduler passes sector trend context into simulation domain cycle', () =>
   assert.match(body, /sectorTrend:\s*tickInput\?\.sectorTrend \|\| \{\}/);
   assert.match(body, /indices:\s*tickInput\?\.market\?\.indices \|\| \{\}/);
 });
+
+test('ETF tab uses server-owned intraday stream instead of direct intraday batch fetch', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'dashboard-app.js'), 'utf8');
+  const start = source.indexOf("async function setView(view, el)");
+  assert.ok(start > -1);
+  const body = source.slice(start, start + 1200);
+  assert.match(body, /startIntradayLiveStream\(syms\)/);
+  assert.doesNotMatch(body, /fetchIntradaySignals\(syms\)/);
+});

@@ -109,3 +109,10 @@ test('settings modal exposes editable initial capital control', () => {
   assert.match(source, /setPortfolioInitialCapital\(this\.value\)/);
   assert.match(source, /set-initial-capital/);
 });
+
+test('settings modal exposes ETF simulation toggle', () => {
+  const source = fs.readFileSync(DASHBOARD_APP_PATH, 'utf8');
+  assert.match(source, /SIMULATION_ENABLE_ETF/);
+  assert.match(source, /toggleSimulationEtfOverride\(\)/);
+  assert.match(source, /ETF simulation/);
+});

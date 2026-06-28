@@ -46,3 +46,10 @@ test('backtest does not use direct file I/O for snapshot reads', () => {
     'backtest_simulation.js should not use fs.readFileSync for snapshot files'
   );
 });
+
+test('backtest exposes enable-etf CLI option', () => {
+  const source = fs.readFileSync(BACKTEST_APP_PATH, 'utf8');
+  assert.match(source, /--enable-etf/);
+  assert.match(source, /enableEtf/);
+  assert.match(source, /SIMULATION_ENABLE_ETF/);
+});

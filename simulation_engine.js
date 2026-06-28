@@ -454,8 +454,10 @@
 
   function isReplayCandidateEligible(candidate, at, settings, context = {}) {
     settings = withDefaults(settings);
-    if (!candidate || candidate.assetType === 'etf') return false;
+    if (!candidate) return false;
     const side = candidate.side || candidate.signal;
+    if (candidate.assetType === 'etf' && !settings.SIMULATION_ENABLE_ETF) return false;
+    if (candidate.assetType === 'etf' && side === 'sell') return false;
     if (!['buy', 'sell'].includes(side)) return false;
     if (!settings.SIMULATION_AUTO_SHORTS && side === 'sell') return false;
     if (Math.abs(Number(candidate.score) || 0) < getMinScoreForSide(settings, side)) return false;
@@ -482,7 +484,8 @@
     if (!candidate) return { eligible:false, reasons:['missing candidate'], setupType:null, side:null };
     const side = candidate.side || candidate.signal;
     const setupType = candidate.derivedSetupType || candidate.setupType || deriveSetupType(candidate, settings);
-    if (candidate.assetType === 'etf') reasons.push('ETF simulation disabled');
+    if (candidate.assetType === 'etf' && !settings.SIMULATION_ENABLE_ETF) reasons.push('ETF simulation disabled');
+    if (candidate.assetType === 'etf' && side === 'sell') reasons.push('ETF short disabled');
     if (!['buy', 'sell'].includes(side)) reasons.push(`signal ${side || '--'}`);
     if (!settings.SIMULATION_AUTO_SHORTS && side === 'sell') reasons.push('auto shorts disabled');
     const minScore = getMinScoreForSide(settings, side);
@@ -530,7 +533,8 @@
         return candidate;
       })
       .filter(Boolean)
-      .filter(candidate => candidate.assetType !== 'etf')
+      .filter(candidate => settings.SIMULATION_ENABLE_ETF || candidate.assetType !== 'etf')
+      .filter(candidate => !(candidate.assetType === 'etf' && (candidate.side || candidate.signal) === 'sell'))
       .filter(candidate => ['buy', 'sell'].includes(candidate.side || candidate.signal))
       .filter(candidate => !(settings.REPLAY_LONG_ONLY && (candidate.side || candidate.signal) === 'sell'))
       .filter(candidate => !(settings.REPLAY_SHORT_ONLY && (candidate.side || candidate.signal) !== 'sell'))

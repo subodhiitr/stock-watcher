@@ -786,6 +786,16 @@ function getSimulationUniverseSymbols() {
   return simulationUniverseSymbols;
 }
 
+function getSavedEtfSymbolsForSimulation() {
+  return loadSavedETFsFile()
+    .map(item => String(typeof item === 'string' ? item : (item?.sym || item?.symbol || '')).trim().toUpperCase())
+    .filter(sym => /^[A-Z0-9_.-]+$/.test(sym));
+}
+
+function getIntradayLiveUniverseSymbols() {
+  return new Set([...getSimulationUniverseSymbols(), ...getSavedEtfSymbolsForSimulation()]);
+}
+
 function rememberSimulationUniverse(symbols = []) {
   const universe = getSimulationUniverseSymbols();
   let changed = false;
@@ -937,7 +947,7 @@ function broadcastIntradayLive(reason = 'update', changedSymbols = null) {
 
 function scheduleIntradayLiveRefresh(reason = 'interval') {
   if (!intradayLiveRefreshActive) return;
-  if (!getSimulationUniverseSymbols().size) return;
+  if (!getIntradayLiveUniverseSymbols().size) return;
   if (intradayLiveRefreshTimer) clearTimeout(intradayLiveRefreshTimer);
   const delaySec = getIntradayLiveRefreshIntervalSec();
   intradayLiveRefreshTimer = setTimeout(async () => {
@@ -953,7 +963,7 @@ async function refreshIntradayLiveCache(reason = 'interval') {
     return { ok: true, skipped: true, reason: 'weekend-cache-only' };
   }
   if (intradayLiveRefreshInFlight) return;
-  const symbols = [...getSimulationUniverseSymbols()];
+  const symbols = [...getIntradayLiveUniverseSymbols()];
   if (!symbols.length) return;
   intradayLiveRefreshInFlight = true;
   try {
@@ -1010,7 +1020,7 @@ function getSimulationSymbolMetaIndex() {
     return simulationSymbolMetaCache.bySymbol;
   }
   const bySymbol = new Map();
-  const assignMeta = (symbol, name, sector, cap) => {
+  const assignMeta = (symbol, name, sector, cap, assetType = null) => {
     const sym = String(symbol || '').trim().toUpperCase();
     if (!sym) return;
     const existing = bySymbol.get(sym) || {};
@@ -1018,11 +1028,16 @@ function getSimulationSymbolMetaIndex() {
       name: existing.name || (name ? String(name) : sym),
       sector: existing.sector || (sector ? String(sector) : ''),
       cap: existing.cap || (cap ? String(cap) : ''),
+      assetType: existing.assetType || (assetType ? String(assetType) : ''),
     });
   };
 
   for (const item of loadSavedStocksFile()) {
     if (item && typeof item === 'object') assignMeta(item.sym || item.symbol, item.name, item.sector, item.cap);
+  }
+  for (const item of loadSavedETFsFile()) {
+    if (typeof item === 'string') assignMeta(item, item, 'ETF', 'etf', 'etf');
+    else if (item && typeof item === 'object') assignMeta(item.sym || item.symbol, item.name, item.sector || 'ETF', item.cap || 'etf', 'etf');
   }
 
   const snapshots = loadAllSimulationSnapshots();
@@ -1134,7 +1149,7 @@ function buildServerCandidateFromIntraday(sym, setup, settings, meta = null, asO
   const candidate = {
     symbol: sym,
     name: meta?.name || sym,
-    assetType: 'stock',
+    assetType: meta?.assetType === 'etf' || meta?.cap === 'etf' ? 'etf' : 'stock',
     sector: meta?.sector || '',
     cap: meta?.cap || '',
     price,
@@ -1179,7 +1194,7 @@ function buildServerCandidateFromIntraday(sym, setup, settings, meta = null, asO
 }
 
 function buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol = null, asOf = null) {
-  const universe = getSimulationUniverseSymbols();
+  const universe = getIntradayLiveUniverseSymbols();
   const symbols = [...universe];
   const metaBySymbol = symbolMetaBySymbol instanceof Map ? symbolMetaBySymbol : getSimulationSymbolMetaIndex();
   const candidates = [];
@@ -1191,6 +1206,35 @@ function buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol 
     if (candidate) candidates.push(candidate);
   }
   return candidates;
+}
+
+function selectServerSnapshotCandidates(candidates, baseLimit = 100, etfLimit = 50) {
+  const source = (Array.isArray(candidates) ? candidates : [])
+    .filter(candidate => {
+      if (String(candidate?.assetType || '').toLowerCase() !== 'etf') return true;
+      return (candidate?.side || candidate?.signal) === 'buy' && Number(candidate?.score) > 0;
+    });
+  const selected = [];
+  const seen = new Set();
+  const keyFor = candidate => `${String(candidate?.symbol || '').toUpperCase()}|${String(candidate?.side || candidate?.signal || '').toLowerCase()}`;
+  const add = candidate => {
+    const key = keyFor(candidate);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    selected.push(candidate);
+  };
+  const byAbsScore = (a, b) => Math.abs(Number(b?.score) || 0) - Math.abs(Number(a?.score) || 0);
+  const byPositiveScore = (a, b) => (Number(b?.score) || 0) - (Number(a?.score) || 0);
+  source.slice().sort(byAbsScore).slice(0, Math.max(0, Number(baseLimit) || 0)).forEach(add);
+  source
+    .filter(candidate => String(candidate?.assetType || '').toLowerCase() === 'etf')
+    .filter(candidate => (candidate?.side || candidate?.signal) === 'buy')
+    .filter(candidate => Number(candidate?.score) > 0)
+    .slice()
+    .sort(byPositiveScore)
+    .slice(0, Math.max(0, Number(etfLimit) || 0))
+    .forEach(add);
+  return selected;
 }
 
 async function readSchedulerTickInputAsync(settings) {
@@ -2545,9 +2589,11 @@ function persistServerSimulationSnapshot(source = 'intraday-live-refresh', chang
     const overrideSettings = loadTradeSettingsFile().overrides || {};
      const settings = SimulationEngine.withDefaults ? SimulationEngine.withDefaults(overrideSettings) : overrideSettings;
     const symbolMetaBySymbol = getSimulationSymbolMetaIndex();
-    const candidates = buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol)
-      .sort((a, b) => Math.abs(Number(b.score) || 0) - Math.abs(Number(a.score) || 0))
-      .slice(0, 100);
+    const candidates = selectServerSnapshotCandidates(
+      buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol),
+      100,
+      50
+    );
     const market = { indices: simulationMarketCache.indices || {} };
     const sectorTrend = buildSectorTrendFromCandidates(candidates);
     const trades = loadPaperStateFile().trades || [];
@@ -8229,6 +8275,7 @@ module.exports = {
     setSchedulerTickInputs(inputs) {
       simulationSchedulerTestInputs = inputs && typeof inputs === 'object' ? inputs : null;
     },
+    selectServerSnapshotCandidatesForTests: selectServerSnapshotCandidates,
     setSharekhanClientForTests(client) {
       sharekhanCredentials = client ? { accessToken: 'test-token' } : null;
       sharekhanClientLive = client || null;

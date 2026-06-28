@@ -935,6 +935,7 @@ const SIMULATION_MARKET_REGIME_SECTOR_PCT = TRADE_RULE_DEFAULTS.SIMULATION_MARKE
 const SIMULATION_MARKET_REGIME_RS_PCT = TRADE_RULE_DEFAULTS.SIMULATION_MARKET_REGIME_RS_PCT;
 const SIMULATION_AUTO_SHORTS = TRADE_RULE_DEFAULTS.SIMULATION_AUTO_SHORTS;
 const SIMULATION_AUTO_MANUAL_EXITS = !!TRADE_RULE_DEFAULTS.SIMULATION_AUTO_MANUAL_EXITS;
+const SIMULATION_ENABLE_ETF = !!TRADE_RULE_DEFAULTS.SIMULATION_ENABLE_ETF;
 const BROKER_MODE_KEY = 'stock-watcher-broker-mode';
 let simulationState = localStorage.getItem(SIMULATION_STATE_KEY) || 'off'; // off | running | settling
 let simulationBusy = false;
@@ -1919,6 +1920,10 @@ async function fetchIntradaySignals(symbols) {
   connect();
 }
 
+function startIntradayLiveStream(symbols) {
+  return fetchIntradaySignals(symbols);
+}
+
 function adjustedTradeScore(rowOrSym) {
   const sym = typeof rowOrSym === 'string' ? rowOrSym : rowOrSym?.sym;
   const t = intradayData[sym];
@@ -2850,6 +2855,13 @@ function renderTopActionBar() {
     btn.textContent = notifItems ? String(Math.min(9, notifItems)) : '!';
     btn.classList.toggle('has-items', notifItems > 0);
   }
+  const newsBtn = document.getElementById('fresh-news-btn');
+  if (newsBtn) {
+    const newsCount = Number(freshNewsSummary.symbolCount || freshNewsSummary.count || 0);
+    newsBtn.textContent = '📰';
+    newsBtn.classList.toggle('has-items', newsCount > 0);
+    newsBtn.title = newsCount ? `Fresh News (${newsCount})` : 'Fresh News';
+  }
   scheduleNotificationPanel();
 }
 
@@ -3414,6 +3426,14 @@ async function toggleManualTradeAutoExitOverride() {
   if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
 }
 
+async function toggleSimulationEtfOverride() {
+  const current = loadTradeSettingOverrides();
+  const enabledNow = !!(current?.SIMULATION_ENABLE_ETF ?? SIMULATION_ENABLE_ETF);
+  const next = { ...current, SIMULATION_ENABLE_ETF: !enabledNow };
+  await saveTradeSettingOverrides(next);
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+}
+
 async function setNiftyRegimeOverride(valueStr) {
   const current = loadTradeSettingOverrides();
   const value = parseFloat(valueStr);
@@ -3579,6 +3599,7 @@ function renderSettingsModal() {
       : { ...defaults, ...getSimulationEngineSettings() };
     const stopGuardOverride = !!effective.SIMULATION_OVERRIDE_STOP_GUARD;
     const manualAutoExitEnabled = !!effective.SIMULATION_AUTO_MANUAL_EXITS;
+    const etfSimulationEnabled = !!effective.SIMULATION_ENABLE_ETF;
     const niftyRegimeOverrideRaw = overrides.SIMULATION_MARKET_REGIME_NIFTY_PCT;
     const niftyRegimeOverride = Number.isFinite(Number(niftyRegimeOverrideRaw)) ? Number(niftyRegimeOverrideRaw) : null;
     const niftyRegimeValue = Number.isFinite(niftyRegimeOverride)
@@ -3631,6 +3652,7 @@ function renderSettingsModal() {
       <div class="settings-card"><div class="label">${liveBroker === 'sharekhan' ? 'Sharekhan token' : 'Zerodha token'}</div><div class="value ${brokerRefreshState.ok === false ? 'down' : (brokerRefreshState.ok ? 'up' : '')}">${autoRenewConfigured ? 'Auto-renew ready' : 'Refresh token missing'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="refreshZerodhaTokenFromSettings()" ${brokerRefreshState.busy || !autoRenewConfigured ? 'disabled' : ''}>${brokerRefreshState.busy ? 'Refreshing...' : 'Refresh token now'}</button><span style="margin-left:8px; font-size:11px">Last refresh: ${escapeHTML(lastRefreshAt)}</span></div><div style="margin-top:6px; font-size:11px; color:${brokerRefreshState.ok === false ? 'var(--red)' : 'var(--muted)'}">${escapeHTML(refreshHint)}</div></div>
       <div class="settings-card"><div class="label">Stop guard override</div><div class="value ${stopGuardOverride ? 'up' : ''}">${stopGuardOverride ? 'Enabled' : 'Disabled'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="toggleSimulationStopGuardOverride()">${stopGuardOverride ? 'Disable override' : 'Enable override'}</button></div></div>
       <div class="settings-card"><div class="label">Auto-exit manual trades</div><div class="value ${manualAutoExitEnabled ? 'up' : ''}">${manualAutoExitEnabled ? 'Enabled' : 'Disabled'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="toggleManualTradeAutoExitOverride()">${manualAutoExitEnabled ? 'Disable auto exits' : 'Enable auto exits'}</button></div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Uses same simulation exit rules (target, SL, trailing, time-stop, EOD).</div></div>
+      <div class="settings-card"><div class="label">ETF simulation</div><div class="value ${etfSimulationEnabled ? 'up' : ''}">${etfSimulationEnabled ? 'Enabled' : 'Disabled'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="toggleSimulationEtfOverride()">${etfSimulationEnabled ? 'Disable ETF sim' : 'Enable ETF sim'}</button></div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Allows long ETF simulation entries. ETF shorts remain disabled.</div></div>
       <div class="settings-card"><div class="label">Nifty regime threshold</div><div class="value ${Number.isFinite(niftyRegimeOverride) ? 'up' : ''}">${niftyRegimeValue.toFixed(3)}</div><div style="margin-top:8px"><input type="number" step="0.001" min="-1" max="1" value="${niftyRegimeValue.toFixed(3)}" onchange="setNiftyRegimeOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(niftyRegimeOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(niftyRegimeOverride) ? ` <button class="btn" type="button" onclick="clearNiftyRegimeOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Blocks longs below -threshold, blocks shorts above +threshold.</div></div>
       <div class="settings-card"><div class="label">Sector regime threshold</div><div class="value ${Number.isFinite(sectorRegimeOverride) ? 'up' : ''}">${sectorRegimeValue.toFixed(3)}</div><div style="margin-top:8px"><input type="number" step="0.001" min="-1" max="1" value="${sectorRegimeValue.toFixed(3)}" onchange="setSectorRegimeOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(sectorRegimeOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(sectorRegimeOverride) ? ` <button class="btn" type="button" onclick="clearSectorRegimeOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Uses sector average move with the same long/short threshold logic.</div></div>
     </div>
@@ -4324,6 +4346,7 @@ function getSimulationEngineSettings() {
     SIMULATION_MARKET_REGIME_RS_PCT,
     SIMULATION_AUTO_SHORTS,
     SIMULATION_AUTO_MANUAL_EXITS,
+    SIMULATION_ENABLE_ETF,
   };
   return TradeRules.withDefaults ? TradeRules.withDefaults({ ...settings, ...loadTradeSettingOverrides() }) : { ...settings, ...loadTradeSettingOverrides() };
 }
@@ -6562,17 +6585,49 @@ function healthHTML(data){
   return `<div class="health-cell"><div class="health-bar-wrap"><span class="health-label">52W</span><div class="health-bar"><div class="health-fill" style="width:${rPct}%;background:${rCol}"></div></div></div><div class="health-bar-wrap"><span class="health-label">Mom</span><div class="health-bar"><div class="health-fill" style="width:${mPct}%;background:${mCol}"></div></div></div></div>`;
 }
 
+function hasConsistentShortTermTrend(sym) {
+  const pts = sparklineData[sym];
+  if (!Array.isArray(pts) || pts.length < 2) return true;
+  let upSteps = 0;
+  for (let i = 1; i < pts.length; i += 1) {
+    if (Number(pts[i]) >= Number(pts[i - 1])) upSteps += 1;
+  }
+  return Number(pts.at(-1)) > Number(pts[0]) && (upSteps / Math.max(1, pts.length - 1)) >= 0.6;
+}
+
+function isShortTermPick(row) {
+  if (!row?.sym) return false;
+  const t = intradayData[row.sym];
+  if (!hasConsistentShortTermTrend(row.sym)) return false;
+  if (t && !getIntradayFreshness(t).stale) {
+    const signal = adjustedTradeSignal(adjustedTradeScore(row));
+    if (!['buy', 'watch'].includes(signal)) return false;
+  }
+  if (isETFAsset(row)) {
+    const oneMonth = Number(row.etfData?.oneMonthReturn);
+    const oneYear = Number(row.etfData?.oneYearReturn);
+    const threeYear = Number(row.etfData?.threeYearReturn);
+    const hasReturn = Number.isFinite(oneMonth) && Number.isFinite(oneYear) && Number.isFinite(threeYear) &&
+      oneMonth > 2 && oneYear > 15 && threeYear > 0;
+    return hasReturn && (!t || getETFTradeSafety(row, t).ok);
+  }
+  const health = getHealthScore(row.sym);
+  const daily = Number(row.data?.change);
+  return Number.isFinite(health) && health >= 50 && Number.isFinite(daily) && daily > 0;
+}
+
 function getHealthScore(sym){
   const asset = MIDCAP_STOCKS.find(s=>s.sym===sym) || null;
   return computeHealthScore(asset);
 }
 
-const SETUP_FILTER_KEYS = new Set(['setup_pullback', 'setup_runner', 'setup_short']);
+const SETUP_FILTER_KEYS = new Set(['setup_pullback', 'setup_runner', 'setup_short', 'setup_shortterm']);
 const SETUP_CARD_FILTERS = {
   pullbacks: ['tradeable', 'setup_pullback'],
   runners: ['triggered', 'setup_runner'],
   shorts: ['sell', 'setup_short'],
   neartrigger: ['neartrigger', 'hideavoid'],
+  shortterm: ['setup_shortterm'],
 };
 
 function selectSetupCard(kind, ...filterModes) {
@@ -6651,6 +6706,7 @@ function getTargetDeltaPct(row){
 }
 
 let etfSectorFilter = '';
+let activeETFSetupCard = null;
 
 function setETFSectorFilter(sector) {
   etfSectorFilter = sector;
@@ -6689,6 +6745,116 @@ function setETFFilter(mode, el) {
   renderETFSection();
 }
 
+function getETFFilterFns() {
+  return {
+    favorite: r => isETFFavorite(r.sym),
+    buy:      r => getSignal(r, r.data) === 'buy',
+    watch:    r => getSignal(r, r.data) === 'watch',
+    sell:     r => getSignal(r, r.data) === 'sell',
+    gainers:  r => (r.data?.change || 0) > 0,
+    losers:   r => (r.data?.change || 0) < 0,
+    tradeable:r => {
+      const t = intradayData[r.sym];
+      if (!t) return false;
+      const g = getRiskGuard(r, t, adjustedTradeScore(r));
+      return ['ok','small'].includes(g.level) && getETFTradeSafety(r, t).ok;
+    },
+    hideavoid:r => {
+      const t = intradayData[r.sym];
+      if (!t) return true;
+      const g = getRiskGuard(r, t, adjustedTradeScore(r));
+      return !['avoid','invalid','chasing'].includes(g.level) && getETFTradeSafety(r, t).ok;
+    },
+    risk:r => {
+      const t = intradayData[r.sym];
+      if (!t) return false;
+      const g = getRiskGuard(r, t, adjustedTradeScore(r));
+      return ['avoid','invalid','chasing'].includes(g.level) || !getETFTradeSafety(r, t).ok;
+    },
+    triggered:r => intradayData[r.sym]?.entryStatus === 'Triggered' && !getIntradayFreshness(intradayData[r.sym]).stale && getETFTradeSafety(r, intradayData[r.sym]).ok,
+    neartrigger:r => intradayData[r.sym]?.entryStatus === 'Near trigger' && !getIntradayFreshness(intradayData[r.sym]).stale && getETFTradeSafety(r, intradayData[r.sym]).ok,
+    shortterm:r => isShortTermPick(r),
+    custom:   r => EXTRA_SYMBOLS.includes(r.sym),
+    preset:   r => !EXTRA_SYMBOLS.includes(r.sym),
+  };
+}
+
+function getETFFilterGroups() {
+  return [
+    ['buy', 'sell', 'watch'],
+    ['gainers', 'losers'],
+    ['tradeable', 'hideavoid', 'risk'],
+    ['triggered', 'neartrigger'],
+    ['shortterm'],
+    ['favorite'],
+    ['custom'],
+    ['preset'],
+  ];
+}
+
+function applyETFFilters(rows, filters = etfFilters) {
+  const activeFilters = filters instanceof Set ? filters : new Set(filters || []);
+  if (!activeFilters.size) return rows;
+  const filterFns = getETFFilterFns();
+  return rows.filter(r =>
+    getETFFilterGroups().every(group => {
+      const active = group.filter(f => activeFilters.has(f));
+      return !active.length || active.some(f => filterFns[f]?.(r) ?? true);
+    })
+  );
+}
+
+function countRowsForETFFilters(rows, ...modes) {
+  return applyETFFilters(rows, new Set(modes.filter(Boolean))).length;
+}
+
+function selectETFSetupCard(kind, ...filterModes) {
+  if (activeETFSetupCard === kind) {
+    activeETFSetupCard = null;
+    for (const mode of ['etf_tradeable','etf_triggered','etf_neartrigger','etf_risk','etf_shortterm','tradeable','triggered','neartrigger','risk','shortterm']) {
+      etfFilters.delete(mode);
+    }
+    etfPageReset();
+    renderETFSection();
+    return false;
+  }
+  activeETFSetupCard = kind;
+  for (const mode of ['tradeable','triggered','neartrigger','risk','shortterm']) etfFilters.delete(mode);
+  for (const mode of filterModes) {
+    const normalized = String(mode || '').replace(/^etf_/, '');
+    if (normalized) etfFilters.add(normalized);
+  }
+  etfPageReset();
+  renderETFSection();
+  return true;
+}
+
+function renderETFSetupCards(rows) {
+  const target = document.getElementById('etf-setup-card-row');
+  if (!target) return;
+  const counts = {
+    entries: countRowsForETFFilters(rows, 'tradeable'),
+    momentum: countRowsForETFFilters(rows, 'triggered'),
+    neartrigger: countRowsForETFFilters(rows, 'neartrigger'),
+    shortterm: countRowsForETFFilters(rows, 'shortterm'),
+    risk: countRowsForETFFilters(rows, 'risk'),
+  };
+  const cards = [
+    ['entries', 'Best ETF Entries', counts.entries, 'Tradable ETF setups', "selectETFSetupCard('entries','etf_tradeable')"],
+    ['momentum', 'ETF Momentum', counts.momentum, 'Triggered ETF momentum', "selectETFSetupCard('momentum','etf_triggered')"],
+    ['neartrigger', 'Near Trigger', counts.neartrigger, 'ETF near-entry setups', "selectETFSetupCard('neartrigger','etf_neartrigger')"],
+    ['shortterm', 'Short-term Picks', counts.shortterm, 'Consistency + momentum returns', "selectETFSetupCard('shortterm','etf_shortterm')"],
+    ['risk', 'Avoid / Risk', counts.risk, 'ETF safety or risk blocks', "selectETFSetupCard('risk','etf_risk')"],
+  ];
+  target.innerHTML = cards.map(([kind, label, value, hint, action]) => `
+    <button class="setup-card ${escapeHTML(kind)}${activeETFSetupCard === kind ? ' active' : ''}" type="button" onclick="${action}">
+      <div class="label">${escapeHTML(label)}</div>
+      <div class="value">${escapeHTML(String(value))}</div>
+      <div class="hint">${escapeHTML(hint)}</div>
+    </button>
+  `).join('');
+}
+
 function setETFSearch(value){
   etfSearch = String(value || '').trim().toLowerCase();
   etfPageReset();
@@ -6719,7 +6885,7 @@ async function setView(view, el){
       const syms = ETF_ASSETS.map(e=>e.sym);
       await fetchAdditionalSymbols(syms, { force: true }).catch(e => console.warn('ETF price refresh failed', e.message));
       renderETFSection();
-      fetchIntradaySignals(syms).catch(e=>console.warn('ETF intraday signals failed', e.message));
+      startIntradayLiveStream(syms).catch(e=>console.warn('ETF intraday stream failed', e.message));
       fetchETFSummary(syms).catch(e=>console.warn('ETF summary failed',e));
       fetchSparklines(syms).catch(e=>console.warn('fetchSparklines failed', e.message));
     }, 100);
@@ -6803,6 +6969,7 @@ function getStockFilterFns() {
     setup_pullback: r => setupType(r) === 'VWAP_PULLBACK_OR_HOLD',
     setup_runner: r => ['VOLUME_SHOCK_BREAKOUT', 'MOMENTUM_RUNNER', 'VWAP_TREND_CONTINUATION', 'FRESH_BREAKOUT'].includes(setupType(r)),
     setup_short: r => ['VWAP_REJECTION', 'BREAKDOWN', 'SHORT_MOMENTUM'].includes(setupType(r)),
+    setup_shortterm: r => isShortTermPick(r),
   };
 }
 
@@ -6815,6 +6982,7 @@ function getStockFilterGroups() {
     ['tradeable', 'hideavoid', 'risk'],
     ['triggered', 'neartrigger'],
     ['setup_pullback', 'setup_runner', 'setup_short'],
+    ['setup_shortterm'],
     ['favorite'],                // standalone
     ['opentrade'],               // standalone
     ['newsrisk'],                // standalone
@@ -6980,14 +7148,14 @@ function renderSetupCards(rows = getAllStockRows()) {
     runners:   countRowsForStockFilters(rows, 'triggered', 'setup_runner'),
     shorts:    countRowsForStockFilters(rows, 'sell', 'setup_short'),
     neartrigger: countRowsForStockFilters(rows, 'neartrigger', 'hideavoid'),
-    news:      freshNewsSummary.loading ? '...' : (freshNewsSummary.symbolCount || 0),
+    shortterm: countRowsForStockFilters(rows, 'setup_shortterm'),
   };
   const cards = [
     ['pullbacks', 'Best Pullbacks',    counts.pullbacks, 'Tradable VWAP pullback/hold',   "selectSetupCard('pullbacks','tradeable','setup_pullback')"],
     ['runners',   'Momentum Runners',  counts.runners,   'Triggered breakout/momentum',    "selectSetupCard('runners','triggered','setup_runner')"],
     ['shorts',    'Short Setups',      counts.shorts,    'Sell-side breakdown/rejection',  "selectSetupCard('shorts','sell','setup_short')"],
     ['neartrigger', 'Near Trigger',    counts.neartrigger, 'Fresh near-entry on both sides', "selectSetupCard('neartrigger','neartrigger','hideavoid')"],
-    ['news',      'Fresh News',        counts.news,      freshNewsSummary.date ? `Server scan ${freshNewsSummary.date}` : 'Today / last business day', "selectSetupCard(null);openFreshNewsModal()"],
+    ['shortterm', 'Short-term Picks',   counts.shortterm, 'Consistency + health + returns',  "selectSetupCard('shortterm','setup_shortterm')"],
   ];
   target.innerHTML = cards.map(([kind, label, value, hint, action]) => `
     <button class="setup-card ${escapeHTML(kind)}${activeSetupCard === kind ? ' active' : ''}" type="button" onclick="${action}">
@@ -8057,48 +8225,12 @@ function renderETFSection(){
   if (!section || !tbody) return; // required elements missing
   section.style.display = currentView==='etfs' ? 'block' : 'none';
   let rows = ETF_ASSETS.map((s,i)=>({ ...s, rank:i+1, data: stockData[s.sym] || null }));
+  const totalETFCount = rows.length;
+  renderETFSetupCards(rows);
 
   // Multi-select AND filter: each active filter must be satisfied
   if (etfFilters.size) {
-    const filterFns = {
-      favorite: r => isETFFavorite(r.sym),
-      buy:      r => getSignal(r, r.data) === 'buy',
-      watch:    r => getSignal(r, r.data) === 'watch',
-      sell:     r => getSignal(r, r.data) === 'sell',
-      gainers:  r => (r.data?.change || 0) > 0,
-      losers:   r => (r.data?.change || 0) < 0,
-      tradeable:r => {
-        const t = intradayData[r.sym];
-        if (!t) return false;
-        const g = getRiskGuard(r, t, adjustedTradeScore(r));
-        return ['ok','small'].includes(g.level) && getETFTradeSafety(r, t).ok;
-      },
-      hideavoid:r => {
-        const t = intradayData[r.sym];
-        if (!t) return true;
-        const g = getRiskGuard(r, t, adjustedTradeScore(r));
-        return !['avoid','invalid','chasing'].includes(g.level) && getETFTradeSafety(r, t).ok;
-      },
-      triggered:r => intradayData[r.sym]?.entryStatus === 'Triggered' && !getIntradayFreshness(intradayData[r.sym]).stale && getETFTradeSafety(r, intradayData[r.sym]).ok,
-      neartrigger:r => intradayData[r.sym]?.entryStatus === 'Near trigger' && !getIntradayFreshness(intradayData[r.sym]).stale && getETFTradeSafety(r, intradayData[r.sym]).ok,
-      custom:   r => EXTRA_SYMBOLS.includes(r.sym),
-      preset:   r => !EXTRA_SYMBOLS.includes(r.sym),
-    };
-    const etfGroups = [
-      ['buy', 'sell', 'watch'],  // signal   — OR within group
-      ['gainers', 'losers'],     // movement — OR within group
-      ['tradeable', 'hideavoid'],
-      ['triggered', 'neartrigger'],
-      ['favorite'],              // standalone
-      ['custom'],                // standalone
-      ['preset'],                // standalone
-    ];
-    rows = rows.filter(r =>
-      etfGroups.every(group => {
-        const active = group.filter(f => etfFilters.has(f));
-        return !active.length || active.some(f => filterFns[f]?.(r) ?? true);
-      })
-    );
+    rows = applyETFFilters(rows);
   }
 
   if (etfSectorFilter) rows = rows.filter(r => (r.sector || 'Other') === etfSectorFilter);
@@ -8151,7 +8283,7 @@ function renderETFSection(){
       ? 'No ETFs loaded yet. Use the button above to load ETF presets or add a symbol.'
       : 'No ETFs match the selected filter combination.';
     tbody.innerHTML=`<tr><td colspan="14" style="text-align:center;padding:24px;color:var(--muted)">${note}</td></tr>`;
-    if(status) status.textContent='0 ETFs loaded';
+    if(status) status.textContent=`0/${totalETFCount} ETFs shown`;
     _lastFilteredETFRows = [];
     _renderETFPaginationBar([]);
     return;
@@ -8164,7 +8296,7 @@ function renderETFSection(){
   const pageRows = rows.slice(etfPage * ETF_PAGE_SIZE, (etfPage + 1) * ETF_PAGE_SIZE);
   _renderETFPaginationBar(rows);
 
-  if(status) status.textContent=`${rows.length} ETF${rows.length===1?'':'s'} loaded`;
+  if(status) status.textContent=`${rows.length}/${totalETFCount} ETF${totalETFCount===1?'':'s'} shown`;
   const sigLabels={buy:'🟢 BUY',watch:'🟡 WATCH',hold:'⬜ HOLD',sell:'🔴 SELL'};
   // Build page rows as one HTML string — single DOM write
   tbody.innerHTML = pageRows.map(row => {

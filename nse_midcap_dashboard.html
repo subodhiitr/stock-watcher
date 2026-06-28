@@ -61,6 +61,7 @@
     <button id="last-refresh-card" class="action-metric action-button" type="button" onclick="fetchAll()" title="Refresh dashboard data now">
       <span>Last Refresh</span><strong id="action-last-refresh">--</strong>
     </button>
+    <button id="fresh-news-btn" class="icon-btn" type="button" onclick="openFreshNewsModal()" title="Fresh News">📰</button>
     <button id="notification-btn" class="icon-btn" type="button" onclick="toggleNotifications()" title="Notifications">!</button>
   </div>
   <div id="dashboard-health-banner" style="display:none"></div>
@@ -262,6 +263,7 @@
         </select>
         <input id="etf-search-input" class="text-input" style="width:160px;margin-left:4px" placeholder="Search ETFs…" oninput="setETFSearch(this.value)" />
       </div>
+      <div id="etf-setup-card-row" class="setup-card-row"></div>
       <div class="table-scroll-tools" aria-label="ETF table horizontal controls">
         <button class="table-scroll-btn" id="etf-scroll-left" type="button" onclick="scrollETFTable(-1)" ondblclick="scrollETFTable(-1, true)" title="Scroll ETF table left">‹</button>
         <div id="etf-top-scroll" aria-label="ETF table horizontal scrollbar"><div id="etf-top-scroll-inner"></div></div>

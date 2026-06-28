@@ -84,6 +84,7 @@ Options:
   --long-only                Replay only long/buy entries.
   --short-only               Replay only short/sell entries.
   --short-min-score <n>      Override short-side minimum absolute score.
+  --enable-etf               Allow replay to include long/buy ETF entries.
   --capital <amount>         Override starting/available capital for replay.
   --default-capital          Use dashboard default capital instead of saved portfolio cash.
   --sweep                    Run a small parameter sweep and rank by net P/L.
@@ -120,6 +121,7 @@ function parseArgs(argv) {
     else if (arg === '--auto-shorts') args.autoShorts = true;
     else if (arg === '--long-only') args.longOnly = true;
     else if (arg === '--short-only') args.shortOnly = true;
+    else if (arg === '--enable-etf') args.enableEtf = true;
     else if (arg === '--min-score') args.minScore = Number(next());
     else if (arg === '--short-min-score') args.shortMinScore = Number(next());
     else if (arg === '--capital') args.capital = Number(next());
@@ -165,6 +167,7 @@ function loadSettings(overrides) {
   if (Number.isFinite(overrides.shortMinScore)) settings.SIMULATION_SHORT_MIN_SCORE = overrides.shortMinScore;
   if (overrides.autoShorts) settings.SIMULATION_AUTO_SHORTS = true;
   if (overrides.shortOnly) settings.SIMULATION_AUTO_SHORTS = true;
+  if (overrides.enableEtf) settings.SIMULATION_ENABLE_ETF = true;
   settings.REPLAY_LONG_ONLY = !!overrides.longOnly;
   settings.REPLAY_SHORT_ONLY = !!overrides.shortOnly;
   const dbPortfolioCash = overrides.defaultCapital ? null : loadPortfolioAvailableCashFromDb(DB_FILE);
