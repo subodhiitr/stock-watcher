@@ -102,3 +102,10 @@ test('status refresh applies server runtime state to UI model', async () => {
   assert.equal(fetchCalls[0].options.method, 'GET');
   assert.deepEqual(appliedStatuses, [{ ok: true, state: 'settling', lastTickAt: 123 }]);
 });
+
+test('settings modal exposes editable initial capital control', () => {
+  const source = fs.readFileSync(DASHBOARD_APP_PATH, 'utf8');
+  assert.match(source, /id="portfolio-initial-capital-input"/);
+  assert.match(source, /setPortfolioInitialCapital\(this\.value\)/);
+  assert.match(source, /set-initial-capital/);
+});

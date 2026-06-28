@@ -20,6 +20,7 @@ const SNAPSHOT_DIR = path.join(ROOT, 'snapshots');
 const DEFAULT_SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, 'simulation_snapshots.json');
 const LEGACY_SNAPSHOT_FILE = path.join(ROOT, 'simulation_snapshots.json');
 const DAILY_SNAPSHOT_PREFIX = 'simulation_snapshots';
+const DB_FILE = path.resolve(ROOT, process.env.STOCK_WATCHER_DB_PATH || 'stock-watcher.db');
 const PAPER_TRADES_FILE = path.join(ROOT, 'paper_trades.json');
 const TRADE_SETTINGS_FILE = path.join(ROOT, 'trade_settings.json');
 
@@ -166,19 +167,75 @@ function loadSettings(overrides) {
   if (overrides.shortOnly) settings.SIMULATION_AUTO_SHORTS = true;
   settings.REPLAY_LONG_ONLY = !!overrides.longOnly;
   settings.REPLAY_SHORT_ONLY = !!overrides.shortOnly;
-  const portfolioCash = overrides.defaultCapital ? null : loadPortfolioAvailableCash(PAPER_TRADES_FILE);
+  const dbPortfolioCash = overrides.defaultCapital ? null : loadPortfolioAvailableCashFromDb(DB_FILE);
+  const filePortfolioCash = (!overrides.defaultCapital && !dbPortfolioCash) ? loadPortfolioAvailableCash(PAPER_TRADES_FILE) : null;
+  const portfolioCash = dbPortfolioCash || filePortfolioCash;
+  const portfolioSource = dbPortfolioCash ? 'SQLite portfolio state' : 'paper_trades.json portfolio capital';
   if (Number.isFinite(overrides.capital) && overrides.capital > 0) {
     settings.PORTFOLIO_INITIAL_CAPITAL = +overrides.capital.toFixed(2);
     settings.PORTFOLIO_CAPITAL_SOURCE = 'command-line';
   } else if (portfolioCash && Number.isFinite(portfolioCash.capital) && portfolioCash.capital > 0) {
     settings.PORTFOLIO_INITIAL_CAPITAL = portfolioCash.capital;
     settings.PORTFOLIO_AVAILABLE_CASH = portfolioCash.cashAvailable;
-    settings.PORTFOLIO_CAPITAL_SOURCE = 'paper_trades.json portfolio capital';
+    settings.PORTFOLIO_CAPITAL_SOURCE = portfolioSource;
     settings.PORTFOLIO_CAPITAL_DETAIL = portfolioCash;
   } else {
     settings.PORTFOLIO_CAPITAL_SOURCE = overrides.defaultCapital ? 'dashboard default' : 'dashboard default; saved portfolio unavailable';
   }
   return settings;
+}
+
+function computePortfolioAvailableCash(portfolio, trades) {
+  const initial = Number(portfolio?.initialCapital);
+  const base = Number.isFinite(initial) && initial > 0 ? initial : DEFAULTS.PORTFOLIO_INITIAL_CAPITAL;
+  const addedCapital = Array.isArray(portfolio?.capitalAdds)
+    ? portfolio.capitalAdds.reduce((sum, item) => sum + (Number(item?.amount) || 0), 0)
+    : 0;
+  let realized = 0;
+  let openExposure = 0;
+  for (const trade of Array.isArray(trades) ? trades : []) {
+    const status = String(trade?.status || '').toLowerCase();
+    if (status === 'closed') {
+      const pnl = Number(trade.pnl);
+      if (Number.isFinite(pnl)) realized += pnl;
+    } else if (status === 'open') {
+      const entry = Number(trade.entryPrice ?? trade.entry_price);
+      const qty = Number(trade.qty);
+      if (Number.isFinite(entry) && Number.isFinite(qty)) openExposure += entry * qty;
+    }
+  }
+  const capital = base + addedCapital;
+  const cashAvailable = capital + realized - openExposure;
+  return {
+    initial: round2(base),
+    addedCapital: round2(addedCapital),
+    capital: round2(capital),
+    realized: round2(realized),
+    openExposure: round2(openExposure),
+    cashAvailable: round2(cashAvailable),
+    tradeCount: Array.isArray(trades) ? trades.length : 0,
+  };
+}
+
+function loadPortfolioAvailableCashFromDb(file) {
+  try {
+    if (!fs.existsSync(file)) return null;
+    const Database = require('better-sqlite3');
+    const db = new Database(file, { readonly: true, fileMustExist: true });
+    try {
+      const row = db.prepare("SELECT data FROM portfolio_state WHERE key = 'default'").get();
+      if (!row?.data) return null;
+      const portfolio = JSON.parse(row.data);
+      const trades = db.prepare('SELECT data FROM trade_txns').all()
+        .map(tradeRow => JSON.parse(tradeRow.data))
+        .filter(Boolean);
+      return computePortfolioAvailableCash(portfolio, trades);
+    } finally {
+      db.close();
+    }
+  } catch (e) {
+    return null;
+  }
 }
 
 function loadPortfolioAvailableCash(file) {
@@ -187,35 +244,7 @@ function loadPortfolioAvailableCash(file) {
     const raw = JSON.parse(fs.readFileSync(file, 'utf8') || '{}');
     const portfolio = raw && typeof raw === 'object' ? raw.portfolio || {} : {};
     const trades = Array.isArray(raw?.trades) ? raw.trades : [];
-    const initial = Number(portfolio.initialCapital);
-    const base = Number.isFinite(initial) && initial > 0 ? initial : DEFAULTS.PORTFOLIO_INITIAL_CAPITAL;
-    const addedCapital = Array.isArray(portfolio.capitalAdds)
-      ? portfolio.capitalAdds.reduce((sum, item) => sum + (Number(item?.amount) || 0), 0)
-      : 0;
-    let realized = 0;
-    let openExposure = 0;
-    for (const trade of trades) {
-      const status = String(trade?.status || '').toLowerCase();
-      if (status === 'closed') {
-        const pnl = Number(trade.pnl);
-        if (Number.isFinite(pnl)) realized += pnl;
-      } else if (status === 'open') {
-        const entry = Number(trade.entryPrice);
-        const qty = Number(trade.qty);
-        if (Number.isFinite(entry) && Number.isFinite(qty)) openExposure += entry * qty;
-      }
-    }
-    const capital = base + addedCapital;
-    const cashAvailable = capital + realized - openExposure;
-    return {
-      initial: round2(base),
-      addedCapital: round2(addedCapital),
-      capital: round2(capital),
-      realized: round2(realized),
-      openExposure: round2(openExposure),
-      cashAvailable: round2(cashAvailable),
-      tradeCount: trades.length,
-    };
+    return computePortfolioAvailableCash(portfolio, trades);
   } catch (e) {
     return null;
   }

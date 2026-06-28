@@ -78,3 +78,21 @@ test('formatEntryJournal keeps legacy setup metadata when setupType is absent', 
   assert.match(journal, /Triggered/);
   assert.match(journal, /VWAP reclaim/);
 });
+
+test('renderPaperTradeControls shows No 5m data when intraday setup is missing', () => {
+  const renderPaperTradeControls = loadFunction('renderPaperTradeControls', {
+    getOpenPaperTrade: () => null,
+    getCurrentTradePrice: () => null,
+    escapeHTML: value => String(value ?? ''),
+    getPortfolioSummary: () => ({ cashAvailable: 100000 }),
+    getSuggestedPaperQty: () => ({ qty: 0 }),
+    paperQtyInputId: sym => `qty-${sym}`,
+    paperBrokerSelectId: sym => `broker-${sym}`,
+    getManualTradeBrokerMode: () => 'zerodha_dry_run',
+  });
+
+  const html = renderPaperTradeControls({ sym: 'INFY' }, null);
+
+  assert.match(html, /No 5m data/);
+  assert.doesNotMatch(html, /<button class="paper-btn buy"/);
+});

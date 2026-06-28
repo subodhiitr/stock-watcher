@@ -151,6 +151,7 @@ let simulationTickInFlight = false;
 let mutationLockActive = false;
 let mutationLockQueue = Promise.resolve();
 let simulationSchedulerTestInputs = null;
+let simulationSnapshotsForTests = null;
 let simulationUniverseSymbols = null;
 const intradayLiveCache = new Map();
 let intradayLiveRefreshTimer = null;
@@ -190,15 +191,15 @@ const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || openaiProps.OLLAMA_BASE_U
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || openaiProps.OLLAMA_MODEL || openaiProps.ollama_model || '';
 const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || openaiProps.OLLAMA_TIMEOUT_MS || openaiProps.ollama_timeout_ms || 180000);
 
-const VALID_BROKER_MODES = new Set(['paper', 'zerodha_dry_run', 'zerodha_live', 'sharekhan_live']);
+const VALID_BROKER_MODES = new Set(['zerodha_dry_run', 'zerodha_live', 'sharekhan_live']);
 
 function loadBrokerModePreference() {
   try {
     const mode = String(kvGet('broker_mode') || '').toLowerCase();
-    return VALID_BROKER_MODES.has(mode) ? mode : 'paper';
+    return VALID_BROKER_MODES.has(mode) ? mode : 'zerodha_dry_run';
   } catch (e) {
     console.warn('[broker-prefs] Could not load broker preferences:', e.message);
-    return 'paper';
+    return 'zerodha_dry_run';
   }
 }
 
@@ -224,7 +225,7 @@ function setBrokerMode(mode) {
 }
 
 // Broker integrations
-let brokerMode = 'paper'; // initialized from DB after initDb() in initializeProxy()
+let brokerMode = 'zerodha_dry_run'; // initialized from DB after initDb() in initializeProxy()
 let zerodhaCredentials = null;
 let kiteClientLive = null;
 let kiteClientDry = null;
@@ -852,6 +853,66 @@ function buildIntradayLiveData(symbolList = null) {
     data[sym] = setup;
   }
   return data;
+}
+
+function buildStoredAppPriceMap(symbols = []) {
+  const requested = new Set((Array.isArray(symbols) ? symbols : [])
+    .map(symbol => String(symbol || '').trim().toUpperCase())
+    .filter(Boolean));
+  const prices = new Map();
+  const assignPrice = (sym, value, source) => {
+    if (!sym || prices.has(sym)) return;
+    const price = Number(value?.price ?? value?.lastPrice ?? value?.ltp ?? value?.LTP ?? value?.priceAtSnapshot ?? value?.quote?.price ?? value?.quote?.lastPrice);
+    if (!Number.isFinite(price) || price <= 0) return;
+    const close = Number(value?.prevClose ?? value?.previousClose ?? value?.close ?? value?.closePrice ?? value?.quote?.prevClose ?? value?.quote?.previousClose ?? value?.quote?.close);
+    prices.set(sym, {
+      price,
+      prevClose: Number.isFinite(close) && close > 0 ? close : null,
+      source,
+    });
+  };
+
+  for (const sym of requested) {
+    assignPrice(sym, intradayLiveCache.get(sym), 'intraday-live-cache');
+  }
+  if (requested.size && [...requested].every(sym => prices.has(sym))) return prices;
+
+  const snapshots = loadLatestSimulationSnapshots();
+  for (let i = snapshots.length - 1; i >= 0; i -= 1) {
+    const candidates = Array.isArray(snapshots[i]?.candidates) ? snapshots[i].candidates : [];
+    for (const candidate of candidates) {
+      const sym = String(candidate?.symbol || '').trim().toUpperCase();
+      if (!sym || (requested.size && !requested.has(sym))) continue;
+      assignPrice(sym, candidate, 'simulation-snapshot');
+      if (requested.size && [...requested].every(symbol => prices.has(symbol))) return prices;
+    }
+  }
+  return prices;
+}
+
+function loadLatestSimulationSnapshots() {
+  if (Array.isArray(simulationSnapshotsForTests)) {
+    return pruneSimulationSnapshots(simulationSnapshotsForTests).sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
+  }
+  const latestFile = listSimulationSnapshotFiles()
+    .map(file => {
+      const name = path.basename(file);
+      const match = name.match(/(\d{4}-\d{2}-\d{2})/);
+      const dateTime = match ? new Date(`${match[1]}T23:59:59+05:30`).getTime() : 0;
+      return { file, time: dateTime || fileMtime(file) };
+    })
+    .sort((a, b) => b.time - a.time)[0]?.file;
+  if (!latestFile) return [];
+  try {
+    const buf = fs.readFileSync(latestFile);
+    const text = latestFile.endsWith('.gz') ? zlib.gunzipSync(buf).toString() : buf.toString('utf8');
+    const raw = JSON.parse(text || '{}');
+    return pruneSimulationSnapshots(Array.isArray(raw.snapshots) ? raw.snapshots : [])
+      .sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
+  } catch (e) {
+    console.warn('[simulation-snapshots] Latest load error:', path.basename(latestFile), e.message);
+    return [];
+  }
 }
 
 function broadcastIntradayLive(reason = 'update', changedSymbols = null) {
@@ -1663,6 +1724,9 @@ function loadSimulationSnapshotsFile(dateKey = null) {
 }
 
 function loadAllSimulationSnapshots() {
+  if (Array.isArray(simulationSnapshotsForTests)) {
+    return pruneSimulationSnapshots(simulationSnapshotsForTests).sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
+  }
   const all = [];
   for (const file of listSimulationSnapshotFiles()) {
     try {
@@ -1705,6 +1769,11 @@ function saveSimulationSnapshotsFile(state, dateKey = getIstDateKey()) {
     const file = getSimulationSnapshotFile(dateKey);
     const payload = JSON.stringify({ savedAt: Date.now(), retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: dateKey, snapshots });
     fs.writeFileSync(file, zlib.gzipSync(payload));
+    // Remove legacy uncompressed file for the same day if it exists
+    const legacyFile = file.replace(/\.gz$/, '');
+    if (legacyFile !== file && fs.existsSync(legacyFile)) {
+      try { fs.unlinkSync(legacyFile); } catch (_) {}
+    }
     pruneSimulationSnapshotFiles();
     return snapshots;
   } catch (e) {
@@ -3439,11 +3508,28 @@ function lastBusinessDateKey(base = new Date()) {
   return ist.toISOString().slice(0, 10);
 }
 
-function freshNewsDateKey() {
-  const now = new Date();
+function freshNewsDateKey(now = new Date()) {
   const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
   const day = ist.getUTCDay();
   return (day === 0 || day === 6) ? lastBusinessDateKey(now) : ist.toISOString().slice(0, 10);
+}
+
+function freshNewsRefreshDateKeys(now = new Date()) {
+  const primary = freshNewsDateKey(now);
+  const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+  const day = ist.getUTCDay();
+  if (day !== 0 && day !== 6) return [primary];
+  const dates = [primary];
+  const saturday = new Date(ist);
+  saturday.setUTCHours(0, 0, 0, 0);
+  saturday.setUTCDate(saturday.getUTCDate() - (day === 0 ? 1 : 0));
+  for (let add = 0; add <= (day === 0 ? 1 : 0); add += 1) {
+    const weekend = new Date(saturday);
+    weekend.setUTCDate(saturday.getUTCDate() + add);
+    const dateKey = weekend.toISOString().slice(0, 10);
+    if (!dates.includes(dateKey)) dates.push(dateKey);
+  }
+  return dates;
 }
 
 function itemNewsDateKey(item) {
@@ -3799,13 +3885,45 @@ async function getFreshNewsDayEntry(targetDate, requestedUniverse = [], opts = {
   return { ...entry, fromCache:false };
 }
 
+function mergeFreshNewsDayEntries(entries) {
+  const valid = (Array.isArray(entries) ? entries : []).filter(entry => entry && Array.isArray(entry.items));
+  if (valid.length <= 1) return valid[0] || null;
+  const items = dedupeFreshNewsItems(valid.flatMap(entry => entry.items || []));
+  return {
+    ok:true,
+    date:valid.map(entry => entry.date).filter(Boolean).join('+'),
+    savedAt:Math.max(...valid.map(entry => Number(entry.savedAt) || 0)),
+    builtInMs:valid.reduce((sum, entry) => sum + (Number(entry.builtInMs) || 0), 0),
+    source:[...new Set(valid.map(entry => entry.source).filter(Boolean))].join('+') || 'nse-market-wide',
+    scanned:Math.max(...valid.map(entry => Number(entry.scanned) || 0)),
+    count:items.length,
+    symbolCount:new Set(items.map(item => item.symbol)).size,
+    items,
+    errors:valid.flatMap(entry => Array.isArray(entry.errors) ? entry.errors : []).slice(0, 10),
+    fromCache:valid.every(entry => !!entry.fromCache),
+  };
+}
+
 async function fetchFreshStockNews(symbols, opts = {}) {
+  const explicitDate = !!opts.date;
   const targetDate = opts.date || freshNewsDateKey();
   const maxSymbols = Math.max(1, Math.min(Number(opts.maxSymbols) || 220, 300));
   const limit = Math.max(1, Math.min(Number(opts.limit) || 25, 100));
   const offset = Math.max(0, Number(opts.offset) || 0);
   const universe = normalizeFreshNewsUniverse(symbols, maxSymbols);
-  const dayEntry = await getFreshNewsDayEntry(targetDate, universe, { force:!!opts.force });
+  const dateKeys = explicitDate ? [targetDate] : freshNewsRefreshDateKeys();
+  const dayEntries = [];
+  for (const dateKey of dateKeys) {
+    dayEntries.push(await getFreshNewsDayEntry(dateKey, universe, { force:!!opts.force }));
+  }
+  const dayEntry = mergeFreshNewsDayEntries(dayEntries) || {
+    date:targetDate,
+    items:[],
+    count:0,
+    symbolCount:0,
+    scanned:0,
+    errors:[],
+  };
   const symbolMap = new Map(universe.map(row => [row.symbol, row]));
   const requestedSymbols = new Set(universe.map(row => row.symbol));
   const items = [];
@@ -3855,7 +3973,7 @@ async function fetchFreshStockNews(symbols, opts = {}) {
   }
   return {
     ok:true,
-    date:targetDate,
+    date:dayEntry.date || targetDate,
     scanned:universe.length,
     marketCount:dayEntry.count || 0,
     marketSymbolCount:dayEntry.symbolCount || 0,
@@ -3889,9 +4007,6 @@ function freshNewsCronDelayMs(now = new Date()) {
     for (const slot of FRESH_NEWS_CRON_TIMES_IST) {
       const [hh, mm] = slot.split(':').map(Number);
       const candidateIstMs = Date.UTC(y, m, d + add, hh, mm, 0, 0);
-      const candidateIst = new Date(candidateIstMs);
-      const day = candidateIst.getUTCDay();
-      if (day === 0 || day === 6) continue;
       const candidateUtcMs = candidateIstMs - offsetMs;
       if (candidateUtcMs > now.getTime() + 5000) return candidateUtcMs - now.getTime();
     }
@@ -3900,12 +4015,16 @@ function freshNewsCronDelayMs(now = new Date()) {
 }
 
 async function refreshFreshNewsCache(reason = 'manual') {
-  const targetDate = freshNewsDateKey();
+  const targetDates = freshNewsRefreshDateKeys();
   const universe = freshNewsBuildUniverse([]);
-  console.log(`[fresh-news-cron] Refreshing ${targetDate} (${reason}) for ${universe.length} symbols`);
-  const entry = await getFreshNewsDayEntry(targetDate, universe, { force:true });
-  console.log(`[fresh-news-cron] Done ${targetDate}: ${entry.count} items, ${entry.symbolCount} symbols, cache=${entry.fromCache}`);
-  return entry;
+  let primaryEntry = null;
+  for (const targetDate of targetDates) {
+    console.log(`[fresh-news-cron] Refreshing ${targetDate} (${reason}) for ${universe.length} symbols`);
+    const entry = await getFreshNewsDayEntry(targetDate, universe, { force:true });
+    console.log(`[fresh-news-cron] Done ${targetDate}: ${entry.count} items, ${entry.symbolCount} symbols, cache=${entry.fromCache}`);
+    if (!primaryEntry) primaryEntry = entry;
+  }
+  return primaryEntry;
 }
 
 function scheduleNextFreshNewsRefresh() {
@@ -3928,7 +4047,8 @@ function startFreshNewsCron() {
   scheduleNextFreshNewsRefresh();
   const targetDate = freshNewsDateKey();
   loadFreshNewsIndex();
-  if (!readFreshNewsDayEntry(targetDate)) {
+  const missingTarget = freshNewsRefreshDateKeys().some(dateKey => !readFreshNewsDayEntry(dateKey));
+  if (missingTarget) {
     const startupTimer = setTimeout(() => {
       refreshFreshNewsCache('startup-missing-cache').catch(e => console.warn('[fresh-news-cron] Startup refresh failed:', e.message));
     }, 5000);
@@ -6649,7 +6769,7 @@ async function proxyRequestHandler(req, res) {
     return;
   }
 
-  // /broker-mode -- Switch between paper, zerodha_dry_run, zerodha_live, sharekhan_live
+  // /broker-mode -- Switch between zerodha_dry_run, zerodha_live, sharekhan_live
   if (pathname === '/broker-mode') {
     if (req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -6662,7 +6782,7 @@ async function proxyRequestHandler(req, res) {
         const newMode = String(payload.mode || '').toLowerCase();
         if (!VALID_BROKER_MODES.has(newMode)) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid mode. Valid modes: paper, zerodha_dry_run, zerodha_live, sharekhan_live' }));
+          res.end(JSON.stringify({ error: 'Invalid mode. Valid modes: zerodha_dry_run, zerodha_live, sharekhan_live' }));
           return;
         }
         setBrokerMode(newMode);
@@ -6856,16 +6976,18 @@ async function proxyRequestHandler(req, res) {
         return;
       }
       const portfolio = await sharekhanClientLive.getPortfolioState();
-      // Enrich holdings LTP from intraday cache (Sharekhan API has no live quote endpoint)
+      // Enrich holdings LTP from app-stored prices (Sharekhan API has no live quote endpoint)
       if (Array.isArray(portfolio?.holdings?.list)) {
         let totalMarketValue = 0;
         let totalInvested = 0;
         let totalPnl = 0;
+        const storedPrices = buildStoredAppPriceMap(portfolio.holdings.list.map(h => h.symbol));
         for (const h of portfolio.holdings.list) {
-          const cached = intradayLiveCache.get(String(h.symbol || '').toUpperCase());
-          if (cached?.price) {
-            h.ltp = Number(cached.price);
-            h.closePrice = Number(cached.prevClose || cached.close || h.closePrice || 0);
+          const storedPrice = storedPrices.get(String(h.symbol || '').trim().toUpperCase());
+          if (storedPrice?.price) {
+            h.ltp = Number(storedPrice.price);
+            h.closePrice = Number(storedPrice.prevClose || h.closePrice || 0);
+            h.ltpSource = storedPrice.source;
             const prevClose = h.closePrice || h.ltp;
             h.dayChangePct = prevClose ? +((h.ltp - prevClose) / prevClose * 100).toFixed(2) : 0;
             h.marketValue = +(h.ltp * h.qty).toFixed(2);
@@ -7091,6 +7213,23 @@ async function proxyRequestHandler(req, res) {
           return;
         }
 
+        if (action === 'set-initial-capital') {
+          const amount = Number(payload.amount);
+          if (!Number.isFinite(amount) || amount <= 0) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Positive initial capital is required' }));
+            return;
+          }
+          state.portfolio = state.portfolio || defaultPaperPortfolio();
+          state.portfolio.initialCapital = +amount.toFixed(2);
+          state.portfolio.capitalAdds = Array.isArray(state.portfolio.capitalAdds) ? state.portfolio.capitalAdds : [];
+          savePaperStateFile(state);
+          broadcastPaperTradeState('set-initial-capital');
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, portfolio: state.portfolio }));
+          return;
+        }
+
         if (action === 'open') {
           const symbol = String(payload.symbol || '').trim().toUpperCase();
           const side = String(payload.side || 'buy').toLowerCase();
@@ -7108,7 +7247,7 @@ async function proxyRequestHandler(req, res) {
             return;
           }
           const requestedMode = String(payload.brokerMode || payload.executionMode || '').toLowerCase();
-          const executionMode = VALID_BROKER_MODES.has(requestedMode) ? requestedMode : 'paper';
+          const executionMode = VALID_BROKER_MODES.has(requestedMode) ? requestedMode : 'zerodha_dry_run';
           const dryRunEntryOrder = executionMode === 'zerodha_dry_run'
             ? buildZerodhaDryRunOrder({ ...payload, symbol, side, qty, entryPrice, assetType: payload.assetType === 'etf' ? 'etf' : 'stock' }, null, 'entry')
             : null;
@@ -7183,10 +7322,10 @@ async function proxyRequestHandler(req, res) {
             } catch (e) {
               zerodhaLiveFailureCount++;
               console.error(`[zerodha-live] Order placement failed (${zerodhaLiveFailureCount}):`, e.message);
-              // Fallback to paper mode if too many failures
+              // Fallback to Zerodha dry-run mode if too many failures
               if (zerodhaLiveFailureCount >= 3) {
-                console.warn('[zerodha-live] Too many failures. Disabling zerodha_live mode, falling back to paper mode.');
-                setBrokerMode('paper');
+                console.warn('[zerodha-live] Too many failures. Disabling zerodha_live mode, falling back to Zerodha dry-run mode.');
+                setBrokerMode('zerodha_dry_run');
               }
               trade.status = 'failed';
               trade.broker = {
@@ -7230,8 +7369,8 @@ async function proxyRequestHandler(req, res) {
               sharekhanLiveFailureCount++;
               console.error(`[sharekhan-live] Order placement failed (${sharekhanLiveFailureCount}):`, e.message);
               if (sharekhanLiveFailureCount >= 3) {
-                console.warn('[sharekhan-live] Too many failures. Disabling sharekhan_live mode, falling back to paper mode.');
-                setBrokerMode('paper');
+                console.warn('[sharekhan-live] Too many failures. Disabling sharekhan_live mode, falling back to Zerodha dry-run mode.');
+                setBrokerMode('zerodha_dry_run');
               }
               trade.status = 'failed';
               trade.broker = {
@@ -7311,8 +7450,8 @@ async function proxyRequestHandler(req, res) {
               zerodhaLiveFailureCount++;
               console.error(`[zerodha-live] Exit failed (${zerodhaLiveFailureCount}):`, e.message);
               if (zerodhaLiveFailureCount >= 3) {
-                console.warn('[zerodha-live] Too many failures. Disabling zerodha_live mode, falling back to paper mode.');
-                setBrokerMode('paper');
+                console.warn('[zerodha-live] Too many failures. Disabling zerodha_live mode, falling back to Zerodha dry-run mode.');
+                setBrokerMode('zerodha_dry_run');
               }
               trade.broker.status = 'exit_failed';
               trade.broker.error = e.message;
@@ -7338,8 +7477,8 @@ async function proxyRequestHandler(req, res) {
               sharekhanLiveFailureCount++;
               console.error(`[sharekhan-live] Exit failed (${sharekhanLiveFailureCount}):`, e.message);
               if (sharekhanLiveFailureCount >= 3) {
-                console.warn('[sharekhan-live] Too many failures. Disabling sharekhan_live mode, falling back to paper mode.');
-                setBrokerMode('paper');
+                console.warn('[sharekhan-live] Too many failures. Disabling sharekhan_live mode, falling back to Zerodha dry-run mode.');
+                setBrokerMode('zerodha_dry_run');
               }
               trade.broker.status = 'exit_failed';
               trade.broker.error = e.message;
@@ -8089,6 +8228,13 @@ module.exports = {
     },
     setSchedulerTickInputs(inputs) {
       simulationSchedulerTestInputs = inputs && typeof inputs === 'object' ? inputs : null;
+    },
+    setSharekhanClientForTests(client) {
+      sharekhanCredentials = client ? { accessToken: 'test-token' } : null;
+      sharekhanClientLive = client || null;
+    },
+    setSimulationSnapshotsForTests(snapshots) {
+      simulationSnapshotsForTests = Array.isArray(snapshots) ? snapshots : null;
     },
     setPaperTradesForRuntime(trades) {
       savePaperStateFile({

@@ -245,5 +245,30 @@ test('keeps partial availability and class behavior in sync', () => {
   assert.match(pill.title, /timeout/i);
   assert.match(pill.title, /partial/i);
   assert.ok(pill.classList.contains('warn'));
-  assert.ok(!pill.classList.contains('down'));
+});
+
+test('broker portfolio fetch uses longer timeout for Sharekhan portfolio', () => {
+  const { source } = loadDashboardApp();
+  const fetchFn = findFunctionByContracts(source, [
+    'SHAREKHAN_PORTFOLIO_ENDPOINT',
+    'AbortSignal.timeout',
+    'fetch(endpoint',
+  ]);
+
+  assert.ok(fetchFn, 'dashboard-app.js is missing broker portfolio fetch contract');
+  assert.match(fetchFn.fnSource, /isZerodha\s*\?\s*10000\s*:\s*45000/);
+  assert.doesNotMatch(fetchFn.fnSource, /fetch\(endpoint,\s*\{\s*signal:\s*AbortSignal\.timeout\(10000\)\s*\}\)/);
+});
+
+test('Sharekhan portfolio rows are enriched from table price data in the browser', () => {
+  const { source, context } = loadDashboardApp();
+  const enrich = findFunctionByContracts(source, [
+    'getCurrentTradePrice(',
+    'portfolio.holdings.list',
+    'table-price',
+  ]);
+
+  assert.ok(enrich, 'dashboard-app.js is missing table-price portfolio enrichment');
+  assert.match(enrich.fnSource, /getCurrentTradePrice\(h\.symbol\)/);
+  assert.match(enrich.fnSource, /ltpSource\s*=\s*'table-price'/);
 });

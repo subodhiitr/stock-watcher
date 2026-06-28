@@ -237,6 +237,15 @@ test('POST action parity across /trade-execution and /paper-trades', async () =>
   assert.equal(addCanonical.statusCode, 200);
   assert.equal(addCanonical.json?.portfolio?.capitalAdds?.at(-1)?.amount, 123.46);
 
+  const setInitialCapital = await request(proxy, {
+    method: 'POST',
+    path: '/trade-execution',
+    body: { action: 'set-initial-capital', amount: 750000 }
+  });
+  assert.equal(setInitialCapital.statusCode, 200);
+  assert.equal(setInitialCapital.json?.portfolio?.initialCapital, 750000);
+  assert.equal(setInitialCapital.json?.portfolio?.capitalAdds?.at(-1)?.amount, 123.46);
+
   const closedPartialId = partialCanonical.json?.partial?.id;
   const deleteAlias = await request(proxy, {
     method: 'POST',
@@ -326,6 +335,33 @@ test('action validation matrix enforces 400/409 requirements', async () => {
     body: { action: 'delete', id: opened.json.trade.id }
   });
   assert.equal(deleteClosedTrade.statusCode, 200);
+});
+
+test('broker mode excludes paper and defaults opens to zerodha dry run', async () => {
+  const proxy = loadProxyWithFixture('broker-mode-without-paper');
+
+  const status = await request(proxy, { method: 'GET', path: '/broker-mode' });
+  assert.equal(status.statusCode, 200);
+  assert.equal(status.json?.mode, 'zerodha_dry_run');
+
+  const rejectedPaper = await request(proxy, {
+    method: 'POST',
+    path: '/broker-mode',
+    body: { mode: 'paper' }
+  });
+  assert.equal(rejectedPaper.statusCode, 400);
+  assert.match(rejectedPaper.json?.error || '', /zerodha_dry_run, zerodha_live, sharekhan_live/);
+  assert.doesNotMatch(rejectedPaper.json?.error || '', /paper/);
+
+  const opened = await request(proxy, {
+    method: 'POST',
+    path: '/trade-execution',
+    body: { action: 'open', symbol: 'INFY', side: 'buy', qty: 1, entryPrice: 1000, brokerMode: 'paper', source: 'manual' }
+  });
+  assert.equal(opened.statusCode, 200);
+  assert.equal(opened.json?.trade?.executionMode, 'zerodha_dry_run');
+  assert.equal(opened.json?.trade?.broker?.name, 'zerodha');
+  assert.equal(opened.json?.trade?.broker?.mode, 'dry-run');
 });
 
 test('open action captures requested broker mode and close uses per-trade broker details', async () => {

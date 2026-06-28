@@ -939,9 +939,9 @@ const BROKER_MODE_KEY = 'stock-watcher-broker-mode';
 let simulationState = localStorage.getItem(SIMULATION_STATE_KEY) || 'off'; // off | running | settling
 let simulationBusy = false;
 let simulationRuntimeStatus = null;
-let brokerMode = ['paper', 'zerodha_dry_run', 'zerodha_live', 'sharekhan_live'].includes(localStorage.getItem(BROKER_MODE_KEY))
+let brokerMode = ['zerodha_dry_run', 'zerodha_live', 'sharekhan_live'].includes(localStorage.getItem(BROKER_MODE_KEY))
   ? localStorage.getItem(BROKER_MODE_KEY)
-  : 'paper';
+  : 'zerodha_dry_run';
 let brokerConnectionStatus = null; // { mode, zerodha: { credentialsLoaded, clientsInitialized, pollerRunning, failureCount, isDisabled } }
 let brokerRefreshState = { busy:false, ok:null, message:'' };
 var brokerPortfolioState = { loading:false, ok:false, data:null, error:'' };
@@ -2093,7 +2093,7 @@ function paperBrokerSelectId(sym) {
 
 function normalizeManualTradeBrokerMode(mode) {
   const normalized = String(mode || '').toLowerCase();
-  return ['paper', 'zerodha_dry_run', 'zerodha_live', 'sharekhan_live'].includes(normalized) ? normalized : brokerMode;
+  return ['zerodha_dry_run', 'zerodha_live', 'sharekhan_live'].includes(normalized) ? normalized : 'zerodha_dry_run';
 }
 
 function getManualTradeBrokerMode(sym) {
@@ -3050,7 +3050,7 @@ function renderPortfolioModal() {
     </div>
     <div class="portfolio-section-title">Zerodha Connection Status</div>
     <div class="portfolio-grid">
-      <div class="portfolio-card"><div class="label">Mode</div><div class="value">${escapeHTML(brokerConnectionStatus?.mode || 'paper')}</div></div>
+      <div class="portfolio-card"><div class="label">Mode</div><div class="value">${escapeHTML(brokerConnectionStatus?.mode || 'zerodha_dry_run')}</div></div>
       <div class="portfolio-card"><div class="label">Credentials</div><div class="value">${brokerConnectionStatus?.zerodha?.credentialsLoaded ? '✅ Loaded' : '❌ Missing'}</div></div>
       <div class="portfolio-card"><div class="label">API Clients</div><div class="value">${brokerConnectionStatus?.zerodha?.clientsInitialized ? '✅ Ready' : '⚠️ Not initialized'}</div></div>
       <div class="portfolio-card"><div class="label">Poller</div><div class="value">${brokerConnectionStatus?.zerodha?.pollerRunning ? '🟢 Running' : '⚫ Stopped'}</div></div>
@@ -3148,7 +3148,6 @@ function _populateManualTradeModal(initialSym = '') {
       <label style="font-size:12px;color:var(--muted)">Broker</label>
       <select id="mt-broker" style="padding:8px;border-radius:6px;background:var(--dim);border:1px solid var(--border);color:var(--text);font-size:14px"
               onchange="_onManualTradeBrokerChange(this.value)">
-        <option value="paper"${initBroker==='paper'?' selected':''}>Paper</option>
         <option value="zerodha_dry_run"${initBroker==='zerodha_dry_run'?' selected':''}>Zerodha Dry</option>
         <option value="zerodha_live"${initBroker==='zerodha_live'?' selected':''}>Zerodha Live</option>
         <option value="sharekhan_live"${initBroker==='sharekhan_live'?' selected':''}>Sharekhan Live</option>
@@ -3462,6 +3461,30 @@ function clearPositionCapOverride() {
   if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
 }
 
+async function setPortfolioInitialCapital(valueStr) {
+  const amount = Math.round(Number(valueStr));
+  if (!Number.isFinite(amount) || amount <= 0) {
+    alert('Enter a positive initial capital amount.');
+    return;
+  }
+  try {
+    const result = await postPaperTrade('set-initial-capital', { amount });
+    if (result?.portfolio) {
+      portfolioState = {
+        ...portfolioState,
+        initialCapital: Number(result.portfolio.initialCapital) || amount,
+        capitalAdds: Array.isArray(result.portfolio.capitalAdds) ? result.portfolio.capitalAdds : [],
+      };
+    }
+    await loadPaperTrades(true);
+    renderTable();
+    if (currentView === 'etfs') renderETFSection();
+    if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+  } catch (e) {
+    alert(e.message || 'Could not update initial capital');
+  }
+}
+
 async function setMinNetProfitOverride(valueStr) {
   const current = loadTradeSettingOverrides();
   const value = +Number(valueStr).toFixed(2);
@@ -3600,7 +3623,7 @@ function renderSettingsModal() {
     }).join('');
     body.innerHTML = `
     <div class="settings-summary">
-      <div class="settings-card"><div class="label">Portfolio capital</div><div class="value">${moneyINR(effective.PORTFOLIO_INITIAL_CAPITAL)}</div></div>
+      <div class="settings-card"><div class="label">Portfolio capital</div><div class="value">${moneyINR(effective.PORTFOLIO_INITIAL_CAPITAL)}</div><div style="margin-top:8px"><input id="portfolio-initial-capital-input" type="number" step="1000" min="1" value="${Math.round(Number(portfolioState?.initialCapital) || PORTFOLIO_FALLBACK_INITIAL_CAPITAL)}" onchange="setPortfolioInitialCapital(this.value)" style="width:110px; padding:4px"><span style="margin-left:8px; font-size:11px">Initial capital</span></div></div>
       <div class="settings-card"><div class="label">Per position cap</div><div class="value ${Number.isFinite(positionCapOverride) ? 'up' : ''}">${moneyINR(positionCapValue)}</div><div style="margin-top:8px"><input type="number" step="1000" min="10000" max="10000000" value="${Math.round(positionCapValue)}" onchange="setPositionCapOverride(this.value)" style="width:100px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(positionCapOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(positionCapOverride) ? ` <button class="btn" type="button" onclick="clearPositionCapOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
       <div class="settings-card"><div class="label">Minimum net profit</div><div class="value ${Number.isFinite(minNetProfitOverride) ? 'up' : ''}">${minNetProfitValue.toFixed(2)}%</div><div style="margin-top:8px"><input type="number" step="0.1" min="0" max="10" value="${minNetProfitValue.toFixed(2)}" onchange="setMinNetProfitOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(minNetProfitOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(minNetProfitOverride) ? ` <button class="btn" type="button" onclick="clearMinNetProfitOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Minimum net profit % required after brokerage charges.</div></div>
       <div class="settings-card"><div class="label">Max open trades</div><div class="value ${Number.isFinite(maxOpenTradesOverride) ? 'up' : ''}">${maxOpenTradesValue}</div><div style="margin-top:8px"><input type="number" step="1" min="1" max="100" value="${maxOpenTradesValue}" onchange="setMaxOpenTradesOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(maxOpenTradesOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(maxOpenTradesOverride) ? ` <button class="btn" type="button" onclick="clearMaxOpenTradesOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
@@ -3921,6 +3944,31 @@ function renderBrokerPortfolioModal() {
   `;
 }
 
+function enrichSharekhanPortfolioWithTablePrices(payload) {
+  const portfolio = payload?.portfolio;
+  if (!portfolio || !Array.isArray(portfolio.holdings?.list)) return payload;
+  let totalMarketValue = 0;
+  let totalPnl = 0;
+  for (const h of portfolio.holdings.list) {
+    const price = getCurrentTradePrice(h.symbol);
+    if (price) {
+      h.ltp = +price.toFixed(2);
+      h.ltpSource = 'table-price';
+      const prevClose = Number(intradayData[h.symbol]?.prevClose ?? stockData[h.symbol]?.prevClose ?? h.closePrice ?? h.ltp);
+      h.closePrice = Number.isFinite(prevClose) && prevClose > 0 ? +prevClose.toFixed(2) : h.closePrice;
+      h.marketValue = +(h.ltp * Number(h.qty || 0)).toFixed(2);
+      h.pnl = +(h.marketValue - Number(h.investedValue || 0)).toFixed(2);
+      h.dayChangePct = h.closePrice ? +(((h.ltp - h.closePrice) / h.closePrice) * 100).toFixed(2) : Number(h.dayChangePct || 0);
+    }
+    totalMarketValue += Number(h.marketValue || 0);
+    totalPnl += Number(h.pnl || 0);
+  }
+  portfolio.holdings.marketValue = +totalMarketValue.toFixed(2);
+  portfolio.positions = portfolio.positions || {};
+  portfolio.positions.totalPnl = +totalPnl.toFixed(2);
+  return payload;
+}
+
 async function openBrokerPortfolioModal() {
   const modal = document.getElementById('broker-portfolio-modal');
   if (modal) modal.style.display = 'flex';
@@ -3941,9 +3989,11 @@ async function fetchBrokerPortfolioFor(broker) {
   renderBrokerPortfolioModal();
   try {
     const endpoint = isZerodha ? ZERODHA_PORTFOLIO_ENDPOINT : SHAREKHAN_PORTFOLIO_ENDPOINT;
-    const res = await fetch(endpoint, { signal: AbortSignal.timeout(10000) });
+    const timeoutMs = isZerodha ? 10000 : 45000;
+    const res = await fetch(endpoint, { signal: AbortSignal.timeout(timeoutMs) });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok || payload.ok === false) throw new Error(payload.error || payload.hint || `HTTP ${res.status}`);
+    if (!isZerodha) enrichSharekhanPortfolioWithTablePrices(payload);
     setState({ loading:false, ok:true, data:payload, error:'' });
   } catch (e) {
     setState({ loading:false, ok:false, data:null, error:e.message || `Could not fetch ${isZerodha ? 'Zerodha' : 'Sharekhan'} portfolio` });
@@ -4037,23 +4087,23 @@ function updateBrokerModeButton() {
       ? 'Sharekhan Live is disabled due to repeated failures. Switch mode to reset.'
       : 'Live mode: trades are executed against real Sharekhan account.';
   } else {
-    btn.textContent = '📄 Paper';
-    btn.title = 'Paper mode: trades are virtual only.';
+    brokerMode = 'zerodha_dry_run';
+    btn.classList.add('broker-dry');
+    btn.textContent = '🟡 Zerodha Dry';
+    btn.title = 'Dry-run mode: trades remain virtual and Zerodha order payloads are saved for validation.';
   }
 }
 
 function toggleBrokerMode() {
-  // Cycle through: paper → zerodha_dry_run → zerodha_live → sharekhan_live → paper
-  if (brokerMode === 'paper') {
-    brokerMode = 'zerodha_dry_run';
-  } else if (brokerMode === 'zerodha_dry_run') {
+  // Cycle through: zerodha_dry_run → zerodha_live → sharekhan_live → zerodha_dry_run
+  if (brokerMode === 'zerodha_dry_run') {
     brokerMode = 'zerodha_live';
   } else if (brokerMode === 'zerodha_live') {
     brokerMode = 'sharekhan_live';
   } else if (brokerMode === 'sharekhan_live') {
-    brokerMode = 'paper';
+    brokerMode = 'zerodha_dry_run';
   } else {
-    brokerMode = 'paper';
+    brokerMode = 'zerodha_dry_run';
   }
   localStorage.setItem(BROKER_MODE_KEY, brokerMode);
   
@@ -6228,6 +6278,9 @@ function renderPaperTradeControls(row, t) {
     </div>`;
   }
   const disabled = !t || !price ? ' disabled' : '';
+  if (!t) {
+    return `<div class="paper-actions"><span style="color:var(--muted);font-size:12px">No 5m data</span></div>`;
+  }
   const cash = getPortfolioSummary().cashAvailable;
   const buyQty = t && price ? getSuggestedPaperQty(t, 'buy', price, cash).qty : 0;
   const sellQty = t && price ? getSuggestedPaperQty(t, 'sell', price, cash).qty : 0;
@@ -6236,7 +6289,6 @@ function renderPaperTradeControls(row, t) {
   const brokerSelectId = paperBrokerSelectId(row.sym);
   const selectedBrokerMode = getManualTradeBrokerMode(row.sym);
   const brokerOptions = [
-    ['paper', 'Paper'],
     ['zerodha_dry_run', 'Zerodha Dry'],
     ['zerodha_live', 'Zerodha Live'],
     ['sharekhan_live', 'Sharekhan Live'],
@@ -6245,7 +6297,7 @@ function renderPaperTradeControls(row, t) {
     ? 'Zerodha dry-run order will be saved; no live order is placed.'
     : (selectedBrokerMode === 'zerodha_live'
       ? 'Live order will be sent to Zerodha.'
-      : (selectedBrokerMode === 'sharekhan_live' ? 'Live order will be sent to Sharekhan.' : 'Paper trade only.'));
+      : 'Live order will be sent to Sharekhan.');
   return `<div class="paper-actions">
     <input id="${escapeHTML(qtyId)}" class="paper-qty-input"${disabled} type="number" min="1" step="1" value="${defaultQty}" title="Override quantity. Suggested buy ${buyQty || 0}, sell ${sellQty || 0}. Max Rs 1L exposure." onclick="event.stopPropagation()" />
     <select id="${escapeHTML(brokerSelectId)}" class="paper-broker-select"${disabled} title="Select broker for this manual trade" onclick="event.stopPropagation()" onchange="event.stopPropagation();setManualTradeBrokerMode('${escapeHTML(row.sym)}', this.value)">${brokerOptions}</select>
