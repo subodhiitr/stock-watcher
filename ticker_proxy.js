@@ -2093,7 +2093,7 @@ function replaySnapshotVersion(day, mode) {
   return stableHash(versionParts);
 }
 
-const REPLAY_CACHE_SCHEMA_VERSION = 'v4';
+const REPLAY_CACHE_SCHEMA_VERSION = 'v5';
 
 function replayCacheKey(day, mode, settings) {
   return [

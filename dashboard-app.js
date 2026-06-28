@@ -5635,7 +5635,7 @@ async function runReplaySweepForCurrent() {
     if (cachedRes.ok && cachedPayload.ok !== false && cachedPayload.cached && Array.isArray(cachedPayload.sweepRows) && cachedPayload.sweepRows.length) {
       const el = document.getElementById(progressId);
       if (el) el.textContent = `Loaded post-market deep sweep cache (${cachedPayload.sweepRows.length} rows).`;
-      renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows:cachedPayload.sweepRows || [], autoTuneRows:lastReplayDebugResult.autoTuneRows, actualTrades:lastReplayDebugResult.actualTrades });
+      renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows:cachedPayload.sweepRows || [], autoTuneRows:lastReplayDebugResult.autoTuneRows, actualTrades:cachedPayload.actualTrades || lastReplayDebugResult.actualTrades });
       return;
     }
     const el = document.getElementById(progressId);
@@ -5646,7 +5646,7 @@ async function runReplaySweepForCurrent() {
       if (el) el.textContent = `Settings sweep ${update.status}${update.cached ? ' (cached)' : update.reused ? ' (reused)' : update.workerPid ? ` (worker ${update.workerPid})` : ''}... ${update.id}`;
     });
     const sweepRows = payload.sweepRows || [];
-    renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows, autoTuneRows:lastReplayDebugResult.autoTuneRows, actualTrades:lastReplayDebugResult.actualTrades });
+    renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows, autoTuneRows:lastReplayDebugResult.autoTuneRows, actualTrades:payload.actualTrades || lastReplayDebugResult.actualTrades });
   } catch (e) {
     const el = document.getElementById(progressId);
     if (el) el.textContent = `Sweep failed: ${e.message || String(e)}`;
@@ -5669,7 +5669,7 @@ async function runReplayAutoTune5D() {
       if (el) el.textContent = `5D auto tune ${update.status}${update.cached ? ' (cached)' : update.reused ? ' (reused)' : update.workerPid ? ` (worker ${update.workerPid})` : ''}... ${update.id}`;
     });
     const autoTuneRows = payload.autoTuneRows || [];
-    renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows:lastReplayDebugResult.sweepRows, autoTuneRows, actualTrades:lastReplayDebugResult.actualTrades });
+    renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows:lastReplayDebugResult.sweepRows, autoTuneRows, actualTrades:payload.actualTrades || lastReplayDebugResult.actualTrades });
   } catch (e) {
     if (statusBox) statusBox.innerHTML = `<div class="replay-note" style="color:var(--red)">Auto tune failed: ${escapeHTML(e.message || String(e))}</div>`;
   } finally {

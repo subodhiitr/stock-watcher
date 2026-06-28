@@ -142,19 +142,28 @@ function runSweepBatch(settingsList, snapshots) {
   for (let i = 0; i < settingsList.length; i += chunkSize) {
     chunks.push(settingsList.slice(i, i + chunkSize));
   }
+  const workers = [];
   let completed = 0;
-  let failed = false;
+  let settled = false;
   const results = new Array(chunks.length);
   return new Promise((resolve, reject) => {
+    const fail = (err) => {
+      if (settled) return;
+      settled = true;
+      for (const w of workers) { try { w.terminate(); } catch (_) {} }
+      reject(err);
+    };
     chunks.forEach((batch, idx) => {
       const w = new Worker(__filename, { workerData:{ batch, snapshots } });
-      w.on('message', rows => {
-        if (failed) return;
-        results[idx] = rows;
-        if (++completed === chunks.length) resolve(results.flat());
+      workers.push(w);
+      w.on('message', msg => {
+        if (settled) return;
+        if (msg && msg.ok === false) { fail(new Error(msg.error || 'Sweep worker failed')); return; }
+        results[idx] = Array.isArray(msg) ? msg : [];
+        if (++completed === chunks.length) { settled = true; resolve(results.flat()); }
       });
-      w.on('error', err => { if (!failed) { failed = true; reject(err); } });
-      w.on('exit', code => { if (!failed && code !== 0) { failed = true; reject(new Error(`Sweep worker exited ${code}`)); } });
+      w.on('error', err => fail(err));
+      w.on('exit', code => { if (!settled && code !== 0) fail(new Error(`Sweep worker exited ${code}`)); });
     });
   });
 }
@@ -373,7 +382,7 @@ async function runDeepReplaySweep(snapshots, baseSettings, maxVariants = 20) {
   return uniqueSweepOutcomes(ranked).slice(0, limit);
 }
 
-function readSnapshotsForDay(day) {
+async function readSnapshotsForDay(day) {
   const file = Backtest.getDailySnapshotFile(day);
   return Backtest.readSnapshots(fs.existsSync(file) ? file : null, day);
 }
@@ -381,7 +390,7 @@ function readSnapshotsForDay(day) {
 async function runReplay(day, mode) {
   const settings = Backtest.loadSettings({ day });
   if (mode === 'autotune') {
-    const all = Backtest.readSnapshots(null, null);
+    const all = await Backtest.readSnapshots(null, null);
     const days = [...new Set(all.map(s => Backtest.istDateKey(s.at)).filter(Boolean))].sort().slice(-5);
     const recent = all.filter(s => days.includes(Backtest.istDateKey(s.at)));
     return {
@@ -393,7 +402,7 @@ async function runReplay(day, mode) {
     };
   }
   if (mode === 'deep_sweep') {
-    const snapshots = readSnapshotsForDay(day);
+    const snapshots = await readSnapshotsForDay(day);
     const result = compactReplayResult(Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings));
     return {
       ok:true,
@@ -404,7 +413,7 @@ async function runReplay(day, mode) {
       deepSweep:true,
     };
   }
-  const snapshots = readSnapshotsForDay(day);
+  const snapshots = await readSnapshotsForDay(day);
   const result = compactReplayResult(Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings));
   const response = {
     ok:true,
@@ -427,7 +436,7 @@ if (!isMainThread && parentPort) {
     });
     parentPort.postMessage(rows);
   } catch (e) {
-    parentPort.postMessage([]);
+    parentPort.postMessage({ ok:false, error:e.message || String(e) });
   }
 } else {
   process.on('message', async message => {
