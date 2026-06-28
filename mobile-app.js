@@ -10,6 +10,7 @@
     simulationState: 'off',
     autoRefreshEnabled: localStorage.getItem('intradayx.mobile.autoRefresh5m') === '1',
     autoRefreshTimer: null,
+    lastRefreshAt: 0,
   };
 
   const $ = id => document.getElementById(id);
@@ -321,6 +322,7 @@
       state.settings = analysis.settings || {};
       state.overrides = settings.overrides || {};
       state.candidates = Array.isArray(analysis.candidates) ? analysis.candidates : [];
+      state.lastRefreshAt = Date.now();
       renderAll();
       setStatus('');
     } catch (error) {
@@ -521,6 +523,18 @@
     bindEvents();
     setAutoRefresh(state.autoRefreshEnabled);
     refreshAll();
+
+    // Mobile browsers throttle/pause setInterval when the page is backgrounded.
+    // On visibility restore, refresh immediately if auto-refresh is on and the
+    // interval has already elapsed.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && state.autoRefreshEnabled) {
+        if (Date.now() - state.lastRefreshAt >= AUTO_REFRESH_MS) {
+          refreshAll();
+        }
+      }
+    });
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/mobile-sw.js').catch(() => {});
     }
