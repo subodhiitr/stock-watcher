@@ -78,13 +78,15 @@ class KiteClient {
   // Place order on Kite
   async placeOrder(orderData) {
     try {
-      const orderId = await this.withAuthRetry(async () => {
+      const result = await this.withAuthRetry(async () => {
         const payload = { ...orderData };
         const variety = payload.variety || 'regular';
         delete payload.variety;
         return this.kc.placeOrder(variety, payload);
       });
-      if (orderId) return orderId;
+      // Kite SDK resolves with { order_id: "..." } — extract the string
+      const orderId = result?.order_id ?? result;
+      if (orderId) return String(orderId);
       throw new Error('No order_id in response');
     } catch (err) {
       // Re-throw with original Zerodha message preserved — avoids hiding business errors

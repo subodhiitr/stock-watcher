@@ -146,8 +146,9 @@ class SharekhanClient {
       if (Array.isArray(data.data)) return data.data;
       if (typeof data === 'string') return data;
       return [];
-    } catch (_) {
-      return [];
+    } catch (err) {
+      console.warn(`[sharekhan-client] fetchRawCandles(${exchange}, ${scripCode}, ${interval}) failed: ${err?.message || err}`);
+      throw err;
     }
   }
 

@@ -118,8 +118,10 @@ async function fetchSharekhanIntraday(sym, client) {
     const code = await client.getScripCode(sym);
     if (!code || code <= 0) return null;
     const raw = await client.fetchRawCandles('NSE', code, '5');
-    return normalizeSharekhanCandles(sym, raw);
-  } catch (_) {
+    const result = normalizeSharekhanCandles(sym, raw);
+    return result;
+  } catch (err) {
+    console.warn(`[sharekhan-intraday] ${sym}: fetch error — ${err?.message || err}`);
     return null;
   }
 }

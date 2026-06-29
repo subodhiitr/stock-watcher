@@ -1,6 +1,7 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { saveSnapshotDay } from './snapshot-store.js';
+'use strict'
+const fs = require('node:fs');
+const path = require('node:path');
+const { saveSnapshotDay } = require('./snapshot-store.js');
 
 /**
  * Load JSON file safely, returns empty object/array if not found
@@ -644,3 +645,5 @@ if (isCli || import.meta.url === `file://${process.argv[1]}`) {
     }
   })();
 }
+
+module.exports = { runMigration };

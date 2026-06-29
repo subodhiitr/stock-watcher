@@ -1,9 +1,8 @@
-import Database from 'better-sqlite3';
-import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
-import nodePath from 'node:path';
+'use strict';
+const Database = require('better-sqlite3');
+const nodePath = require('node:path');
 
-const __dirname = nodePath.dirname(fileURLToPath(import.meta.url));
+// __dirname is available natively in CommonJS
 const DEFAULT_DB_PATH = nodePath.join(__dirname, '..', 'stock-watcher.db');
 
 const INITIAL_SCHEMA_VERSION = 1;
@@ -319,7 +318,7 @@ function readEtfMasterRow(row) {
   };
 }
 
-export function initDb(path = DEFAULT_DB_PATH) {
+function initDb(path = DEFAULT_DB_PATH) {
   const db = new Database(path);
 
   // Enable WAL mode for concurrent read+write (proxy + backtest running together)
@@ -456,19 +455,19 @@ export function initDb(path = DEFAULT_DB_PATH) {
   return db;
 }
 
-export function getSchemaVersion(db = requireDb()) {
+function getSchemaVersion(db = requireDb()) {
   const row = getPrepared(db).getSchemaVersion.get();
   return row?.version ?? 0;
 }
 
-export function getSymbols() {
+function getSymbols() {
   const db = requireDb();
   return db.prepare('SELECT symbol, name, sector, cap, source FROM symbols ORDER BY symbol ASC').all();
 }
 
 // Returns only symbols with source 'saved' or 'both', formatted as {sym, name, sector, cap}
 // matching the legacy saved_stocks.json array format for backward compatibility
-export function getSavedStockSymbols() {
+function getSavedStockSymbols() {
   const db = requireDb();
   return db.prepare(
     "SELECT symbol, name, sector, cap FROM symbols WHERE source IN ('saved','both') ORDER BY symbol ASC"
@@ -477,7 +476,7 @@ export function getSavedStockSymbols() {
 
 // Returns only symbols with source 'simulation' or 'both' as a plain string array
 // matching the legacy simulation_universe.json symbols array format
-export function getSimulationSymbols() {
+function getSimulationSymbols() {
   const db = requireDb();
   return db.prepare(
     "SELECT symbol FROM symbols WHERE source IN ('simulation','both') ORDER BY symbol ASC"
@@ -485,31 +484,39 @@ export function getSimulationSymbols() {
 }
 
 // Bulk-set simulation universe: removes old simulation-only rows, upserts new set
-export function saveSimulationSymbols(symbols) {
+function saveSimulationSymbols(symbols) {
   const db = requireDb();
   const normalized = [...new Set((Array.isArray(symbols) ? symbols : [])
     .map(s => String(s || '').trim().toUpperCase()).filter(s => /^[A-Z0-9_.-]+$/.test(s)))];
   const tx = db.transaction(() => {
-    // Rows that are 'both' stay but lose simulation source ΓåÆ become 'saved'
+    // Snapshot metadata for simulation-only rows before deleting them
+    const simMeta = new Map(
+      db.prepare("SELECT symbol, name, sector, cap FROM symbols WHERE source = 'simulation'").all()
+        .map(r => [r.symbol, r])
+    );
+    // Rows that are 'both' stay but lose simulation source → become 'saved'
     db.prepare("UPDATE symbols SET source = 'saved', updated_at = ? WHERE source = 'both'").run(Date.now());
     // Delete rows that were simulation-only
     db.prepare("DELETE FROM symbols WHERE source = 'simulation'").run();
-    // Upsert new simulation symbols
+    // Upsert new simulation symbols, restoring cap/name/sector for re-inserted rows
     const upsert = db.prepare(`
-      INSERT INTO symbols (symbol, source, updated_at) VALUES (?, 'simulation', ?)
+      INSERT INTO symbols (symbol, name, sector, cap, source, updated_at) VALUES (?, ?, ?, ?, 'simulation', ?)
       ON CONFLICT(symbol) DO UPDATE SET
         source = CASE WHEN symbols.source = 'saved' THEN 'both' ELSE 'simulation' END,
         updated_at = excluded.updated_at
     `);
     const now = Date.now();
-    for (const sym of normalized) upsert.run(sym, now);
+    for (const sym of normalized) {
+      const meta = simMeta.get(sym);
+      upsert.run(sym, meta?.name ?? null, meta?.sector ?? null, meta?.cap ?? null, now);
+    }
   });
   tx();
   return normalized;
 }
 
 // Returns list of all ETFs in etf_master formatted as {sym, name, ...data}
-export function listAllEtfs() {
+function listAllEtfs() {
   const db = requireDb();
   return db.prepare('SELECT symbol, data, is_saved, is_favorite FROM etf_master ORDER BY symbol ASC').all()
     .map(r => {
@@ -519,19 +526,19 @@ export function listAllEtfs() {
 }
 
 // Returns saved ETF symbol strings (for /etf-prefs endpoint backward compat)
-export function getEtfSavedSymbols() {
+function getEtfSavedSymbols() {
   const db = requireDb();
   return db.prepare("SELECT symbol FROM etf_master WHERE is_saved = 1 ORDER BY symbol ASC").all().map(r => r.symbol);
 }
 
 // Returns favorite ETF symbol strings (for /etf-favs endpoint backward compat)
-export function getEtfFavoriteSymbols() {
+function getEtfFavoriteSymbols() {
   const db = requireDb();
   return db.prepare("SELECT symbol FROM etf_master WHERE is_favorite = 1 ORDER BY symbol ASC").all().map(r => r.symbol);
 }
 
 // Bulk-set ETF saved flags: marks given symbols as saved, clears all others
-export function setEtfSavedBulk(symbols) {
+function setEtfSavedBulk(symbols) {
   const db = requireDb();
   const syms = new Set((Array.isArray(symbols) ? symbols : []).map(s => String(s).trim().toUpperCase()).filter(Boolean));
   const tx = db.transaction(() => {
@@ -547,7 +554,7 @@ export function setEtfSavedBulk(symbols) {
 }
 
 // Bulk-set ETF favorite flags: marks given symbols as favorites, clears all others
-export function setEtfFavoriteBulk(symbols) {
+function setEtfFavoriteBulk(symbols) {
   const db = requireDb();
   const syms = new Set((Array.isArray(symbols) ? symbols : []).map(s => String(s).trim().toUpperCase()).filter(Boolean));
   const tx = db.transaction(() => {
@@ -562,13 +569,13 @@ export function setEtfFavoriteBulk(symbols) {
   tx();
 }
 
-export function rememberSymbols(rows) {
+function rememberSymbols(rows) {
   const db = requireDb();
   const prepared = getPrepared(db);
   prepared.rememberSymbolsTx(Array.isArray(rows) ? rows : []);
 }
 
-export function savePortfolioState(portfolio) {
+function savePortfolioState(portfolio) {
   if (!portfolio || typeof portfolio !== 'object') return null;
   const db = requireDb();
   db.prepare(`
@@ -581,14 +588,14 @@ export function savePortfolioState(portfolio) {
   return portfolio;
 }
 
-export function loadPortfolioState() {
+function loadPortfolioState() {
   const db = requireDb();
   const row = db.prepare("SELECT data FROM portfolio_state WHERE key = 'default'").get();
   if (!row) return null;
   try { return JSON.parse(row.data); } catch { return null; }
 }
 
-export function upsertSymbol(symbol, name, sector, cap, source) {
+function upsertSymbol(symbol, name, sector, cap, source) {
   if (!symbol) {
     return;
   }
@@ -597,14 +604,14 @@ export function upsertSymbol(symbol, name, sector, cap, source) {
   prepared.upsertSymbolTx(symbol, name, sector, cap, source);
 }
 
-export function upsertScripCodes(rows, broker = 'sharekhan') {
+function upsertScripCodes(rows, broker = 'sharekhan') {
   assertSupportedBroker(broker);
   const db = requireDb();
   const prepared = getPrepared(db);
   prepared.upsertScripCodesTxByBroker[broker](Array.isArray(rows) ? rows : []);
 }
 
-export function getScripCode(symbol, broker = 'sharekhan') {
+function getScripCode(symbol, broker = 'sharekhan') {
   if (!symbol) {
     return null;
   }
@@ -615,7 +622,7 @@ export function getScripCode(symbol, broker = 'sharekhan') {
   return row?.code ?? null;
 }
 
-export function scripCodesUpdatedAt(broker = 'sharekhan') {
+function scripCodesUpdatedAt(broker = 'sharekhan') {
   assertSupportedBroker(broker);
   const db = requireDb();
   const prepared = getPrepared(db);
@@ -623,7 +630,7 @@ export function scripCodesUpdatedAt(broker = 'sharekhan') {
   return row?.updated_at ?? 0;
 }
 
-export function saveTrade(trade) {
+function saveTrade(trade) {
   const patch = normalizeTradePatch(trade);
   if (!patch.id) {
     return null;
@@ -667,7 +674,7 @@ function recomputeDayPnlForDate(db, prepared, date) {
   prepared.upsertDayPnl.run(date, total, Date.now());
 }
 
-export function updateTrade(id, fields) {
+function updateTrade(id, fields) {
   if (!id) {
     return null;
   }
@@ -676,7 +683,7 @@ export function updateTrade(id, fields) {
   return saveTrade({ id, ...patch });
 }
 
-export function getTrade(id) {
+function getTrade(id) {
   if (!id) {
     return null;
   }
@@ -685,7 +692,7 @@ export function getTrade(id) {
   return parseTradeRow(prepared.getTradeRow.get(id));
 }
 
-export function listTrades(filters = {}) {
+function listTrades(filters = {}) {
   const db = requireDb();
   const clauses = [];
   const params = [];
@@ -726,27 +733,27 @@ export function listTrades(filters = {}) {
   return db.prepare(sql).all(...params).map((row) => parseTradeRow(row)).filter(Boolean);
 }
 
-export function countTrades() {
+function countTrades() {
   const db = requireDb();
   const prepared = getPrepared(db);
   const row = prepared.countTrades.get();
   return row?.count ?? 0;
 }
 
-export function deleteTrade(id) {
+function deleteTrade(id) {
   if (!id) return 0;
   const db = requireDb();
   const result = db.prepare('DELETE FROM trade_txns WHERE id = ?').run(String(id));
   return result.changes ?? 0;
 }
 
-export function getTradesUpdatedAt() {
+function getTradesUpdatedAt() {
   const db = requireDb();
   const row = db.prepare('SELECT COALESCE(MAX(updated_at), 0) AS ts FROM trade_txns').get();
   return row?.ts ?? 0;
 }
 
-export function computeAllTimeRealizedPnl() {
+function computeAllTimeRealizedPnl() {
   const db = requireDb();
   const row = db.prepare(`
     SELECT COALESCE(SUM(CAST(json_extract(data, '$.pnl') AS REAL)), 0) AS total
@@ -756,7 +763,7 @@ export function computeAllTimeRealizedPnl() {
   return +(row?.total ?? 0);
 }
 
-export function getDayPnl() {
+function getDayPnl() {
   const db = requireDb();
   const rows = getPrepared(db).getDayPnlRows.all();
   const result = {};
@@ -764,7 +771,7 @@ export function getDayPnl() {
   return result;
 }
 
-export function rebuildDayPnl() {
+function rebuildDayPnl() {
   const db = requireDb();
   const prepared = getPrepared(db);
   const allClosed = db.prepare(
@@ -791,7 +798,7 @@ export function rebuildDayPnl() {
   return byDate;
 }
 
-export function saveFreshNews(symbol, date, newsArray, ttlMs = FIFTEEN_DAYS_MS) {
+function saveFreshNews(symbol, date, newsArray, ttlMs = FIFTEEN_DAYS_MS) {
   if (!symbol || !date) {
     return null;
   }
@@ -804,7 +811,7 @@ export function saveFreshNews(symbol, date, newsArray, ttlMs = FIFTEEN_DAYS_MS) 
   return payload;
 }
 
-export function getFreshNews(symbol, date) {
+function getFreshNews(symbol, date) {
   if (!symbol || !date) {
     return null;
   }
@@ -821,7 +828,7 @@ export function getFreshNews(symbol, date) {
   return parseJson(row.news_json, []);
 }
 
-export function pruneFreshNews() {
+function pruneFreshNews() {
   const db = requireDb();
   const prepared = getPrepared(db);
   const result = prepared.pruneFreshNewsRows.run(Date.now());
@@ -831,11 +838,11 @@ export function pruneFreshNews() {
 // upsertEtfCodes ΓÇö bulk upsert per-source ETF broker/exchange codes.
 // Delegates to upsertScripCodes since ETF codes use the same scripts_master table structure.
 // broker: 'sharekhan' | 'zerodha' | 'nse' | 'yahoo'
-export function upsertEtfCodes(rows, broker = 'sharekhan') {
+function upsertEtfCodes(rows, broker = 'sharekhan') {
   return upsertScripCodes(rows, broker);
 }
 
-export function upsertEtfMaster(rows) {
+function upsertEtfMaster(rows) {
   const db = requireDb();
   const prepared = getPrepared(db);
   const list = Array.isArray(rows) ? rows : [];
@@ -856,7 +863,7 @@ export function upsertEtfMaster(rows) {
   tx(list);
 }
 
-export function getEtfMaster(symbol) {
+function getEtfMaster(symbol) {
   if (!symbol) {
     return null;
   }
@@ -865,7 +872,7 @@ export function getEtfMaster(symbol) {
   return readEtfMasterRow(prepared.getEtfMasterRow.get(String(symbol)));
 }
 
-export function saveEtfNavDaily(rows) {
+function saveEtfNavDaily(rows) {
   const db = requireDb();
   const prepared = getPrepared(db);
   const list = Array.isArray(rows) ? rows : [];
@@ -888,7 +895,7 @@ export function saveEtfNavDaily(rows) {
   tx(list);
 }
 
-export function getEtfNavHistory(symbol, from, to) {
+function getEtfNavHistory(symbol, from, to) {
   if (!symbol) {
     return [];
   }
@@ -907,7 +914,7 @@ export function getEtfNavHistory(symbol, from, to) {
   });
 }
 
-export function saveEtfQuoteCache(symbol, payload, ttlMs) {
+function saveEtfQuoteCache(symbol, payload, ttlMs) {
   if (!symbol) {
     return null;
   }
@@ -919,7 +926,7 @@ export function saveEtfQuoteCache(symbol, payload, ttlMs) {
   return payload ?? null;
 }
 
-export function getEtfQuoteCache(symbol) {
+function getEtfQuoteCache(symbol) {
   if (!symbol) {
     return null;
   }
@@ -936,14 +943,14 @@ export function getEtfQuoteCache(symbol) {
   return parseJson(row.payload, null);
 }
 
-export function pruneEtfQuoteCache() {
+function pruneEtfQuoteCache() {
   const db = requireDb();
   const prepared = getPrepared(db);
   const result = prepared.pruneEtfQuoteCacheRows.run(Date.now());
   return result.changes ?? 0;
 }
 
-export function saveEtfHoldingsCache(symbol, payload, ttlMs) {
+function saveEtfHoldingsCache(symbol, payload, ttlMs) {
   if (!symbol) {
     return null;
   }
@@ -955,7 +962,7 @@ export function saveEtfHoldingsCache(symbol, payload, ttlMs) {
   return payload ?? null;
 }
 
-export function getEtfHoldingsCache(symbol) {
+function getEtfHoldingsCache(symbol) {
   if (!symbol) {
     return null;
   }
@@ -972,14 +979,14 @@ export function getEtfHoldingsCache(symbol) {
   return parseJson(row.payload, null);
 }
 
-export function pruneEtfHoldingsCache() {
+function pruneEtfHoldingsCache() {
   const db = requireDb();
   const prepared = getPrepared(db);
   const result = prepared.pruneEtfHoldingsCacheRows.run(Date.now());
   return result.changes ?? 0;
 }
 
-export function setEtfSaved(symbol, isSaved) {
+function setEtfSaved(symbol, isSaved) {
   if (!symbol) {
     return null;
   }
@@ -999,7 +1006,7 @@ export function setEtfSaved(symbol, isSaved) {
   return getEtfMaster(target);
 }
 
-export function setEtfFavorite(symbol, isFavorite) {
+function setEtfFavorite(symbol, isFavorite) {
   if (!symbol) {
     return null;
   }
@@ -1019,45 +1026,45 @@ export function setEtfFavorite(symbol, isFavorite) {
   return getEtfMaster(target);
 }
 
-export function listSavedEtfs() {
+function listSavedEtfs() {
   const db = requireDb();
   const prepared = getPrepared(db);
   return prepared.listSavedEtfRows.all().map((row) => readEtfMasterRow(row)).filter(Boolean);
 }
 
-export function listEtfFavorites() {
+function listEtfFavorites() {
   const db = requireDb();
   const prepared = getPrepared(db);
   return prepared.listFavoriteEtfRows.all().map((row) => readEtfMasterRow(row)).filter(Boolean);
 }
 
-export function getStockFavoriteSymbols() {
+function getStockFavoriteSymbols() {
   const db = requireDb();
   return getPrepared(db).listFavoriteStockRows.all().map(r => r.symbol);
 }
 
-export function setStockFavoriteBulk(symbols) {
+function setStockFavoriteBulk(symbols) {
   const db = requireDb();
   getPrepared(db).setStockFavoriteBulkTx(Array.isArray(symbols) ? symbols : []);
 }
 
 // ΓöÇΓöÇ kv_store: simple key-value for broker_preferences, trade_settings, etc. ΓöÇ
 
-export function kvGet(key) {
+function kvGet(key) {
   const db = requireDb();
   const row = getPrepared(db).getKvRow.get(key);
   if (!row) return null;
   return parseJson(row.value, null);
 }
 
-export function kvSet(key, value) {
+function kvSet(key, value) {
   const db = requireDb();
   getPrepared(db).setKv.run(key, JSON.stringify(value), Date.now());
 }
 
 // ΓöÇΓöÇ json_cache: generic JSON blob cache with TTL ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
-export function jsonCacheGet(key) {
+function jsonCacheGet(key) {
   const db = requireDb();
   const row = getPrepared(db).getJsonCache.get(key);
   if (!row) return null;
@@ -1068,13 +1075,68 @@ export function jsonCacheGet(key) {
   return parseJson(row.data, null);
 }
 
-export function jsonCacheSet(key, data, ttlMs = null) {
+function jsonCacheSet(key, data, ttlMs = null) {
   const db = requireDb();
   const expiresAt = ttlMs ? Date.now() + ttlMs : 9999999999999;
   getPrepared(db).setJsonCache.run(key, JSON.stringify(data), expiresAt, Date.now());
 }
 
-export function jsonCacheDelete(key) {
+function jsonCacheDelete(key) {
   const db = requireDb();
   getPrepared(db).deleteJsonCache.run(key);
 }
+module.exports = {
+  initDb,
+  getSchemaVersion,
+  getSymbols,
+  getSavedStockSymbols,
+  getSimulationSymbols,
+  saveSimulationSymbols,
+  listAllEtfs,
+  getEtfSavedSymbols,
+  getEtfFavoriteSymbols,
+  setEtfSavedBulk,
+  setEtfFavoriteBulk,
+  rememberSymbols,
+  savePortfolioState,
+  loadPortfolioState,
+  upsertSymbol,
+  upsertScripCodes,
+  getScripCode,
+  scripCodesUpdatedAt,
+  saveTrade,
+  updateTrade,
+  getTrade,
+  listTrades,
+  countTrades,
+  deleteTrade,
+  getTradesUpdatedAt,
+  computeAllTimeRealizedPnl,
+  getDayPnl,
+  rebuildDayPnl,
+  saveFreshNews,
+  getFreshNews,
+  pruneFreshNews,
+  upsertEtfCodes,
+  upsertEtfMaster,
+  getEtfMaster,
+  saveEtfNavDaily,
+  getEtfNavHistory,
+  saveEtfQuoteCache,
+  getEtfQuoteCache,
+  pruneEtfQuoteCache,
+  saveEtfHoldingsCache,
+  getEtfHoldingsCache,
+  pruneEtfHoldingsCache,
+  setEtfSaved,
+  setEtfFavorite,
+  listSavedEtfs,
+  listEtfFavorites,
+  getStockFavoriteSymbols,
+  setStockFavoriteBulk,
+  kvGet,
+  kvSet,
+  jsonCacheGet,
+  jsonCacheSet,
+  jsonCacheDelete,
+};

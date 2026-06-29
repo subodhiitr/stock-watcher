@@ -86,7 +86,7 @@ function mobileResponse() {
 <link rel="manifest" href="/mobile-manifest.webmanifest">
 <link rel="icon" href="/mobile-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/mobile-icon-192.png">
-<link rel="stylesheet" href="/mobile.css?v=20260628-7">
+<link rel="stylesheet" href="/mobile.css?v=20260629-2">
 </head>
 <body>
 <main class="app-shell">
@@ -206,7 +206,7 @@ function mobileResponse() {
     <div class="transaction-list" id="portfolio-transactions"></div>
   </section>
 </div>
-<script defer src="/mobile-app.js?v=20260628-7"></script>
+<script defer src="/mobile-app.js?v=20260629-2"></script>
 </body>
 </html>`
 

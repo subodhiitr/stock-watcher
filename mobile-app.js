@@ -157,6 +157,8 @@
             <strong>${sym}</strong>
             <span>${status || '--'} · ${mode}</span>
             <span>${String(trade.side || '').toUpperCase()} · ${trade.qty || '--'}</span>
+            ${status === 'open' && trade.broker?.orderId ? `<span class="order-id">Order: ${trade.broker.orderId}</span>` : ''}
+            ${status === 'open' && trade.broker?.status ? `<span class="broker-status broker-status--${trade.broker.status}">${brokerStatusLabel(trade.broker)}</span>` : ''}
           </div>
           <div class="trade-cell"><span>Entry</span><strong>${fmt(trade.entryPrice)}</strong></div>
           <div class="trade-cell"><span>Price</span><strong>${fmt(price)}</strong><em class="${cls(quote.change)}">${fmt(quote.change)}%</em></div>
@@ -180,6 +182,22 @@
     if (mode === 'zerodha_dry_run' || broker.status === 'entry_dry_run' || broker.status === 'exit_dry_run') return 'Zerodha Dry';
     if (mode === 'paper' || !mode) return 'Paper';
     return mode.replace(/_/g, ' ');
+  }
+
+  function brokerStatusLabel(broker = {}) {
+    const s = String(broker.status || '');
+    const exitId = broker.exitOrderId ? ` · Exit: ${broker.exitOrderId}` : '';
+    switch (s) {
+      case 'pending':        return '⏳ Pending confirmation';
+      case 'confirmed':      return '✓ Filled';
+      case 'exit_placed':    return `↩ Exit placed${exitId}`;
+      case 'exit_failed':    return `⚠ Exit failed: ${broker.error || 'unknown'}`;
+      case 'exit_dry_run':   return '↩ Exit dry-run';
+      case 'cancelled':      return '✕ Cancelled';
+      case 'rejected':       return `✕ Rejected: ${broker.confirmationError || ''}`;
+      case 'timeout':        return '⏱ Timed out';
+      default:               return s.replace(/_/g, ' ');
+    }
   }
 
   function renderSetups() {
@@ -278,19 +296,24 @@
         ? new Date(tradeTimestamp(trade)).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
         : '--';
       const pnl = status === 'open' ? 0 : n(trade.pnl);
+      const brokerExitInfo = trade.broker?.exitOrderId
+        ? `Exit order: ${trade.broker.exitOrderId}`
+        : (trade.broker?.status === 'exit_failed' ? `⚠ Exit failed: ${trade.broker.error || ''}` : '');
+      const closeNote = trade.closeReason || trade.exitReason || '';
       return `
         <article class="transaction-row">
           <div>
             <strong>${String(trade.symbol || '').toUpperCase()}</strong>
-            <span>${status} &middot; ${tradeBrokerLabel(trade)} &middot; ${time}</span>
+            <span>${status} · ${tradeBrokerLabel(trade)} · ${time}</span>
           </div>
           <div>
             <strong>${String(trade.side || '').toUpperCase()} ${trade.qty || '--'}</strong>
-            <span>Entry ${fmt(trade.entryPrice)} &middot; Exit ${trade.exitPrice ? fmt(trade.exitPrice) : '--'}</span>
+            <span>Entry ${fmt(trade.entryPrice)} · Exit ${trade.exitPrice ? fmt(trade.exitPrice) : '--'}</span>
           </div>
           <div>
             <strong class="${cls(pnl)}">${status === 'open' ? 'Open' : inr(pnl)}</strong>
-            <span>${trade.reason || trade.exitReason || trade.source || ''}</span>
+            <span>${closeNote}</span>
+            ${brokerExitInfo ? `<span class="order-id">${brokerExitInfo}</span>` : ''}
           </div>
         </article>
       `;
@@ -386,11 +409,15 @@
       setStatus('Enter a valid exit price', true);
       return;
     }
-    await api('/trade-execution', {
-      method: 'POST',
-      body: JSON.stringify({ action: 'close', id, exitPrice, reason: 'Mobile manual exit' }),
-    });
-    setStatus(`Exited ${symbol}`);
+    try {
+      await api('/trade-execution', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'close', id, exitPrice, reason: 'Mobile manual exit' }),
+      });
+      setStatus(`Exited ${symbol}`);
+    } catch (error) {
+      setStatus(`Exit failed for ${symbol}: ${error.message}`, true);
+    }
     await refreshAll();
   }
 

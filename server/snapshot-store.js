@@ -1,7 +1,8 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import zlib from 'node:zlib';
-import { promisify } from 'node:util';
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const zlib = require('node:zlib');
+const { promisify } = require('node:util');
 
 const fsPromises = fs.promises;
 const gzip = promisify(zlib.gzip);
@@ -15,7 +16,7 @@ const DEFAULT_SNAPSHOT_DIR = path.join(process.cwd(), 'snapshots');
  * @param {object} data - Snapshot data to save
  * @param {string} snapshotDir - Directory to save snapshots (optional)
  */
-export async function saveSnapshotDay(date, data, snapshotDir = DEFAULT_SNAPSHOT_DIR) {
+async function saveSnapshotDay(date, data, snapshotDir = DEFAULT_SNAPSHOT_DIR) {
   await fsPromises.mkdir(snapshotDir, { recursive: true });
 
   const gzPath = path.join(snapshotDir, `snapshot-${date}.json.gz`);
@@ -32,7 +33,7 @@ export async function saveSnapshotDay(date, data, snapshotDir = DEFAULT_SNAPSHOT
  * @param {string} snapshotDir - Directory to load snapshots from (optional)
  * @returns {object} Snapshot data
  */
-export async function loadSnapshotDay(date, snapshotDir = DEFAULT_SNAPSHOT_DIR) {
+async function loadSnapshotDay(date, snapshotDir = DEFAULT_SNAPSHOT_DIR) {
   const gzPath = path.join(snapshotDir, `snapshot-${date}.json.gz`);
   const legacyJsonPath = path.join(snapshotDir, `snapshot-${date}.json`);
   const legacySimPath = path.join(snapshotDir, `simulation_snapshots_${date}.json.gz`);
@@ -93,7 +94,7 @@ export async function loadSnapshotDay(date, snapshotDir = DEFAULT_SNAPSHOT_DIR) 
  * @param {string} snapshotDir - Directory to search for snapshots (optional)
  * @returns {string[]} Array of ISO date strings sorted descending
  */
-export async function listSnapshotDays(snapshotDir = DEFAULT_SNAPSHOT_DIR) {
+async function listSnapshotDays(snapshotDir = DEFAULT_SNAPSHOT_DIR) {
   try {
     const files = await fsPromises.readdir(snapshotDir);
     const dateSet = new Set();
@@ -123,7 +124,7 @@ export async function listSnapshotDays(snapshotDir = DEFAULT_SNAPSHOT_DIR) {
  * @param {number} retentionDays - Number of days to retain
  * @param {string} snapshotDir - Directory to prune snapshots from (optional)
  */
-export async function pruneOldSnapshots(retentionDays, snapshotDir = DEFAULT_SNAPSHOT_DIR) {
+async function pruneOldSnapshots(retentionDays, snapshotDir = DEFAULT_SNAPSHOT_DIR) {
   try {
     await fsPromises.readdir(snapshotDir);
   } catch (err) {
@@ -160,3 +161,5 @@ export async function pruneOldSnapshots(retentionDays, snapshotDir = DEFAULT_SNA
     }
   }
 }
+
+module.exports = { saveSnapshotDay, loadSnapshotDay, listSnapshotDays, pruneOldSnapshots };

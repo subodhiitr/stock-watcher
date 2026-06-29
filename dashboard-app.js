@@ -1671,6 +1671,7 @@ function renderSectors(){
   const sectorChanges = {};   // sector → [change values of loaded stocks]
   const sectorTotal   = {};   // sector → total stock count (for the count badge)
   for(const s of MIDCAP_STOCKS){
+    if (String(s.cap || '').toLowerCase() === 'etf') continue;
     if(!sectorChanges[s.sector]){ sectorChanges[s.sector]=[]; sectorTotal[s.sector]=0; }
     sectorTotal[s.sector]++;
     const d=stockData[s.sym];
@@ -2488,7 +2489,10 @@ function renderOpenTradeRows(openTrades, newKeys, mode = 'all') {
     } else if (brokerStatus === 'failed') {
       statusHTML = '❌ Failed';
     } else if (brokerStatus === 'exit_placed') {
-      statusHTML = '🚪 Exiting';
+      const exitId = trade.broker?.exitOrderId ? ` <span style="font-family:monospace;font-size:10px">${escapeHTML(String(trade.broker.exitOrderId))}</span>` : '';
+      statusHTML = `🚪 Exiting${exitId}`;
+    } else if (brokerStatus === 'exit_failed') {
+      statusHTML = `⚠️ Exit failed: ${escapeHTML(trade.broker?.error || 'unknown')}`;
     } else if (brokerStatus === 'cancelled') {
       statusHTML = isTimeoutAutoCancel ? '✗ Auto-cancelled (timeout)' : '✗ Cancelled';
     } else if (brokerStatus === 'entry_dry_run') {
@@ -3071,12 +3075,12 @@ function renderPortfolioModal() {
       <div class="portfolio-card"><div class="label">Broker cash</div><div class="value">${brokerPortfolioState?.ok ? moneyINR(brokerPortfolioState?.data?.portfolio?.funds?.availableCash || 0) : '--'}</div></div>
       <div class="portfolio-card"><div class="label">Broker day P&L</div><div class="value ${Number(brokerPortfolioState?.data?.portfolio?.positions?.dayPnl || 0) < 0 ? 'down' : ''}">${brokerPortfolioState?.ok ? moneyINR(brokerPortfolioState?.data?.portfolio?.positions?.dayPnl || 0) : '--'}</div></div>
     </div>
-    <div class="portfolio-section-title">Recent Trade Confirmations</div>
+    <div class="portfolio-section-title">Recent Broker Confirmations</div>
     <div class="portfolio-table-wrap" id="zerodha-confirmations-table">
       <table class="portfolio-table" style="min-width:500px">
-        <thead><tr><th>Symbol</th><th>Order ID</th><th>Status</th><th>Attempts</th><th>Last Event</th></tr></thead>
+        <thead><tr><th>Broker</th><th>Symbol</th><th>Entry Order</th><th>Exit Order</th><th>Status</th><th>Attempts</th><th>Last Event</th></tr></thead>
         <tbody id="zerodha-confirmations-tbody">
-          <tr><td colspan="5" style="color:var(--muted);text-align:center;padding:16px">No recent confirmations</td></tr>
+          <tr><td colspan="7" style="color:var(--muted);text-align:center;padding:16px">No recent confirmations</td></tr>
         </tbody>
       </table>
     </div>
@@ -6926,7 +6930,9 @@ function handleStockSearchInput(input) {
 }
 
 function getAllStockRows() {
-  return MIDCAP_STOCKS.map((s,i)=>({...s,rank:i+1,data:stockData[s.sym]||null}));
+  return MIDCAP_STOCKS
+    .filter(s => String(s.cap || '').toLowerCase() !== 'etf')
+    .map((s,i)=>({...s,rank:i+1,data:stockData[s.sym]||null}));
 }
 
 function hasEventRiskForSymbol(sym) {
@@ -7188,13 +7194,13 @@ function renderTable(options = {}) {
 }
 
 function updateStatsBar() {
-  const allD=MIDCAP_STOCKS.map(s=>stockData[s.sym]).filter(Boolean);
+  const allD=MIDCAP_STOCKS.filter(s=>String(s.cap||'').toLowerCase()!=='etf').map(s=>stockData[s.sym]).filter(Boolean);
   const gainersEl = document.getElementById('stat-gainers');
   const losersEl = document.getElementById('stat-losers');
   const signalsEl = document.getElementById('stat-signals');
   if (gainersEl) gainersEl.textContent=allD.filter(d=>(d.change||0)>0).length+' gainers';
   if (losersEl) losersEl.textContent=allD.filter(d=>(d.change||0)<0).length+' losers';
-  if (signalsEl) signalsEl.textContent=MIDCAP_STOCKS.filter(s=>getSignal(s,stockData[s.sym])==='buy').length+' buy signals';
+  if (signalsEl) signalsEl.textContent=MIDCAP_STOCKS.filter(s=>String(s.cap||'').toLowerCase()!=='etf'&&getSignal(s,stockData[s.sym])==='buy').length+' buy signals';
 }
 
 function renderStockRowHTML(row) {
@@ -8641,32 +8647,41 @@ async function pollBrokerPortfolioState() {
 function updateZerodhaConfirmationsTable() {
   const tbody = document.getElementById('zerodha-confirmations-tbody');
   if (!tbody) return;
-  
-  // Get trades with Zerodha broker metadata
-  const zerodhaTradesWithAudit = paperTrades
-    .filter(t => t.broker?.name === 'zerodha' && t.broker?.audit?.length)
+
+  const tradesWithAudit = paperTrades
+    .filter(t => (t.broker?.name === 'zerodha' || t.broker?.name === 'sharekhan') && t.broker?.audit?.length)
     .sort((a, b) => new Date(b.openedAt || 0) - new Date(a.openedAt || 0))
-    .slice(0, 10); // Show last 10
-  
-  if (!zerodhaTradesWithAudit.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:16px">No recent confirmations</td></tr>`;
+    .slice(0, 15);
+
+  if (!tradesWithAudit.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:16px">No recent confirmations</td></tr>`;
     return;
   }
-  
-  tbody.innerHTML = zerodhaTradesWithAudit.map(trade => {
+
+  tbody.innerHTML = tradesWithAudit.map(trade => {
+    const brokerName = trade.broker.name === 'sharekhan' ? 'Sharekhan' : 'Zerodha';
     const orderId = trade.broker.orderId || '--';
+    const exitOrderId = trade.broker.exitOrderId || '--';
     const status = trade.broker.status || '--';
     const attempts = trade.broker.confirmationAttempts || 0;
     const lastAudit = trade.broker.audit[trade.broker.audit.length - 1] || {};
     const lastEvent = lastAudit.event || '--';
     const elapsed = lastAudit.elapsed ? `${(lastAudit.elapsed / 1000).toFixed(1)}s` : '--';
-    
+    const statusColour = status === 'confirmed' ? 'color:var(--green)'
+      : status === 'exit_placed' ? 'color:#7eb8f7'
+      : status === 'exit_failed' ? 'color:var(--red)'
+      : status === 'pending' ? 'color:#f0c040'
+      : ['cancelled','rejected','timeout'].includes(status) ? 'color:var(--muted)'
+      : '';
+
     return `<tr>
+      <td style="font-size:11px">${escapeHTML(brokerName)}</td>
       <td>${escapeHTML(trade.symbol || '--')}</td>
-      <td style="font-size:11px;font-family:monospace">${escapeHTML(String(orderId).slice(0, 12))}</td>
-      <td>${escapeHTML(status)}</td>
+      <td style="font-size:11px;font-family:monospace" title="${escapeHTML(orderId)}">${escapeHTML(String(orderId).slice(0, 14))}</td>
+      <td style="font-size:11px;font-family:monospace" title="${escapeHTML(exitOrderId)}">${exitOrderId === '--' ? '<span style="color:var(--muted)">--</span>' : escapeHTML(String(exitOrderId).slice(0, 14))}</td>
+      <td style="${statusColour}">${escapeHTML(status)}</td>
       <td>${attempts}</td>
-      <td><span title="${escapeHTML(lastEvent)}">${escapeHTML(lastEvent.slice(0, 20))}</span> (${elapsed})</td>
+      <td><span title="${escapeHTML(lastEvent)}">${escapeHTML(lastEvent.slice(0, 22))}</span> (${elapsed})</td>
     </tr>`;
   }).join('');
 }

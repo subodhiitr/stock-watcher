@@ -6,6 +6,7 @@ import { router } from './app/router.ts'
 import { shouldProxy } from './proxy-routes.ts'
 
 const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 44100
+const proxyUrl = process.env.PROXY_URL  // e.g. http://localhost:3001
 const require = createRequire(import.meta.url)
 const { initializeProxy, proxyRequestHandler } = require('../ticker_proxy.js') as {
   initializeProxy: () => Promise<void>
@@ -23,9 +24,33 @@ const remixRequestListener = createRequestListener(async (request) => {
     }
   })
 
+function forwardToProxy(proxyBase: string, request: http.IncomingMessage, response: http.ServerResponse) {
+  const target = new URL(request.url ?? '/', proxyBase)
+  const options: http.RequestOptions = {
+    hostname: target.hostname,
+    port: target.port,
+    path: target.pathname + target.search,
+    method: request.method,
+    headers: request.headers,
+  }
+  const proxy = http.request(options, (proxyRes) => {
+    response.writeHead(proxyRes.statusCode ?? 502, proxyRes.headers)
+    proxyRes.pipe(response)
+  })
+  proxy.on('error', () => {
+    response.writeHead(502)
+    response.end('Proxy unavailable')
+  })
+  request.pipe(proxy)
+}
+
 const server = http.createServer((request, response) => {
   if (shouldProxy(request)) {
-    proxyRequestHandler(request, response)
+    if (proxyUrl) {
+      forwardToProxy(proxyUrl, request, response)
+    } else {
+      proxyRequestHandler(request, response)
+    }
     return
   }
 
@@ -34,9 +59,13 @@ const server = http.createServer((request, response) => {
 
 server.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`)
-  initializeProxy().catch((error) => {
-    console.warn('[proxy] Warmup failed:', error?.message || error)
-  })
+  if (proxyUrl) {
+    console.log(`[proxy] Forwarding proxy routes → ${proxyUrl}`)
+  } else {
+    initializeProxy().catch((error) => {
+      console.warn('[proxy] Warmup failed:', error?.message || error)
+    })
+  }
 })
 
 let shuttingDown = false

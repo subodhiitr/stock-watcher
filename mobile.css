@@ -158,9 +158,17 @@ input, select {
 .trade-cell strong { display: block; overflow-wrap: anywhere; font-size: 14px; line-height: 1.2; }
 .trade-cell.symbol strong { font-size: 15px; }
 .trade-cell.symbol span { display: block; margin-top: 2px; line-height: 1.2; }
+.trade-cell.symbol .order-id { font-size: 10px; color: var(--muted); letter-spacing: .3px; margin-top: 3px; font-family: monospace; }
+.trade-cell.symbol .broker-status { display: block; font-size: 10px; margin-top: 2px; }
+.broker-status--confirmed { color: var(--positive); }
+.broker-status--exit_placed { color: #7eb8f7; }
+.broker-status--exit_failed { color: var(--negative); font-weight: 600; }
+.broker-status--pending { color: #f0c040; }
+.broker-status--cancelled, .broker-status--rejected, .broker-status--timeout { color: var(--muted); }
 .trade-cell em { display: block; margin-top: 2px; font-style: normal; }
 .trade-actions button { width: 100%; min-height: 36px; }
 .trade-actions span { display: block; color: var(--muted); font-size: 11px; text-align: center; }
+.transaction-row .order-id { font-size: 10px; color: var(--muted); font-family: monospace; margin-top: 2px; display: block; }
 
 .setup-card { padding: 11px; }
 .setup-head strong { display: block; font-size: 17px; }

@@ -4,8 +4,11 @@
   "scripts": {
     "dev": "npm-run-all --parallel dev:ui dev:proxy",
     "dev:ui": "npm --prefix my-remix-app run dev",
-    "dev:proxy": "npm run proxy",
-    "proxy": "node --max-http-header-size=65536 ticker_proxy.js",
+    "dev:proxy": "node --env-file=.env --max-http-header-size=65536 ticker_proxy.js",
+    "dev:split": "npm-run-all --parallel dev:split:ui dev:split:proxy",
+    "dev:split:proxy": "node --env-file=.env --max-http-header-size=65536 ticker_proxy.js",
+    "dev:split:ui": "npm --prefix my-remix-app run dev",
+    "proxy": "node --env-file=.env --max-http-header-size=65536 ticker_proxy.js",
     "start": "npm --prefix my-remix-app run start",
     "typecheck": "npm --prefix my-remix-app run typecheck",
     "test": "node --test"

@@ -86,7 +86,7 @@ const {
   jsonCacheGet,
   jsonCacheSet,
 } = require('./server/db');
-const PORT  = 3001;
+const PORT  = process.env.PROXY_PORT ? Number.parseInt(process.env.PROXY_PORT, 10) : 3001;
 const USER_OPENAI_PROPERTIES = path.join(os.homedir(), 'openai.properties');
 const APP_CACHE_DIR        = path.join(__dirname, 'cache');
 const ETF_LIST_CACHE_TTL   = 24 * 60 * 60 * 1000;        // 24 hours (NSE price/nav batch)
@@ -765,9 +765,42 @@ function countOpenTradeOwnership(trades) {
   };
 }
 
-function closeTradeFromExitIntent(trade, intent, atIso) {
+async function closeTradeFromExitIntent(trade, intent, atIso) {
   const exitPrice = Number(intent?.exitPrice);
   if (!Number.isFinite(exitPrice) || exitPrice <= 0) return false;
+
+  // For live broker trades, place an exit order before mutating local state.
+  if (trade.broker?.mode === 'live' && trade.broker?.status === 'confirmed' && trade.broker?.orderId) {
+    try {
+      if (trade.broker.name === 'zerodha' && kiteClientLive) {
+        const exitOrder = buildZerodhaDryRunOrder({ ...trade, exitPrice }, trade, 'exit');
+        const exitOrderId = await kiteClientLive.placeOrder(exitOrder);
+        trade.broker.exitOrderId = exitOrderId;
+        trade.broker.status = 'exit_placed';
+        trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+        trade.broker.audit.push({ at: atIso, event: 'simulation_exit_placed', exitOrderId, reason: intent?.reason });
+        console.log(`[sim-exit] Zerodha exit order placed: ${exitOrderId} for ${trade.symbol}`);
+      } else if (trade.broker.name === 'sharekhan' && sharekhanClientLive) {
+        const exitOrder = buildSharekhanLiveOrder({ ...trade, exitPrice }, trade, 'exit', trade.broker.scripCode);
+        if (exitOrder) {
+          const exitOrderId = await withSharekhanCredentialReload(() => sharekhanClientLive.placeOrder(exitOrder));
+          trade.broker.exitOrderId = exitOrderId;
+          trade.broker.status = 'exit_placed';
+          trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+          trade.broker.audit.push({ at: atIso, event: 'simulation_exit_placed', exitOrderId, reason: intent?.reason });
+          console.log(`[sim-exit] Sharekhan exit order placed: ${exitOrderId} for ${trade.symbol}`);
+        }
+      }
+    } catch (e) {
+      console.error(`[sim-exit] Broker exit order failed for ${trade.symbol}:`, e.message);
+      trade.broker.status = 'exit_failed';
+      trade.broker.error = e.message;
+      trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+      trade.broker.audit.push({ at: atIso, event: 'simulation_exit_failed', error: e.message, reason: intent?.reason });
+      // Still close locally — position management takes priority, manual reconciliation needed.
+    }
+  }
+
   const pnl = computePaperTradePnl(trade, exitPrice);
   Object.assign(trade, {
     status: 'closed',
@@ -786,14 +819,15 @@ function closeTradeFromExitIntent(trade, intent, atIso) {
   return true;
 }
 
-function openTradeFromEntryIntent(trades, intent, atIso) {
+async function openTradeFromEntryIntent(trades, intent, atIso) {
   const symbol = String(intent?.symbol || '').trim().toUpperCase();
   const side = String(intent?.side || 'buy').toLowerCase();
   const qty = Math.floor(Number(intent?.qty || 1));
   const entryPrice = Number(intent?.price ?? intent?.entryPrice);
   if (!symbol || !['buy', 'sell'].includes(side) || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(entryPrice) || entryPrice <= 0) return false;
   if (trades.some(trade => trade?.status === 'open' && String(trade?.symbol || '').toUpperCase() === symbol)) return false;
-  trades.unshift({
+
+  const trade = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     status: 'open',
     symbol,
@@ -819,7 +853,76 @@ function openTradeFromEntryIntent(trades, intent, atIso) {
     entryContext: intent?.entryContext && typeof intent.entryContext === 'object' ? intent.entryContext : null,
     notes: intent?.notes || '',
     openedAt: atIso,
-  });
+    executionMode: brokerMode,
+  };
+
+  // Place live broker order if active
+  if (brokerMode === 'zerodha_live' && (kiteClientLive || await ensureZerodhaInitialized({ force: false }))) {
+    try {
+      const liveOrder = buildZerodhaDryRunOrder({ ...intent, symbol, side, qty, entryPrice, assetType: trade.assetType }, null, 'entry');
+      const orderId = await kiteClientLive.placeOrder(liveOrder);
+      trade.broker = {
+        name: 'zerodha',
+        mode: 'live',
+        orderId,
+        status: 'pending',
+        createdAt: atIso,
+        confirmedAt: null,
+        confirmationAttempts: 0,
+        confirmationError: null,
+        exitPlan: { target: trade.target, stop: trade.stop, squareOff: 'intraday simulation managed exit' },
+        audit: [{ at: atIso, event: 'live_order_placed', orderId, elapsed: 0, attempts: 1 }],
+      };
+      zerodhaLiveFailureCount = 0;
+      console.log(`[sim-entry] Zerodha live order placed: ${orderId} for ${symbol}`);
+    } catch (e) {
+      zerodhaLiveFailureCount++;
+      console.error(`[sim-entry] Zerodha live order failed (${zerodhaLiveFailureCount}):`, e.message);
+      if (zerodhaLiveFailureCount >= 3) {
+        console.warn('[sim-entry] Too many failures. Falling back to Zerodha dry-run mode.');
+        setBrokerMode('zerodha_dry_run');
+      }
+      // Fall through — record as dry-run so trade is tracked locally
+      const dryOrder = buildZerodhaDryRunOrder({ ...intent, symbol, side, qty, entryPrice, assetType: trade.assetType }, null, 'entry');
+      trade.broker = { name: 'zerodha', mode: 'dry-run', status: 'entry_dry_run', entryOrder: dryOrder, audit: [{ at: atIso, event: 'live_order_failed', error: e.message }] };
+      trade.executionMode = 'zerodha_dry_run';
+    }
+  } else if (brokerMode === 'sharekhan_live' && (sharekhanClientLive || await ensureSharekhanInitialized({ force: false }))) {
+    try {
+      const scripCode = await sharekhanClientLive.getScripCode(symbol);
+      const liveOrder = buildSharekhanLiveOrder({ ...intent, symbol, side, qty, entryPrice, assetType: trade.assetType }, null, 'entry', scripCode);
+      if (!liveOrder) throw new Error('Unable to build Sharekhan entry order');
+      const orderId = await withSharekhanCredentialReload(() => sharekhanClientLive.placeOrder(liveOrder));
+      trade.broker = {
+        name: 'sharekhan',
+        mode: 'live',
+        orderId,
+        scripCode,
+        status: 'pending',
+        createdAt: atIso,
+        confirmedAt: null,
+        confirmationAttempts: 0,
+        confirmationError: null,
+        exitPlan: { target: trade.target, stop: trade.stop, squareOff: 'intraday simulation managed exit' },
+        audit: [{ at: atIso, event: 'live_order_placed', orderId, elapsed: 0, attempts: 1 }],
+      };
+      sharekhanLiveFailureCount = 0;
+      console.log(`[sim-entry] Sharekhan live order placed: ${orderId} for ${symbol}`);
+    } catch (e) {
+      sharekhanLiveFailureCount++;
+      console.error(`[sim-entry] Sharekhan live order failed (${sharekhanLiveFailureCount}):`, e.message);
+      if (sharekhanLiveFailureCount >= 3) {
+        console.warn('[sim-entry] Too many failures. Falling back to Zerodha dry-run mode.');
+        setBrokerMode('zerodha_dry_run');
+      }
+      trade.executionMode = 'zerodha_dry_run';
+    }
+  } else if (brokerMode === 'zerodha_dry_run') {
+    const dryOrder = buildZerodhaDryRunOrder({ ...intent, symbol, side, qty, entryPrice, assetType: trade.assetType }, null, 'entry');
+    trade.broker = { name: 'zerodha', mode: 'dry-run', status: 'entry_dry_run', entryOrder: dryOrder, audit: [{ at: atIso, event: 'entry_dry_run_created' }] };
+  }
+
+  trades.unshift(trade);
   return true;
 }
 
@@ -1599,13 +1702,13 @@ async function runSimulationSchedulerTick() {
         const intent = exitBySymbol.get(key);
         if (!intent) continue;
         if (String(intent?.action || 'close').toLowerCase() !== 'close') continue;
-        changed = closeTradeFromExitIntent(trade, intent, schedulerAtIso) || changed;
+        changed = await closeTradeFromExitIntent(trade, intent, schedulerAtIso) || changed;
       }
 
       const allowNewEntries = runtime.state !== 'settling' && isSimulationEntryWindowTime(schedulerAtIso);
       if (allowNewEntries) {
         for (const intent of entryIntents || []) {
-          changed = openTradeFromEntryIntent(trades, intent, schedulerAtIso) || changed;
+          changed = await openTradeFromEntryIntent(trades, intent, schedulerAtIso) || changed;
         }
       }
 
@@ -4465,7 +4568,7 @@ async function computeReturns(sym) {
     const oneMonthReturn = (oneMonthIdx >= 0 && closes[oneMonthIdx] > 0)
       ? +((currentPrice - closes[oneMonthIdx]) / closes[oneMonthIdx]).toFixed(4)
       : null;
-    console.log(`[computeReturns] ${sym} 1M: current=${currentPrice} base=${closes[oneMonthIdx]} return=${oneMonthReturn}`);
+    // console.log(`[computeReturns] ${sym} 1M: current=${currentPrice} base=${closes[oneMonthIdx]} return=${oneMonthReturn}`);
 
     const ytdStart = new Date(new Date().getFullYear(), 0, 1).getTime();
     const y1Start  = msNow - 365     * 24 * 3600 * 1000;
@@ -4544,6 +4647,11 @@ const intradaySignalCache = {};
 
 function compactFinite(values) {
   return (values || []).map(Number).filter(Number.isFinite);
+}
+
+// For price arrays (open/high/low/close), zeros from null Yahoo bars must be excluded.
+function compactFinitePositive(values) {
+  return (values || []).map(Number).filter(v => Number.isFinite(v) && v > 0);
 }
 
 function ema(values, period) {
@@ -4680,7 +4788,7 @@ function buildDailyTradeContext(result) {
   const rows = [];
   for (let i = 0; i < closes.length; i++) {
     const high = Number(highs[i]), low = Number(lows[i]), close = Number(closes[i]), volume = Number(volumes[i]);
-    if ([high, low, close].every(Number.isFinite)) rows.push({ high, low, close, volume: Number.isFinite(volume) ? volume : 0 });
+    if ([high, low, close].every(v => Number.isFinite(v) && v > 0)) rows.push({ high, low, close, volume: Number.isFinite(volume) ? volume : 0 });
   }
   if (!rows.length) return {};
   const prev = rows.length >= 2 ? rows[rows.length - 2] : rows[0];
@@ -4761,7 +4869,7 @@ function computeVolumeShockMetrics(rawHighs, rawLows, rawCloses, rawVolumes, tim
     const close = Number(rawCloses[i]);
     const high = Number(rawHighs[i]);
     const low = Number(rawLows[i]);
-    if (![close, high, low].every(Number.isFinite)) continue;
+    if (![close, high, low].every(v => Number.isFinite(v) && v > 0)) continue;
     bars.push({
       time: Number.isFinite(Number(timestamps?.[i])) ? new Date(Number(timestamps[i]) * 1000).toISOString() : null,
       close,
@@ -4825,9 +4933,9 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     const rawCloses = quote.close || [];
     const rawVolumes = quote.volume || [];
     const timestamps = result?.timestamp || [];
-    const closes = compactFinite(quote.close);
-    const highs = compactFinite(quote.high);
-    const lows = compactFinite(quote.low);
+    const closes = compactFinitePositive(quote.close);
+    const highs = compactFinitePositive(quote.high);
+    const lows = compactFinitePositive(quote.low);
     const volumes = compactFinite(quote.volume);
     
     if (closes.length < 6) {
@@ -4857,7 +4965,7 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
         session: {
           open: round2(Number(meta.regularMarketOpen) || rawOpens.find(v => Number.isFinite(Number(v))) || price),
           high: rawHighs.some(v => Number.isFinite(Number(v))) ? round2(Math.max(...compactFinite(rawHighs))) : round2(price),
-          low: rawLows.some(v => Number.isFinite(Number(v))) ? round2(Math.min(...compactFinite(rawLows))) : round2(price),
+          low: rawLows.some(v => Number.isFinite(Number(v)) && Number(v) > 0) ? round2(Math.min(...compactFinitePositive(rawLows))) : round2(price),
           close: round2(price),
           volume: sessionVolume || null,
         },
@@ -5183,46 +5291,62 @@ async function fetchIntradaySignal(sym) {
           return signal;
         }
       }
-    } catch (_) {
-      // Sharekhan failed — fall through to Yahoo
+    } catch (err) {
+      console.warn(`[intraday] ${sym}: Sharekhan fetch failed — ${err?.message || err}. Falling back to Yahoo.`);
     }
   }
 
   try {
     const yahooSym = resolveNseSymbol(sym);
     const intradayPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=5m&range=1d&includePrePost=false`;
-    const dailyPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=1d&range=1mo&includePrePost=false`;
-    
+    // Use range=3mo with interval=1d to get enough daily bars for pivot/5d/20d context.
+    // Kept as a separate request so intraday cache isn't polluted with daily data.
+    const dailyPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=1d&range=3mo&includePrePost=false`;
+
     // Fetch both intraday and daily with increased timeout (20s each)
     let [r, daily] = await Promise.all([
       httpsGet({ hostname: 'query1.finance.yahoo.com', path: intradayPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null })),
       httpsGet({ hostname: 'query1.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null })),
     ]);
-    
+
     // Retry intraday from query2 if needed
     if (r.status !== 200) {
       r = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: intradayPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
     }
-    
+
     // Retry daily from query2 if needed
     if (daily.status !== 200) {
       daily = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
     }
-    
+
     // If no intraday data, return null (will be handled as stale by caller)
     if (r.status !== 200) {
       return null;
     }
-    
+
     const result = JSON.parse(r.body)?.chart?.result?.[0];
     if (!result) {
       return null;
     }
-    
-    const quote = result?.indicators?.quote?.[0];
-    const closes = (quote?.close || []).filter(v => Number.isFinite(v));
-    
-    const dailyResult = daily?.status === 200 ? JSON.parse(daily.body)?.chart?.result?.[0] : null;
+
+    let dailyResult = daily?.status === 200
+      ? (() => { try { return JSON.parse(daily.body)?.chart?.result?.[0] ?? null; } catch (_) { return null; } })()
+      : null;
+
+    // If daily fetch failed, extract what we can from the intraday result's meta as a fallback.
+    // This gives previousClose at minimum so gap% and entry logic still work.
+    if (!dailyResult) {
+      const prevClose = result?.meta?.chartPreviousClose ?? result?.meta?.previousClose ?? null;
+      if (prevClose) {
+        dailyResult = {
+          meta: { previousClose: prevClose },
+          indicators: { quote: [{ high: [], low: [], close: [], volume: [] }] },
+          timestamp: [],
+        };
+        console.warn(`[intraday] ${sym}: daily fetch failed, using meta.previousClose=${prevClose} as fallback`);
+      }
+    }
+
     const signal = buildIntradaySignal(sym, result, buildDailyTradeContext(dailyResult));
     if (signal) intradaySignalCache[sym] = { v: signal, t: now };
     return signal;
@@ -7548,8 +7672,84 @@ async function proxyRequestHandler(req, res) {
             res.end(JSON.stringify({ error: 'Open trade id and exitPrice are required' }));
             return;
           }
-          const pnl = computePaperTradePnl(trade, exitPrice);
           const closedAt = String(payload.transactionTime || '').match(/\d{4}-\d{2}-\d{2}T/) ? payload.transactionTime : new Date().toISOString();
+
+          const isZerodhaLive = trade.broker?.name === 'zerodha' && trade.broker?.mode === 'live' && trade.broker?.orderId;
+          const isSharekhanLive = trade.broker?.name === 'sharekhan' && trade.broker?.mode === 'live' && trade.broker?.orderId;
+
+          // For live broker trades, attempt the broker exit BEFORE mutating trade state.
+          // If it fails, leave the trade open and return an error.
+          if (isZerodhaLive && (kiteClientLive || await ensureZerodhaInitialized({ force: true }))) {
+            try {
+              const orderId = trade.broker.orderId;
+              if (trade.broker.status === 'pending') {
+                await kiteClientLive.cancelOrder(orderId);
+                trade.broker.status = 'cancelled';
+              } else if (trade.broker.status === 'confirmed') {
+                const exitOrder = buildZerodhaDryRunOrder({ ...trade, exitPrice }, trade, 'exit');
+                const exitOrderId = await kiteClientLive.placeOrder(exitOrder);
+                trade.broker.exitOrderId = exitOrderId;
+                trade.broker.status = 'exit_placed';
+              }
+              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+              trade.broker.audit.push({ at: closedAt, event: 'live_exit_processed', reason: payload.reason || 'Manual exit', orderId: trade.broker.orderId });
+              zerodhaLiveFailureCount = 0;
+              console.log(`[zerodha-live] Exit processed for order: ${orderId}`);
+            } catch (e) {
+              zerodhaLiveFailureCount++;
+              console.error(`[zerodha-live] Exit failed (${zerodhaLiveFailureCount}):`, e.message);
+              if (zerodhaLiveFailureCount >= 3) {
+                console.warn('[zerodha-live] Too many failures. Disabling zerodha_live mode, falling back to Zerodha dry-run mode.');
+                setBrokerMode('zerodha_dry_run');
+              }
+              trade.broker.status = 'exit_failed';
+              trade.broker.error = e.message;
+              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+              trade.broker.audit.push({ at: closedAt, event: 'live_exit_failed', error: e.message });
+              savePaperTradesFile(trades);
+              broadcastPaperTradeState('exit-failed');
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: `Zerodha exit failed: ${e.message}`, code: 'EXIT_FAILED', trade }));
+              return;
+            }
+          } else if (isSharekhanLive && (sharekhanClientLive || await ensureSharekhanInitialized({ force: true }))) {
+            try {
+              const orderId = trade.broker.orderId;
+              if (trade.broker.status === 'pending') {
+                await withSharekhanCredentialReload(() => sharekhanClientLive.cancelOrder(trade.broker));
+                trade.broker.status = 'cancelled';
+              } else if (trade.broker.status === 'confirmed') {
+                const exitOrder = buildSharekhanLiveOrder({ ...trade, exitPrice }, trade, 'exit', trade.broker.scripCode);
+                if (!exitOrder) throw new Error('Unable to build Sharekhan exit order');
+                const exitOrderId = await withSharekhanCredentialReload(() => sharekhanClientLive.placeOrder(exitOrder));
+                trade.broker.exitOrderId = exitOrderId;
+                trade.broker.status = 'exit_placed';
+              }
+              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+              trade.broker.audit.push({ at: closedAt, event: 'live_exit_processed', reason: payload.reason || 'Manual exit', orderId: trade.broker.orderId });
+              sharekhanLiveFailureCount = 0;
+              console.log(`[sharekhan-live] Exit processed for order: ${orderId}`);
+            } catch (e) {
+              sharekhanLiveFailureCount++;
+              console.error(`[sharekhan-live] Exit failed (${sharekhanLiveFailureCount}):`, e.message);
+              if (sharekhanLiveFailureCount >= 3) {
+                console.warn('[sharekhan-live] Too many failures. Disabling sharekhan_live mode, falling back to Zerodha dry-run mode.');
+                setBrokerMode('zerodha_dry_run');
+              }
+              trade.broker.status = 'exit_failed';
+              trade.broker.error = e.message;
+              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+              trade.broker.audit.push({ at: closedAt, event: 'live_exit_failed', error: e.message });
+              savePaperTradesFile(trades);
+              broadcastPaperTradeState('exit-failed');
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: `Sharekhan exit failed: ${e.message}`, code: 'EXIT_FAILED', trade }));
+              return;
+            }
+          }
+
+          // Broker exit succeeded (or non-live trade) — now mark the trade as closed.
+          const pnl = computePaperTradePnl(trade, exitPrice);
           Object.assign(trade, {
             status: 'closed',
             exitPrice:+exitPrice.toFixed(2),
@@ -7570,72 +7770,6 @@ async function proxyRequestHandler(req, res) {
             trade.broker.exitOrder = exitOrder;
             trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
             trade.broker.audit.push({ at: closedAt, event: 'exit_dry_run_created', reason: trade.closeReason, order: exitOrder });
-          } else if (
-            trade.broker?.name === 'zerodha' &&
-            trade.broker?.mode === 'live' &&
-            trade.broker?.orderId &&
-            (kiteClientLive || await ensureZerodhaInitialized({ force: true }))
-          ) {
-            // Cancel or exit live order
-            try {
-              const orderId = trade.broker.orderId;
-              if (trade.broker.status === 'pending') {
-                // If still pending, cancel it
-                await kiteClientLive.cancelOrder(orderId);
-                trade.broker.status = 'cancelled';
-              } else if (trade.broker.status === 'confirmed') {
-                // If filled, place exit order (market order to square off)
-                const exitOrder = buildZerodhaDryRunOrder({ ...trade, exitPrice }, trade, 'exit');
-                const exitOrderId = await kiteClientLive.placeOrder(exitOrder);
-                trade.broker.exitOrderId = exitOrderId;
-                trade.broker.status = 'exit_placed';
-              }
-              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
-              trade.broker.audit.push({ at: closedAt, event: 'live_exit_processed', reason: trade.closeReason, orderId: trade.broker.orderId });
-              zerodhaLiveFailureCount = 0;
-              console.log(`[zerodha-live] Exit processed for order: ${orderId}`);
-            } catch (e) {
-              zerodhaLiveFailureCount++;
-              console.error(`[zerodha-live] Exit failed (${zerodhaLiveFailureCount}):`, e.message);
-              if (zerodhaLiveFailureCount >= 3) {
-                console.warn('[zerodha-live] Too many failures. Disabling zerodha_live mode, falling back to Zerodha dry-run mode.');
-                setBrokerMode('zerodha_dry_run');
-              }
-              trade.broker.status = 'exit_failed';
-              trade.broker.error = e.message;
-            }
-          } else if (
-            trade.broker?.name === 'sharekhan' &&
-            trade.broker?.mode === 'live' &&
-            trade.broker?.orderId &&
-            (sharekhanClientLive || await ensureSharekhanInitialized({ force: true }))
-          ) {
-            try {
-              const orderId = trade.broker.orderId;
-              if (trade.broker.status === 'pending') {
-                await withSharekhanCredentialReload(() => sharekhanClientLive.cancelOrder(trade.broker));
-                trade.broker.status = 'cancelled';
-              } else if (trade.broker.status === 'confirmed') {
-                const exitOrder = buildSharekhanLiveOrder({ ...trade, exitPrice }, trade, 'exit', trade.broker.scripCode);
-                if (!exitOrder) throw new Error('Unable to build Sharekhan exit order');
-                const exitOrderId = await withSharekhanCredentialReload(() => sharekhanClientLive.placeOrder(exitOrder));
-                trade.broker.exitOrderId = exitOrderId;
-                trade.broker.status = 'exit_placed';
-              }
-              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
-              trade.broker.audit.push({ at: closedAt, event: 'live_exit_processed', reason: trade.closeReason, orderId: trade.broker.orderId });
-              sharekhanLiveFailureCount = 0;
-              console.log(`[sharekhan-live] Exit processed for order: ${orderId}`);
-            } catch (e) {
-              sharekhanLiveFailureCount++;
-              console.error(`[sharekhan-live] Exit failed (${sharekhanLiveFailureCount}):`, e.message);
-              if (sharekhanLiveFailureCount >= 3) {
-                console.warn('[sharekhan-live] Too many failures. Disabling sharekhan_live mode, falling back to Zerodha dry-run mode.');
-                setBrokerMode('zerodha_dry_run');
-              }
-              trade.broker.status = 'exit_failed';
-              trade.broker.error = e.message;
-            }
           }
           savePaperTradesFile(trades);
           broadcastPaperTradeState('close');
