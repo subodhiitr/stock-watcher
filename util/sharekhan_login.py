@@ -57,14 +57,14 @@ def save_property(path: Path, key: str, value: str):
     print(f"  ✓ Saved {key} to {path}")
 
 
-def generate_access_token(script_dir: Path, api_key: str, request_token: str,
+def generate_access_token(repo_dir: Path, api_key: str, request_token: str,
                            secret_key: str, version_id: str = "", vendor_key: str = "") -> str:
     """
     Delegate token generation to Node.js — uses the real sharekhan-api AES-256-GCM
     encryption which is too complex to replicate cleanly in Python.
     """
     node_script = f"""
-const {{ SharekhanApi }} = require('./node_modules/sharekhan-api/lib');
+const {{ SharekhanApi }} = require('sharekhan-api/lib');
 const client = new SharekhanApi({{
   api_key: {json.dumps(api_key)},
   customer_id: 'x',
@@ -95,7 +95,7 @@ run();
 """
     result = subprocess.run(
         ["node", "-e", node_script],
-        capture_output=True, text=True, cwd=str(script_dir)
+        capture_output=True, text=True, cwd=str(repo_dir)
     )
     if result.returncode != 0:
         err = result.stderr.strip()
@@ -213,9 +213,9 @@ def main():
     # Generate access token
     print("  Generating access token via Node.js sharekhan-api...")
     try:
-        script_dir = Path(__file__).parent
+        repo_dir = Path(__file__).resolve().parent.parent
         access_token = generate_access_token(
-            script_dir, api_key, request_token, secret_key, version_id, vendor_key
+            repo_dir, api_key, request_token, secret_key, version_id, vendor_key
         )
     except Exception as e:
         print(f"\n  ✗ Failed: {e}")

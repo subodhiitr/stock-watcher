@@ -231,10 +231,74 @@ let kiteClientLive = null;
 let kiteClientDry = null;
 let zerodhaConfirmationPoller = null;
 let zerodhaLiveFailureCount = 0;
+let zerodhaInitializeInFlight = null;
 let sharekhanCredentials = null;
 let sharekhanClientLive = null;
 let sharekhanConfirmationPoller = null;
 let sharekhanLiveFailureCount = 0;
+let sharekhanInitializeInFlight = null;
+
+async function ensureZerodhaInitialized({ force = false } = {}) {
+  if (!force && zerodhaCredentials && kiteClientLive && kiteClientDry) return true;
+  if (zerodhaInitializeInFlight) return zerodhaInitializeInFlight;
+
+  zerodhaInitializeInFlight = (async () => {
+    console.log(`[zerodha] ${force ? 'Forced' : 'On-demand'} initialization requested.`);
+    if (zerodhaConfirmationPoller) {
+      try { zerodhaConfirmationPoller.stop(); } catch (_) {}
+      zerodhaConfirmationPoller = null;
+    }
+    zerodhaCredentials = null;
+    kiteClientLive = null;
+    kiteClientDry = null;
+    const initialized = await initializeZerodha();
+    return !!initialized && !!zerodhaCredentials && !!kiteClientLive && !!kiteClientDry;
+  })().finally(() => {
+    zerodhaInitializeInFlight = null;
+  });
+
+  return zerodhaInitializeInFlight;
+}
+
+function isSharekhanAuthReloadError(err) {
+  return /AUTH_FAILED_REFRESH_NEEDED|token|permission/i.test(String(err?.message || err || ''));
+}
+
+async function ensureSharekhanInitialized({ force = false } = {}) {
+  if (!force && sharekhanCredentials && sharekhanClientLive) return true;
+  if (sharekhanInitializeInFlight) return sharekhanInitializeInFlight;
+
+  sharekhanInitializeInFlight = (async () => {
+    console.log(`[sharekhan] ${force ? 'Forced' : 'On-demand'} initialization requested.`);
+    if (sharekhanConfirmationPoller) {
+      try { sharekhanConfirmationPoller.stop(); } catch (_) {}
+      sharekhanConfirmationPoller = null;
+    }
+    sharekhanCredentials = null;
+    sharekhanClientLive = null;
+    const initialized = await initializeSharekhan();
+    return !!initialized && !!sharekhanCredentials && !!sharekhanClientLive;
+  })().finally(() => {
+    sharekhanInitializeInFlight = null;
+  });
+
+  return sharekhanInitializeInFlight;
+}
+
+async function withSharekhanCredentialReload(task) {
+  try {
+    if (!sharekhanCredentials || !sharekhanClientLive) {
+      await ensureSharekhanInitialized({ force: true });
+    }
+    return await task();
+  } catch (err) {
+    if (!isSharekhanAuthReloadError(err)) throw err;
+    console.warn('[sharekhan] Auth failed. Reloading credentials from file and retrying once.');
+    const reloaded = await ensureSharekhanInitialized({ force: true });
+    if (!reloaded) throw err;
+    return task();
+  }
+}
 
 function parseVolumeField(item) {
   const raw = item.totalTradedVolume ?? item.tradedVolume ?? item.volume ?? item.totalTradedQty ?? item.quantityTraded ?? item.qtyTraded ?? 0;
@@ -6889,8 +6953,14 @@ async function proxyRequestHandler(req, res) {
       const broker = String(payload.broker || getActiveLiveBrokerKey() || 'zerodha').toLowerCase();
       if (broker === 'sharekhan') {
         if (!sharekhanCredentials || !sharekhanClientLive) {
+          await ensureSharekhanInitialized({ force: true });
+        }
+        if (!sharekhanCredentials || !sharekhanClientLive) {
           res.writeHead(503, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Sharekhan integration is not initialized' }));
+          res.end(JSON.stringify({
+            error: 'Sharekhan integration is not initialized',
+            hint: 'Credentials were reloaded but Sharekhan could not initialize. Check ~/.sharekhan.properties tokens.',
+          }));
           return;
         }
         if (!sharekhanCredentials.requestToken || !sharekhanCredentials.secretKey) {
@@ -6929,8 +6999,14 @@ async function proxyRequestHandler(req, res) {
       }
 
       if (!zerodhaCredentials || !kiteClientLive || !kiteClientDry) {
+        await ensureZerodhaInitialized({ force: true });
+      }
+      if (!zerodhaCredentials || !kiteClientLive || !kiteClientDry) {
         res.writeHead(503, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Zerodha integration is not initialized' }));
+        res.end(JSON.stringify({
+          error: 'Zerodha integration is not initialized',
+          hint: 'Credentials were reloaded but Zerodha could not initialize. Check ~/.zerodha.properties tokens.',
+        }));
         return;
       }
       if (!zerodhaCredentials.refreshToken) {
@@ -7019,11 +7095,17 @@ async function proxyRequestHandler(req, res) {
     }
     try {
       if (!sharekhanCredentials || !sharekhanClientLive) {
+        await ensureSharekhanInitialized({ force: true });
+      }
+      if (!sharekhanCredentials || !sharekhanClientLive) {
         res.writeHead(503, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Sharekhan integration is not initialized' }));
+        res.end(JSON.stringify({
+          error: 'Sharekhan integration is not initialized',
+          hint: 'Credentials were reloaded but Sharekhan could not initialize. Check ~/.sharekhan.properties tokens.',
+        }));
         return;
       }
-      const portfolio = await sharekhanClientLive.getPortfolioState();
+      const portfolio = await withSharekhanCredentialReload(() => sharekhanClientLive.getPortfolioState());
       // Enrich holdings LTP from app-stored prices (Sharekhan API has no live quote endpoint)
       if (Array.isArray(portfolio?.holdings?.list)) {
         let totalMarketValue = 0;
@@ -7057,11 +7139,11 @@ async function proxyRequestHandler(req, res) {
       }));
       return;
     } catch (e) {
-      const isAuth = /AUTH_FAILED_REFRESH_NEEDED|token|permission/i.test(String(e?.message || ''));
+      const isAuth = isSharekhanAuthReloadError(e);
       res.writeHead(isAuth ? 401 : 500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         error: e.message,
-        hint: isAuth ? 'Token expired. Use Refresh token now in Settings.' : undefined,
+        hint: isAuth ? 'Token expired. Update Sharekhan credentials, then retry; the server will reload them automatically.' : undefined,
       }));
       return;
     }
@@ -7076,8 +7158,14 @@ async function proxyRequestHandler(req, res) {
     }
     try {
       if (!zerodhaCredentials || !kiteClientLive) {
+        await ensureZerodhaInitialized({ force: true });
+      }
+      if (!zerodhaCredentials || !kiteClientLive) {
         res.writeHead(503, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Zerodha integration is not initialized' }));
+        res.end(JSON.stringify({
+          error: 'Zerodha integration is not initialized',
+          hint: 'Credentials were reloaded but Zerodha could not initialize. Check ~/.zerodha.properties tokens.',
+        }));
         return;
       }
       const portfolio = await kiteClientLive.getPortfolioState();
@@ -7345,7 +7433,10 @@ async function proxyRequestHandler(req, res) {
               },
               audit: [{ at: trade.openedAt, event: 'entry_dry_run_created', order: dryRunEntryOrder }],
             };
-          } else if (executionMode === 'zerodha_live' && kiteClientLive && zerodhaCredentials) {
+          } else if (
+            executionMode === 'zerodha_live' &&
+            ((kiteClientLive && zerodhaCredentials) || await ensureZerodhaInitialized({ force: true }))
+          ) {
             // Attempt to place live order via Kite API
             const liveEntryOrder = buildZerodhaDryRunOrder({ ...payload, symbol, side, qty, entryPrice, assetType: payload.assetType === 'etf' ? 'etf' : 'stock' }, null, 'entry');
             try {
@@ -7386,14 +7477,17 @@ async function proxyRequestHandler(req, res) {
                 audit: [{ at: trade.openedAt, event: 'live_order_failed', error: e.message }],
               };
             }
-          } else if (executionMode === 'sharekhan_live' && sharekhanClientLive && sharekhanCredentials) {
+          } else if (
+            executionMode === 'sharekhan_live' &&
+            ((sharekhanClientLive && sharekhanCredentials) || await ensureSharekhanInitialized({ force: true }))
+          ) {
             try {
-              const scripCode = await sharekhanClientLive.resolveScripCode(symbol, 'NC');
+              const scripCode = await withSharekhanCredentialReload(() => sharekhanClientLive.resolveScripCode(symbol, 'NC'));
               const sharekhanEntryOrder = buildSharekhanLiveOrder({ ...payload, symbol, side, qty, entryPrice }, null, 'entry', scripCode);
               if (!sharekhanEntryOrder) {
                 throw new Error(`Unable to build Sharekhan order for ${symbol}. Ensure scrip code is available.`);
               }
-              const orderId = await sharekhanClientLive.placeOrder(sharekhanEntryOrder);
+              const orderId = await withSharekhanCredentialReload(() => sharekhanClientLive.placeOrder(sharekhanEntryOrder));
               trade.broker = {
                 name: 'sharekhan',
                 mode: 'live',
@@ -7476,7 +7570,12 @@ async function proxyRequestHandler(req, res) {
             trade.broker.exitOrder = exitOrder;
             trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
             trade.broker.audit.push({ at: closedAt, event: 'exit_dry_run_created', reason: trade.closeReason, order: exitOrder });
-          } else if (trade.broker?.name === 'zerodha' && trade.broker?.mode === 'live' && trade.broker?.orderId && kiteClientLive) {
+          } else if (
+            trade.broker?.name === 'zerodha' &&
+            trade.broker?.mode === 'live' &&
+            trade.broker?.orderId &&
+            (kiteClientLive || await ensureZerodhaInitialized({ force: true }))
+          ) {
             // Cancel or exit live order
             try {
               const orderId = trade.broker.orderId;
@@ -7505,16 +7604,21 @@ async function proxyRequestHandler(req, res) {
               trade.broker.status = 'exit_failed';
               trade.broker.error = e.message;
             }
-          } else if (trade.broker?.name === 'sharekhan' && trade.broker?.mode === 'live' && trade.broker?.orderId && sharekhanClientLive) {
+          } else if (
+            trade.broker?.name === 'sharekhan' &&
+            trade.broker?.mode === 'live' &&
+            trade.broker?.orderId &&
+            (sharekhanClientLive || await ensureSharekhanInitialized({ force: true }))
+          ) {
             try {
               const orderId = trade.broker.orderId;
               if (trade.broker.status === 'pending') {
-                await sharekhanClientLive.cancelOrder(trade.broker);
+                await withSharekhanCredentialReload(() => sharekhanClientLive.cancelOrder(trade.broker));
                 trade.broker.status = 'cancelled';
               } else if (trade.broker.status === 'confirmed') {
                 const exitOrder = buildSharekhanLiveOrder({ ...trade, exitPrice }, trade, 'exit', trade.broker.scripCode);
                 if (!exitOrder) throw new Error('Unable to build Sharekhan exit order');
-                const exitOrderId = await sharekhanClientLive.placeOrder(exitOrder);
+                const exitOrderId = await withSharekhanCredentialReload(() => sharekhanClientLive.placeOrder(exitOrder));
                 trade.broker.exitOrderId = exitOrderId;
                 trade.broker.status = 'exit_placed';
               }
@@ -7607,11 +7711,15 @@ async function proxyRequestHandler(req, res) {
             partialTrade.broker.exitOrder = exitOrder;
             trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
             trade.broker.audit.push({ at: closedAt, event: 'partial_exit_dry_run_created', reason: partialTrade.closeReason, order: exitOrder });
-          } else if (trade.broker?.name === 'sharekhan' && trade.broker?.mode === 'live' && sharekhanClientLive) {
+          } else if (
+            trade.broker?.name === 'sharekhan' &&
+            trade.broker?.mode === 'live' &&
+            (sharekhanClientLive || await ensureSharekhanInitialized({ force: true }))
+          ) {
             try {
               const exitOrder = buildSharekhanLiveOrder({ ...partialTrade, exitPrice, qty: requestedQty }, partialTrade, 'exit', trade.broker?.scripCode);
               if (!exitOrder) throw new Error('Unable to build Sharekhan partial exit order');
-              const exitOrderId = await sharekhanClientLive.placeOrder(exitOrder);
+              const exitOrderId = await withSharekhanCredentialReload(() => sharekhanClientLive.placeOrder(exitOrder));
               partialTrade.broker = partialTrade.broker || {};
               partialTrade.broker.exitOrderId = exitOrderId;
               trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
@@ -8079,7 +8187,7 @@ async function initializeZerodha() {
     zerodhaCredentials = loadCredentials();
     if (!zerodhaCredentials) {
       console.log('[zerodha] Credentials not loaded. Zerodha integration disabled.');
-      return;
+      return false;
     }
     
     const { apiKey, apiSecret, accessToken, refreshToken } = zerodhaCredentials;
@@ -8135,8 +8243,10 @@ async function initializeZerodha() {
     // Start the poller
     zerodhaConfirmationPoller.start();
     console.log('[zerodha] Initialization complete. Confirmation poller started.');
+    return true;
   } catch (e) {
     console.error('[zerodha] Initialization failed:', e.message);
+    return false;
   }
 }
 
@@ -8145,7 +8255,7 @@ async function initializeSharekhan() {
     sharekhanCredentials = loadSharekhanCredentials();
     if (!sharekhanCredentials) {
       console.log('[sharekhan] Credentials not loaded. Sharekhan integration disabled.');
-      return;
+      return false;
     }
     const { apiKey, customerId, accessToken, requestToken, secretKey, versionId, vendorKey } = sharekhanCredentials;
     console.log(`[sharekhan] Credentials loaded. accessToken=${accessToken ? 'yes' : 'no'} sessionBootstrap=${requestToken && secretKey ? 'yes' : 'no'}`);
@@ -8201,8 +8311,10 @@ async function initializeSharekhan() {
     );
     sharekhanConfirmationPoller.start();
     console.log('[sharekhan] Initialization complete. Confirmation poller started.');
+    return true;
   } catch (e) {
     console.error('[sharekhan] Initialization failed:', e.message);
+    return false;
   }
 }
 

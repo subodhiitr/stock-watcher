@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 from kiteconnect import KiteConnect
+from kiteconnect.exceptions import TokenException
 
 
 DEFAULT_CREDS_FILE = Path.home() / ".zerodha.properties"
@@ -62,8 +64,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--api-key", default="", help="Override ZERODHA_API_KEY")
     parser.add_argument("--api-secret", default="", help="Override ZERODHA_API_SECRET")
     parser.add_argument("--request-token", default="", help="Override ZERODHA_REQUEST_TOKEN")
+    parser.add_argument("--print-login-url", action="store_true", help="Print the Kite login URL for the configured API key")
     parser.add_argument("--no-save", action="store_true", help="Do not persist derived tokens back to the properties file")
     return parser.parse_args()
+
+
+def extract_request_token(value: str) -> str:
+    value = value.strip()
+    if not value.lower().startswith(("http://", "https://")):
+        return value
+
+    parsed = urlparse(value)
+    params = parse_qs(parsed.query)
+    token = params.get("request_token", [""])[0]
+    return token.strip() or value
 
 
 def main() -> int:
@@ -73,7 +87,7 @@ def main() -> int:
 
     api_key = args.api_key or props.get("ZERODHA_API_KEY", "")
     api_secret = args.api_secret or props.get("ZERODHA_API_SECRET", "")
-    request_token = args.request_token or props.get("ZERODHA_REQUEST_TOKEN", "")
+    request_token = extract_request_token(args.request_token or props.get("ZERODHA_REQUEST_TOKEN", ""))
 
     if not api_key or api_key.startswith("your_"):
         raise SystemExit(f"ZERODHA_API_KEY is required in {creds_file} or via --api-key")
@@ -83,7 +97,21 @@ def main() -> int:
         raise SystemExit(f"ZERODHA_REQUEST_TOKEN is required in {creds_file} or via --request-token")
 
     kite = KiteConnect(api_key=api_key)
-    data = kite.generate_session(request_token, api_secret=api_secret)
+    if args.print_login_url:
+        print(kite.login_url())
+        return 0
+
+    try:
+        data = kite.generate_session(request_token, api_secret=api_secret)
+    except TokenException as exc:
+        if "checksum" in str(exc).lower():
+            raise SystemExit(
+                "Zerodha rejected the token exchange: Invalid checksum.\n"
+                "Check that ZERODHA_API_KEY and ZERODHA_API_SECRET are from the same Kite Connect app, "
+                "then generate a fresh request_token from that exact app login URL. "
+                "Request tokens are short-lived and one-time use."
+            ) from exc
+        raise
 
     access_token = data.get("access_token", "")
     refresh_token = data.get("refresh_token", "")

@@ -1,6 +1,6 @@
 {
   "version": 4,
-  "savedAt": 1782641763490,
+  "savedAt": 1782700867418,
   "partitioned": true,
   "days": {
     "2026-06-26": {
@@ -20,6 +20,15 @@
       "scanned": 313,
       "count": 3,
       "symbolCount": 3
+    },
+    "2026-06-29": {
+      "date": "2026-06-29",
+      "savedAt": 1782700867413,
+      "builtInMs": 86099,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 7,
+      "symbolCount": 7
     }
   }
 }
