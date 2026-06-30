@@ -807,6 +807,40 @@
     };
   }
 
+  // Exit when trade is in profit by at least SIMULATION_NEG_CANDLE_EXIT_MIN_GAIN_PCT and
+  // SIMULATION_NEG_CANDLE_EXIT_COUNT consecutive adverse candles have formed.
+  // Each unique latestBar.time is counted exactly once; a positive candle resets the streak.
+  function getNegativeCandleExit(trade, price, candidate, settings) {
+    settings = withDefaults(settings);
+    if (!trade || !candidate) return null;
+    const side = String(trade.side || 'buy').toLowerCase();
+    const buy = side !== 'sell';
+    const entry = Number(trade.entryPrice);
+    if (!Number.isFinite(entry) || entry <= 0 || !Number.isFinite(Number(price))) return null;
+    const minGainPct = Number(settings.SIMULATION_NEG_CANDLE_EXIT_MIN_GAIN_PCT) || 1.0;
+    const requiredCount = Math.max(1, Math.floor(Number(settings.SIMULATION_NEG_CANDLE_EXIT_COUNT) || 3));
+    const favorablePct = buy ? ((price - entry) / entry) * 100 : ((entry - price) / entry) * 100;
+    if (favorablePct < minGainPct) {
+      trade._negCandleCount = 0;
+      return null;
+    }
+    const bar = candidate?.indicators?.ohlc?.latestBar;
+    if (!bar || !bar.time) return null;
+    const open = Number(bar.open);
+    const close = Number(bar.close);
+    if (!Number.isFinite(open) || !Number.isFinite(close) || open <= 0) return null;
+    const barTime = String(bar.time);
+    if (trade._lastNegCandleBarTime !== barTime) {
+      const isNegative = buy ? close < open : close > open;
+      trade._negCandleCount = isNegative ? (Number(trade._negCandleCount) || 0) + 1 : 0;
+      trade._lastNegCandleBarTime = barTime;
+    }
+    if ((Number(trade._negCandleCount) || 0) >= requiredCount) {
+      return { reason: 'Simulation negative candle exit', exitPrice: Number(price) };
+    }
+    return null;
+  }
+
   function getSimulationExit(trade, price, candidate, at, settings, opts) {
     settings = withDefaults(settings);
     opts = opts || {};
@@ -844,10 +878,19 @@
         if (side === 'sell' && price >= trail) return { reason: momentumHealthy ? 'Simulation healthy momentum trail' : 'Simulation trailing stop', exitPrice: trail };
         if (side !== 'sell' && price <= trail) return { reason: momentumHealthy ? 'Simulation healthy momentum trail' : 'Simulation trailing stop', exitPrice: trail };
       }
+      const negCandleExit = getNegativeCandleExit(trade, price, candidate, settings);
+      if (negCandleExit) return negCandleExit;
       if (!isMomentumRunnerTrade(trade) && Number.isFinite(openedAt) && nowMs - openedAt >= Number(settings.SIMULATION_TIME_STOP_MIN || 45) * 60 * 1000 && favorablePct < Number(settings.SIMULATION_TIME_STOP_MIN_PROFIT_PCT || 0.2)) {
         const live = getPaperTradePnl(trade, price);
         if (isSimulationSignalDeteriorated(trade, candidate, price)) return { reason: 'Simulation signal deterioration', exitPrice: Number(price) };
         if (live && live.pnl <= 0 && favorablePct <= -0.15) return { reason: 'Simulation time stop cost guard', exitPrice: Number(price) };
+      }
+      // Fast-exit: if price has never moved favorably after the stop grace window, exit immediately on signal deterioration
+      // rather than waiting for the full EXIT_MIN_HOLD_MIN fade-confirm cycle.
+      if (!isMomentumRunnerTrade(trade) && Number(trade._maxFavorablePct) === 0 &&
+          Number.isFinite(openedAt) && nowMs - openedAt >= Number(settings.SIMULATION_STOP_GRACE_MIN || 10) * 60000 &&
+          favorablePct < 0 && isSimulationSignalDeteriorated(trade, candidate, price)) {
+        return { reason: 'Simulation zero-progress exit', exitPrice: Number(price) };
       }
     }
     const runnerExit = getMomentumRunnerExit(trade, price, candidate, settings);
@@ -951,6 +994,8 @@
     if (text.includes('target')) return 'Target';
     if (text.includes('trail')) return 'Trail';
     if (text.includes('vwap')) return 'VWAP';
+    if (text.includes('zero-progress')) return 'Zero-progress';
+    if (text.includes('negative candle')) return 'Candle exit';
     if (text.includes('momentum') || text.includes('deterioration') || text.includes('fade')) return 'Momentum fade';
     if (text.includes('stop')) return 'Stop';
     if (text.includes('eod') || text.includes('square')) return 'EOD';

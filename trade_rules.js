@@ -35,7 +35,7 @@
     SIMULATION_RUNNER_MAX_VWAP_EXTENSION_PCT: 1.25,
     SIMULATION_RUNNER_TRAIL_PCT: 0.9,
     SIMULATION_RUNNER_WIDE_TRAIL_PCT: 1.35,
-    SIMULATION_BREAKEVEN_PROTECT_PCT: 0.5,
+    SIMULATION_BREAKEVEN_PROTECT_PCT: 0.65,
     SIMULATION_TRAIL_START_PCT: 0.8,
     SIMULATION_LONG_TRAIL_PCT: 0.4,
     SIMULATION_TIME_STOP_MIN: 45,
@@ -50,7 +50,7 @@
     SIMULATION_VWAP_CONT_MAX_TRIGGER_EXTENSION_PCT: 2.5,
     SIMULATION_VWAP_CONT_MAX_VWAP_EXTENSION_PCT: 1.1,
     SIMULATION_MIN_SCORE: 70,
-    SIMULATION_SHORT_MIN_SCORE: 45,
+    SIMULATION_SHORT_MIN_SCORE: 65,
     SIMULATION_SHORT_MIN_REL_VOL: 0.8,
     SIMULATION_SHORT_ALLOW_AVOID_GUARD: true,
     SIMULATION_SHORT_TRIGGER_DISTANCE_PCT: 1.2,
@@ -69,6 +69,8 @@
     SIMULATION_HIGH_PROFIT_EXIT_PROFIT_PCT: 1.5,
     SIMULATION_HIGH_PROFIT_EXIT_STOP_PCT: 1,
     SIMULATION_HIGH_PROFIT_EXIT_HOUR_CUTOFF: 13,
+    SIMULATION_NEG_CANDLE_EXIT_MIN_GAIN_PCT: 1.0,
+    SIMULATION_NEG_CANDLE_EXIT_COUNT: 3,
   };
 
   const SETTING_DESCRIPTIONS = {
@@ -133,6 +135,8 @@
     SIMULATION_HIGH_PROFIT_EXIT_PROFIT_PCT: 'Target profit percent for the automatic short entry triggered by high gains. Default is 1.5% (stock drops 1.5% from entry).',
     SIMULATION_HIGH_PROFIT_EXIT_STOP_PCT: 'Stop loss percent for the automatic short entry. Default is 1% (stock rises 1% from entry triggers stop).',
     SIMULATION_HIGH_PROFIT_EXIT_HOUR_CUTOFF: 'Hour (24-hour IST) after which the high-profit short trigger no longer applies. Default is 13 (1 PM IST). After this hour, stocks are not triggered for short entry even if they gained 17%+.',
+    SIMULATION_NEG_CANDLE_EXIT_MIN_GAIN_PCT: 'Minimum current favorable move percent required before the consecutive negative candle exit rule becomes active. Default is 1.0 (trade must be at least 1% in profit).',
+    SIMULATION_NEG_CANDLE_EXIT_COUNT: 'Number of consecutive bearish candles (close < open for longs; close > open for shorts) required to exit a trade that is at least SIMULATION_NEG_CANDLE_EXIT_MIN_GAIN_PCT in profit.',
   };
 
   function withDefaults(settings) {
@@ -242,7 +246,13 @@
 
     const recentBad = closed
       .filter(t => t.symbol === sym)
-      .filter(t => isLosingStopExit(t) || Number(t.pnl) < 0)
+      .filter(t => {
+        if (isLosingStopExit(t)) return true;
+        if (Number(t.pnl) < 0) return true;
+        // Any loss exit (including VWAP/signal/time-stop) triggers cooldown for VWAP_TREND_CONTINUATION
+        if (setupType === 'VWAP_TREND_CONTINUATION' && t.setupType === 'VWAP_TREND_CONTINUATION' && Number(t.pnl) <= 0) return true;
+        return false;
+      })
       .sort((a, b) => new Date(b.closedAt || b.openedAt || 0) - new Date(a.closedAt || a.openedAt || 0))[0];
     if (recentBad) {
       const closedAt = new Date(recentBad.closedAt || recentBad.openedAt || 0).getTime();
@@ -250,6 +260,23 @@
         return `cooldown after ${recentBad.closeReason || 'loss'}`;
       }
     }
+
+    // Short cooldown after a cancelled or timed-out entry on the same symbol+setup to prevent immediate retries
+    const CANCEL_COOLDOWN_MS = 15 * 60000;
+    const isBrokerCancelledEntry = t =>
+      ['cancelled', 'timeout'].includes(String(t?.broker?.status || '').toLowerCase()) &&
+      (!setupType || !t.setupType || t.setupType === setupType);
+    const allDayTrades = Array.isArray(stats.dayTrades || stats.trades) ? (stats.dayTrades || stats.trades) : [];
+    const recentCancel = allDayTrades
+      .filter(t => t.symbol === sym && t.status === 'closed' && isBrokerCancelledEntry(t))
+      .sort((a, b) => new Date(b.closedAt || b.openedAt || 0) - new Date(a.closedAt || a.openedAt || 0))[0];
+    if (recentCancel) {
+      const closedAt = new Date(recentCancel.closedAt || recentCancel.openedAt || 0).getTime();
+      if (Number.isFinite(closedAt) && now - closedAt < CANCEL_COOLDOWN_MS) {
+        return `entry retry cooldown after cancel/timeout`;
+      }
+    }
+
     return '';
   }
 
