@@ -46,3 +46,60 @@ test('parseTickTime returns null for invalid input', () => {
   assert.equal(parseTickTime('0'), null);
   assert.equal(parseTickTime('bad'), null);
 });
+
+const { SharekhanTicker } = require('../sharekhan-ticker');
+
+test('processTick builds first candle from tick (open = first ltp)', () => {
+  const ticker = new SharekhanTicker({ accessToken: 'fake' });
+  ticker._processTick({ exchangeCode: 'NC', scripCode: 2885, ltp: 100, qty: 1000, lastUpdatedTime: '06/30/2026 09:30:10' });
+  const candles = ticker.getCandlesWithOpenBar(2885);
+  assert.ok(Array.isArray(candles) && candles.length === 1);
+  assert.equal(candles[0].open, 100);
+  assert.equal(candles[0].close, 100);
+  assert.equal(candles[0].high, 100);
+  assert.equal(candles[0].low, 100);
+});
+
+test('processTick updates same candle for same 5-min bar', () => {
+  const ticker = new SharekhanTicker({ accessToken: 'fake' });
+  ticker._processTick({ exchangeCode: 'NC', scripCode: 2885, ltp: 100, qty: 500, lastUpdatedTime: '06/30/2026 09:30:10' });
+  ticker._processTick({ exchangeCode: 'NC', scripCode: 2885, ltp: 108, qty: 700, lastUpdatedTime: '06/30/2026 09:32:45' });
+  const candles = ticker.getCandlesWithOpenBar(2885);
+  assert.equal(candles.length, 1);
+  assert.equal(candles[0].open, 100);   // first ltp in bar
+  assert.equal(candles[0].close, 108);  // last ltp in bar
+  assert.equal(candles[0].high, 108);
+  assert.equal(candles[0].low, 100);
+  assert.equal(candles[0].vol, 700);    // latest cumulative qty
+});
+
+test('processTick closes bar and opens new one on 5-min boundary', () => {
+  const ticker = new SharekhanTicker({ accessToken: 'fake' });
+  ticker._processTick({ exchangeCode: 'NC', scripCode: 2885, ltp: 100, qty: 500, lastUpdatedTime: '06/30/2026 09:30:10' });
+  ticker._processTick({ exchangeCode: 'NC', scripCode: 2885, ltp: 106, qty: 900, lastUpdatedTime: '06/30/2026 09:35:20' });
+  const candles = ticker.getCandlesWithOpenBar(2885);
+  assert.equal(candles.length, 2);
+  assert.equal(candles[0].close, 100);  // closed bar
+  assert.equal(candles[1].open, 106);   // new bar open = first ltp
+  assert.equal(candles[1].close, 106);
+});
+
+test('getCandlesWithOpenBar returns null for unknown scripCode', () => {
+  const ticker = new SharekhanTicker({ accessToken: 'fake' });
+  assert.equal(ticker.getCandlesWithOpenBar(9999), null);
+});
+
+test('onCandleUpdate callback is called on tick', () => {
+  let called = false;
+  let cbSym, cbCandles;
+  const ticker = new SharekhanTicker({
+    accessToken: 'fake',
+    scripToSymbol: new Map([[2885, 'RELIANCE']]),
+    onCandleUpdate: (sym, candles) => { called = true; cbSym = sym; cbCandles = candles; },
+  });
+  ticker._processTick({ exchangeCode: 'NC', scripCode: 2885, ltp: 100, qty: 500, lastUpdatedTime: '06/30/2026 09:30:10' });
+  assert.ok(called);
+  assert.equal(cbSym, 'RELIANCE');
+  assert.ok(Array.isArray(cbCandles) && cbCandles.length === 1);
+});
+
