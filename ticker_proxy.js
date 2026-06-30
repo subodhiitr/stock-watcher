@@ -54,7 +54,8 @@ const { loadSharekhanCredentials, saveSharekhanAccessToken, saveSharekhanTokens 
 const { KiteConnect } = require('kiteconnect');
 const KiteClient = require('./zerodha-kite-client');
 const SharekhanClient = require('./sharekhan-client');
-const { fetchSharekhanIntraday } = require('./sharekhan-intraday');
+const { fetchSharekhanIntraday, buildYahooShapeFromCandles } = require('./sharekhan-intraday');
+const { SharekhanTicker } = require('./sharekhan-ticker');
 const ConfirmationPoller = require('./zerodha-confirmation-poller');
 const {
   initDb,
@@ -242,6 +243,7 @@ let zerodhaInitializeInFlight = null;
 let sharekhanCredentials = null;
 let sharekhanClientLive = null;
 let sharekhanConfirmationPoller = null;
+let sharekhanTicker = null;
 let sharekhanLiveFailureCount = 0;
 let sharekhanInitializeInFlight = null;
 
@@ -271,6 +273,11 @@ function isSharekhanAuthReloadError(err) {
   return /AUTH_FAILED_REFRESH_NEEDED|token|permission/i.test(String(err?.message || err || ''));
 }
 
+/** Returns true for permanent Zerodha IP-block errors that should not count toward the auto-fallback threshold. */
+function isZerodhaIpBlockError(err) {
+  return /is not allowed to place orders/i.test(String(err?.message || err || ''));
+}
+
 async function ensureSharekhanInitialized({ force = false } = {}) {
   if (!force && sharekhanCredentials && sharekhanClientLive) return true;
   if (sharekhanInitializeInFlight) return sharekhanInitializeInFlight;
@@ -281,6 +288,7 @@ async function ensureSharekhanInitialized({ force = false } = {}) {
       try { sharekhanConfirmationPoller.stop(); } catch (_) {}
       sharekhanConfirmationPoller = null;
     }
+    if (sharekhanTicker) { try { sharekhanTicker.stop(); } catch (_) {} sharekhanTicker = null; }
     sharekhanCredentials = null;
     sharekhanClientLive = null;
     const initialized = await initializeSharekhan();
@@ -792,6 +800,7 @@ async function closeTradeFromExitIntent(trade, intent, atIso) {
         const exitOrderId = await kiteClientLive.placeOrder(exitOrder);
         trade.broker.exitOrderId = exitOrderId;
         trade.broker.status = 'exit_placed';
+        trade.broker.exitPlacedAt = atIso;
         trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
         trade.broker.audit.push({ at: atIso, event: 'simulation_exit_placed', exitOrderId, reason: intent?.reason });
         console.log(`[sim-exit] Zerodha exit order placed: ${exitOrderId} for ${trade.symbol}`);
@@ -801,6 +810,7 @@ async function closeTradeFromExitIntent(trade, intent, atIso) {
           const exitOrderId = await withSharekhanCredentialReload(() => sharekhanClientLive.placeOrder(exitOrder));
           trade.broker.exitOrderId = exitOrderId;
           trade.broker.status = 'exit_placed';
+          trade.broker.exitPlacedAt = atIso;
           trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
           trade.broker.audit.push({ at: atIso, event: 'simulation_exit_placed', exitOrderId, reason: intent?.reason });
           console.log(`[sim-exit] Sharekhan exit order placed: ${exitOrderId} for ${trade.symbol}`);
@@ -812,7 +822,8 @@ async function closeTradeFromExitIntent(trade, intent, atIso) {
       trade.broker.error = e.message;
       trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
       trade.broker.audit.push({ at: atIso, event: 'simulation_exit_failed', error: e.message, reason: intent?.reason });
-      // Still close locally — position management takes priority, manual reconciliation needed.
+      // Leave the trade open — broker order failed, manual reconciliation needed.
+      return false;
     }
   }
 
@@ -891,7 +902,7 @@ async function openTradeFromEntryIntent(trades, intent, atIso) {
       zerodhaLiveFailureCount = 0;
       console.log(`[sim-entry] Zerodha live order placed: ${orderId} for ${symbol}`);
     } catch (e) {
-      zerodhaLiveFailureCount++;
+      if (!isZerodhaIpBlockError(e)) zerodhaLiveFailureCount++;
       console.error(`[sim-entry] Zerodha live order failed (${zerodhaLiveFailureCount}):`, e.message);
       if (zerodhaLiveFailureCount >= 3) {
         console.warn('[sim-entry] Too many failures. Falling back to Zerodha dry-run mode.');
@@ -995,6 +1006,21 @@ function rememberSimulationUniverse(symbols = []) {
     saveSimulationUniverseState([...universe]);
     startIntradayLiveRefresh('universe-update');
     refreshIntradayLiveCache('universe-update').catch(() => {});
+    // Subscribe newly added symbols to the Sharekhan ticker
+    if (sharekhanTicker && sharekhanClientLive) {
+      const addedSyms = symbols
+        .map(s => String(s || '').trim().toUpperCase())
+        .filter(sym => sym && universe.has(sym));
+      if (addedSyms.length) {
+        Promise.all(addedSyms.map(sym =>
+          sharekhanClientLive.getScripCode(sym).then(code => ({ sym, code })).catch(() => null)
+        )).then(results => {
+          const valid = results.filter(r => r && r.code > 0);
+          const codes = valid.map(r => r.code);
+          if (codes.length) sharekhanTicker.subscribe(codes, new Map(valid.map(r => [r.code, r.sym])));
+        }).catch(() => {});
+      }
+    }
   }
 }
 
@@ -1223,6 +1249,12 @@ function getSimulationSymbolMetaIndex() {
     if (typeof item === 'string') assignMeta(item, item, 'ETF', 'etf', 'etf');
     else if (item && typeof item === 'object') assignMeta(item.sym || item.symbol, item.name, item.sector || 'ETF', item.cap || 'etf', 'etf');
   }
+  // Also include all ETFs from the master DB — not just user-saved ones
+  try {
+    for (const item of listAllEtfs()) {
+      if (item && typeof item === 'object') assignMeta(item.sym || item.symbol, item.name, item.sector || 'ETF', item.cap || 'etf', 'etf');
+    }
+  } catch (_) {}
 
   const snapshots = loadAllSimulationSnapshots();
   for (let i = snapshots.length - 1; i >= 0; i -= 1) {
@@ -1608,6 +1640,15 @@ async function runSimulationSchedulerTick() {
         const side = String(trade?.side || candidate?.side || candidate?.signal || 'buy').toLowerCase() === 'sell' ? 'sell' : 'buy';
         const candidatePrice = Number(candidate?.price ?? candidate?.priceAtSnapshot ?? candidate?.quote?.price ?? candidate?.indicators?.price);
         const basePrice = Number.isFinite(candidatePrice) && candidatePrice > 0 ? candidatePrice : Number(trade?.entryPrice);
+        // Always track peak price every tick so trailing stop never misses a high water mark
+        const entry = Number(trade.entryPrice);
+        if (Number.isFinite(entry) && entry > 0 && Number.isFinite(basePrice) && basePrice > 0) {
+          const favorablePct = side === 'sell' ? ((entry - basePrice) / entry) * 100 : ((basePrice - entry) / entry) * 100;
+          trade._maxFavorablePct = Math.max(Number(trade._maxFavorablePct) || 0, favorablePct);
+          trade._bestPrice = side === 'sell'
+            ? Math.min(Number(trade._bestPrice) || entry, basePrice)
+            : Math.max(Number(trade._bestPrice) || entry, basePrice);
+        }
         const plan = SimulationEngine.getPaperPlanForCandidate?.(candidate, side, basePrice);
         const hasTarget = trade?.target != null && Number.isFinite(Number(trade.target));
         const hasStop = trade?.stop != null && Number.isFinite(Number(trade.stop));
@@ -3001,7 +3042,7 @@ function sendBrokerAuthHtml(res, statusCode, payload) {
 function getBrokerRefreshPath(req, broker) {
   const proto = req.headers['x-forwarded-proto'] || 'http';
   const host = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`;
-  return `${proto}://${host}/broker/refresh?name=${encodeURIComponent(broker)}`;
+  return `${proto}://${host}/broker/refresh/${encodeURIComponent(broker)}`;
 }
 
 function readBrokerAuthParams(searchParams) {
@@ -3022,7 +3063,8 @@ function readBrokerAuthParams(searchParams) {
 
   return {
     broker: brokerNameFromParam(rawName),
-    requestToken: requestToken.trim(),
+    // URLSearchParams decodes '+' as space; restore it for base64 tokens
+    requestToken: requestToken.trim().replace(/ /g, '+'),
   };
 }
 
@@ -5302,9 +5344,19 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
   if (volumePace != null && volumePace >= 1.5) {
     if (lastClose >= prevBarClose) { score += 10; reasons.push('High relative volume'); }
     else { score -= 10; reasons.push('High relative volume selloff'); }
-  } else if (volumePace != null && volumePace < 0.7) {
-    score += score >= 0 ? -8 : 8;
-    reasons.push('Weak relative volume');
+  } else if (volumePace != null && volumePace >= 1.0) {
+    // Adequate volume — slight nudge in trend direction
+    if (lastClose >= prevBarClose) { score += 5; reasons.push('Adequate volume'); }
+  } else if (volumePace != null) {
+    // Below 1.0x — tiered penalty that grows the lower the volume
+    const penalty = volumePace < 0.4 ? 35
+      : volumePace < 0.5 ? 28
+      : volumePace < 0.6 ? 20
+      : volumePace < 0.7 ? 14
+      : 8; // 0.7–1.0x
+    score += score >= 0 ? -penalty : penalty;
+    const label = volumePace < 0.5 ? 'Very low volume' : volumePace < 0.7 ? 'Low volume' : 'Below-average volume';
+    reasons.push(`${label} (${round2(volumePace)}x)`);
   }
   if (volumeSpike) {
     if (lastClose >= prevBarClose) { score += 10; reasons.push('Volume spike on uptick'); }
@@ -5464,46 +5516,46 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
   }
 }
 
+// Called by SharekhanTicker.onCandleUpdate — pushes real-time candles directly into
+// intradayLiveCache, bypassing the 60s Yahoo poll for this symbol.
+async function pushSharekhanTickerCandles(sym, candles) {
+  try {
+    const skResult = buildYahooShapeFromCandles(sym, candles);
+    if (!skResult) return; // no candles yet
+    const yahooSym = resolveNseSymbol(sym);
+    const dailyPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=1d&range=1mo&includePrePost=false`;
+    let daily = await httpsGet({ hostname: 'query1.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+    if (daily.status !== 200) {
+      daily = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+    }
+    const dailyResult = daily?.status === 200
+      ? (() => { try { return JSON.parse(daily.body)?.chart?.result?.[0] ?? null; } catch (_) { return null; } })()
+      : null;
+    const closes = skResult.indicators?.quote?.[0]?.close || [];
+    skResult.meta.previousClose = dailyResult?.meta?.previousClose ?? (closes.length > 1 ? closes[closes.length - 2] : null) ?? undefined;
+    const signal = buildIntradaySignal(sym, skResult, buildDailyTradeContext(dailyResult));
+    if (!signal) return;
+    signal.dataSource = 'sharekhan-ws';
+    intradaySignalCache[sym] = { v: signal, t: Date.now() };
+    const nextValue = normalizeIntradayLiveSignal(sym, signal);
+    const prev = intradayLiveCache.get(sym);
+    intradayLiveCache.set(sym, nextValue);
+    if (!prev || JSON.stringify(prev) !== JSON.stringify(nextValue)) {
+      broadcastIntradayLive('sharekhan-ws-tick', [sym]);
+    }
+  } catch (e) {
+    console.warn(`[sharekhan-ticker] pushCandles ${sym}:`, e.message);
+  }
+}
+
 async function fetchIntradaySignal(sym) {
   const now = Date.now();
   if (intradaySignalCache[sym] && (now - intradaySignalCache[sym].t) < INTRADAY_SIGNAL_TTL) {
     return intradaySignalCache[sym].v;
   }
 
-  // Try Sharekhan first (real-time, no delay) — fall back to Yahoo on null/error
-  if (sharekhanClientLive) {
-    try {
-      const skResult = await fetchSharekhanIntraday(sym, sharekhanClientLive);
-      if (skResult) {
-        // Sharekhan candles don't include prev-day close — fetch Yahoo daily for levels
-        // Use same query1→query2 retry as existing Yahoo path
-        const yahooSym = resolveNseSymbol(sym);
-        const dailyPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=1d&range=1mo&includePrePost=false`;
-        let daily = await httpsGet({ hostname: 'query1.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
-        if (daily.status !== 200) {
-          daily = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
-        }
-        const dailyResult = daily?.status === 200
-          ? (() => { try { return JSON.parse(daily.body)?.chart?.result?.[0] ?? null; } catch (_) { return null; } })()
-          : null;
-        // Backfill previousClose from Yahoo daily. Use a non-zero sentinel if unavailable
-        // so buildIntradaySignal's `|| closes[0]` fallback is NOT triggered.
-        // We use the last close of the Sharekhan candles as a best-effort prev close only
-        // when Yahoo daily is completely unavailable — this is better than closes[0] (open proxy).
-        const skCloses = skResult.indicators?.quote?.[0]?.close || [];
-        const fallbackPrevClose = skCloses.length > 1 ? skCloses[skCloses.length - 2] : null;
-        skResult.meta.previousClose = dailyResult?.meta?.previousClose ?? fallbackPrevClose ?? undefined;
-        const signal = buildIntradaySignal(sym, skResult, buildDailyTradeContext(dailyResult));
-        if (signal) {
-          signal.dataSource = 'sharekhan';
-          intradaySignalCache[sym] = { v: signal, t: now };
-          return signal;
-        }
-      }
-    } catch (err) {
-      console.warn(`[intraday] ${sym}: Sharekhan fetch failed — ${err?.message || err}. Falling back to Yahoo.`);
-    }
-  }
+  // Sharekhan WebSocket ticker updates intradaySignalCache directly via pushSharekhanTickerCandles.
+  // If it already has fresh data it was served above via the cache-hit. Fall through to Yahoo.
 
   try {
     const yahooSym = resolveNseSymbol(sym);
@@ -7305,8 +7357,10 @@ async function proxyRequestHandler(req, res) {
     }
   }
 
-  // /broker/refresh -- Exchange redirect request_token for access token
-  if (pathname === '/broker/refresh' || pathname === '/borker/refresh') {
+  // /broker/refresh/:broker -- Exchange redirect request_token for access token
+  // Supports both /broker/refresh/sharekhan (new) and /broker/refresh?name=sharekhan (legacy)
+  const brokerRefreshMatch = pathname.match(/^\/b[ro]+ker\/refresh(?:\/([^/]+))?$/i);
+  if (brokerRefreshMatch) {
     const wantsJson = /\bapplication\/json\b/i.test(req.headers.accept || '');
     const fail = (statusCode, broker, message) => {
       if (wantsJson) {
@@ -7320,9 +7374,12 @@ async function proxyRequestHandler(req, res) {
       fail(405, '', 'Use GET for broker refresh redirects.');
       return;
     }
-    const { broker, requestToken } = readBrokerAuthParams(searchParams);
+    // Broker name from path segment takes priority over ?name= query param
+    const brokerFromPath = brokerNameFromParam(brokerRefreshMatch[1] || '');
+    const { broker: brokerFromQuery, requestToken } = readBrokerAuthParams(searchParams);
+    const broker = brokerFromPath || brokerFromQuery;
     if (!broker) {
-      fail(400, '', 'Use name=sharekhan or name=zerodha.');
+      fail(400, '', 'Broker name missing. Use /broker/refresh/sharekhan or /broker/refresh/zerodha.');
       return;
     }
     if (!requestToken) {
@@ -7864,7 +7921,7 @@ async function proxyRequestHandler(req, res) {
               zerodhaLiveFailureCount = 0;
               console.log(`[zerodha-live] Order placed: ${orderId} for ${symbol}`);
             } catch (e) {
-              zerodhaLiveFailureCount++;
+              if (!isZerodhaIpBlockError(e)) zerodhaLiveFailureCount++;
               console.error(`[zerodha-live] Order placement failed (${zerodhaLiveFailureCount}):`, e.message);
               // Fallback to Zerodha dry-run mode if too many failures
               if (zerodhaLiveFailureCount >= 3) {
@@ -7970,13 +8027,14 @@ async function proxyRequestHandler(req, res) {
                 const exitOrderId = await kiteClientLive.placeOrder(exitOrder);
                 trade.broker.exitOrderId = exitOrderId;
                 trade.broker.status = 'exit_placed';
+                trade.broker.exitPlacedAt = closedAt;
               }
               trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
               trade.broker.audit.push({ at: closedAt, event: 'live_exit_processed', reason: payload.reason || 'Manual exit', orderId: trade.broker.orderId });
               zerodhaLiveFailureCount = 0;
               console.log(`[zerodha-live] Exit processed for order: ${orderId}`);
             } catch (e) {
-              zerodhaLiveFailureCount++;
+              if (!isZerodhaIpBlockError(e)) zerodhaLiveFailureCount++;
               console.error(`[zerodha-live] Exit failed (${zerodhaLiveFailureCount}):`, e.message);
               if (zerodhaLiveFailureCount >= 3) {
                 console.warn('[zerodha-live] Too many failures. Disabling zerodha_live mode, falling back to Zerodha dry-run mode.');
@@ -8004,6 +8062,7 @@ async function proxyRequestHandler(req, res) {
                 const exitOrderId = await withSharekhanCredentialReload(() => sharekhanClientLive.placeOrder(exitOrder));
                 trade.broker.exitOrderId = exitOrderId;
                 trade.broker.status = 'exit_placed';
+                trade.broker.exitPlacedAt = closedAt;
               }
               trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
               trade.broker.audit.push({ at: closedAt, event: 'live_exit_processed', reason: payload.reason || 'Manual exit', orderId: trade.broker.orderId });
@@ -8641,6 +8700,7 @@ async function initializeZerodha() {
         loadTrades: () => loadPaperTradesFile(),
         saveTrades: (trades) => savePaperTradesFile(trades),
         broadcast: (reason = 'broker-update') => broadcastPaperTradeState(reason),
+        computePnl: (trade, exitPrice) => computePaperTradePnl(trade, exitPrice),
       },
       () => brokerMode,
       {
@@ -8683,6 +8743,7 @@ async function initializeSharekhan() {
         if (nextAccessToken) {
           sharekhanCredentials.accessToken = nextAccessToken;
           saveSharekhanAccessToken(nextAccessToken);
+          if (sharekhanTicker) sharekhanTicker.updateToken(nextAccessToken);
         }
       },
     });
@@ -8704,6 +8765,7 @@ async function initializeSharekhan() {
         loadTrades: () => loadPaperTradesFile(),
         saveTrades: (trades) => savePaperTradesFile(trades),
         broadcast: (reason = 'broker-update') => broadcastPaperTradeState(reason),
+        computePnl: (trade, exitPrice) => computePaperTradePnl(trade, exitPrice),
       },
       () => brokerMode,
       {
@@ -8722,6 +8784,25 @@ async function initializeSharekhan() {
       }
     );
     sharekhanConfirmationPoller.start();
+
+    // Build scripCode → symbol map for the current universe and start WebSocket ticker
+    const universeSyms = [...getIntradayLiveUniverseSymbols()];
+    const symToCode = new Map();
+    await Promise.all(universeSyms.map(async sym => {
+      const code = await sharekhanClientLive.getScripCode(sym).catch(() => 0);
+      if (code > 0) symToCode.set(sym, code);
+    }));
+    const scripToSymbol = new Map([...symToCode.entries()].map(([sym, code]) => [code, sym]));
+    if (sharekhanTicker) { try { sharekhanTicker.stop(); } catch (_) {} }
+    sharekhanTicker = new SharekhanTicker({
+      accessToken: sharekhanCredentials.accessToken,
+      scripToSymbol,
+      onCandleUpdate: (sym, candles) => { pushSharekhanTickerCandles(sym, candles).catch(() => {}); },
+    });
+    sharekhanTicker.subscribe([...symToCode.values()]);
+    sharekhanTicker.start();
+    console.log(`[sharekhan-ticker] Started, subscribed to ${symToCode.size} symbols`);
+
     console.log('[sharekhan] Initialization complete. Confirmation poller started.');
     return true;
   } catch (e) {
