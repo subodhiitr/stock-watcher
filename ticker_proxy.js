@@ -7273,7 +7273,12 @@ async function proxyRequestHandler(req, res) {
   if (pathname === '/broker-mode') {
     if (req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, mode: brokerMode }));
+      res.end(JSON.stringify({
+        ok: true,
+        mode: brokerMode,
+        sharekhanTickerConnected: sharekhanTicker?._connected ?? false,
+        sharekhanTickerSymbols: sharekhanTicker ? sharekhanTicker._subscribedCodes.size : 0,
+      }));
       return;
     }
     if (req.method === 'POST') {
