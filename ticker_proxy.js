@@ -288,7 +288,10 @@ async function ensureSharekhanInitialized({ force = false } = {}) {
       try { sharekhanConfirmationPoller.stop(); } catch (_) {}
       sharekhanConfirmationPoller = null;
     }
-    if (sharekhanTicker) { try { sharekhanTicker.stop(); } catch (_) {} sharekhanTicker = null; }
+    if (sharekhanTicker) {
+      try { if (sharekhanTicker._heartbeatTimer) clearInterval(sharekhanTicker._heartbeatTimer); sharekhanTicker.stop(); } catch (_) {}
+      sharekhanTicker = null;
+    }
     sharekhanCredentials = null;
     sharekhanClientLive = null;
     const initialized = await initializeSharekhan();
@@ -5189,7 +5192,7 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     const lows = compactFinitePositive(quote.low);
     const volumes = compactFinite(quote.volume);
     
-    if (closes.length < 6) {
+    if (closes.length < 1) {
       // Insufficient data - return stale marker with minimal OHLC/setup context.
       const price = Number(meta.regularMarketPrice) || (closes.length > 0 ? closes[closes.length - 1] : null);
       if (!price) return null;
@@ -5240,13 +5243,14 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
         priceTimeMs,
         stale: true,
         fetchFailed: true,
-        staleReason: `Insufficient intraday data (${closes.length} candles, need 6+)`,
+        staleReason: `Insufficient intraday data (${closes.length} candles, need 1+)`,
         savedAt: new Date().toISOString(),
       };
     }
 
     const price = Number(meta.regularMarketPrice) || closes[closes.length - 1];
-    const prevClose = Number(meta.previousClose) || closes[0];
+    // Prefer Yahoo daily prevDayClose over meta.previousClose (which can be today's open for WS data)
+    const prevClose = Number(dailyContext.prevDayClose) || Number(meta.previousClose) || closes[0];
     const openPrice = Number(meta.regularMarketOpen) || closes[0];
     const lastClose = closes[closes.length - 1];
     const prevBarClose = closes.length > 1 ? closes[closes.length - 2] : lastClose;
@@ -5540,7 +5544,10 @@ async function pushSharekhanTickerCandles(sym, candles) {
     const nextValue = normalizeIntradayLiveSignal(sym, signal);
     const prev = intradayLiveCache.get(sym);
     intradayLiveCache.set(sym, nextValue);
-    if (!prev || JSON.stringify(prev) !== JSON.stringify(nextValue)) {
+    // Broadcast if data changed OR if >30s since last broadcast (keeps fetchedAt fresh in browser)
+    const lastBroadcastAt = nextValue._lastBroadcastAt || 0;
+    if (!prev || JSON.stringify(prev) !== JSON.stringify(nextValue) || Date.now() - lastBroadcastAt > 30000) {
+      nextValue._lastBroadcastAt = Date.now();
       broadcastIntradayLive('sharekhan-ws-tick', [sym]);
     }
   } catch (e) {
@@ -8807,6 +8814,14 @@ async function initializeSharekhan() {
     sharekhanTicker.subscribe([...symToCode.values()]);
     sharekhanTicker.start();
     console.log(`[sharekhan-ticker] Started, subscribed to ${symToCode.size} symbols`);
+
+    // Heartbeat: broadcast all sharekhan-ws cached signals every 60s so browser freshness stays valid
+    // even for symbols that aren't actively trading (no incoming ticks)
+    if (sharekhanTicker._heartbeatTimer) clearInterval(sharekhanTicker._heartbeatTimer);
+    sharekhanTicker._heartbeatTimer = setInterval(() => {
+      const symsToRefresh = [...symToCode.keys()];
+      if (symsToRefresh.length) broadcastIntradayLive('sharekhan-ws-heartbeat', symsToRefresh);
+    }, 60 * 1000);
 
     console.log('[sharekhan] Initialization complete. Confirmation poller started.');
     return true;

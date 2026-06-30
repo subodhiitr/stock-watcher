@@ -1896,6 +1896,12 @@ async function fetchIntradaySignals(symbols) {
             stale: !!value.stale,
             fetchFailed: !!value.fetchFailed,
           };
+          // Keep price column in sync when intraday data has a fresher price
+          if (value.dataSource === 'sharekhan-ws' && Number.isFinite(Number(value.price)) && Number(value.price) > 0) {
+            stockData[sym] = stockData[sym] || {};
+            stockData[sym].price = Number(value.price);
+            if (Number.isFinite(Number(value.dayChange))) stockData[sym].change = Number(value.dayChange);
+          }
           intradayDataUpdateCount++;
           anyUpdated = true;
         }
@@ -1961,9 +1967,12 @@ function getIntradayFreshness(t) {
   const priceTimeMs = Number(t.priceTimeMs);
   const priceTimeFromIso = Date.parse(String(t.priceTime || t?.ohlc?.latestBar?.time || ''));
   const fetchedAt = Number(t.fetchedAt);
-  const freshnessAt = Number.isFinite(priceTimeMs)
-    ? priceTimeMs
-    : (Number.isFinite(priceTimeFromIso) ? priceTimeFromIso : fetchedAt);
+  // For sharekhan-ws, fetchedAt reflects when the last SSE tick arrived — use it as freshness
+  const freshnessAt = t.dataSource === 'sharekhan-ws' && Number.isFinite(fetchedAt)
+    ? Math.max(Number.isFinite(priceTimeMs) ? priceTimeMs : 0, fetchedAt)
+    : (Number.isFinite(priceTimeMs)
+      ? priceTimeMs
+      : (Number.isFinite(priceTimeFromIso) ? priceTimeFromIso : fetchedAt));
   const ageMs = Number.isFinite(freshnessAt) ? Date.now() - freshnessAt : null;
   const stale = !!t.stale || !!t.fetchFailed || ageMs == null || ageMs > INTRADAY_STALE_MS;
   const ageMin = ageMs == null ? null : Math.max(0, Math.round(ageMs / 60000));
@@ -2236,8 +2245,10 @@ function getPortfolioSummary() {
   for (const trade of paperTrades) {
     if (isOpenTrade(trade)) {
       openExposure += paperTradeExposure(trade);
-      const pnl = getPaperTradePnl(trade, getCurrentTradePrice(trade.symbol));
-      if (pnl) unrealized += pnl.pnl;
+      if (String(trade?.broker?.status || '').toLowerCase() !== 'pending') {
+        const pnl = getPaperTradePnl(trade, getCurrentTradePrice(trade.symbol));
+        if (pnl) unrealized += pnl.pnl;
+      }
       continue;
     }
     const status = String(trade.status || '').toLowerCase();
@@ -2495,6 +2506,10 @@ function renderOpenTradeRows(openTrades, newKeys, mode = 'all') {
     } else if (brokerStatus === 'exit_placed') {
       const exitId = trade.broker?.exitOrderId ? ` <span style="font-family:monospace;font-size:10px">${escapeHTML(String(trade.broker.exitOrderId))}</span>` : '';
       statusHTML = `🚪 Exiting${exitId}`;
+    } else if (brokerStatus === 'exit_confirmed') {
+      statusHTML = '✅ Exit confirmed';
+    } else if (brokerStatus === 'exit_timeout') {
+      statusHTML = '⚠️ Exit timeout';
     } else if (brokerStatus === 'exit_failed') {
       statusHTML = `⚠️ Exit failed: ${escapeHTML(trade.broker?.error || 'unknown')}`;
     } else if (brokerStatus === 'cancelled') {
@@ -2629,13 +2644,15 @@ function renderOpenTradesModal() {
     : allOpenTrades;
   const visibleOpenTrades = visibleTrades.filter(isOpenTrade);
   const pnlBaseTrades = openTradesModalMode === 'new' ? visibleTrades : visibleOpenTrades;
+  const pnlConfirmedTrades = pnlBaseTrades.filter(t => String(t?.broker?.status || '').toLowerCase() !== 'pending');
+  const totalPnl = pnlConfirmedTrades.reduce((sum, t) => sum + (isOpenTrade(t) ? (getPaperTradePnl(t, getCurrentTradePrice(t.symbol))?.pnl || 0) : (Number(t.pnl) || 0)), 0);
   const rows = renderOpenTradeRows(visibleTrades, newSimulationTradeKeys, openTradesModalMode);
   body.innerHTML = `
     <div class="portfolio-grid">
       <div class="portfolio-card"><div class="label">Open trades</div><div class="value">${allOpenTrades.length}</div></div>
       <div class="portfolio-card"><div class="label">${openTradesModalMode === 'new' ? 'New events' : 'New open trades'}</div><div class="value ${newEventTrades.length ? 'up' : ''}">${openTradesModalMode === 'new' ? newEventTrades.length : newCount}</div></div>
       <div class="portfolio-card"><div class="label">Open exposure</div><div class="value">${moneyINR(visibleOpenTrades.reduce((sum, t) => sum + paperTradeExposure(t), 0))}</div></div>
-      <div class="portfolio-card"><div class="label">${openTradesModalMode === 'new' ? 'Net P&L' : 'Open P&L'}</div><div class="value ${portfolioValueClass(pnlBaseTrades.reduce((sum, t) => sum + (isOpenTrade(t) ? (getPaperTradePnl(t, getCurrentTradePrice(t.symbol))?.pnl || 0) : (Number(t.pnl) || 0)), 0))}">${moneyINR(pnlBaseTrades.reduce((sum, t) => sum + (isOpenTrade(t) ? (getPaperTradePnl(t, getCurrentTradePrice(t.symbol))?.pnl || 0) : (Number(t.pnl) || 0)), 0))}</div></div>
+      <div class="portfolio-card"><div class="label">${openTradesModalMode === 'new' ? 'Net P&L' : 'Open P&L'}</div><div class="value ${portfolioValueClass(totalPnl)}">${moneyINR(totalPnl)}</div></div>
     </div>
     <div class="portfolio-section-title">${openTradesModalMode === 'new' ? 'New Trade Events' : 'All Open Trades'}</div>
     <div class="portfolio-table-wrap">

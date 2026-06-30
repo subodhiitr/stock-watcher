@@ -8,10 +8,12 @@ class ConfirmationPoller {
       this.loadTrades = () => deps;
       this.saveTrades = () => {};
       this.broadcast = () => {};
+      this.computePnl = null;
     } else {
       this.loadTrades = typeof deps?.loadTrades === 'function' ? deps.loadTrades : () => [];
       this.saveTrades = typeof deps?.saveTrades === 'function' ? deps.saveTrades : () => {};
       this.broadcast = typeof deps?.broadcast === 'function' ? deps.broadcast : () => {};
+      this.computePnl = typeof deps?.computePnl === 'function' ? deps.computePnl : null;
     }
     this.brokerModeGetter = brokerModeGetter; // function that returns current brokerMode
     this.options = {
@@ -58,7 +60,7 @@ class ConfirmationPoller {
   start() {
     if (this.pollingInterval) return;
     
-    this.pollingInterval = setInterval(() => this.pollPendingTrades(), this.pollIntervalMs);
+    this.pollingInterval = setInterval(() => this.pollCycle(), this.pollIntervalMs);
     console.log('[confirmation-poller] Started polling every 10s');
   }
 
@@ -68,6 +70,11 @@ class ConfirmationPoller {
       this.pollingInterval = null;
       console.log('[confirmation-poller] Stopped polling');
     }
+  }
+
+  async pollCycle() {
+    await this.pollPendingTrades();
+    await this.pollExitPlacedTrades();
   }
 
   async pollPendingTrades() {
@@ -92,6 +99,111 @@ class ConfirmationPoller {
       }
     } catch (err) {
       console.error('[confirmation-poller] Poll cycle error:', err.message);
+    }
+  }
+
+  async pollExitPlacedTrades() {
+    try {
+      const brokerMode = this.brokerModeGetter();
+      const inLiveMode = brokerMode === this.options.liveMode;
+      const inDryMode = this.options.dryMode ? brokerMode === this.options.dryMode : false;
+      if (!inLiveMode && !inDryMode) return;
+
+      const allTrades = this.loadTrades();
+      const targetTradeMode = inLiveMode ? this.options.liveTradeMode : this.options.dryTradeMode;
+      const trades = allTrades.filter(t =>
+        t.broker?.name === this.options.brokerName &&
+        t.broker?.status === 'exit_placed' &&
+        t.broker?.mode === targetTradeMode &&
+        t.broker?.exitOrderId
+      );
+
+      for (const trade of trades) {
+        await this.checkExitConfirmation(trade, allTrades);
+      }
+    } catch (err) {
+      console.error('[confirmation-poller] Exit poll cycle error:', err.message);
+    }
+  }
+
+  persistTradeUpdates(trades, reason = 'broker-update') {
+    try {
+      this.saveTrades(trades);
+      this.broadcast(reason);
+    } catch (err) {
+      console.error('[confirmation-poller] Persist error:', err.message);
+    }
+  }
+
+  async checkExitConfirmation(trade, trades) {
+    try {
+      const exitPlacedAt = trade.broker.exitPlacedAt || trade.broker.confirmedAt || trade.broker.createdAt;
+      const exitPlacedMs = new Date(exitPlacedAt || 0).getTime();
+      const elapsedMs = Date.now() - (Number.isFinite(exitPlacedMs) ? exitPlacedMs : Date.now());
+      const nowIso = new Date().toISOString();
+
+      if (elapsedMs > this.maxTimeoutMs) {
+        trade.broker.status = 'exit_timeout';
+        trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+        trade.broker.audit.push({ at: nowIso, event: 'exit_confirmation_timeout', elapsedMs, exitOrderId: trade.broker.exitOrderId });
+        this.persistTradeUpdates(trades, 'exit-timeout');
+        console.warn(`[confirmation-poller] Exit order timeout for trade ${trade.id} (${trade.symbol})`);
+        return;
+      }
+
+      const orderStatus = await this.brokerClient.getOrderStatus(trade.broker.exitOrderId, trade.broker.exchange);
+      const statusClass = this.classifyOrderStatus(orderStatus.status);
+
+      trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
+
+      if (statusClass === 'confirmed') {
+        const fillPrice = Number(orderStatus.averagePrice);
+        const exitPrice = Number.isFinite(fillPrice) && fillPrice > 0 ? fillPrice : Number(trade.exitPrice);
+        trade.broker.status = 'exit_confirmed';
+        trade.broker.exitConfirmedAt = nowIso;
+        trade.broker.audit.push({ at: nowIso, event: 'exit_order_confirmed', exitOrderId: trade.broker.exitOrderId, fillPrice, filledQty: orderStatus.filledQuantity });
+        // Update exit price and recompute pnl from actual fill price
+        if (Number.isFinite(exitPrice) && exitPrice > 0) {
+          trade.exitPrice = +exitPrice.toFixed(2);
+          if (typeof this.computePnl === 'function') {
+            const pnl = this.computePnl(trade, exitPrice);
+            if (pnl) {
+              trade.pnl = pnl.pnl;
+              trade.pnlPct = pnl.pnlPct;
+              trade.grossPnl = pnl.grossPnl;
+              trade.charges = pnl.charges;
+              trade.chargeBreakup = pnl.chargeBreakup;
+            }
+          }
+        }
+        this.persistTradeUpdates(trades, 'exit-confirmed');
+        console.log(`[confirmation-poller] Exit confirmed for trade ${trade.id} (${trade.symbol}) @ ${exitPrice}`);
+      } else if (statusClass === 'rejected' || statusClass === 'cancelled') {
+        // Exit order failed — reopen the trade so it can be exited again
+        trade.broker.status = 'confirmed';
+        trade.broker.exitOrderId = null;
+        trade.broker.error = orderStatus.statusMessage || orderStatus.status;
+        trade.broker.audit.push({ at: nowIso, event: `exit_order_${statusClass}`, exitOrderId: trade.broker.exitOrderId, reason: orderStatus.statusMessage });
+        // Reopen local trade
+        trade.status = 'open';
+        trade.exitPrice = null;
+        trade.closedAt = null;
+        trade.closeReason = null;
+        trade.pnl = null;
+        trade.pnlPct = null;
+        trade.grossPnl = null;
+        trade.charges = null;
+        trade.chargeBreakup = null;
+        this.persistTradeUpdates(trades, 'exit-reverted');
+        console.warn(`[confirmation-poller] Exit order ${statusClass} for trade ${trade.id} (${trade.symbol}) — trade reopened`);
+      }
+      // else: still pending, keep polling
+    } catch (err) {
+      if (err.message === 'AUTH_FAILED_REFRESH_NEEDED') {
+        console.warn(`[confirmation-poller] Auth error on exit check for trade ${trade.id}, will retry`);
+        return;
+      }
+      console.error(`[confirmation-poller] Error checking exit for trade ${trade.id}:`, err.message);
     }
   }
 
