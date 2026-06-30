@@ -7,7 +7,9 @@
     settings: {},
     overrides: {},
     brokerMode: 'paper',
+    brokerStatus: null,
     simulationState: 'off',
+    loadError: '',
     autoRefreshEnabled: localStorage.getItem('intradayx.mobile.autoRefresh5m') === '1',
     autoRefreshTimer: null,
     lastRefreshAt: 0,
@@ -117,7 +119,150 @@
     if (simBtn) simBtn.textContent = state.simulationState === 'running' || state.simulationState === 'settling'
       ? `Stop Simulation (${state.simulationState})`
       : 'Start Simulation';
+    renderNotificationBadge();
     renderAutoRefresh();
+  }
+
+  function buildNotifications() {
+    const items = [];
+    const now = Date.now();
+    if (state.loadError) {
+      items.push({
+        level: 'danger',
+        title: 'Refresh failed',
+        text: state.loadError,
+        at: now,
+      });
+    }
+    const broker = state.brokerStatus || {};
+    if (state.simulationState === 'running') {
+      items.push({
+        level: 'good',
+        title: 'Simulation active',
+        text: 'Simulation is scanning and managing entries.',
+        at: now,
+      });
+    } else if (state.simulationState === 'settling') {
+      items.push({
+        level: 'warn',
+        title: 'Simulation settling',
+        text: 'New entries are paused; exits continue to be managed.',
+        at: now,
+      });
+    }
+    if (broker.zerodha?.isDisabled) {
+      items.push({
+        level: 'danger',
+        title: 'Zerodha disabled',
+        text: 'Repeated broker failures disabled Zerodha live handling.',
+        at: now,
+      });
+    }
+    if (broker.sharekhan?.isDisabled) {
+      items.push({
+        level: 'danger',
+        title: 'Sharekhan disabled',
+        text: 'Repeated broker failures disabled Sharekhan live handling.',
+        at: now,
+      });
+    }
+    const todayPnl = todayTrades().reduce((sum, trade) => {
+      if (String(trade.status || '').toLowerCase() === 'open') {
+        const quote = tradePriceMap().get(String(trade.symbol || '').toUpperCase());
+        return sum + tradePnl(trade, quote || {});
+      }
+      return sum + n(trade.pnl);
+    }, 0);
+    const dayPnl = n(state.bootstrap?.dayPnl?.[todayKey()] ?? todayPnl);
+    if (Math.abs(dayPnl) > 0) {
+      items.push({
+        level: dayPnl >= 0 ? 'good' : 'danger',
+        title: 'Today P/L',
+        text: inr(dayPnl),
+        at: now,
+      });
+    }
+    const openSymbols = new Set(state.trades
+      .filter(t => String(t.status || '').toLowerCase() === 'open')
+      .map(t => String(t.symbol || '').toUpperCase()));
+    state.candidates
+      .filter(c => ['buy', 'sell'].includes(String(c.side || '').toLowerCase()))
+      .filter(c => {
+        const text = `${c.entryStatus || ''} ${c.setupType || ''} ${c.derivedSetupType || ''}`;
+        return c.selected || /trigger|fresh|breakout|momentum|shock/i.test(text);
+      })
+      .sort((a, b) => (b.selected ? 1 : 0) - (a.selected ? 1 : 0) || Math.abs(n(b.score)) - Math.abs(n(a.score)))
+      .slice(0, 8)
+      .forEach(c => {
+        const sym = String(c.symbol || '').toUpperCase();
+        const side = String(c.side || '').toUpperCase();
+        const setup = c.setupType || c.derivedSetupType || 'setup';
+        const price = n(c.price || c.quote?.price);
+        items.push({
+          level: side === 'SELL' ? 'danger' : 'good',
+          title: `${sym} ${setup}`,
+          text: `${side} | Score ${Math.abs(n(c.score))}${price ? ` | Price ${fmt(price)}` : ''}${openSymbols.has(sym) ? ' | already open' : ''}`,
+          at: now,
+        });
+      });
+    for (const trade of todayTrades()) {
+      const sym = String(trade.symbol || '').toUpperCase();
+      const status = String(trade.status || '').toLowerCase();
+      const brokerStatus = String(trade.broker?.status || '').toLowerCase();
+      const failed = ['failed', 'cancelled', 'rejected', 'timeout', 'exit_failed'].includes(brokerStatus);
+      if (failed) {
+        items.push({
+          level: 'danger',
+          title: `${sym} broker ${brokerStatus.replace(/_/g, ' ')}`,
+          text: trade.broker?.error || trade.broker?.confirmationError || 'Check broker order status',
+          at: tradeTimestamp(trade),
+        });
+      } else if (status === 'open') {
+        const quote = tradePriceMap().get(sym) || {};
+        const pnl = tradePnl(trade, quote);
+        items.push({
+          level: n(pnl) < 0 ? 'warn' : '',
+          title: `${sym} open ${String(trade.side || '').toUpperCase()}`,
+          text: `${trade.qty || '--'} qty | P/L ${inr(pnl)}`,
+          at: tradeTimestamp(trade),
+        });
+      } else if (status === 'closed') {
+        items.push({
+          level: n(trade.pnl) < 0 ? 'warn' : '',
+          title: `${sym} closed`,
+          text: `${trade.closeReason || trade.exitReason || 'Trade closed'} | P/L ${inr(trade.pnl)}`,
+          at: tradeTimestamp(trade),
+        });
+      }
+    }
+    return items.sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0)).slice(0, 20);
+  }
+
+  function renderNotificationBadge() {
+    const btn = $('notification-btn');
+    const count = $('notification-count');
+    if (!btn || !count) return;
+    const items = buildNotifications();
+    count.textContent = String(items.length);
+    btn.classList.toggle('no-alerts', items.length === 0);
+  }
+
+  function renderNotificationOverlay() {
+    const list = $('notification-list');
+    if (!list) return;
+    const items = buildNotifications();
+    list.innerHTML = items.length ? items.map(item => {
+      const when = item.at
+        ? new Date(item.at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+        : '--';
+      return `
+        <article class="notification-item ${item.level || ''}">
+          <strong>${item.title}</strong>
+          <span>${item.text}</span>
+          <time>${when}</time>
+        </article>
+      `;
+    }).join('') : '<div class="empty">No notifications right now</div>';
   }
 
   function todayTrades() {
@@ -320,6 +465,82 @@
     }).join('') : '<div class="empty">No transactions found</div>';
   }
 
+  function buildTodayPnlBreakdown() {
+    const quotes = tradePriceMap();
+    const groups = new Map();
+    for (const trade of todayTrades()) {
+      const sym = String(trade.symbol || '').toUpperCase();
+      if (!sym) continue;
+      const broker = tradeBrokerLabel(trade);
+      const key = `${sym}|${broker}`;
+      const quote = quotes.get(sym) || {};
+      const qty = n(trade.qty);
+      const entry = n(trade.entryPrice);
+      const status = String(trade.status || '').toLowerCase();
+      const pnl = tradePnl(trade, quote);
+      const current = status === 'closed' ? n(trade.exitPrice || entry) : n(quote.price || entry);
+      const exposure = Math.abs(entry * qty);
+      const row = groups.get(key) || {
+        symbol: sym,
+        broker,
+        trades: 0,
+        qty: 0,
+        exposure: 0,
+        pnl: 0,
+        open: 0,
+        closed: 0,
+        lastPrice: 0,
+      };
+      row.trades += 1;
+      row.qty += qty;
+      row.exposure += exposure;
+      row.pnl += pnl;
+      if (status === 'open') row.open += 1;
+      if (status === 'closed') row.closed += 1;
+      if (current) row.lastPrice = current;
+      groups.set(key, row);
+    }
+    return [...groups.values()]
+      .map(row => ({
+        ...row,
+        pct: row.exposure ? (row.pnl / row.exposure) * 100 : 0,
+      }))
+      .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl) || a.symbol.localeCompare(b.symbol));
+  }
+
+  function renderPnlOverlay() {
+    const rows = buildTodayPnlBreakdown();
+    const net = rows.reduce((sum, row) => sum + row.pnl, 0);
+    const exposure = rows.reduce((sum, row) => sum + row.exposure, 0);
+    const summary = $('pnl-summary');
+    if (summary) {
+      summary.innerHTML = `
+        <div><span>Net P/L</span><strong class="${cls(net)}">${inr(net)}</strong></div>
+        <div><span>Gain</span><strong class="${cls(net)}">${fmt(exposure ? (net / exposure) * 100 : 0)}%</strong></div>
+        <div><span>Stocks</span><strong>${rows.length}</strong></div>
+        <div><span>Trades</span><strong>${rows.reduce((sum, row) => sum + row.trades, 0)}</strong></div>
+      `;
+    }
+    const list = $('pnl-list');
+    if (!list) return;
+    list.innerHTML = rows.length ? rows.map(row => `
+      <article class="pnl-row">
+        <div>
+          <strong>${row.symbol}</strong>
+          <span>${row.broker}</span>
+        </div>
+        <div>
+          <strong class="${cls(row.pnl)}">${inr(row.pnl)}</strong>
+          <span class="${cls(row.pct)}">${fmt(row.pct)}% gain</span>
+        </div>
+        <div>
+          <strong>${row.qty || '--'} qty</strong>
+          <span>${row.open ? `${row.open} open` : ''}${row.open && row.closed ? ' / ' : ''}${row.closed ? `${row.closed} closed` : ''}</span>
+        </div>
+      </article>
+    `).join('') : '<div class="empty">No P/L for today yet</div>';
+  }
+
   function renderAll() {
     renderHeader();
     renderTrades();
@@ -340,15 +561,22 @@
       state.bootstrap = bootstrap;
       state.trades = Array.isArray(tradeState.trades) ? tradeState.trades : [];
       state.bootstrap.portfolio = tradeState.portfolio || bootstrap.portfolio;
+      state.brokerStatus = brokerStatus;
       state.brokerMode = brokerStatus.mode || 'paper';
       state.simulationState = simStatus.state || 'off';
       state.settings = analysis.settings || {};
       state.overrides = settings.overrides || {};
       state.candidates = Array.isArray(analysis.candidates) ? analysis.candidates : [];
+      state.loadError = '';
       state.lastRefreshAt = Date.now();
       renderAll();
+      if (!$('notification-overlay')?.hidden) renderNotificationOverlay();
+      if (!$('pnl-overlay')?.hidden) renderPnlOverlay();
       setStatus('');
     } catch (error) {
+      state.loadError = error.message || 'Load failed';
+      renderHeader();
+      if (!$('notification-overlay')?.hidden) renderNotificationOverlay();
       setStatus(error.message || 'Load failed', true);
     }
   }
@@ -376,6 +604,50 @@
 
   function closePortfolioOverlay() {
     const overlay = $('portfolio-overlay');
+    if (!overlay) return;
+    overlay.hidden = true;
+    document.body.classList.remove('overlay-open');
+  }
+
+  async function openPnlOverlay() {
+    const overlay = $('pnl-overlay');
+    if (!overlay) return;
+    overlay.hidden = false;
+    document.body.classList.add('overlay-open');
+    const list = $('pnl-list');
+    if (list) list.innerHTML = '<div class="empty">Loading P/L breakdown</div>';
+    try {
+      const payload = await api('/trade-execution');
+      state.trades = Array.isArray(payload.trades) ? payload.trades : state.trades;
+      if (payload.portfolio) {
+        state.bootstrap = state.bootstrap || {};
+        state.bootstrap.portfolio = payload.portfolio;
+      }
+      renderHeader();
+      renderTrades();
+      renderPnlOverlay();
+    } catch (error) {
+      if (list) list.innerHTML = `<div class="empty negative">${error.message || 'Could not load P/L breakdown'}</div>`;
+    }
+  }
+
+  function closePnlOverlay() {
+    const overlay = $('pnl-overlay');
+    if (!overlay) return;
+    overlay.hidden = true;
+    document.body.classList.remove('overlay-open');
+  }
+
+  function openNotificationOverlay() {
+    const overlay = $('notification-overlay');
+    if (!overlay) return;
+    renderNotificationOverlay();
+    overlay.hidden = false;
+    document.body.classList.add('overlay-open');
+  }
+
+  function closeNotificationOverlay() {
+    const overlay = $('notification-overlay');
     if (!overlay) return;
     overlay.hidden = true;
     document.body.classList.remove('overlay-open');
@@ -423,6 +695,16 @@
 
   function bindEvents() {
     $('refresh-btn').addEventListener('click', refreshAll);
+    $('notification-btn').addEventListener('click', openNotificationOverlay);
+    $('notification-close').addEventListener('click', closeNotificationOverlay);
+    $('notification-overlay').addEventListener('click', event => {
+      if (event.target.id === 'notification-overlay') closeNotificationOverlay();
+    });
+    $('today-pnl-card').addEventListener('click', openPnlOverlay);
+    $('pnl-close').addEventListener('click', closePnlOverlay);
+    $('pnl-overlay').addEventListener('click', event => {
+      if (event.target.id === 'pnl-overlay') closePnlOverlay();
+    });
     $('portfolio-card').addEventListener('click', openPortfolioOverlay);
     $('portfolio-close').addEventListener('click', closePortfolioOverlay);
     $('portfolio-overlay').addEventListener('click', event => {

@@ -15,6 +15,8 @@ A lightweight dashboard for Indian NSE midcap stocks, built with a local proxy f
    ```
 4. Open `http://localhost:44100/` in your browser.
 
+`.env` is optional. If you need local proxy overrides, copy `.env.example` to `.env` and edit the values you want.
+
 ## AI setup
 
 To enable AI mode with OpenAI, create this file in your Windows user folder:

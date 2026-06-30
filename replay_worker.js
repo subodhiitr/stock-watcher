@@ -6,6 +6,23 @@ const { Worker, isMainThread, parentPort, workerData } = require('worker_threads
 const os = require('os');
 const Backtest = require('./backtest_simulation');
 
+function isClosedIpcError(e) {
+  return e && e.code === 'ERR_IPC_CHANNEL_CLOSED';
+}
+
+function sendToParent(message) {
+  if (typeof process.send !== 'function' || !process.connected) return false;
+  try {
+    process.send(message, err => {
+      if (err && !isClosedIpcError(err)) throw err;
+    });
+    return true;
+  } catch (e) {
+    if (!isClosedIpcError(e)) throw e;
+    return false;
+  }
+}
+
 function setupStatsFromBacktest(result) {
   return Object.entries(result?.bySetup || {})
     .map(([setup, row]) => ({
@@ -439,14 +456,18 @@ if (!isMainThread && parentPort) {
     parentPort.postMessage({ ok:false, error:e.message || String(e) });
   }
 } else {
+  process.on('error', e => {
+    if (isClosedIpcError(e)) return;
+    throw e;
+  });
   process.on('message', async message => {
     try {
       const day = String(message?.day || '').trim();
       const mode = ['report', 'sweep', 'autotune', 'deep_sweep'].includes(message?.mode) ? message.mode : 'report';
       if (!day) throw new Error('day is required');
-      process.send?.({ ok:true, payload:await runReplay(day, mode) });
+      sendToParent({ ok:true, payload:await runReplay(day, mode) });
     } catch (e) {
-      process.send?.({ ok:false, error:e.stack || e.message || String(e) });
+      sendToParent({ ok:false, error:e.stack || e.message || String(e) });
     }
   });
 }

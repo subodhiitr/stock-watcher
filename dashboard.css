@@ -24,6 +24,10 @@
   .btn.sim-running{background:rgba(16,185,129,.14);border-color:rgba(16,185,129,.38);color:var(--green);}
   .btn.sim-settling{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.38);color:var(--yellow);}
   .btn.broker-dry{background:rgba(14,165,233,.13);border-color:rgba(14,165,233,.36);color:var(--accent2);}
+  .btn.broker-login-btn{padding:6px 10px;font-size:12px;font-weight:800;min-height:30px;}
+  .btn.broker-login-btn.zerodha{background:rgba(14,165,233,.11);border-color:rgba(14,165,233,.36);color:#7dd3fc;}
+  .btn.broker-login-btn.sharekhan{background:rgba(16,185,129,.11);border-color:rgba(16,185,129,.34);color:#6ee7b7;}
+  .btn.broker-login-btn:hover{filter:brightness(1.08);}
   #top-action-bar{position:sticky;top:8px;z-index:80;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 16px;padding:9px 10px;border:1px solid rgba(30,45,66,.9);border-radius:10px;background:rgba(14,22,35,.88);backdrop-filter:blur(10px);box-shadow:0 12px 28px rgba(2,6,23,.28);}
   .action-metric{display:flex;align-items:center;gap:7px;padding:6px 9px;border:1px solid rgba(100,116,139,.22);border-radius:8px;background:rgba(15,23,42,.52);min-height:30px;}
   .action-metric span{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;}
@@ -35,6 +39,8 @@
   .action-button.has-open{border-color:rgba(14,165,233,.44);background:rgba(14,165,233,.1);}
   .action-button.has-new{border-color:rgba(16,185,129,.55);background:rgba(16,185,129,.13);box-shadow:0 0 0 1px rgba(16,185,129,.12),0 0 18px rgba(16,185,129,.16);}
   .icon-btn{width:32px;height:32px;border-radius:50%;border:1px solid rgba(245,158,11,.35);background:rgba(245,158,11,.12);color:var(--yellow);font-weight:900;cursor:pointer;margin-left:auto;}
+  #top-action-bar .icon-btn{width:26px;height:26px;padding:0;margin-left:0;font-size:13px;line-height:1;display:inline-flex;align-items:center;justify-content:center;flex:0 0 26px;}
+  #top-action-bar #fresh-news-btn{margin-left:auto;}
   .icon-btn.has-items{background:rgba(244,63,94,.16);border-color:rgba(244,63,94,.45);color:var(--red);}
   #dashboard-health-banner{margin:-4px 0 16px;padding:10px 12px;border-radius:9px;border:1px solid rgba(245,158,11,.28);background:rgba(245,158,11,.09);color:var(--yellow);font-size:12px;line-height:1.5;}
   #dashboard-health-banner.ok{border-color:rgba(16,185,129,.25);background:rgba(16,185,129,.07);color:var(--green);}

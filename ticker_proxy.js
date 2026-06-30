@@ -50,7 +50,8 @@ const {
   RuntimeStateTransitionError,
 } = require('./server/simulation-runtime-store');
 const { loadCredentials, saveCredentialsTokens } = require('./zerodha-credentials');
-const { loadSharekhanCredentials, saveSharekhanAccessToken } = require('./sharekhan-credentials');
+const { loadSharekhanCredentials, saveSharekhanAccessToken, saveSharekhanTokens } = require('./sharekhan-credentials');
+const { KiteConnect } = require('kiteconnect');
 const KiteClient = require('./zerodha-kite-client');
 const SharekhanClient = require('./sharekhan-client');
 const { fetchSharekhanIntraday } = require('./sharekhan-intraday');
@@ -86,6 +87,12 @@ const {
   jsonCacheGet,
   jsonCacheSet,
 } = require('./server/db');
+
+const ENV_FILE = path.join(__dirname, '.env');
+if (fs.existsSync(ENV_FILE)) {
+  process.loadEnvFile(ENV_FILE);
+}
+
 const PORT  = process.env.PROXY_PORT ? Number.parseInt(process.env.PROXY_PORT, 10) : 3001;
 const USER_OPENAI_PROPERTIES = path.join(os.homedir(), 'openai.properties');
 const APP_CACHE_DIR        = path.join(__dirname, 'cache');
@@ -351,6 +358,7 @@ function saveFundCache() {
 
 // ── ETF summary cache (1M return only, 24h TTL) ─────────────────────────────
 let etfSumCache = {};
+let etfCachesLoaded = false;
 function loadEtfSumCache() {
   try {
     const raw = jsonCacheGet('etf_sum_cache') || {};
@@ -379,12 +387,19 @@ function loadEtfMetaCache() {
     if (count) console.log(`[etf-meta-cache] Loaded ${count} static ETF records`);
   } catch(e) { console.warn('[etf-meta-cache] Load error:', e.message); etfMetaCache = {}; }
 }
+function ensureEtfCachesLoaded() {
+  if (etfCachesLoaded) return;
+  loadEtfSumCache();
+  loadEtfMetaCache();
+  etfCachesLoaded = true;
+}
 function saveEtfMetaCache() {
   try { jsonCacheSet('etf_meta_cache', etfMetaCache, ETF_META_TTL); }
   catch(e) { console.warn('[etf-meta-cache] Save error:', e.message); }
 }
 
 function getETFExpenseRatio(sym) {
+  ensureEtfCachesLoaded();
   const key = String(sym || '').toUpperCase();
   return etfMetaCache[key]?.expenseRatio ?? STATIC_TER[key] ?? null;
 }
@@ -1838,39 +1853,21 @@ function saveTradeSettingsFile(overrides) {
   return clean;
 }
 
-function readEtfListCacheSummary() {
-  try {
-    const etfs = listAllEtfs();
-    return { savedAt: Date.now(), count: etfs.length, etfs };
-  } catch (e) {
-    console.warn('[bootstrap] ETF cache read failed:', e.message);
-    return { savedAt: null, count: 0, etfs: [] };
-  }
-}
-
 function buildDashboardBootstrap() {
   const paper = loadPaperStateFile();
   const tradeSettings = loadTradeSettingsFile();
-  const etfCache = readEtfListCacheSummary();
 
   return {
     ok:true,
     savedAt:Date.now(),
     prefs:{
-      etfs:loadSavedETFsFile(),
       stocks:loadSavedStocksFile(),
-      etfFavorites:loadSavedETFFavsFile(),
       stockFavorites:loadSavedStockFavsFile(),
     },
     portfolio:paper.portfolio,
     trades:paper.trades,
     dayPnl: proxyDbReady ? getDayPnl() : {},
     tradeSettings,
-    etfListCache:{
-      savedAt:etfCache.savedAt,
-      count:etfCache.count,
-      etfs:etfCache.etfs,
-    },
     proxy:{
       openai:{ configured:!!OPENAI_API_KEY, model:OPENAI_MODEL },
       ollama:{ baseUrl:OLLAMA_BASE_URL, model:OLLAMA_MODEL || 'auto', timeoutMs:OLLAMA_TIMEOUT_MS },
@@ -1885,6 +1882,42 @@ function getIstDateKey(value = Date.now()) {
   const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
   const dd = String(d.getUTCDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function isTransientFileWriteError(e) {
+  return ['UNKNOWN', 'EPERM', 'EACCES', 'EBUSY'].includes(e?.code);
+}
+
+function sleepSync(ms) {
+  const buffer = new SharedArrayBuffer(4);
+  Atomics.wait(new Int32Array(buffer), 0, 0, ms);
+}
+
+function writeFileAtomicSync(file, data, options) {
+  const dir = path.dirname(file);
+  const base = path.basename(file);
+  const tempFile = path.join(dir, `.${base}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`);
+  const delays = [25, 75, 150, 300, 600];
+  let lastError = null;
+  try {
+    for (let attempt = 0; attempt <= delays.length; attempt++) {
+      try {
+        fs.writeFileSync(tempFile, data, options);
+        fs.renameSync(tempFile, file);
+        return;
+      } catch (e) {
+        lastError = e;
+        try { if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile); } catch (_) {}
+        if (!isTransientFileWriteError(e) || attempt === delays.length) throw e;
+        sleepSync(delays[attempt]);
+      }
+    }
+  } catch (e) {
+    throw e;
+  } finally {
+    try { if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile); } catch (_) {}
+  }
+  throw lastError;
 }
 
 function getSimulationSnapshotFile(dateKey = getIstDateKey()) {
@@ -1981,7 +2014,7 @@ function saveSimulationSnapshotsFile(state, dateKey = getIstDateKey()) {
     if (!fs.existsSync(SIM_SNAPSHOT_DIR)) fs.mkdirSync(SIM_SNAPSHOT_DIR, { recursive: true });
     const file = getSimulationSnapshotFile(dateKey);
     const payload = JSON.stringify({ savedAt: Date.now(), retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: dateKey, snapshots });
-    fs.writeFileSync(file, zlib.gzipSync(payload));
+    writeFileAtomicSync(file, zlib.gzipSync(payload));
     // Remove legacy uncompressed file for the same day if it exists
     const legacyFile = file.replace(/\.gz$/, '');
     if (legacyFile !== file && fs.existsSync(legacyFile)) {
@@ -2387,6 +2420,15 @@ function replayCacheKey(day, mode, settings) {
   ].join('|');
 }
 
+function replayActiveJobKey(day, mode, settings) {
+  return [
+    day || getIstDateKey(),
+    mode || 'report',
+    REPLAY_CACHE_SCHEMA_VERSION,
+    stableHash(settings),
+  ].join('|');
+}
+
 function getCachedReplay(key) {
   const cached = replayResultCache.get(key);
   if (!cached) return null;
@@ -2533,26 +2575,35 @@ function replayModeFromParams(params) {
 function getReplayCacheForMode(day, mode) {
   const settings = Backtest.loadSettings({ day });
   const cacheKey = replayCacheKey(day, mode, settings);
-  return { settings, cacheKey, cached:getCachedReplay(cacheKey) };
+  const activeKey = replayActiveJobKey(day, mode, settings);
+  return { settings, cacheKey, activeKey, cached:getCachedReplay(cacheKey) };
 }
 
-function createReplayJob(day, mode) {
-  const { cacheKey, cached } = getReplayCacheForMode(day, mode);
-  const active = activeReplayJobs.get(cacheKey);
+function releaseReplayJobLock(lockFile) {
+  if (!lockFile) return;
+  try { fs.unlinkSync(lockFile); } catch (_) {}
+}
+
+function createReplayJob(day, mode, options = {}) {
+  const { cacheKey, activeKey, cached } = getReplayCacheForMode(day, mode);
+  const active = activeReplayJobs.get(activeKey);
   if (active && ['queued', 'running'].includes(active.status)) {
     active.reused = true;
+    releaseReplayJobLock(options.lockFile);
     return active;
   }
   const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const job = { id, day, mode, cacheKey, status:'queued', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), result:null, error:null, reused:false };
+  const job = { id, day, mode, cacheKey, activeKey, lockFile:options.lockFile || null, status:'queued', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), result:null, error:null, reused:false };
   replayJobs.set(id, job);
   if (cached) {
     job.status = 'done';
     job.result = { ...cached, cached:true };
     job.updatedAt = new Date().toISOString();
+    releaseReplayJobLock(job.lockFile);
+    job.lockFile = null;
     return job;
   }
-  activeReplayJobs.set(cacheKey, job);
+  activeReplayJobs.set(activeKey, job);
   const child = fork(REPLAY_WORKER_FILE, [], { stdio:['ignore', 'ignore', 'pipe', 'ipc'] });
   const workerErrors = [];
   const maxRunMs = mode === 'deep_sweep' ? 1800000 : mode === 'sweep' ? 600000 : mode === 'autotune' ? 720000 : 120000;
@@ -2562,8 +2613,18 @@ function createReplayJob(day, mode) {
       clearTimeout(watchdog);
       watchdog = null;
     }
-    if (activeReplayJobs.get(cacheKey)?.id === job.id) activeReplayJobs.delete(cacheKey);
+    if (activeReplayJobs.get(activeKey)?.id === job.id) activeReplayJobs.delete(activeKey);
+    releaseReplayJobLock(job.lockFile);
+    job.lockFile = null;
     job.updatedAt = new Date().toISOString();
+  };
+  const disconnectReplayChild = () => {
+    if (!child.connected) return;
+    try {
+      child.disconnect();
+    } catch (e) {
+      if (e?.code !== 'ERR_IPC_CHANNEL_CLOSED') workerErrors.push(e?.message || String(e));
+    }
   };
   const finishWithInlineFallback = (reason) => {
     try {
@@ -2599,13 +2660,13 @@ function createReplayJob(day, mode) {
       job.result = setCachedReplay(cacheKey, message.payload);
       job.status = 'done';
       finalizeActiveJob();
-      child.disconnect?.();
+      disconnectReplayChild();
       return;
     }
     if (message && typeof message === 'object' && message.ok === false) {
       const reason = message.error || workerErrors.join(' | ') || 'Replay worker failed';
       finishWithInlineFallback(reason);
-      child.disconnect?.();
+      disconnectReplayChild();
       return;
     } else {
       // Ignore unexpected IPC messages; wait for success/error/exit.
@@ -2627,7 +2688,15 @@ function createReplayJob(day, mode) {
     try { process.kill(child.pid, 'SIGTERM'); } catch (_) {}
     finalizeActiveJob();
   }, maxRunMs);
-  child.send({ day, mode });
+  if (child.connected) {
+    child.send({ day, mode }, e => {
+      if (e && job.status !== 'done' && job.status !== 'error') {
+        finishWithInlineFallback(e?.stack || e?.message || String(e));
+      }
+    });
+  } else {
+    finishWithInlineFallback('Replay worker IPC channel was not available');
+  }
   return job;
 }
 
@@ -2894,6 +2963,109 @@ function getActiveLiveBrokerKey() {
   if (brokerMode === 'sharekhan_live') return 'sharekhan';
   if (brokerMode === 'zerodha_live') return 'zerodha';
   return null;
+}
+
+function brokerNameFromParam(value) {
+  const name = String(value || '').trim().toLowerCase();
+  if (name === 'sharekhan') return 'sharekhan';
+  if (name === 'zerodha' || name === 'kite') return 'zerodha';
+  return '';
+}
+
+function htmlEscape(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderBrokerAuthPage({ ok, broker, title, message }) {
+  const payload = JSON.stringify({ type:'broker-auth', ok:!!ok, broker, message:String(message || '') });
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${htmlEscape(title)}</title><style>
+    body{margin:0;background:#0c1114;color:#f4f7f8;font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;min-height:100vh}
+    main{width:min(420px,calc(100vw - 28px));border:1px solid #2d3941;border-radius:12px;background:#151c21;padding:22px;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+    h1{font-size:18px;margin:0 0 8px}.msg{color:#94a2aa;line-height:1.45}.ok{color:#2fd17c}.bad{color:#ff626f}button{margin-top:16px;padding:9px 14px;border-radius:8px;border:1px solid #2d3941;background:#1d262c;color:#f4f7f8;font-weight:800}
+  </style></head><body><main><h1 class="${ok ? 'ok' : 'bad'}">${htmlEscape(title)}</h1><div class="msg">${htmlEscape(message)}</div><button onclick="window.close()">Close</button></main><script>
+    try { if (window.opener) window.opener.postMessage(${payload}, '*'); } catch (_) {}
+    if (${ok ? 'true' : 'false'}) setTimeout(() => window.close(), 1400);
+  </script></body></html>`;
+}
+
+function sendBrokerAuthHtml(res, statusCode, payload) {
+  res.writeHead(statusCode, { 'Content-Type':'text/html; charset=utf-8', 'Cache-Control':'no-store' });
+  res.end(renderBrokerAuthPage(payload));
+}
+
+function getBrokerRefreshPath(req, broker) {
+  const proto = req.headers['x-forwarded-proto'] || 'http';
+  const host = req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`;
+  return `${proto}://${host}/broker/refresh?name=${encodeURIComponent(broker)}`;
+}
+
+function readBrokerAuthParams(searchParams) {
+  let rawName = String(searchParams.get('name') || '');
+  let requestToken = String(
+    searchParams.get('request_token') ||
+    searchParams.get('requestToken') ||
+    searchParams.get('token') ||
+    searchParams.get('enctoken') ||
+    ''
+  );
+
+  const commaMatch = rawName.match(/^([^,]+),\s*(?:request_token|requestToken|token|enctoken)=(.+)$/i);
+  if (commaMatch) {
+    rawName = commaMatch[1];
+    if (!requestToken) requestToken = commaMatch[2];
+  }
+
+  return {
+    broker: brokerNameFromParam(rawName),
+    requestToken: requestToken.trim(),
+  };
+}
+
+function buildBrokerLoginUrl(req, broker) {
+  if (broker === 'zerodha') {
+    const creds = loadCredentials();
+    if (!creds?.apiKey) throw new Error('ZERODHA_API_KEY is not configured');
+    return new KiteConnect({ api_key:creds.apiKey }).getLoginURL();
+  }
+  if (broker === 'sharekhan') {
+    const creds = loadSharekhanCredentials();
+    if (!creds?.apiKey) throw new Error('SHAREKHAN_API_KEY is not configured');
+    const callback = getBrokerRefreshPath(req, 'sharekhan');
+    const params = new URLSearchParams({ api_key:creds.apiKey, state:'stock-watcher' });
+    if (creds.vendorKey) params.set('vender_key', creds.vendorKey);
+    params.set('redirect_url', callback);
+    return `https://api.sharekhan.com/skapi/auth/login.html?${params.toString()}`;
+  }
+  throw new Error('Unsupported broker');
+}
+
+async function exchangeZerodhaRequestToken(requestToken) {
+  const creds = loadCredentials();
+  if (!creds?.apiKey || !creds?.apiSecret) throw new Error('Zerodha API key/secret are not configured');
+  const kite = new KiteConnect({ api_key:creds.apiKey });
+  const session = await kite.generateSession(requestToken, creds.apiSecret);
+  const accessToken = session?.access_token || '';
+  const refreshToken = session?.refresh_token || '';
+  if (!accessToken) throw new Error('Zerodha did not return an access token');
+  saveCredentialsTokens({ requestToken, accessToken, refreshToken });
+  await ensureZerodhaInitialized({ force:true });
+  return { accessToken, refreshToken };
+}
+
+async function exchangeSharekhanRequestToken(requestToken) {
+  const creds = loadSharekhanCredentials();
+  if (!creds?.apiKey || !creds?.customerId || !creds?.secretKey) throw new Error('Sharekhan API key, customer id, or secret key is not configured');
+  const client = new SharekhanClient({ ...creds, requestToken });
+  const ok = await client.refreshAccessToken();
+  if (!ok || !client.accessToken) throw new Error('Sharekhan did not return an access token');
+  saveSharekhanTokens({ requestToken, accessToken:client.accessToken });
+  await ensureSharekhanInitialized({ force:true });
+  return { accessToken:client.accessToken };
 }
 
 function buildSharekhanLiveOrder(payload, trade, phase = 'entry', scripCode = 0) {
@@ -4289,7 +4461,37 @@ function replayDeepSweepDelayMs(now = new Date()) {
   return 12 * 60 * 60 * 1000;
 }
 
+function replayDeepSweepLockFile(day) {
+  return path.join(APP_CACHE_DIR, `replay_deep_sweep_${day}.lock`);
+}
+
+function tryAcquireReplayDeepSweepLock(day, staleMs = 2 * 60 * 60 * 1000) {
+  const lockFile = replayDeepSweepLockFile(day);
+  try {
+    if (!fs.existsSync(APP_CACHE_DIR)) fs.mkdirSync(APP_CACHE_DIR, { recursive: true });
+    const fd = fs.openSync(lockFile, 'wx');
+    try {
+      fs.writeFileSync(fd, JSON.stringify({ pid:process.pid, day, acquiredAt:Date.now() }));
+    } finally {
+      fs.closeSync(fd);
+    }
+    return lockFile;
+  } catch (e) {
+    if (e?.code !== 'EEXIST') throw e;
+  }
+
+  try {
+    const ageMs = Date.now() - fs.statSync(lockFile).mtimeMs;
+    if (Number.isFinite(ageMs) && ageMs > staleMs) {
+      try { fs.unlinkSync(lockFile); } catch (_) {}
+      return tryAcquireReplayDeepSweepLock(day, staleMs);
+    }
+  } catch (_) {}
+  return null;
+}
+
 async function ensureDeepSweepForDay(day, reason = 'scheduled') {
+  let lockFile = null;
   try {
     const mode = 'deep_sweep';
     const { cached } = getReplayCacheForMode(day, mode);
@@ -4297,9 +4499,16 @@ async function ensureDeepSweepForDay(day, reason = 'scheduled') {
       console.log(`[replay-deep-sweep] Cache already present for ${day} (${reason})`);
       return;
     }
-    const job = createReplayJob(day, mode);
+    lockFile = tryAcquireReplayDeepSweepLock(day);
+    if (!lockFile) {
+      console.log(`[replay-deep-sweep] Job already locked for ${day} (${reason})`);
+      return;
+    }
+    const job = createReplayJob(day, mode, { lockFile });
+    lockFile = null;
     console.log(`[replay-deep-sweep] Job ${job.id} ${job.status} for ${day} (${reason})`);
   } catch (e) {
+    releaseReplayJobLock(lockFile);
     console.warn(`[replay-deep-sweep] Failed for ${day}:`, e.message);
   }
 }
@@ -5576,6 +5785,7 @@ async function refreshNavMapFromNSE() {
 }
 
 async function fetchETFData(etfSymbols) {
+  ensureEtfCachesLoaded();
   const results = {};
 
   // Stale-while-revalidate: always serve from cache immediately, refresh NSE in background
@@ -6251,6 +6461,7 @@ async function proxyRequestHandler(req, res) {
   if (pathname === '/stream/etf-summary') {
     const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim()).filter(Boolean);
     if (!symbols.length) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No symbols' })); return; }
+    ensureEtfCachesLoaded();
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -6732,6 +6943,7 @@ async function proxyRequestHandler(req, res) {
     const symbols = (searchParams.get('symbols') || '').split(',').map(s => s.trim()).filter(Boolean);
     if (!symbols.length) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No symbols' })); return; }
     try {
+      ensureEtfCachesLoaded();
       const now = Date.now();
       const results = {};
 
@@ -7061,6 +7273,74 @@ async function proxyRequestHandler(req, res) {
       };
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, ...status }));
+      return;
+    }
+  }
+
+  // /broker/login -- Open the broker-hosted login page in a popup
+  if (pathname === '/broker/login' || pathname === '/borker/login') {
+    const { broker } = readBrokerAuthParams(searchParams);
+    if (req.method !== 'GET') {
+      sendBrokerAuthHtml(res, 405, { ok:false, broker, title:'Method not allowed', message:'Use GET for broker login.' });
+      return;
+    }
+    if (!broker) {
+      sendBrokerAuthHtml(res, 400, { ok:false, broker:'', title:'Broker login failed', message:'Use name=sharekhan or name=zerodha.' });
+      return;
+    }
+    try {
+      const loginUrl = buildBrokerLoginUrl(req, broker);
+      res.writeHead(200, { 'Content-Type':'text/html; charset=utf-8', 'Cache-Control':'no-store' });
+      res.end(`<!doctype html><html><head><meta charset="utf-8"><title>${htmlEscape(broker)} login</title><style>
+        body{margin:0;background:#0c1114;color:#f4f7f8;font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;min-height:100vh}
+        main{width:min(420px,calc(100vw - 28px));border:1px solid #2d3941;border-radius:12px;background:#151c21;padding:22px;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+        h1{font-size:18px;margin:0 0 8px}.msg{color:#94a2aa;line-height:1.45}a{color:#38bdf8}
+      </style></head><body><main><h1>${htmlEscape(broker)} login</h1><div class="msg">Opening secure broker login...<br><a href="${htmlEscape(loginUrl)}">Continue manually</a></div></main><script>
+        window.location.replace(${JSON.stringify(loginUrl)});
+      </script></body></html>`);
+      return;
+    } catch (e) {
+      sendBrokerAuthHtml(res, 500, { ok:false, broker, title:'Broker login failed', message:e.message || 'Could not build broker login URL.' });
+      return;
+    }
+  }
+
+  // /broker/refresh -- Exchange redirect request_token for access token
+  if (pathname === '/broker/refresh' || pathname === '/borker/refresh') {
+    const wantsJson = /\bapplication\/json\b/i.test(req.headers.accept || '');
+    const fail = (statusCode, broker, message) => {
+      if (wantsJson) {
+        res.writeHead(statusCode, { 'Content-Type':'application/json', 'Cache-Control':'no-store' });
+        res.end(JSON.stringify({ ok:false, broker, error:message }));
+      } else {
+        sendBrokerAuthHtml(res, statusCode, { ok:false, broker, title:'Broker login failed', message });
+      }
+    };
+    if (req.method !== 'GET') {
+      fail(405, '', 'Use GET for broker refresh redirects.');
+      return;
+    }
+    const { broker, requestToken } = readBrokerAuthParams(searchParams);
+    if (!broker) {
+      fail(400, '', 'Use name=sharekhan or name=zerodha.');
+      return;
+    }
+    if (!requestToken) {
+      fail(400, broker, 'Broker redirect did not include request_token.');
+      return;
+    }
+    try {
+      if (broker === 'sharekhan') await exchangeSharekhanRequestToken(requestToken);
+      else await exchangeZerodhaRequestToken(requestToken);
+      if (wantsJson) {
+        res.writeHead(200, { 'Content-Type':'application/json', 'Cache-Control':'no-store' });
+        res.end(JSON.stringify({ ok:true, broker, refreshed:true }));
+      } else {
+        sendBrokerAuthHtml(res, 200, { ok:true, broker, title:'Broker login complete', message:`${broker} access token was updated.` });
+      }
+      return;
+    } catch (e) {
+      fail(500, broker, e.message || 'Could not exchange request token.');
       return;
     }
   }
@@ -8297,12 +8577,10 @@ async function initializeProxy() {
 
     // ── Load all in-memory caches from DB ────────────────────────────────────
     loadFundCache();
-    loadEtfSumCache();
-    loadEtfMetaCache();
     loadNseIdxCache();
     loadReplayCacheFile();
     brokerMode = loadBrokerModePreference();
-    console.log(`[db] Caches loaded: fund=${Object.keys(fundCache).length} etfSum=${Object.keys(etfSumCache).length} etfMeta=${Object.keys(etfMetaCache).length} nseIdx=${Object.keys(nseIdxCache).length}`);
+    console.log(`[db] Caches loaded: fund=${Object.keys(fundCache).length} nseIdx=${Object.keys(nseIdxCache).length}`);
   } catch (e) {
     console.warn('[db] SQLite initialization failed:', e.message);
   }

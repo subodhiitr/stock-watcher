@@ -39,6 +39,8 @@
         <div id="countdown-bar"><div id="countdown-fill" style="width:100%"></div></div>
       </div>
       <button class="btn" id="broker-mode-btn" onclick="toggleBrokerMode()" style="display:none">Paper</button>
+      <button class="btn broker-login-btn zerodha" id="zerodha-login-btn" onclick="openBrokerLogin('zerodha')" style="display:none">Zerodha</button>
+      <button class="btn broker-login-btn sharekhan" id="sharekhan-login-btn" onclick="openBrokerLogin('sharekhan')" style="display:none">Sharekhan</button>
       <button class="btn" id="pause-btn"      onclick="togglePause()"  style="display:none">⏸ Pause</button>
       <button class="btn" id="change-src-btn" onclick="changeSource()" style="display:none">⚙ Source</button>
     </div>

@@ -39,6 +39,11 @@ body.overlay-open { overflow: hidden; }
 }
 
 .topbar { padding: 4px 0 12px; }
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .eyebrow { margin: 0 0 2px; color: var(--blue); font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 h1, h2, p { margin: 0; }
 h1 { font-size: 27px; line-height: 1; }
@@ -53,6 +58,30 @@ h2 { font-size: 15px; }
   color: var(--text);
   font-size: 22px;
 }
+.notification-btn {
+  position: relative;
+  color: var(--amber);
+}
+.notification-btn em {
+  position: absolute;
+  right: -5px;
+  top: -5px;
+  min-width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border: 1px solid rgba(255, 98, 111, .55);
+  border-radius: 999px;
+  background: rgba(255, 98, 111, .22);
+  color: var(--red);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 950;
+  line-height: 1;
+}
+.notification-btn.no-alerts em { display: none; }
 
 .hero-metrics {
   display: grid;
@@ -303,6 +332,48 @@ input, select {
   overflow-wrap: anywhere;
   font-size: 13px;
 }
+.pnl-sheet { max-height: min(78svh, 620px); }
+.pnl-list { gap: 7px; }
+.pnl-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) minmax(92px, 1fr) minmax(74px, .8fr);
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.pnl-row strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.pnl-row span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.notification-sheet { max-height: min(78svh, 620px); }
+.notification-list { gap: 7px; }
+.notification-item {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.notification-item.warn { border-color: rgba(240, 184, 77, .55); }
+.notification-item.danger { border-color: rgba(255, 98, 111, .55); }
+.notification-item strong { font-size: 13px; }
+.notification-item span, .notification-item time {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
 
 @media (max-width: 390px) {
   .hero-metrics strong { font-size: 14px; }
@@ -315,4 +386,6 @@ input, select {
   .settings-form { grid-template-columns: 1fr; }
   .transaction-row { grid-template-columns: 1fr 1fr; }
   .transaction-row > div:last-child { grid-column: 1 / -1; }
+  .pnl-row { grid-template-columns: 1fr 1fr; }
+  .pnl-row > div:last-child { grid-column: 1 / -1; }
 }

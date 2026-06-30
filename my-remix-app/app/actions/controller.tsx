@@ -95,7 +95,13 @@ function mobileResponse() {
       <p class="eyebrow">IntradayX</p>
       <h1>Trade</h1>
     </div>
-    <button class="icon-btn" id="refresh-btn" type="button" aria-label="Refresh">↻</button>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="refresh-btn" type="button" aria-label="Refresh">↻</button>
+      <button class="icon-btn notification-btn" id="notification-btn" type="button" aria-label="Notifications">
+        <span aria-hidden="true">!</span>
+        <em id="notification-count">0</em>
+      </button>
+    </div>
   </header>
 
   <section class="hero-metrics" aria-label="Trading summary">
@@ -103,10 +109,10 @@ function mobileResponse() {
       <span>Portfolio</span>
       <strong id="portfolio-total">--</strong>
     </button>
-    <article>
+    <button class="metric-card" id="today-pnl-card" type="button" aria-haspopup="dialog" aria-controls="pnl-overlay">
       <span>Today P/L</span>
       <strong id="broker-mode-label">--</strong>
-    </article>
+    </button>
     <article>
       <span>Simulation</span>
       <strong id="simulation-label">--</strong>
@@ -189,6 +195,31 @@ function mobileResponse() {
     </form>
   </section>
 </main>
+<div class="overlay" id="notification-overlay" hidden>
+  <section class="portfolio-sheet notification-sheet" role="dialog" aria-modal="true" aria-labelledby="notification-title">
+    <header class="sheet-head">
+      <div>
+        <p class="eyebrow">Alerts</p>
+        <h2 id="notification-title">Notifications</h2>
+      </div>
+      <button class="icon-btn" id="notification-close" type="button" aria-label="Close">x</button>
+    </header>
+    <div class="transaction-list notification-list" id="notification-list"></div>
+  </section>
+</div>
+<div class="overlay" id="pnl-overlay" hidden>
+  <section class="portfolio-sheet pnl-sheet" role="dialog" aria-modal="true" aria-labelledby="pnl-title">
+    <header class="sheet-head">
+      <div>
+        <p class="eyebrow">Today</p>
+        <h2 id="pnl-title">P/L Breakdown</h2>
+      </div>
+      <button class="icon-btn" id="pnl-close" type="button" aria-label="Close">x</button>
+    </header>
+    <section class="portfolio-summary" id="pnl-summary"></section>
+    <div class="transaction-list pnl-list" id="pnl-list"></div>
+  </section>
+</div>
 <div class="overlay" id="portfolio-overlay" hidden>
   <section class="portfolio-sheet" role="dialog" aria-modal="true" aria-labelledby="portfolio-title">
     <header class="sheet-head">

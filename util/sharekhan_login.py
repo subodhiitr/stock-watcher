@@ -57,7 +57,7 @@ def save_property(path: Path, key: str, value: str):
     print(f"  ✓ Saved {key} to {path}")
 
 
-def generate_access_token(repo_dir: Path, api_key: str, request_token: str,
+def generate_access_token(repo_dir: Path, api_key: str, customer_id: str, request_token: str,
                            secret_key: str, version_id: str = "", vendor_key: str = "") -> str:
     """
     Delegate token generation to Node.js — uses the real sharekhan-api AES-256-GCM
@@ -67,7 +67,7 @@ def generate_access_token(repo_dir: Path, api_key: str, request_token: str,
 const {{ SharekhanApi }} = require('sharekhan-api/lib');
 const client = new SharekhanApi({{
   api_key: {json.dumps(api_key)},
-  customer_id: 'x',
+  customer_id: {json.dumps(customer_id)},
   vender_key: {json.dumps(vendor_key)} || undefined,
 }});
 async function run() {{
@@ -87,7 +87,8 @@ async function run() {{
     }}
     process.stdout.write(token);
   }} catch(e) {{
-    process.stderr.write(e.message + '\\n');
+    const detail = e?.response?.data || e?.data || e?.message || e;
+    process.stderr.write(typeof detail === 'string' ? detail + '\\n' : JSON.stringify(detail) + '\\n');
     process.exit(1);
   }}
 }}
@@ -215,7 +216,7 @@ def main():
     try:
         repo_dir = Path(__file__).resolve().parent.parent
         access_token = generate_access_token(
-            repo_dir, api_key, request_token, secret_key, version_id, vendor_key
+            repo_dir, api_key, customer_id, request_token, secret_key, version_id, vendor_key
         )
     except Exception as e:
         print(f"\n  ✗ Failed: {e}")

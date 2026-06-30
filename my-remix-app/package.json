@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --env-file=../.env --max-http-header-size=65536 --watch --import remix/node-tsx server.ts",
-    "start": "node --env-file=../.env --max-http-header-size=65536 --import remix/node-tsx server.ts",
+    "dev": "node --max-http-header-size=65536 --watch --import remix/node-tsx server.ts",
+    "start": "node --max-http-header-size=65536 --import remix/node-tsx server.ts",
     "test": "node --import remix/node-tsx --test",
     "typecheck": "tsc --noEmit"
   },

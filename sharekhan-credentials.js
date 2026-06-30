@@ -76,15 +76,21 @@ function loadSharekhanCredentials() {
   }
 }
 
-function saveSharekhanAccessToken(accessToken) {
+function saveSharekhanTokens({ requestToken, accessToken }) {
   try {
     const token = cleanValue(accessToken);
     if (!token || !fs.existsSync(CREDS_FILE)) return false;
     const content = fs.readFileSync(CREDS_FILE, 'utf8');
     const lines = content.split('\n');
-    const idx = lines.findIndex(line => line.startsWith('SHAREKHAN_ACCESS_TOKEN='));
-    if (idx >= 0) lines[idx] = `SHAREKHAN_ACCESS_TOKEN=${token}`;
-    else lines.push(`SHAREKHAN_ACCESS_TOKEN=${token}`);
+    const upsert = (key, value) => {
+      const clean = cleanValue(value);
+      if (!clean) return;
+      const idx = lines.findIndex(line => line.startsWith(`${key}=`));
+      if (idx >= 0) lines[idx] = `${key}=${clean}`;
+      else lines.push(`${key}=${clean}`);
+    };
+    upsert('SHAREKHAN_REQUEST_TOKEN', requestToken);
+    upsert('SHAREKHAN_ACCESS_TOKEN', token);
     fs.writeFileSync(CREDS_FILE, lines.join('\n'), 'utf8');
     return true;
   } catch (err) {
@@ -93,4 +99,8 @@ function saveSharekhanAccessToken(accessToken) {
   }
 }
 
-module.exports = { loadSharekhanCredentials, saveSharekhanAccessToken, CREDS_FILE };
+function saveSharekhanAccessToken(accessToken) {
+  return saveSharekhanTokens({ accessToken });
+}
+
+module.exports = { loadSharekhanCredentials, saveSharekhanAccessToken, saveSharekhanTokens, CREDS_FILE };

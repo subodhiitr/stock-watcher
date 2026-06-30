@@ -31,6 +31,7 @@ const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;
 const SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;
 const SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;
 const SIM_REPLAY_WHY_ENDPOINT = `${PROXY}/simulation-replay/why`;
+const BROKER_LOGIN_ENDPOINT = `${PROXY}/broker/login`;
 const BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;
 const ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;
 const SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;
@@ -49,6 +50,8 @@ let ETF_FAVORITES = new Set();
 let tradeSettingOverrides = null;
 let dashboardBootstrap = null;
 let dashboardBootstrapLoaded = false;
+let etfTabDataLoaded = false;
+let etfTabDataLoading = null;
 
 async function loadDashboardBootstrap() {
   if (dashboardBootstrapLoaded) return dashboardBootstrap;
@@ -945,6 +948,7 @@ let brokerMode = ['zerodha_dry_run', 'zerodha_live', 'sharekhan_live'].includes(
   : 'zerodha_dry_run';
 let brokerConnectionStatus = null; // { mode, zerodha: { credentialsLoaded, clientsInitialized, pollerRunning, failureCount, isDisabled } }
 let brokerRefreshState = { busy:false, ok:null, message:'' };
+let brokerLoginPopup = null;
 var brokerPortfolioState = { loading:false, ok:false, data:null, error:'' };
 let zerodhaPortfolioState = { loading:false, ok:false, data:null, error:'' };
 let sharekhanPortfolioState = { loading:false, ok:false, data:null, error:'' };
@@ -1057,7 +1061,7 @@ function changeSource() {
   clearInterval(countdownTimer);
   ['source-panel'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='block'; });
   ['index-bar','sector-section','main-section',
-   'pause-btn','change-src-btn','source-indicator','top-action-bar','dashboard-health-banner','notification-panel']
+   'pause-btn','change-src-btn','source-indicator','top-action-bar','dashboard-health-banner','notification-panel','broker-mode-btn','zerodha-login-btn','sharekhan-login-btn']
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
 }
 
@@ -1066,7 +1070,7 @@ function activateDashboard(src) {
   const ib = document.getElementById('index-bar'); if(ib) ib.style.display = 'grid';
   ['sector-section','main-section'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='block'; });
   const actionBar = document.getElementById('top-action-bar'); if(actionBar) actionBar.style.display='flex';
-  ['pause-btn','change-src-btn','broker-mode-btn'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
+  ['pause-btn','change-src-btn','broker-mode-btn','zerodha-login-btn','sharekhan-login-btn'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='flex'; });
   updateSimulationButton();
 
   const si = document.getElementById('source-indicator');
@@ -4149,6 +4153,51 @@ function toggleBrokerMode() {
   if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
 }
 
+function normalizeBrokerLoginName(name) {
+  const broker = String(name || '').trim().toLowerCase();
+  if (broker === 'sharekhan') return 'sharekhan';
+  if (broker === 'zerodha' || broker === 'kite') return 'zerodha';
+  return '';
+}
+
+function openBrokerLogin(name) {
+  const broker = normalizeBrokerLoginName(name);
+  if (!broker) return;
+  const w = 520;
+  const h = 720;
+  const left = Math.max(0, Math.round((window.screenX || 0) + ((window.outerWidth || screen.width) - w) / 2));
+  const top = Math.max(0, Math.round((window.screenY || 0) + ((window.outerHeight || screen.height) - h) / 2));
+  const url = `${BROKER_LOGIN_ENDPOINT}?name=${encodeURIComponent(broker)}`;
+  brokerRefreshState = { busy:true, ok:null, message:`Opening ${broker} login...` };
+  renderSettingsModal();
+  brokerLoginPopup = window.open(url, `broker-login-${broker}`, `popup=yes,width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`);
+  if (!brokerLoginPopup) {
+    brokerRefreshState = { busy:false, ok:false, message:'Popup blocked. Allow popups and try broker login again.' };
+    renderSettingsModal();
+    alert('Popup blocked. Allow popups for this app and try again.');
+    return;
+  }
+  brokerLoginPopup.focus?.();
+}
+
+window.addEventListener('message', event => {
+  const proxyOrigin = (() => {
+    try { return new URL(PROXY).origin; } catch (_) { return location.origin; }
+  })();
+  if (event.origin !== location.origin && event.origin !== proxyOrigin) return;
+  const data = event.data || {};
+  if (!data || data.type !== 'broker-auth') return;
+  const broker = normalizeBrokerLoginName(data.broker) || 'broker';
+  if (data.ok) {
+    brokerRefreshState = { busy:false, ok:true, message:`${broker} login complete` };
+    pollBrokerStatus().then(() => pollBrokerPortfolioState()).catch(e => console.warn('[broker] Post-login refresh failed:', e.message));
+  } else {
+    brokerRefreshState = { busy:false, ok:false, message:data.message || `${broker} login failed` };
+    alert(brokerRefreshState.message);
+  }
+  renderSettingsModal();
+});
+
 function setSimulationState(state, { persist = true } = {}) {
   simulationState = ['running', 'settling'].includes(state) ? state : 'off';
   if (persist) localStorage.setItem(SIMULATION_STATE_KEY, simulationState);
@@ -6881,7 +6930,7 @@ async function setView(view, el){
   const sc = document.getElementById('stock-content'); if(sc) sc.style.display = view==='stocks' ? 'block' : 'none';
   const es = document.getElementById('etf-section'); if(es) es.style.display = view==='etfs' ? 'block' : 'none';
   if(view==='etfs'){
-    await loadPresetETFs(); // no-op if already loaded
+    await ensureETFDataLoadedForTab();
     populateETFSectorDropdown();
     renderETFSection();
     syncETFScrollSizing();
@@ -8190,14 +8239,6 @@ function applyETFListPayload(allEtfs, sourceLabel = 'server') {
 
 async function loadPresetETFs(){
   if (etfListLoaded) return; // already fetched — don't re-hit /etf-list on every tab switch
-  const bootEtfs = dashboardBootstrap?.etfListCache?.etfs;
-  if (Array.isArray(bootEtfs) && bootEtfs.length) {
-    applyETFListPayload(bootEtfs, 'bootstrap cache');
-    etfListLoaded = true;
-    populateETFSectorDropdown();
-    if (currentView === 'etfs') renderETFSection();
-    return;
-  }
   try {
     const res = await fetch(`${PROXY}/etf-list`);
     if (res.ok) {
@@ -8222,6 +8263,24 @@ async function loadPresetETFs(){
   populateETFSectorDropdown();
   if(!newSymbols.length) return;
   await fetchAdditionalSymbols(newSymbols);
+}
+
+async function ensureETFDataLoadedForTab() {
+  if (etfTabDataLoaded) return;
+  if (etfTabDataLoading) return etfTabDataLoading;
+  etfTabDataLoading = (async () => {
+    await Promise.all([
+      loadFavoriteETFs(),
+      loadSavedETFs(),
+    ]);
+    await loadPresetETFs();
+    etfTabDataLoaded = true;
+  })();
+  try {
+    await etfTabDataLoading;
+  } finally {
+    etfTabDataLoading = null;
+  }
 }
 
 function renderETFSection(){
@@ -8568,12 +8627,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadSavedStocks();
   await Promise.all([
     loadTradeSettingOverridesFromServer(),
-    loadFavoriteETFs(),
     loadFavoriteStocks(),
   ]);
   renderTopActionBar();
   await Promise.all([
-    loadSavedETFs(),
     loadPaperTrades(),
   ]);
   subscribePaperTradesStream();

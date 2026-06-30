@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import webbrowser
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -65,6 +66,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--api-secret", default="", help="Override ZERODHA_API_SECRET")
     parser.add_argument("--request-token", default="", help="Override ZERODHA_REQUEST_TOKEN")
     parser.add_argument("--print-login-url", action="store_true", help="Print the Kite login URL for the configured API key")
+    parser.add_argument("--no-browser", action="store_true", help="Do not automatically open the Kite login URL")
     parser.add_argument("--no-save", action="store_true", help="Do not persist derived tokens back to the properties file")
     return parser.parse_args()
 
@@ -80,6 +82,26 @@ def extract_request_token(value: str) -> str:
     return token.strip() or value
 
 
+def prompt_for_request_token(kite: KiteConnect, no_browser: bool = False) -> str:
+    login_url = kite.login_url()
+    print("\nOpen this Kite login URL:")
+    print(login_url)
+    if not no_browser:
+        try:
+            webbrowser.open(login_url)
+            print("\nOpened the login URL in your browser.")
+        except Exception as exc:
+            print(f"\nCould not open browser automatically: {exc}")
+    print("\nAfter login, copy the full redirected URL and paste it here.")
+    print("You can also paste only the request_token value.")
+    while True:
+        pasted = input("Redirect URL or request_token: ").strip()
+        request_token = extract_request_token(pasted)
+        if request_token and not request_token.startswith("your_"):
+            return request_token
+        print("No request_token found. Please paste the full redirect URL or raw token.")
+
+
 def main() -> int:
     args = parse_args()
     creds_file = Path(args.creds_file).expanduser()
@@ -87,19 +109,20 @@ def main() -> int:
 
     api_key = args.api_key or props.get("ZERODHA_API_KEY", "")
     api_secret = args.api_secret or props.get("ZERODHA_API_SECRET", "")
-    request_token = extract_request_token(args.request_token or props.get("ZERODHA_REQUEST_TOKEN", ""))
+    request_token = extract_request_token(args.request_token or "")
 
     if not api_key or api_key.startswith("your_"):
         raise SystemExit(f"ZERODHA_API_KEY is required in {creds_file} or via --api-key")
     if not api_secret or api_secret.startswith("your_"):
         raise SystemExit(f"ZERODHA_API_SECRET is required in {creds_file} or via --api-secret")
-    if not request_token or request_token.startswith("your_"):
-        raise SystemExit(f"ZERODHA_REQUEST_TOKEN is required in {creds_file} or via --request-token")
 
     kite = KiteConnect(api_key=api_key)
     if args.print_login_url:
         print(kite.login_url())
         return 0
+
+    if not request_token or request_token.startswith("your_"):
+        request_token = prompt_for_request_token(kite, args.no_browser)
 
     try:
         data = kite.generate_session(request_token, api_secret=api_secret)

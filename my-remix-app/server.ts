@@ -1,9 +1,16 @@
 import * as http from 'node:http'
+import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { resolve } from 'node:path'
 import { createRequestListener } from 'remix/node-fetch-server'
 
 import { router } from './app/router.ts'
 import { shouldProxy } from './proxy-routes.ts'
+
+const envFile = resolve(import.meta.dirname, '../.env')
+if (existsSync(envFile)) {
+  process.loadEnvFile(envFile)
+}
 
 const port = process.env.PORT ? Number.parseInt(process.env.PORT, 10) : 44100
 const proxyUrl = process.env.PROXY_URL  // e.g. http://localhost:3001
