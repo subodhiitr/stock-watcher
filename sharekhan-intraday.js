@@ -37,6 +37,22 @@ function saveScripCache(map, cacheFile = SCRIP_CACHE_FILE) {
   } catch (_) {}
 }
 
+// Convert a sorted, deduped candle array into the Yahoo chart result shape.
+// Input: [{ unixSec, open, high, low, close, vol }, ...]
+// Output: Yahoo-compatible result object, or null if input is empty.
+function buildYahooShapeFromCandles(sym, candles) {
+  if (!Array.isArray(candles) || candles.length === 0) return null;
+  return {
+    meta: {
+      regularMarketPrice: candles[candles.length - 1].close,
+      regularMarketOpen:  candles[0].open,
+      previousClose:      null,
+    },
+    timestamp: candles.map(c => c.unixSec),
+    indicators: { quote: [{ open: candles.map(c => c.open), high: candles.map(c => c.high), low: candles.map(c => c.low), close: candles.map(c => c.close), volume: candles.map(c => c.vol) }] },
+  };
+}
+
 // Parse a single candle from Sharekhan's response (handles multiple field name variants).
 function parseCandle(c) {
   const time  = c.time ?? c.datetime ?? c.date ?? c.dt ?? null;
@@ -117,7 +133,7 @@ async function fetchSharekhanIntraday(sym, client) {
   try {
     const code = await client.getScripCode(sym);
     if (!code || code <= 0) return null;
-    const raw = await client.fetchRawCandles('NSE', code, '5');
+    const raw = await client.fetchRawCandles('NC', code, '5');
     const result = normalizeSharekhanCandles(sym, raw);
     return result;
   } catch (err) {
@@ -126,4 +142,4 @@ async function fetchSharekhanIntraday(sym, client) {
   }
 }
 
-module.exports = { buildScripCodeMap, loadScripCache, saveScripCache, normalizeSharekhanCandles, fetchSharekhanIntraday, SCRIP_CACHE_FILE };
+module.exports = { buildScripCodeMap, loadScripCache, saveScripCache, normalizeSharekhanCandles, fetchSharekhanIntraday, buildYahooShapeFromCandles, SCRIP_CACHE_FILE };
