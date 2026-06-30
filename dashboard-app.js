@@ -2825,8 +2825,7 @@ function renderTopActionBar() {
   pruneNewSimulationTradeKeys();
   const newOpenTrades = getNewSimulationOpenTrades();
   const newEventTrades = getNewSimulationEventTrades();
-  const todayKey = getTradeDateISO();
-  const dayPnl = summary.dayPnl[todayKey] ?? 0;
+  const activeBroker = getActiveBrokerDisplayState(summary);
   const tabSyms = new Set(
     currentView === 'etfs'
       ? ETF_ASSETS.map(e => e.sym)
@@ -2849,7 +2848,12 @@ function renderTopActionBar() {
   set('action-simulation', simulationState.toUpperCase(), simulationState === 'running' ? 'up' : simulationState === 'settling' ? 'down' : '');
   set('action-open-trades', `${openCount} / ${moneyINR(summary.openExposure)}`);
   set('action-new-trades', String(newEventTrades.length), newEventTrades.length ? 'up' : '');
-  set('action-day-pnl', moneyINR(dayPnl), portfolioValueClass(dayPnl));
+  set('action-active-broker-label', activeBroker.label);
+  set(
+    'action-active-broker-pnl',
+    activeBroker.loading && activeBroker.pnl === null ? 'Loading...' : activeBroker.pnl === null ? '--' : moneyINR(activeBroker.pnl),
+    activeBroker.pnl === null ? '' : portfolioValueClass(activeBroker.pnl)
+  );
   set('action-last-refresh', bgRefreshActive ? 'Refreshing...' : lastDashboardRefreshAt ? new Date(lastDashboardRefreshAt).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) : '--');
   const stockSearch = document.getElementById('search-box');
   if (stockSearch) stockSearch.style.display = currentView === 'stocks' ? '' : 'none';
@@ -2857,6 +2861,14 @@ function renderTopActionBar() {
   if (newCard) newCard.classList.toggle('has-new', newEventTrades.length > 0);
   const openCard = document.getElementById('open-trades-card');
   if (openCard) openCard.classList.toggle('has-open', openCount > 0);
+  const brokerCard = document.getElementById('active-broker-card');
+  if (brokerCard) {
+    brokerCard.classList.toggle('has-open', activeBroker.authenticated);
+    brokerCard.classList.toggle('has-new', activeBroker.pnl !== null && Math.abs(activeBroker.pnl) > 0);
+    brokerCard.title = activeBroker.authenticated
+      ? activeBroker.title
+      : `${activeBroker.label} is not authenticated. Click to login.`;
+  }
   const simCard = document.getElementById('simulation-card');
   if (simCard) {
     simCard.classList.toggle('has-open', simulationState === 'settling');
@@ -3746,6 +3758,74 @@ function isZerodhaDryRun() {
   return brokerMode === 'zerodha_dry_run';
 }
 
+function getActiveBrokerDisplayState(summary = getPortfolioSummary()) {
+  const todayKey = getTradeDateISO();
+  if (brokerMode === 'sharekhan_live') {
+    const status = brokerConnectionStatus?.sharekhan || {};
+    const brokerDayPnl = brokerPortfolioState?.ok
+      ? Number(brokerPortfolioState?.data?.portfolio?.positions?.dayPnl || 0)
+      : null;
+    return {
+      mode: brokerMode,
+      broker: 'sharekhan',
+      label: 'Today P/L (Sharekhan)',
+      authenticated: !!status.clientsInitialized,
+      loading: !!brokerPortfolioState?.loading,
+      pnl: Number.isFinite(brokerDayPnl) ? brokerDayPnl : null,
+      title: status.clientsInitialized
+        ? 'Open Sharekhan positions and today closed trades'
+        : 'Sharekhan login required',
+    };
+  }
+  if (brokerMode === 'zerodha_live') {
+    const status = brokerConnectionStatus?.zerodha || {};
+    const brokerDayPnl = brokerPortfolioState?.ok
+      ? Number(brokerPortfolioState?.data?.portfolio?.positions?.dayPnl || 0)
+      : null;
+    return {
+      mode: brokerMode,
+      broker: 'zerodha',
+      label: 'Today P/L (Zerodha)',
+      authenticated: !!status.clientsInitialized,
+      loading: !!brokerPortfolioState?.loading,
+      pnl: Number.isFinite(brokerDayPnl) ? brokerDayPnl : null,
+      title: status.clientsInitialized
+        ? 'Open Zerodha positions and today closed trades'
+        : 'Zerodha login required',
+    };
+  }
+  const dayPnl = Number(summary?.dayPnl?.[todayKey] || 0);
+  return {
+    mode: 'zerodha_dry_run',
+    broker: 'paper',
+    label: 'Today P/L (Paper)',
+    authenticated: true,
+    loading: false,
+    pnl: dayPnl,
+    title: 'Open and closed paper trades for today',
+  };
+}
+
+function tradeMatchesActiveBroker(trade, broker) {
+  if (broker === 'paper') return true;
+  const name = String(trade?.broker?.name || '').toLowerCase();
+  const mode = String(trade?.broker?.mode || '').toLowerCase();
+  return name === broker && mode === 'live';
+}
+
+async function openActiveBrokerDayOverlay() {
+  const active = getActiveBrokerDisplayState();
+  if (active.broker !== 'paper' && !active.authenticated) {
+    openBrokerLogin(active.broker);
+    return;
+  }
+  if (active.broker === 'paper') {
+    await openPortfolioModal();
+    return;
+  }
+  await openBrokerPortfolioModal(active.broker);
+}
+
 function getBrokerLabel(trade) {
   const broker = trade?.broker;
   if (broker?.name === 'zerodha' && broker?.mode === 'dry-run') return 'Zerodha Dry';
@@ -3915,6 +3995,7 @@ function renderBrokerPortfolioModal() {
 
   const state = activeBrokerPortfolioTab === 'sharekhan' ? sharekhanPortfolioState : zerodhaPortfolioState;
   const brokerLabel = activeBrokerPortfolioTab === 'sharekhan' ? 'Sharekhan' : 'Zerodha';
+  syncBrokerPortfolioTabs();
 
   if (state.loading) {
     body.innerHTML = `<div style="color:var(--muted);padding:16px">Loading ${brokerLabel} portfolio...</div>`;
@@ -3930,6 +4011,10 @@ function renderBrokerPortfolioModal() {
   const funds = p?.funds || {};
   const holdings = Array.isArray(p?.holdings?.list) ? p.holdings.list : [];
   const positions = Array.isArray(p?.positions?.list) ? p.positions.list : [];
+  const todayClosedTrades = paperTrades
+    .filter(t => isTradeToday(t) && isClosedTrade(t) && tradeMatchesActiveBroker(t, activeBrokerPortfolioTab))
+    .slice()
+    .sort((a, b) => new Date(b.closedAt || b.openedAt || 0) - new Date(a.closedAt || a.openedAt || 0));
 
   const holdingRows = holdings.length
     ? holdings.map(h => {
@@ -3962,6 +4047,20 @@ function renderBrokerPortfolioModal() {
       </tr>`;
     }).join('')
     : `<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:16px">No open positions</td></tr>`;
+  const closedRows = todayClosedTrades.length
+    ? todayClosedTrades.map(trade => {
+      const pnl = Number.isFinite(Number(trade.pnl)) ? Number(trade.pnl) : Number(computeClosedPaperPnl(trade) || 0);
+      return `<tr>
+        <td>${escapeHTML(trade.symbol || '--')}</td>
+        <td>${escapeHTML(String(trade.side || '--').toUpperCase())}</td>
+        <td>${Number(trade.qty || 0).toLocaleString('en-IN')}</td>
+        <td>${moneyINR(trade.entryPrice)}</td>
+        <td>${moneyINR(trade.exitPrice)}</td>
+        <td>${escapeHTML(formatTradeDateTime(trade.closedAt || trade.openedAt))}</td>
+        <td class="portfolio-pnl ${portfolioValueClass(pnl)}">${moneyINR(pnl)}</td>
+      </tr>`;
+    }).join('')
+    : `<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:16px">No ${brokerLabel} trades closed today in app ledger</td></tr>`;
 
   body.innerHTML = `
     <div class="portfolio-grid">
@@ -3986,6 +4085,13 @@ function renderBrokerPortfolioModal() {
       <table class="portfolio-table" style="min-width:820px">
         <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>Invested</th><th>P&L</th></tr></thead>
         <tbody>${positionRows}</tbody>
+      </table>
+    </div>
+    <div class="portfolio-section-title">Closed Today (${todayClosedTrades.length})</div>
+    <div class="portfolio-table-wrap">
+      <table class="portfolio-table" style="min-width:760px">
+        <thead><tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Closed</th><th>Net P&L</th></tr></thead>
+        <tbody>${closedRows}</tbody>
       </table>
     </div>
   `;
@@ -4016,11 +4122,20 @@ function enrichSharekhanPortfolioWithTablePrices(payload) {
   return payload;
 }
 
-async function openBrokerPortfolioModal() {
+function syncBrokerPortfolioTabs() {
+  document.querySelectorAll('.broker-tab-btn').forEach(btn => btn.classList.remove('active'));
+  const active = document.getElementById(`broker-tab-${activeBrokerPortfolioTab}`);
+  if (active) active.classList.add('active');
+}
+
+async function openBrokerPortfolioModal(initialTab = null) {
+  const normalizedTab = normalizeBrokerLoginName(initialTab);
+  activeBrokerPortfolioTab = normalizedTab || (brokerMode === 'sharekhan_live' ? 'sharekhan' : 'zerodha');
+  syncBrokerPortfolioTabs();
   const modal = document.getElementById('broker-portfolio-modal');
   if (modal) modal.style.display = 'flex';
   const title = document.getElementById('broker-portfolio-modal-title');
-  if (title) title.textContent = 'Broker Portfolio';
+  if (title) title.textContent = `${activeBrokerPortfolioTab === 'sharekhan' ? 'Sharekhan' : 'Zerodha'} Portfolio`;
   renderBrokerPortfolioModal();
   // Fetch both brokers in parallel
   await Promise.all([
@@ -4050,9 +4165,9 @@ async function fetchBrokerPortfolioFor(broker) {
 
 function setBrokerPortfolioTab(tab) {
   activeBrokerPortfolioTab = tab;
-  document.querySelectorAll('.broker-tab-btn').forEach(btn => btn.classList.remove('active'));
-  const active = document.getElementById(`broker-tab-${tab}`);
-  if (active) active.classList.add('active');
+  syncBrokerPortfolioTabs();
+  const title = document.getElementById('broker-portfolio-modal-title');
+  if (title) title.textContent = `${activeBrokerPortfolioTab === 'sharekhan' ? 'Sharekhan' : 'Zerodha'} Portfolio`;
   renderBrokerPortfolioModal();
 }
 
@@ -5710,10 +5825,53 @@ function replayJobRows(jobs) {
   }).join('') || `<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:12px">No replay jobs yet</td></tr>`;
 }
 
+function getReplayJobSweepRows(job) {
+  const rows = job?.result?.sweepRows;
+  return Array.isArray(rows) ? rows : [];
+}
+
+function findCompletedReplaySweepJob(day = lastReplayDebugResult?.day) {
+  const targetDay = normalizeReplayDay(day || getTradeDateISO());
+  return (replayJobHistory || []).find(job =>
+    job &&
+    normalizeReplayDay(job.day) === targetDay &&
+    ['deep_sweep', 'sweep'].includes(String(job.mode || '').toLowerCase()) &&
+    job.status === 'done' &&
+    getReplayJobSweepRows(job).length
+  ) || null;
+}
+
+function findActiveReplaySweepJob(day = lastReplayDebugResult?.day) {
+  const targetDay = normalizeReplayDay(day || getTradeDateISO());
+  return (replayJobHistory || []).find(job =>
+    job &&
+    normalizeReplayDay(job.day) === targetDay &&
+    ['deep_sweep', 'sweep'].includes(String(job.mode || '').toLowerCase()) &&
+    ['queued', 'running'].includes(String(job.status || '').toLowerCase())
+  ) || null;
+}
+
+function hydrateReplaySweepFromJob(job, statusText = '') {
+  if (!lastReplayDebugResult || !job) return false;
+  const sweepRows = getReplayJobSweepRows(job);
+  if (!sweepRows.length) return false;
+  renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, {
+    sweepRows,
+    autoTuneRows:lastReplayDebugResult.autoTuneRows,
+    actualTrades:job.result?.actualTrades || lastReplayDebugResult.actualTrades,
+  });
+  const statusBox = document.getElementById('replay-job-status');
+  if (statusBox && statusText) statusBox.innerHTML = `<div class="replay-note">${escapeHTML(statusText)}</div>`;
+  return true;
+}
+
 function updateReplayJobHistory(jobs) {
   if (Array.isArray(jobs)) replayJobHistory = jobs;
   const target = document.getElementById('replay-job-history-body');
   if (target) target.innerHTML = replayJobRows(replayJobHistory);
+  if (lastReplayDebugResult && !(lastReplayDebugResult.sweepRows || []).length) {
+    hydrateReplaySweepFromJob(findCompletedReplaySweepJob(lastReplayDebugResult.day), 'Loaded completed Best Settings sweep results.');
+  }
 }
 
 function setReplayJobBusy(mode, busy, label = '') {
@@ -5730,8 +5888,12 @@ async function loadReplayJobHistory() {
   try {
     const res = await fetch(SIM_REPLAY_JOB_ENDPOINT, { signal:AbortSignal.timeout(5000) });
     const payload = await res.json().catch(() => ({}));
-    if (res.ok && payload.ok !== false) updateReplayJobHistory(payload.jobs || []);
+    if (res.ok && payload.ok !== false) {
+      updateReplayJobHistory(payload.jobs || []);
+      return replayJobHistory;
+    }
   } catch (_) {}
+  return replayJobHistory;
 }
 
 function renderReplayReport(day, snapshots, result, opts = {}) {
@@ -8678,6 +8840,7 @@ async function pollBrokerStatus() {
     if (res.ok) {
       brokerConnectionStatus = await res.json();
       updateBrokerModeButton();
+      renderTopActionBar();
     }
   } catch (e) {
     console.warn('[broker] Status poll failed:', e.message);
@@ -8690,11 +8853,13 @@ async function pollBrokerPortfolioState() {
   if (!canFetch) {
     brokerPortfolioState = { loading:false, ok:false, data:null, error: `${useSharekhan ? 'Sharekhan' : 'Zerodha'} client is not initialized` };
     updateBrokerPortfolioPill();
+    renderTopActionBar();
     return;
   }
 
   brokerPortfolioState = { ...brokerPortfolioState, loading:true, error:'' };
   updateBrokerPortfolioPill();
+  renderTopActionBar();
   try {
     const endpoint = useSharekhan ? SHAREKHAN_PORTFOLIO_ENDPOINT : ZERODHA_PORTFOLIO_ENDPOINT;
     const res = await fetch(endpoint, { signal: AbortSignal.timeout(10000) });
@@ -8707,6 +8872,7 @@ async function pollBrokerPortfolioState() {
     brokerPortfolioState = { loading:false, ok:false, data:null, error:e.message || `Could not fetch ${useSharekhan ? 'Sharekhan' : 'Zerodha'} portfolio` };
   }
   updateBrokerPortfolioPill();
+  renderTopActionBar();
   if (brokerPositionsPanelOpen) {
     renderBrokerPositionsPanel();
   }

@@ -110,7 +110,7 @@ function mobileResponse() {
       <strong id="portfolio-total">--</strong>
     </button>
     <button class="metric-card" id="today-pnl-card" type="button" aria-haspopup="dialog" aria-controls="pnl-overlay">
-      <span>Today P/L</span>
+      <span id="today-pnl-label">Today P/L</span>
       <strong id="broker-mode-label">--</strong>
     </button>
     <article>

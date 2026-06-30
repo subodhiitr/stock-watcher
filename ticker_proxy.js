@@ -8798,6 +8798,13 @@ async function initializeSharekhan() {
     sharekhanConfirmationPoller.start();
 
     // Build scripCode → symbol map for the current universe and start WebSocket ticker
+    if (!sharekhanCredentials.accessToken) {
+      if (sharekhanTicker) { try { sharekhanTicker.stop(); } catch (_) {} sharekhanTicker = null; }
+      console.warn('[sharekhan-ticker] Not started: missing access token. Using Yahoo intraday fallback until Sharekhan token is refreshed.');
+      console.log('[sharekhan] Initialization complete. Confirmation poller started.');
+      return true;
+    }
+
     const universeSyms = [...getIntradayLiveUniverseSymbols()];
     const symToCode = new Map();
     await Promise.all(universeSyms.map(async sym => {

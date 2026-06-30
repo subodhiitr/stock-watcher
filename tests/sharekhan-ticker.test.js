@@ -1,5 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
+const { EventEmitter } = require('node:events');
 const { test } = require('node:test');
 const { buildYahooShapeFromCandles } = require('../sharekhan-intraday');
 
@@ -101,5 +102,79 @@ test('onCandleUpdate callback is called on tick', () => {
   assert.ok(called);
   assert.equal(cbSym, 'RELIANCE');
   assert.ok(Array.isArray(cbCandles) && cbCandles.length === 1);
+});
+
+test('start opens direct Sharekhan websocket and sends subscription/feed on open', () => {
+  const sent = [];
+  let openedUrl = '';
+  class FakeSocket extends EventEmitter {
+    constructor(url) {
+      super();
+      openedUrl = url;
+      this.readyState = 1;
+    }
+    send(payload) { sent.push(JSON.parse(payload)); }
+    close() {}
+  }
+
+  const ticker = new SharekhanTicker({
+    accessToken: 'token with spaces',
+    reconnectDelayMs: 60_000,
+    webSocketFactory: url => new FakeSocket(url),
+  });
+  ticker.subscribe([2885]);
+  ticker.start();
+  ticker._ws.emit('open');
+
+  assert.equal(openedUrl, 'wss://stream.sharekhan.com/skstream/api/stream?ACCESS_TOKEN=token%20with%20spaces');
+  assert.deepEqual(sent[0], { action: 'subscribe', key: ['feed'], value: [''] });
+  assert.deepEqual(sent[1], { action: 'feed', key: ['ltp'], value: ['NC2885'] });
+  ticker.stop();
+});
+
+test('unexpected websocket HTTP response schedules reconnect without throwing', () => {
+  class FakeSocket extends EventEmitter {
+    constructor() {
+      super();
+      this.readyState = 0;
+    }
+    send() {}
+    close() {}
+  }
+
+  const ticker = new SharekhanTicker({
+    accessToken: 'fake',
+    reconnectDelayMs: 60_000,
+    webSocketFactory: () => new FakeSocket(),
+  });
+  ticker.start();
+  assert.doesNotThrow(() => {
+    ticker._ws.emit('unexpected-response', null, {
+      statusCode: 200,
+      statusMessage: 'OK',
+      resume() {},
+    });
+  });
+  assert.equal(ticker._connected, false);
+  assert.ok(ticker._reconnectTimer);
+  ticker.stop();
+});
+
+test('missing access token does not create reconnect loop', () => {
+  let created = false;
+  const ticker = new SharekhanTicker({
+    accessToken: '',
+    reconnectDelayMs: 1,
+    webSocketFactory: () => {
+      created = true;
+      throw new Error('should not create socket without token');
+    },
+  });
+
+  ticker.start();
+
+  assert.equal(created, false);
+  assert.equal(ticker._reconnectTimer, null);
+  assert.equal(ticker._connected, false);
 });
 

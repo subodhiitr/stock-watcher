@@ -272,3 +272,34 @@ test('Sharekhan portfolio rows are enriched from table price data in the browser
   assert.match(enrich.fnSource, /getCurrentTradePrice\(h\.symbol\)/);
   assert.match(enrich.fnSource, /ltpSource\s*=\s*'table-price'/);
 });
+
+test('active broker mobile card routes unauthenticated live brokers to login', () => {
+  const { source } = loadDashboardApp();
+  const displayState = findFunctionByContracts(source, [
+    'getActiveBrokerDisplayState',
+    "label: 'Today P/L (Paper)'",
+    "label: 'Today P/L (Zerodha)'",
+    "label: 'Today P/L (Sharekhan)'",
+    'brokerPortfolioState?.data?.portfolio?.positions?.dayPnl',
+  ]);
+  const clickHandler = findFunctionByContracts(source, [
+    'openActiveBrokerDayOverlay',
+    'openBrokerLogin(active.broker)',
+    'openBrokerPortfolioModal(active.broker)',
+    'openPortfolioModal()',
+  ]);
+
+  assert.ok(displayState, 'dashboard-app.js is missing active broker display state');
+  assert.ok(clickHandler, 'dashboard-app.js is missing active broker click routing');
+});
+
+test('broker portfolio modal includes closed-today broker ledger rows', () => {
+  const { source } = loadDashboardApp();
+  const renderModal = findFunctionByContracts(source, [
+    'Closed Today',
+    'tradeMatchesActiveBroker',
+    'computeClosedPaperPnl',
+  ]);
+
+  assert.ok(renderModal, 'broker portfolio modal should show closed-today trades for selected broker');
+});

@@ -8,6 +8,7 @@
     overrides: {},
     brokerMode: 'paper',
     brokerStatus: null,
+    brokerPortfolio: { loading: false, ok: false, data: null, error: '' },
     simulationState: 'off',
     loadError: '',
     autoRefreshEnabled: localStorage.getItem('intradayx.mobile.autoRefresh5m') === '1',
@@ -98,8 +99,7 @@
     return trade.closedAt || trade.updatedAt || trade.openedAt || trade.createdAt || '';
   }
 
-  function renderHeader() {
-    const portfolio = state.bootstrap?.portfolio || {};
+  function paperTodayPnl() {
     const todayPnl = todayTrades().reduce((sum, trade) => {
       if (String(trade.status || '').toLowerCase() === 'open') {
         const quote = tradePriceMap().get(String(trade.symbol || '').toUpperCase());
@@ -107,10 +107,69 @@
       }
       return sum + n(trade.pnl);
     }, 0);
+    return n(state.bootstrap?.dayPnl?.[todayKey()] ?? todayPnl);
+  }
+
+  function activeBroker() {
+    if (state.brokerMode === 'sharekhan_live') return 'sharekhan';
+    if (state.brokerMode === 'zerodha_live') return 'zerodha';
+    return 'paper';
+  }
+
+  function activeBrokerLabel() {
+    const broker = activeBroker();
+    if (broker === 'sharekhan') return 'Sharekhan';
+    if (broker === 'zerodha') return 'Zerodha';
+    return 'Paper';
+  }
+
+  function activeBrokerAuthenticated() {
+    const broker = activeBroker();
+    if (broker === 'paper') return true;
+    return !!state.brokerStatus?.[broker]?.clientsInitialized;
+  }
+
+  function activeBrokerPnl() {
+    const broker = activeBroker();
+    if (broker === 'paper') return paperTodayPnl();
+    if (state.brokerPortfolio?.ok) {
+      const value = Number(state.brokerPortfolio?.data?.portfolio?.positions?.dayPnl);
+      return Number.isFinite(value) ? value : null;
+    }
+    return null;
+  }
+
+  function activeBrokerPortfolioEndpoint() {
+    const broker = activeBroker();
+    if (broker === 'sharekhan') return '/sharekhan-portfolio';
+    if (broker === 'zerodha') return '/zerodha-portfolio';
+    return '';
+  }
+
+  async function refreshActiveBrokerPortfolio() {
+    const endpoint = activeBrokerPortfolioEndpoint();
+    if (!endpoint || !activeBrokerAuthenticated()) {
+      state.brokerPortfolio = { loading: false, ok: false, data: null, error: '' };
+      return;
+    }
+    state.brokerPortfolio = { loading: true, ok: false, data: null, error: '' };
+    try {
+      const payload = await api(endpoint);
+      state.brokerPortfolio = { loading: false, ok: true, data: payload, error: '' };
+    } catch (error) {
+      state.brokerPortfolio = { loading: false, ok: false, data: null, error: error.message || 'Broker portfolio unavailable' };
+    }
+  }
+
+  function renderHeader() {
+    const portfolio = state.bootstrap?.portfolio || {};
+    const brokerPnl = activeBrokerPnl();
+    const brokerLabel = activeBrokerLabel();
     setText('portfolio-total', inr(portfolioTotal(portfolio)));
-    setText('broker-mode-label', inr(todayPnl));
+    setText('today-pnl-label', `Today P/L (${brokerLabel})`);
+    setText('broker-mode-label', state.brokerPortfolio.loading && brokerPnl === null ? 'Loading' : brokerPnl === null ? '--' : inr(brokerPnl));
     const pnlEl = $('broker-mode-label');
-    if (pnlEl) pnlEl.className = cls(todayPnl);
+    if (pnlEl) pnlEl.className = brokerPnl === null ? '' : cls(brokerPnl);
     setText('simulation-label', state.simulationState.toUpperCase());
     setText('updated-at', new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
     const brokerSelect = $('broker-mode-select');
@@ -329,6 +388,25 @@
     return mode.replace(/_/g, ' ');
   }
 
+  function tradeMatchesActiveBroker(trade, broker = activeBroker()) {
+    if (broker === 'paper') return true;
+    const name = String(trade?.broker?.name || '').toLowerCase();
+    const mode = String(trade?.broker?.mode || trade?.executionMode || '').toLowerCase();
+    return name === broker && (mode === 'live' || mode === `${broker}_live`);
+  }
+
+  function openBrokerLogin(broker) {
+    const name = broker === 'sharekhan' ? 'sharekhan' : broker === 'zerodha' ? 'zerodha' : '';
+    if (!name) return;
+    const w = 520;
+    const h = 720;
+    const left = Math.max(0, Math.round((window.screenX || 0) + ((window.outerWidth || screen.width) - w) / 2));
+    const top = Math.max(0, Math.round((window.screenY || 0) + ((window.outerHeight || screen.height) - h) / 2));
+    const popup = window.open(`/broker/login?name=${encodeURIComponent(name)}`, `broker-login-${name}`, `popup=yes,width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`);
+    if (!popup) setStatus('Popup blocked. Allow popups and try broker login again.', true);
+    else popup.focus?.();
+  }
+
   function brokerStatusLabel(broker = {}) {
     const s = String(broker.status || '');
     const exitId = broker.exitOrderId ? ` · Exit: ${broker.exitOrderId}` : '';
@@ -414,6 +492,8 @@
   function renderPortfolioOverlay() {
     const portfolio = state.bootstrap?.portfolio || {};
     const transactions = Array.isArray(state.allTransactions) ? [...state.allTransactions] : [];
+    const brokerPnl = activeBrokerPnl();
+    const brokerLabel = activeBrokerLabel();
     const added = Array.isArray(portfolio.capitalAdds)
       ? portfolio.capitalAdds.reduce((sum, item) => sum + n(item?.amount), 0)
       : 0;
@@ -427,6 +507,7 @@
         <div><span>Initial</span><strong>${inr(portfolio.initialCapital)}</strong></div>
         <div><span>Added</span><strong>${inr(added)}</strong></div>
         <div><span>Realized P/L</span><strong class="${cls(portfolio.realizedPnl)}">${inr(portfolio.realizedPnl)}</strong></div>
+        <div><span>Today P/L (${brokerLabel})</span><strong class="${brokerPnl === null ? '' : cls(brokerPnl)}">${brokerPnl === null ? '--' : inr(brokerPnl)}</strong></div>
         <div><span>Open Exposure</span><strong>${inr(openExposure)}</strong></div>
         <div><span>Total</span><strong>${inr(portfolioTotal(portfolio))}</strong></div>
       `;
@@ -466,6 +547,42 @@
   }
 
   function buildTodayPnlBreakdown() {
+    const broker = activeBroker();
+    if (broker !== 'paper') {
+      const portfolio = state.brokerPortfolio?.data?.portfolio || {};
+      const positions = Array.isArray(portfolio?.positions?.list) ? portfolio.positions.list : [];
+      const closed = todayTrades()
+        .filter(trade => String(trade.status || '').toLowerCase() === 'closed' && tradeMatchesActiveBroker(trade, broker));
+      return [
+        ...positions.map(pos => ({
+          symbol: String(pos.symbol || '--').toUpperCase(),
+          broker: activeBrokerLabel(),
+          trades: 1,
+          qty: n(pos.qty),
+          exposure: Math.abs(n(pos.investedValue || n(pos.avgPrice) * n(pos.qty))),
+          pnl: n(pos.pnl),
+          open: 1,
+          closed: 0,
+          lastPrice: n(pos.ltp),
+          source: 'broker-open',
+        })),
+        ...closed.map(trade => ({
+          symbol: String(trade.symbol || '--').toUpperCase(),
+          broker: activeBrokerLabel(),
+          trades: 1,
+          qty: n(trade.qty),
+          exposure: Math.abs(n(trade.entryPrice) * n(trade.qty)),
+          pnl: n(trade.pnl),
+          open: 0,
+          closed: 1,
+          lastPrice: n(trade.exitPrice),
+          source: 'app-closed',
+        })),
+      ].map(row => ({
+        ...row,
+        pct: row.exposure ? (row.pnl / row.exposure) * 100 : 0,
+      })).sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl) || a.symbol.localeCompare(b.symbol));
+    }
     const quotes = tradePriceMap();
     const groups = new Map();
     for (const trade of todayTrades()) {
@@ -510,12 +627,14 @@
 
   function renderPnlOverlay() {
     const rows = buildTodayPnlBreakdown();
-    const net = rows.reduce((sum, row) => sum + row.pnl, 0);
+    const broker = activeBroker();
+    const brokerPnl = activeBrokerPnl();
+    const net = broker !== 'paper' && brokerPnl !== null ? brokerPnl : rows.reduce((sum, row) => sum + row.pnl, 0);
     const exposure = rows.reduce((sum, row) => sum + row.exposure, 0);
     const summary = $('pnl-summary');
     if (summary) {
       summary.innerHTML = `
-        <div><span>Net P/L</span><strong class="${cls(net)}">${inr(net)}</strong></div>
+        <div><span>${activeBrokerLabel()} Day P/L</span><strong class="${cls(net)}">${inr(net)}</strong></div>
         <div><span>Gain</span><strong class="${cls(net)}">${fmt(exposure ? (net / exposure) * 100 : 0)}%</strong></div>
         <div><span>Stocks</span><strong>${rows.length}</strong></div>
         <div><span>Trades</span><strong>${rows.reduce((sum, row) => sum + row.trades, 0)}</strong></div>
@@ -527,7 +646,7 @@
       <article class="pnl-row">
         <div>
           <strong>${row.symbol}</strong>
-          <span>${row.broker}</span>
+          <span>${row.broker}${row.source === 'broker-open' ? ' open' : row.source === 'app-closed' ? ' closed today' : ''}</span>
         </div>
         <div>
           <strong class="${cls(row.pnl)}">${inr(row.pnl)}</strong>
@@ -567,6 +686,7 @@
       state.settings = analysis.settings || {};
       state.overrides = settings.overrides || {};
       state.candidates = Array.isArray(analysis.candidates) ? analysis.candidates : [];
+      await refreshActiveBrokerPortfolio();
       state.loadError = '';
       state.lastRefreshAt = Date.now();
       renderAll();
@@ -595,6 +715,7 @@
         state.bootstrap = state.bootstrap || {};
         state.bootstrap.portfolio = payload.portfolio;
       }
+      await refreshActiveBrokerPortfolio();
       renderHeader();
       renderPortfolioOverlay();
     } catch (error) {
@@ -610,6 +731,10 @@
   }
 
   async function openPnlOverlay() {
+    if (activeBroker() !== 'paper' && !activeBrokerAuthenticated()) {
+      openBrokerLogin(activeBroker());
+      return;
+    }
     const overlay = $('pnl-overlay');
     if (!overlay) return;
     overlay.hidden = false;
@@ -623,6 +748,7 @@
         state.bootstrap = state.bootstrap || {};
         state.bootstrap.portfolio = payload.portfolio;
       }
+      await refreshActiveBrokerPortfolio();
       renderHeader();
       renderTrades();
       renderPnlOverlay();
@@ -774,6 +900,8 @@
           body: JSON.stringify({ mode: event.target.value }),
         });
         state.brokerMode = payload.mode || event.target.value;
+        state.brokerStatus = await api('/broker-status');
+        await refreshActiveBrokerPortfolio();
         renderHeader();
       } catch (e) { setStatus(e.message, true); }
     });
@@ -830,6 +958,16 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     bindEvents();
+    window.addEventListener('message', event => {
+      const data = event.data || {};
+      if (!data || data.type !== 'broker-auth') return;
+      if (data.ok) {
+        refreshAll();
+        setStatus(`${data.broker || 'Broker'} login complete`);
+      } else {
+        setStatus(data.message || 'Broker login failed', true);
+      }
+    });
     setAutoRefresh(state.autoRefreshEnabled);
     refreshAll();
 
