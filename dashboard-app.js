@@ -6054,6 +6054,26 @@ async function runReplaySweepForCurrent() {
   setReplayJobBusy('sweep', true, 'Sweeping...');
   try {
     const day = normalizeReplayDay(lastReplayDebugResult.day || getTradeDateISO());
+    await loadReplayJobHistory();
+    const completedJob = findCompletedReplaySweepJob(day);
+    if (completedJob && hydrateReplaySweepFromJob(completedJob, `Loaded completed Best Settings sweep (${getReplayJobSweepRows(completedJob).length} rows).`)) {
+      return;
+    }
+    const activeJob = findActiveReplaySweepJob(day);
+    if (activeJob) {
+      const el = document.getElementById(progressId);
+      if (el) el.textContent = `Best Settings sweep is already ${activeJob.status}${activeJob.workerPid ? ` (worker ${activeJob.workerPid})` : ''}. Waiting for existing job...`;
+      const payload = await pollReplayJob(activeJob.id, update => {
+        const nextEl = document.getElementById(progressId);
+        if (nextEl) nextEl.textContent = `Settings sweep ${update.status}${update.workerPid ? ` (worker ${update.workerPid})` : ''}... ${update.id}`;
+      });
+      renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, {
+        sweepRows:payload.sweepRows || [],
+        autoTuneRows:lastReplayDebugResult.autoTuneRows,
+        actualTrades:payload.actualTrades || lastReplayDebugResult.actualTrades,
+      });
+      return;
+    }
     const cachedRes = await fetch(`${SIM_REPLAY_ENDPOINT}?day=${encodeURIComponent(day)}&mode=deep_sweep&cachedOnly=1`, { signal:AbortSignal.timeout(10000) });
     const cachedPayload = await cachedRes.json().catch(() => ({}));
     if (cachedRes.ok && cachedPayload.ok !== false && cachedPayload.cached && Array.isArray(cachedPayload.sweepRows) && cachedPayload.sweepRows.length) {

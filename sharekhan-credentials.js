@@ -34,7 +34,17 @@ function cleanValue(v) {
   return value && !value.includes('your_') ? value : '';
 }
 
-function loadSharekhanCredentials() {
+function pickCredential(creds, keys) {
+  for (const key of keys) {
+    const value = cleanValue(process.env[key] || creds[key]);
+    if (value) return value;
+  }
+  return '';
+}
+
+function loadSharekhanCredentials(options = {}) {
+  const requireSession = options.requireSession !== false;
+  let fileCreds = {};
   if (!fs.existsSync(CREDS_FILE)) {
     try {
       fs.writeFileSync(CREDS_FILE, TEMPLATE, 'utf8');
@@ -42,30 +52,36 @@ function loadSharekhanCredentials() {
     } catch (err) {
       console.error('[sharekhan-credentials] Failed to create template:', err.message);
     }
-    return null;
+  } else {
+    try {
+      const content = fs.readFileSync(CREDS_FILE, 'utf8');
+      fileCreds = parseCredentialsFile(content);
+    } catch (err) {
+      console.error('[sharekhan-credentials] Failed to load credentials:', err.message);
+      return null;
+    }
   }
 
   try {
-    const content = fs.readFileSync(CREDS_FILE, 'utf8');
-    const creds = parseCredentialsFile(content);
-    const apiKey      = cleanValue(creds.SHAREKHAN_API_KEY);
-    const customerId  = cleanValue(creds.SHAREKHAN_CUSTOMER_ID || creds.SHAREKHAN_CLIENT_ID);
-    const accessToken = cleanValue(creds.SHAREKHAN_ACCESS_TOKEN);
-    const secretKey   = cleanValue(creds.SHAREKHAN_SECRET_KEY || creds.SHAREKHAN_API_SECRET);
-    const requestToken = cleanValue(creds.SHAREKHAN_REQUEST_TOKEN);
-    const versionId   = cleanValue(creds.SHAREKHAN_VERSION_ID);
-    const vendorKey   = cleanValue(creds.SHAREKHAN_VENDOR_KEY);
+    const apiKey       = pickCredential(fileCreds, ['SHAREKHAN_API_KEY', 'SHAREKHAN_APP_KEY', 'SHAREKHAN_APIKEY']);
+    const customerId   = pickCredential(fileCreds, ['SHAREKHAN_CUSTOMER_ID', 'SHAREKHAN_CLIENT_ID']);
+    const accessToken  = pickCredential(fileCreds, ['SHAREKHAN_ACCESS_TOKEN']);
+    const secretKey    = pickCredential(fileCreds, ['SHAREKHAN_SECRET_KEY', 'SHAREKHAN_API_SECRET']);
+    const requestToken = pickCredential(fileCreds, ['SHAREKHAN_REQUEST_TOKEN']);
+    const versionId    = pickCredential(fileCreds, ['SHAREKHAN_VERSION_ID']);
+    const vendorKey    = pickCredential(fileCreds, ['SHAREKHAN_VENDOR_KEY']);
 
     if (!apiKey) {
-      console.error('[sharekhan-credentials] API key is missing in ' + CREDS_FILE);
+      console.error('[sharekhan-credentials] API key is missing in environment or ' + CREDS_FILE);
       return null;
     }
     if (!customerId) {
-      console.error('[sharekhan-credentials] Customer ID is missing in ' + CREDS_FILE);
+      console.error('[sharekhan-credentials] Customer ID is missing in environment or ' + CREDS_FILE);
+      if (!requireSession) return { apiKey, customerId, accessToken, secretKey, requestToken, versionId, vendorKey };
       return null;
     }
-    if (!accessToken && !(requestToken && secretKey)) {
-      console.error('[sharekhan-credentials] ACCESS_TOKEN or (REQUEST_TOKEN + SECRET_KEY) must be configured in ' + CREDS_FILE);
+    if (requireSession && !accessToken && !(requestToken && secretKey)) {
+      console.error('[sharekhan-credentials] ACCESS_TOKEN or (REQUEST_TOKEN + SECRET_KEY) must be configured in environment or ' + CREDS_FILE);
       return null;
     }
 

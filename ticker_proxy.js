@@ -3078,7 +3078,7 @@ function buildBrokerLoginUrl(req, broker) {
     return new KiteConnect({ api_key:creds.apiKey }).getLoginURL();
   }
   if (broker === 'sharekhan') {
-    const creds = loadSharekhanCredentials();
+    const creds = loadSharekhanCredentials({ requireSession:false });
     if (!creds?.apiKey) throw new Error('SHAREKHAN_API_KEY is not configured');
     const callback = getBrokerRefreshPath(req, 'sharekhan');
     const params = new URLSearchParams({ api_key:creds.apiKey, state:'stock-watcher' });
@@ -3103,7 +3103,7 @@ async function exchangeZerodhaRequestToken(requestToken) {
 }
 
 async function exchangeSharekhanRequestToken(requestToken) {
-  const creds = loadSharekhanCredentials();
+  const creds = loadSharekhanCredentials({ requireSession:false });
   if (!creds?.apiKey || !creds?.customerId || !creds?.secretKey) throw new Error('Sharekhan API key, customer id, or secret key is not configured');
   const client = new SharekhanClient({ ...creds, requestToken });
   const ok = await client.refreshAccessToken();
