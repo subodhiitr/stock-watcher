@@ -67,3 +67,36 @@ test('server snapshot selection includes top 50 positive-score ETF buy candidate
   assert.equal(selectedEtfs.some(candidate => Number(candidate.score) < 0), false);
   assert.equal(selectedEtfs.some(candidate => String(candidate.side) === 'sell'), false);
 });
+
+test('server snapshot selection defaults to 200 total candidates including ETFs', () => {
+  const source = fs.readFileSync(PROXY_PATH, 'utf8');
+  const select = vm.runInNewContext(`(${extractFunctionSource(source, 'selectServerSnapshotCandidates')})`);
+  const candidates = Array.from({ length: 260 }, (_, index) => ({
+    symbol: `SYM${index}`,
+    assetType: index < 60 ? 'etf' : 'stock',
+    side: 'buy',
+    score: 500 - index,
+  }));
+
+  const selected = select(candidates);
+  const selectedStocks = selected.filter(candidate => candidate.assetType === 'stock');
+  const selectedEtfs = selected.filter(candidate => candidate.assetType === 'etf');
+
+  assert.equal(selected.length, 200);
+  assert.equal(selectedStocks.length, 150);
+  assert.equal(selectedEtfs.length, 50);
+});
+
+test('sanitizeSimulationSnapshot keeps 200 persisted candidates', () => {
+  const source = fs.readFileSync(PROXY_PATH, 'utf8');
+  const sanitize = vm.runInNewContext(`(${extractFunctionSource(source, 'sanitizeSimulationSnapshot')})`);
+  const candidates = Array.from({ length: 260 }, (_, index) => ({
+    symbol: `SYM${index}`,
+    score: 500 - index,
+  }));
+
+  const snapshot = sanitize({ candidates, candidateCount: candidates.length });
+
+  assert.equal(snapshot.candidates.length, 200);
+  assert.equal(snapshot.candidateCount, 260);
+});

@@ -304,6 +304,14 @@ test('broker portfolio modal includes closed-today broker ledger rows', () => {
   assert.ok(renderModal, 'broker portfolio modal should show closed-today trades for selected broker');
 });
 
+test('portfolio modal moves Entry Why and Exit Reason to the end of transaction columns', () => {
+  const { source } = loadDashboardApp();
+  assert.match(
+    source,
+    /<th>Status<\/th><th>Mode<\/th><th>Broker<\/th><th>Symbol<\/th><th>Side<\/th><th>Qty<\/th><th>Entry<\/th><th>Exit\/Live<\/th><th>Capital<\/th><th>Entry Time<\/th><th>Exit Time<\/th><th>Total Cost<\/th><th>Gross P&L<\/th><th>Net P&L<\/th><th>Entry Why<\/th><th>Exit Reason<\/th>/
+  );
+});
+
 test('intraday Sharekhan volume updates table stockData volume', () => {
   const { source } = loadDashboardApp();
   const helper = findFunctionByContracts(source, [

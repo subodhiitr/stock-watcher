@@ -106,6 +106,10 @@ test('POST /simulation/start and GET /simulation/status expose runtime defaults'
   assert.equal(typeof status.json.dataQuality, 'object');
   assert.equal(typeof status.json.dataQuality.total, 'number');
   assert.equal(typeof status.json.dataQuality.bySource, 'object');
+  assert.equal(typeof status.json.sharekhanHealth, 'object');
+  assert.equal(typeof status.json.sharekhanHealth.connected, 'boolean');
+  assert.equal(typeof status.json.sharekhanHealth.subscribedSymbols, 'number');
+  assert.equal(typeof status.json.sharekhanHealth.lastTickAt, 'number');
 });
 
 test('GET /simulation/analysis returns server-side analyzed candidates payload', async () => {

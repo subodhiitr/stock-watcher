@@ -305,8 +305,17 @@ async function loadSavedStocks() {
     const name   = typeof rawSym === 'string' ? sym : (rawSym?.name || sym);
     const sector = rawSym?.sector || 'Custom';
     const cap    = rawSym?.cap    || 'custom';
-    if (MIDCAP_STOCKS.some(s=>s.sym===sym)) continue;
-    MIDCAP_STOCKS.push({ sym, name, sector, cap });
+    const existing = MIDCAP_STOCKS.find(s=>s.sym===sym);
+    if (existing) {
+      if (isCustomStock(existing) || rawSym?.source === 'saved') {
+        existing.name = name || existing.name || sym;
+        existing.sector = sector || existing.sector || 'Custom';
+        existing.cap = cap || existing.cap || 'custom';
+        existing.source = 'saved';
+      }
+      continue;
+    }
+    MIDCAP_STOCKS.push({ sym, name, sector, cap, source: 'saved' });
     newSymbols.push(sym);
   }
   if (newSymbols.length && dataSource) {
@@ -641,6 +650,7 @@ let MIDCAP_STOCKS = [
         name:   typeof rawSym === 'string' ? sym : (rawSym?.name || sym),
         sector: rawSym?.sector || 'Custom',
         cap:    rawSym?.cap    || 'custom',
+        source: 'saved',
       });
     }
   } catch (e) { /* localStorage unavailable — safe to skip */ }
@@ -844,7 +854,9 @@ let sectorTileData = {};    // sectorName → { avg, count, total } for partial 
 const sparklineFallbackCache = {}; // sym:direction → html (stable fallback bars, no re-render flicker)
 
 // True when a stock is a user-saved custom entry (not part of the hardcoded universe)
-function isCustomStock(s) { return s.cap === 'custom' || s.sector === 'Custom'; }
+function isCustomStock(s) {
+  return s?.source === 'saved' || s?.cap === 'custom' || s?.sector === 'Custom';
+}
 
 // O(1) asset lookup — auto-rebuilds when MIDCAP_STOCKS/ETF_ASSETS grow or reset
 const _assetMap = new Map();
@@ -1161,6 +1173,17 @@ function applyYahooQuotes(quotes) {
   }
   if (sawMarketState) marketOpen = hasRegularSession;
   return changed;
+}
+
+function getDisplayChangePct(data) {
+  if (!data || typeof data !== 'object') return null;
+  const price = Number(data.price ?? data.lastPrice ?? data.ltp);
+  const prevClose = Number(data.prevClose ?? data.previousClose ?? data.closePrice);
+  if (Number.isFinite(price) && price > 0 && Number.isFinite(prevClose) && prevClose > 0) {
+    return +(((price - prevClose) / prevClose) * 100).toFixed(2);
+  }
+  const fallback = Number(data.change);
+  return Number.isFinite(fallback) ? +fallback.toFixed(2) : null;
 }
 
 async function fetchYahooStocks(firstLoad = false) {
@@ -1679,7 +1702,8 @@ function renderSectors(){
     if(!sectorChanges[s.sector]){ sectorChanges[s.sector]=[]; sectorTotal[s.sector]=0; }
     sectorTotal[s.sector]++;
     const d=stockData[s.sym];
-    if(d && d.price>0) sectorChanges[s.sector].push(d.change||0);
+    const chg = getDisplayChangePct(d);
+    if(d && d.price>0 && Number.isFinite(chg)) sectorChanges[s.sector].push(chg);
   }
   // Always render all sectors; those with no loaded data yet show 0% in neutral grey
   const avgs=Object.keys(sectorChanges)
@@ -1909,6 +1933,8 @@ async function fetchIntradaySignals(symbols) {
           if (value.dataSource === 'sharekhan-ws' && Number.isFinite(Number(value.price)) && Number(value.price) > 0) {
             stockData[sym] = stockData[sym] || {};
             stockData[sym].price = Number(value.price);
+            const prevClose = Number(value.prevDayClose ?? value.ohlc?.previousClose);
+            if (Number.isFinite(prevClose) && prevClose > 0) stockData[sym].prevClose = prevClose;
             if (Number.isFinite(Number(value.dayChange))) stockData[sym].change = Number(value.dayChange);
           }
           applyIntradayVolumeToStockData(sym, value);
@@ -2707,6 +2733,7 @@ function renderSimulationDataQualityModal() {
   const body = document.getElementById('simulation-data-quality-modal-body');
   if (!body) return;
   const quality = simulationRuntimeStatus?.dataQuality;
+  const sharekhanHealth = simulationRuntimeStatus?.sharekhanHealth;
   if (!quality || typeof quality !== 'object') {
     body.innerHTML = `<div style="color:var(--muted);padding:12px 4px">No simulation data-quality snapshot available yet. Start simulation and wait for a status refresh.</div>`;
     return;
@@ -2718,6 +2745,22 @@ function renderSimulationDataQualityModal() {
   const stalePct = Number(quality.stalePct) || 0;
   const bySource = quality.bySource && typeof quality.bySource === 'object' ? quality.bySource : {};
   const staleReasons = quality.staleReasons && typeof quality.staleReasons === 'object' ? quality.staleReasons : {};
+  const sharekhanConnected = !!sharekhanHealth?.connected;
+  const sharekhanReconnectPending = !!sharekhanHealth?.reconnectPending;
+  const sharekhanAuthBlocked = !!sharekhanHealth?.authBlocked;
+  const sharekhanLastTickAgeSec = Number.isFinite(Number(sharekhanHealth?.lastTickAgeSec)) ? Number(sharekhanHealth.lastTickAgeSec) : null;
+  const sharekhanLastTickLabel = sharekhanLastTickAgeSec == null
+    ? '--'
+    : sharekhanLastTickAgeSec < 60
+      ? `${sharekhanLastTickAgeSec.toFixed(1)}s`
+      : `${(sharekhanLastTickAgeSec / 60).toFixed(1)}m`;
+  const sharekhanStatus = sharekhanAuthBlocked
+    ? 'Auth blocked'
+    : sharekhanReconnectPending
+      ? 'Reconnecting'
+      : sharekhanConnected
+        ? 'Connected'
+        : 'Disconnected';
 
   const sourceRows = Object.entries(bySource)
     .sort((a, b) => (Number(b[1]?.total) || 0) - (Number(a[1]?.total) || 0))
@@ -2735,6 +2778,13 @@ function renderSimulationDataQualityModal() {
     .join('');
 
   body.innerHTML = `
+    <div class="portfolio-section-title">Sharekhan WS Health</div>
+    <div class="portfolio-grid">
+      <div class="portfolio-card"><div class="label">Status</div><div class="value ${sharekhanAuthBlocked ? 'down' : (sharekhanConnected ? 'up' : '')}">${escapeHTML(sharekhanStatus)}</div></div>
+      <div class="portfolio-card"><div class="label">Subscribed symbols</div><div class="value">${Number(sharekhanHealth?.subscribedSymbols) || 0}</div></div>
+      <div class="portfolio-card"><div class="label">Index symbols</div><div class="value">${Number(sharekhanHealth?.indexSymbols) || 0}</div></div>
+      <div class="portfolio-card"><div class="label">Last tick age</div><div class="value ${sharekhanLastTickAgeSec != null && sharekhanLastTickAgeSec > 60 ? 'down' : ''}">${escapeHTML(sharekhanLastTickLabel)}</div></div>
+    </div>
     <div class="portfolio-grid">
       <div class="portfolio-card"><div class="label">Total candidates</div><div class="value">${total}</div></div>
       <div class="portfolio-card"><div class="label">Fresh</div><div class="value up">${fresh}</div></div>
@@ -3132,11 +3182,11 @@ function renderPortfolioModal() {
       <td>${moneyINR(paperTradeExposure(trade))}</td>
       <td>${escapeHTML(formatTradeDateTime(trade.openedAt))}</td>
       <td>${escapeHTML(isOpen ? '--' : formatTradeDateTime(trade.closedAt))}</td>
-      <td class="portfolio-journal-cell" title="${escapeHTML(formatEntryJournal(trade))}">${escapeHTML(formatEntryJournal(trade))}</td>
-      <td class="portfolio-journal-cell" style="${isBrokerFailed ? 'color:var(--red)' : ''}" title="${escapeHTML(isBrokerFailed ? (trade.broker?.error || `Broker order ${trade.broker?.status}`) : trade.closeReason || '--')}">${escapeHTML(isBrokerFailed ? (trade.broker?.error || `Broker order ${trade.broker?.status}`) : trade.closeReason || '--')}</td>
       <td title="${escapeHTML(costTitle)}">${moneyINR(pnlObj?.charges)}</td>
       <td class="portfolio-pnl ${portfolioValueClass(grossPnl || 0)}">${moneyINR(grossPnl)}</td>
       <td class="portfolio-pnl ${cls}">${moneyINR(pnl)}</td>
+      <td class="portfolio-journal-cell" title="${escapeHTML(formatEntryJournal(trade))}">${escapeHTML(formatEntryJournal(trade))}</td>
+      <td class="portfolio-journal-cell" style="${isBrokerFailed ? 'color:var(--red)' : ''}" title="${escapeHTML(isBrokerFailed ? (trade.broker?.error || `Broker order ${trade.broker?.status}`) : trade.closeReason || '--')}">${escapeHTML(isBrokerFailed ? (trade.broker?.error || `Broker order ${trade.broker?.status}`) : trade.closeReason || '--')}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="16" style="color:var(--muted);text-align:center;padding:16px">No transactions today</td></tr>`;
   const dayRows = Object.entries(summary.dayPnl).length ? Object.entries(summary.dayPnl)
@@ -3186,7 +3236,7 @@ function renderPortfolioModal() {
     <div class="portfolio-section-title">Today's Transactions (${todaysTrades.length})</div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table">
-        <thead><tr><th>Status</th><th>Mode</th><th>Broker</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit/Live</th><th>Capital</th><th>Entry Time</th><th>Exit Time</th><th>Entry Why</th><th>Exit Reason</th><th>Total Cost</th><th>Gross P&L</th><th>Net P&L</th></tr></thead>
+        <thead><tr><th>Status</th><th>Mode</th><th>Broker</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit/Live</th><th>Capital</th><th>Entry Time</th><th>Exit Time</th><th>Total Cost</th><th>Gross P&L</th><th>Net P&L</th><th>Entry Why</th><th>Exit Reason</th></tr></thead>
         <tbody>${transactionRows}</tbody>
       </table>
     </div>
@@ -5186,7 +5236,8 @@ function ensureSectorTrendFresh() {
   for (const s of MIDCAP_STOCKS) {
     if (!sectorChanges[s.sector]) sectorChanges[s.sector] = [];
     const d = stockData[s.sym];
-    if (d && d.price > 0) sectorChanges[s.sector].push(d.change || 0);
+    const chg = getDisplayChangePct(d);
+    if (d && d.price > 0 && Number.isFinite(chg)) sectorChanges[s.sector].push(chg);
   }
   
   // Clear and rebuild sectorTrendCache
@@ -7553,14 +7604,14 @@ function updateStatsBar() {
   const gainersEl = document.getElementById('stat-gainers');
   const losersEl = document.getElementById('stat-losers');
   const signalsEl = document.getElementById('stat-signals');
-  if (gainersEl) gainersEl.textContent=allD.filter(d=>(d.change||0)>0).length+' gainers';
-  if (losersEl) losersEl.textContent=allD.filter(d=>(d.change||0)<0).length+' losers';
+  if (gainersEl) gainersEl.textContent=allD.filter(d=>(getDisplayChangePct(d)||0)>0).length+' gainers';
+  if (losersEl) losersEl.textContent=allD.filter(d=>(getDisplayChangePct(d)||0)<0).length+' losers';
   if (signalsEl) signalsEl.textContent=MIDCAP_STOCKS.filter(s=>String(s.cap||'').toLowerCase()!=='etf'&&getSignal(s,stockData[s.sym])==='buy').length+' buy signals';
 }
 
 function renderStockRowHTML(row) {
   const sigLabels={buy:'🟢 BUY',watch:'🟡 WATCH',hold:'⬜ HOLD',sell:'🔴 SELL'};
-  const d=row.data,chg=d?.change||0,price=d?.price||0,sig=getSignal(row,d);
+  const d=row.data,chg=getDisplayChangePct(d) ?? 0,price=d?.price||0,sig=getSignal(row,d);
   return `<tr data-sym="${escapeHTML(row.sym)}">
       <td data-label=""><button class="fav-btn ${isStockFavorite(row.sym)?'active':''}" onclick="toggleStockFavorite('${row.sym}', event)">${isStockFavorite(row.sym)?'★':'☆'}</button></td>
       <td data-label="Stock" data-open-symbol="${escapeHTML(row.sym)}" onclick="openFundModal('${escapeHTML(row.sym)}')" style="cursor:pointer"><div class="stock-name-cell" title="Open stock details"><button class="stock-name-link" type="button" data-open-symbol="${escapeHTML(row.sym)}"><span class="stock-symbol">${escapeHTML(row.sym)}</span><span class="stock-fullname">${escapeHTML(row.name)}</span></button>${isCustomStock(row)?'<button class="stock-edit-btn" onclick="event.stopPropagation();openStockMetadataModal(\''+escapeHTML(row.sym)+'\')">edit</button>':''}</div></td>
@@ -7977,7 +8028,7 @@ async function addCustomStockSymbol(){
   const sym = input.value.trim().toUpperCase();
   if(!sym) return;
   if (MIDCAP_STOCKS.some(s=>s.sym===sym)) { input.value=''; alert('Symbol already present'); return; }
-  MIDCAP_STOCKS.push({ sym, name: sym, sector: 'Custom', cap: 'custom' });
+  MIDCAP_STOCKS.push({ sym, name: sym, sector: 'Custom', cap: 'custom', source: 'saved' });
   input.value='';
   if (dataSource) await fetchAdditionalSymbols([sym]);
   // Try to fetch sector + marketCap metadata and merge
@@ -8089,6 +8140,7 @@ function saveStockMetadata(){
   const cap = document.getElementById('meta-cap').value;
   const asset = MIDCAP_STOCKS.find(s=>s.sym===editingStockSymbol);
   if(!asset) return closeStockMetaModal();
+  asset.source = 'saved';
   asset.sector = sector;
   asset.cap = cap;
   saveUserStocks();
@@ -8485,7 +8537,7 @@ function openFundModal(sym){
         <h4>Details</h4>
         <table style="width:100%;border-collapse:collapse">
           <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Price</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${escapeHTML(moneyINR(stockData[sym]?.price))}</td></tr>
-          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Change</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${escapeHTML(stockData[sym]?.change == null ? '--' : stockData[sym].change.toFixed(2) + '%')}</td></tr>
+          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Change</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${escapeHTML(getDisplayChangePct(stockData[sym]) == null ? '--' : getDisplayChangePct(stockData[sym]).toFixed(2) + '%')}</td></tr>
           <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Sector</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${escapeHTML(asset.sector || '--')}</td></tr>
           <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Status</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Advanced details unavailable. Basic panel opened.</td></tr>
         </table>
@@ -8671,7 +8723,7 @@ function renderETFSection(){
   const sigLabels={buy:'🟢 BUY',watch:'🟡 WATCH',hold:'⬜ HOLD',sell:'🔴 SELL'};
   // Build page rows as one HTML string — single DOM write
   tbody.innerHTML = pageRows.map(row => {
-    const d=row.data,chg=d?.change||0,price=d?.price||0,sig=getSignal(row,d),fav=isETFFavorite(row.sym);
+    const d=row.data,chg=getDisplayChangePct(d) ?? 0,price=d?.price||0,sig=getSignal(row,d),fav=isETFFavorite(row.sym);
     return `<tr>
       <td><button class="fav-btn ${fav?'active':''}" onclick="toggleETFFavorite('${row.sym}', event)">${fav?'★':'☆'}</button></td>
       <td data-open-symbol="${escapeHTML(row.sym)}" onclick="openFundModal('${escapeHTML(row.sym)}')" style="cursor:pointer"><div class="stock-name-cell etf-name-cell"><button class="stock-name-link" type="button" data-open-symbol="${escapeHTML(row.sym)}" title="Open ETF details"><span class="stock-symbol">${escapeHTML(row.sym)}</span><span class="stock-fullname">${escapeHTML(row.name)}</span>${(row.fundFamily||row.etfData?.fundFamily)?`<span class="etf-family">${escapeHTML(row.fundFamily||row.etfData.fundFamily)}</span>`:''}</button></div></td>

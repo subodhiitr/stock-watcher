@@ -214,3 +214,36 @@ test('invalid api key close stops reconnect loop', () => {
   assert.equal(ticker._stopped, true);
 });
 
+test('idle websocket stall closes stale socket and reconnects automatically', async () => {
+  const sockets = [];
+  class FakeSocket extends EventEmitter {
+    constructor() {
+      super();
+      this.readyState = 1;
+      this.closeCalls = 0;
+      sockets.push(this);
+    }
+    send() {}
+    close() { this.closeCalls += 1; }
+    terminate() { this.closeCalls += 1; }
+  }
+
+  const ticker = new SharekhanTicker({
+    accessToken: 'fake',
+    reconnectDelayMs: 5,
+    idleTimeoutMs: 20,
+    webSocketFactory: () => new FakeSocket(),
+  });
+
+  ticker.start();
+  sockets[0].emit('open');
+  await new Promise(resolve => setTimeout(resolve, 40));
+
+  assert.equal(sockets[0].closeCalls > 0, true, 'stalled socket should be closed');
+  assert.equal(ticker._connected, false);
+
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(sockets.length >= 2, true, 'ticker should open a replacement socket after idle timeout');
+
+  ticker.stop();
+});

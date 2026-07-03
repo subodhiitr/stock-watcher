@@ -26,3 +26,10 @@ test('dashboard app exposes simulation data quality modal handlers', () => {
   assert.match(source, /function closeSimulationDataQualityModal\(/);
 });
 
+test('simulation data quality modal renders Sharekhan websocket health section', () => {
+  const source = fs.readFileSync(DASHBOARD_APP_PATH, 'utf8');
+  assert.match(source, /sharekhanHealth/);
+  assert.match(source, /Sharekhan WS Health/);
+  assert.match(source, /Last tick age/);
+  assert.match(source, /Subscribed symbols/);
+});

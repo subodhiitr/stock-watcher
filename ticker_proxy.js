@@ -1620,12 +1620,13 @@ function buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol 
   return candidates;
 }
 
-function selectServerSnapshotCandidates(candidates, baseLimit = 100, etfLimit = 50) {
-  const source = (Array.isArray(candidates) ? candidates : [])
-    .filter(candidate => {
-      if (String(candidate?.assetType || '').toLowerCase() !== 'etf') return true;
-      return (candidate?.side || candidate?.signal) === 'buy' && Number(candidate?.score) > 0;
-    });
+function selectServerSnapshotCandidates(candidates, baseLimit = 150, etfLimit = 50) {
+  const source = Array.isArray(candidates) ? candidates : [];
+  const stockSource = source.filter(candidate => String(candidate?.assetType || '').toLowerCase() !== 'etf');
+  const etfSource = source
+    .filter(candidate => String(candidate?.assetType || '').toLowerCase() === 'etf')
+    .filter(candidate => (candidate?.side || candidate?.signal) === 'buy')
+    .filter(candidate => Number(candidate?.score) > 0);
   const selected = [];
   const seen = new Set();
   const keyFor = candidate => `${String(candidate?.symbol || '').toUpperCase()}|${String(candidate?.side || candidate?.signal || '').toLowerCase()}`;
@@ -1637,11 +1638,8 @@ function selectServerSnapshotCandidates(candidates, baseLimit = 100, etfLimit = 
   };
   const byAbsScore = (a, b) => Math.abs(Number(b?.score) || 0) - Math.abs(Number(a?.score) || 0);
   const byPositiveScore = (a, b) => (Number(b?.score) || 0) - (Number(a?.score) || 0);
-  source.slice().sort(byAbsScore).slice(0, Math.max(0, Number(baseLimit) || 0)).forEach(add);
-  source
-    .filter(candidate => String(candidate?.assetType || '').toLowerCase() === 'etf')
-    .filter(candidate => (candidate?.side || candidate?.signal) === 'buy')
-    .filter(candidate => Number(candidate?.score) > 0)
+  stockSource.slice().sort(byAbsScore).slice(0, Math.max(0, Number(baseLimit) || 0)).forEach(add);
+  etfSource
     .slice()
     .sort(byPositiveScore)
     .slice(0, Math.max(0, Number(etfLimit) || 0))
@@ -2172,11 +2170,24 @@ function getSimulationRuntimeStatus() {
   const runtime = loadSimulationRuntime();
   const settings = loadTradeSettingsFile().overrides || {};
   const asOf = new Date().toISOString();
+  const now = Date.now();
   const symbolMetaBySymbol = getSimulationSymbolMetaIndex();
   const candidates = buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol, asOf);
   const dataQuality = buildSimulationDataQualitySummary(candidates);
   const tradeState = loadPaperStateFile();
   const counts = countOpenTradeOwnership(tradeState.trades);
+  const sharekhanLastTickAt = Number(sharekhanTicker?._lastTickAt) || 0;
+  const sharekhanHealth = {
+    connected: !!sharekhanTicker?._connected,
+    subscribedSymbols: sharekhanTicker ? sharekhanTicker._subscribedCodes.size : 0,
+    indexSymbols: sharekhanIndexCodeMap.size,
+    lastTickAt: sharekhanLastTickAt,
+    lastTickAgeSec: sharekhanLastTickAt > 0 ? +(((now - sharekhanLastTickAt) / 1000).toFixed(1)) : null,
+    reconnectPending: !!sharekhanTicker?._reconnectTimer,
+    authBlocked: !!sharekhanTicker?._authBlocked,
+    idleTimeoutSec: sharekhanTicker?._idleTimeoutMs ? Math.round(Number(sharekhanTicker._idleTimeoutMs) / 1000) : null,
+    accessTokenLoaded: !!sharekhanCredentials?.accessToken,
+  };
   return {
     ok: true,
     state: runtime.state,
@@ -2187,6 +2198,7 @@ function getSimulationRuntimeStatus() {
     lastError: runtime.lastError || '',
     lockActive: mutationLockActive || simulationTickInFlight,
     schedulerActive: !!simulationSchedulerTimer,
+    sharekhanHealth,
     dataQuality,
     ...counts,
   };
@@ -3170,7 +3182,7 @@ function sanitizeSimulationSnapshot(payload) {
   const raw = Array.isArray(payload.candidates) ? payload.candidates : [];
   const candidates = raw
     .sort((a, b) => Math.abs(Number(b.score) || 0) - Math.abs(Number(a.score) || 0))
-    .slice(0, 100);
+    .slice(0, 200);
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     at: new Date().toISOString(),
@@ -5384,7 +5396,11 @@ function buildDailyTradeContext(result) {
     if ([high, low, close].every(v => Number.isFinite(v) && v > 0)) rows.push({ high, low, close, volume: Number.isFinite(volume) ? volume : 0 });
   }
   if (!rows.length) return {};
-  const prev = rows.length >= 2 ? rows[rows.length - 2] : rows[0];
+  const latestRawClose = Number(closes[closes.length - 1]);
+  const currentSessionAlreadyInSeries = Number.isFinite(latestRawClose) && latestRawClose > 0;
+  const prev = currentSessionAlreadyInSeries && rows.length >= 2
+    ? rows[rows.length - 2]
+    : rows[rows.length - 1];
   const pivot = (prev.high + prev.low + prev.close) / 3;
   const r1 = (2 * pivot) - prev.low;
   const s1 = (2 * pivot) - prev.high;
@@ -9374,6 +9390,7 @@ module.exports = {
       const effective = SimulationEngine.withDefaults ? SimulationEngine.withDefaults(settings || {}) : (settings || {});
       return buildServerCandidateFromIntraday(sym, setup, effective, meta, asOf);
     },
+    buildDailyTradeContextForTests: buildDailyTradeContext,
     getSimulationRuntimeSnapshot() {
       const runtime = loadSimulationRuntime();
       return {
