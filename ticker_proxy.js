@@ -2013,11 +2013,21 @@ async function runSimulationSchedulerTick() {
       }
 
       if (autoStopAfterMarket) {
-        const next = transitionAndSaveSimulationRuntime({ type: 'stop', mode: 'immediate' }, {
+        // If no open trades remain, stop immediately; otherwise enter settling so
+        // subsequent ticks can close remaining trades before fully stopping.
+        if (counts.openSimulationManagedCount === 0) {
+          const next = transitionAndSaveSimulationRuntime({ type: 'stop', mode: 'immediate' }, {
+            lastTickAt: Date.now(),
+            lastError: '',
+          });
+          stopSimulationScheduler('auto-stop-after-market');
+          return { ok: true, state: next.state, autoStopped: true };
+        }
+        // Open trades exist — enter settling mode so ticks keep running until they close.
+        const next = transitionAndSaveSimulationRuntime({ type: 'stop', mode: 'settle' }, {
           lastTickAt: Date.now(),
           lastError: '',
         });
-        stopSimulationScheduler('auto-stop-after-market');
         return { ok: true, state: next.state, autoStopped: true };
       }
 

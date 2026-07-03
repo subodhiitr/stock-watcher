@@ -755,6 +755,7 @@ test('scheduler auto-stops running simulation after 3:30 PM IST', async () => {
 
   await proxy.__test__.runSchedulerTick();
   const runtime = proxy.__test__.getSimulationRuntimeSnapshot();
+  // With no open trades, auto-stop should immediately transition to 'off'
   assert.equal(runtime.state, 'off');
   assert.equal(runtime.schedulerActive, false);
 });
