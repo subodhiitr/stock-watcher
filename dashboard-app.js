@@ -2098,7 +2098,7 @@ function paperTradeExposure(trade) {
   return Number.isFinite(entry) && Number.isFinite(qty) ? entry * qty : 0;
 }
 
-function getSuggestedPaperQty(t, side, price, availableCash = null, maxExposure = MAX_POSITION_EXPOSURE) {
+function getSuggestedPaperQty(t, side, price, availableCash = null, maxExposure = MAX_POSITION_EXPOSURE, positionMultiplier = 1.0) {
   const cash = availableCash == null ? getPortfolioSummary().cashAvailable : availableCash;
   return SimulationEngine.getSuggestedQty(
     { indicators:t || {} },
@@ -2106,7 +2106,8 @@ function getSuggestedPaperQty(t, side, price, availableCash = null, maxExposure 
     price,
     cash,
     maxExposure,
-    getSimulationEngineSettings()
+    getSimulationEngineSettings(),
+    positionMultiplier
   );
 }
 
@@ -5463,6 +5464,8 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
   const realizedPnl = () => trades.filter(isClosedTrade).reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
   const openExposure = () => openTrades().reduce((sum, t) => sum + ((Number(t.entryPrice) || 0) * (Number(t.qty) || 0)), 0);
   const cashAvailable = () => capital + realizedPnl() - openExposure();
+  const getClosedTrades = () => trades.filter(isClosedTrade);
+  const calculatePositionSizingMultiplier = () => TradeRules.computePositionSizeMultiplier(getClosedTrades());
   const sameDay = (a, b) => getTradeDateISO(a) === getTradeDateISO(b);
   const dayStats = at => TradeRules.buildDayStats(trades, at, settings, { sameDay });
   const entryBlockReason = (sym, setupType, at) => TradeRules.getEntryBlockReason(sym, setupType, at, dayStats(at), settings);
@@ -5587,7 +5590,7 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
       const remainingSlots = Math.max(1, Math.min(slots, Math.max(1, candidates.length - i)));
       const allocation = Math.min(settings.MAX_POSITION_EXPOSURE, cashAvailable() / remainingSlots);
       const side = candidate.side || candidate.signal || 'buy';
-      const suggestion = SimulationEngine.getSuggestedQty(candidate, side, price, cashAvailable(), allocation, settings);
+      const suggestion = SimulationEngine.getSuggestedQty(candidate, side, price, cashAvailable(), allocation, settings, calculatePositionSizingMultiplier());
       if (suggestion.qty <= 0) continue;
       trades.push({
         id:nextId++,
