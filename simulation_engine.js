@@ -685,7 +685,8 @@
     if (candidate.freshness?.stale) return false;
     const cost = candidate.cost;
     if (!cost || !cost.ok || Number(cost.netPct) < settings.SIMULATION_MIN_NET_PROFIT_PCT) return false;
-    const stopPct = Number(candidate.indicators?.stopPct);
+    // Use pre-calculated value if available, fall back to recalculation
+    const stopPct = candidate.preCalcStopPct ?? Number(candidate.indicators?.stopPct);
     if (!Number.isFinite(stopPct) || stopPct > getMaxStopPctForSide(settings, side)) return false;
     return true;
   }
@@ -714,7 +715,8 @@
     reasons.push(...quality);
     const cost = candidate.cost;
     if (!cost || !cost.ok || Number(cost.netPct) < settings.SIMULATION_MIN_NET_PROFIT_PCT) reasons.push(`net ${cost?.netPct ?? '--'}% < ${settings.SIMULATION_MIN_NET_PROFIT_PCT}%`);
-    const stopPct = Number(candidate.indicators?.stopPct);
+    // Use pre-calculated value if available, fall back to recalculation
+    const stopPct = candidate.preCalcStopPct ?? Number(candidate.indicators?.stopPct);
     const maxStop = getMaxStopPctForSide(settings, side);
     if (!Number.isFinite(stopPct) || stopPct > maxStop) reasons.push(`stop ${Number.isFinite(stopPct) ? round3(stopPct) : '--'}% > ${maxStop}%`);
     return { eligible:reasons.length === 0, reasons:[...new Set(reasons)], setupType, side, regime };
