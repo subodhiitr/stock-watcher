@@ -923,24 +923,28 @@
     const side = String(trade.side || 'buy').toLowerCase();
     const stop = Number(trade.stop);
     const entry = Number(trade.entryPrice);
-    if (!Number.isFinite(stop) || !Number.isFinite(entry) || entry <= 0 || !Number.isFinite(Number(price))) return null;
-    const breached = side === 'sell' ? price >= stop : price <= stop;
-    if (!breached) {
-      trade._stopBreachCount = 0;
-      trade._stopFirstBreachedAt = null;
+    
+    if (!Number.isFinite(stop) || !Number.isFinite(entry) || entry <= 0 || !Number.isFinite(Number(price))) {
       return null;
     }
-    const adversePct = side === 'sell' ? ((price - entry) / entry) * 100 : ((entry - price) / entry) * 100;
-    if (adversePct >= settings.SIMULATION_EMERGENCY_STOP_PCT) return { reason: 'Simulation emergency stop', exitPrice: Number(price) };
-    const nowMs = at ? new Date(at).getTime() : Date.now();
-    const openedAt = new Date(trade.openedAt || 0).getTime();
-    const holdMs = Number.isFinite(openedAt) ? nowMs - openedAt : 0;
-    trade._stopBreachCount = (Number(trade._stopBreachCount) || 0) + 1;
-    trade._stopFirstBreachedAt = trade._stopFirstBreachedAt || (at || nowMs);
-    if (holdMs < settings.SIMULATION_STOP_GRACE_MIN * 60000) return null;
-    if (trade._stopBreachCount >= settings.SIMULATION_STOP_CONFIRM_BARS && isSimulationStopDeteriorated(trade, candidate, settings)) {
-      return { reason: 'Simulation confirmed stop', exitPrice: Number(price) };
+
+    // Immediate stop logic (matches backtest behavior)
+    if (side === 'buy' && price <= stop) {
+      return {
+        reason: 'Simulation stop loss breach',
+        exitPrice: stop,
+        confidence: 1.0
+      };
     }
+    
+    if (side === 'sell' && price >= stop) {
+      return {
+        reason: 'Simulation stop loss breach',
+        exitPrice: stop,
+        confidence: 1.0
+      };
+    }
+
     return null;
   }
 

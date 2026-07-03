@@ -486,7 +486,9 @@ function runBacktest(snapshots, settings) {
       const price = Number(candidate?.price ?? candidate?.priceAtSnapshot ?? candidate?.quote?.price);
       if (!Number.isFinite(price) || price <= 0) continue;
       
-      // Check explicit stop loss first
+      // STOP LOSS CHECK: Immediate exit (no grace period)
+      // This matches simulation_engine.js::getSimulationStopExit
+      // Stop breach = immediate exit at stop price, period
       const stop = Number(trade.stop);
       const entry = Number(trade.entryPrice);
       const side = String(trade.side || 'buy').toLowerCase();
