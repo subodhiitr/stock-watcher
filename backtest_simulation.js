@@ -514,7 +514,26 @@ function runBacktest(snapshots, settings) {
       const candidate = currentBySymbol.get(trade.symbol) || lastKnownBySymbol.get(trade.symbol);
       const price = Number(candidate?.price ?? candidate?.priceAtSnapshot ?? candidate?.quote?.price);
       if (!Number.isFinite(price) || price <= 0) continue;
-      const exit = SimulationEngine.getSimulationExit(trade, price, candidate, snapshot.at, settings, { isEodSettlement: isEodSettlement(snapshot.at) });
+      
+      // Check explicit stop loss first
+      const stop = Number(trade.stop);
+      const entry = Number(trade.entryPrice);
+      const side = String(trade.side || 'buy').toLowerCase();
+      let exit = null;
+      
+      if (Number.isFinite(stop) && stop > 0 && Number.isFinite(entry) && entry > 0) {
+        if (side === 'buy' && price <= stop) {
+          exit = { reason: 'Simulation stop loss breach', exitPrice: stop };
+        } else if (side === 'sell' && price >= stop) {
+          exit = { reason: 'Simulation stop loss breach', exitPrice: stop };
+        }
+      }
+      
+      // If no stop loss exit, use normal simulation exit logic
+      if (!exit) {
+        exit = SimulationEngine.getSimulationExit(trade, price, candidate, snapshot.at, settings, { isEodSettlement: isEodSettlement(snapshot.at) });
+      }
+      
       if (exit?.action === 'partial') {
         const qty = Math.max(1, Math.floor(Number(trade.qty || 0) * Number(exit.qtyPct || 50) / 100));
         partialCloseTrade(trade, exit.exitPrice, exit.reason, snapshot.at, qty, exit.runner, exit.newTarget);
