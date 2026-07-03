@@ -349,6 +349,31 @@ function runBacktest(snapshots, settings) {
   const lastKnownBySymbol = new Map();
   const previousCandidateBySymbol = new Map();
 
+  const startingCash = Number.isFinite(Number(settings.PORTFOLIO_AVAILABLE_CASH))
+    ? Math.max(0, Number(settings.PORTFOLIO_AVAILABLE_CASH))
+    : settings.PORTFOLIO_INITIAL_CAPITAL;
+
+  const portfolio = {
+    cash: startingCash,
+    reservedCapital: 0,
+  };
+
+  const validatePortfolio = () => {
+    if (portfolio.cash < 0) {
+      console.warn('ERROR: Negative cash after trade', {
+        cash: portfolio.cash,
+        reserved: portfolio.reservedCapital,
+        openTrades: trades.filter(t => t.status === 'open').length,
+      });
+    }
+    if (portfolio.reservedCapital < 0) {
+      console.warn('ERROR: Negative reserved capital', {
+        reserved: portfolio.reservedCapital,
+        cash: portfolio.cash,
+      });
+    }
+  };
+
   const openTrades = () => trades.filter(t => t.status === 'open');
   const simOpenTrades = () => openTrades().filter(t => t.source === 'simulation');
   const realizedPnl = () => {
@@ -361,15 +386,11 @@ function runBacktest(snapshots, settings) {
     if (process.env.DEBUG_CASH && !Number.isFinite(result)) console.error(`DEBUG_CASH: openExposure=${result}`);
     return result;
   };
-  const startingCash = Number.isFinite(Number(settings.PORTFOLIO_AVAILABLE_CASH))
-    ? Math.max(0, Number(settings.PORTFOLIO_AVAILABLE_CASH))
-    : settings.PORTFOLIO_INITIAL_CAPITAL;
   const cashAvailable = () => {
-    const rp = realizedPnl();
-    const oe = openExposure();
-    const result = startingCash + rp - oe;
+    const freeCapital = portfolio.cash - portfolio.reservedCapital;
+    const result = Math.max(0, freeCapital);
     if (process.env.DEBUG_CASH && !Number.isFinite(result)) {
-      console.error(`DEBUG_CASH: startingCash=${startingCash}, realizedPnl=${rp}, openExposure=${oe}, result=${result}`);
+      console.error(`DEBUG_CASH: cash=${portfolio.cash}, reserved=${portfolio.reservedCapital}, result=${result}`);
     }
     return result;
   };
@@ -386,7 +407,14 @@ function runBacktest(snapshots, settings) {
   }
 
   function closeTrade(trade, exitPrice, reason, at, mark = false) {
+    const reservedAmount = trade.entryPrice * trade.qty;
+    portfolio.reservedCapital = Math.max(0, portfolio.reservedCapital - reservedAmount);
+
     const pnl = SimulationEngine.getPaperTradePnl(trade, exitPrice);
+    const closingCash = pnl ? pnl.pnl : 0;
+    portfolio.cash += closingCash;
+    validatePortfolio();
+
     if (!pnl) {
       console.warn(`Warning: Could not calculate PnL for trade ${trade.id} at exit price ${exitPrice}`);
       Object.assign(trade, {
@@ -419,6 +447,10 @@ function runBacktest(snapshots, settings) {
     const closeQty = Math.floor(Number(qty));
     const openQty = Math.floor(Number(trade.qty));
     if (!Number.isFinite(closeQty) || closeQty <= 0 || closeQty >= openQty) return false;
+
+    const releasedAmount = trade.entryPrice * closeQty;
+    portfolio.reservedCapital = Math.max(0, portfolio.reservedCapital - releasedAmount);
+
     const partial = {
       ...trade,
       id: nextId++,
@@ -431,6 +463,10 @@ function runBacktest(snapshots, settings) {
       closeReason: reason,
     };
     const pnl = SimulationEngine.getPaperTradePnl(partial, exitPrice);
+    const closingCash = pnl ? pnl.pnl : 0;
+    portfolio.cash += closingCash;
+    validatePortfolio();
+
     if (pnl) {
       Object.assign(partial, {
         pnl: pnl.pnl,
@@ -604,6 +640,10 @@ function runBacktest(snapshots, settings) {
         openedAt: snapshot.at,
         status: 'open',
       });
+      const reservedAmount = round2(adjustedQty * price);
+      portfolio.reservedCapital += reservedAmount;
+      portfolio.cash -= reservedAmount;
+      validatePortfolio();
       slots -= 1;
       openedThisCycle += 1;
     }
