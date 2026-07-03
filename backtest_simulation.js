@@ -83,10 +83,12 @@ Options:
   --auto-shorts              Allow simulation replay to enter short/sell trades.
   --long-only                Replay only long/buy entries.
   --short-only               Replay only short/sell entries.
+  --min-score <n>            Override long-side minimum absolute score (alias: --min_score).
   --short-min-score <n>      Override short-side minimum absolute score.
   --enable-etf               Allow replay to include long/buy ETF entries.
   --capital <amount>         Override starting/available capital for replay.
   --default-capital          Use dashboard default capital instead of saved portfolio cash.
+  --recompute-scores         Re-score buy-side snapshot candidates before replay.
   --sweep                    Run a small parameter sweep and rank by net P/L.
   --json                     Print full JSON result.
   --help                     Show this help.
@@ -122,10 +124,11 @@ function parseArgs(argv) {
     else if (arg === '--long-only') args.longOnly = true;
     else if (arg === '--short-only') args.shortOnly = true;
     else if (arg === '--enable-etf') args.enableEtf = true;
-    else if (arg === '--min-score') args.minScore = Number(next());
+    else if (arg === '--min-score' || arg === '--min_score') args.minScore = Number(next());
     else if (arg === '--short-min-score') args.shortMinScore = Number(next());
     else if (arg === '--capital') args.capital = Number(next());
     else if (arg === '--default-capital') args.defaultCapital = true;
+    else if (arg === '--recompute-scores') args.recomputeScores = true;
     else if (arg === '--sweep') args.sweep = true;
     else throw new Error(`Unknown option: ${arg}`);
   }
@@ -163,7 +166,8 @@ function loadSettings(overrides) {
   if (Number.isFinite(overrides.maxNewPerCycle)) settings.SIMULATION_MAX_NEW_PER_CYCLE = overrides.maxNewPerCycle;
   if (Number.isFinite(overrides.niftyRegimePct)) settings.SIMULATION_MARKET_REGIME_NIFTY_PCT = overrides.niftyRegimePct;
   if (Number.isFinite(overrides.rsRegimePct)) settings.SIMULATION_MARKET_REGIME_RS_PCT = overrides.rsRegimePct;
-  if (Number.isFinite(overrides.minScore)) settings.SIMULATION_MIN_SCORE = overrides.minScore;
+  const minScoreOverride = Number.isFinite(overrides.minScore) ? overrides.minScore : overrides.min_score;
+  if (Number.isFinite(minScoreOverride)) settings.SIMULATION_MIN_SCORE = minScoreOverride;
   if (Number.isFinite(overrides.shortMinScore)) settings.SIMULATION_SHORT_MIN_SCORE = overrides.shortMinScore;
   if (overrides.autoShorts) settings.SIMULATION_AUTO_SHORTS = true;
   if (overrides.shortOnly) settings.SIMULATION_AUTO_SHORTS = true;
@@ -185,6 +189,7 @@ function loadSettings(overrides) {
   } else {
     settings.PORTFOLIO_CAPITAL_SOURCE = overrides.defaultCapital ? 'dashboard default' : 'dashboard default; saved portfolio unavailable';
   }
+  settings.REPLAY_RECOMPUTE_SCORES = !!(overrides.recomputeScores || overrides.REPLAY_RECOMPUTE_SCORES);
   return settings;
 }
 
@@ -501,6 +506,9 @@ function runBacktest(snapshots, settings) {
   for (const snapshot of snapshots) {
     currentBySymbol = new Map();
     for (const candidate of snapshot.candidates || []) {
+      if (settings.REPLAY_RECOMPUTE_SCORES) {
+        rescoreReplayCandidate(candidate);
+      }
       candidate.previousCandidate = previousCandidateBySymbol.get(candidate.symbol) || null;
       candidate.derivedSetupType = candidate.derivedSetupType || SimulationEngine.deriveSetupType(candidate, settings);
       
@@ -729,6 +737,7 @@ function summarize(trades, snapshots, settings, startingCash = settings.PORTFOLI
       dailyStopProfitBufferPct: settings.SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT,
       maxPositionExposure: settings.MAX_POSITION_EXPOSURE,
       replayMode: settings.REPLAY_SHORT_ONLY ? 'short-only' : settings.REPLAY_LONG_ONLY ? 'long-only' : 'long+short',
+      minScore: settings.SIMULATION_MIN_SCORE,
       shortMinScore: settings.SIMULATION_SHORT_MIN_SCORE,
     },
     summary: {
@@ -964,7 +973,7 @@ function printReport(result) {
     const d = result.settings.capitalDetail;
     console.log(`Portfolio : capital ${money(d.capital)}, realized ${money(d.realized)}, open exposure ${money(d.openExposure)}, trades ${d.tradeCount}`);
   }
-  console.log(`Settings  : ${result.settings.replayMode}, active ${result.settings.maxActiveOpen}, total ${result.settings.maxOpen}, per-cycle ${result.settings.maxNewPerCycle}, first-hour ${result.settings.firstHourMaxEntries}, shortScore ${result.settings.shortMinScore}`);
+  console.log(`Settings  : ${result.settings.replayMode}, score ${result.settings.minScore}, shortScore ${result.settings.shortMinScore}, active ${result.settings.maxActiveOpen}, total ${result.settings.maxOpen}, per-cycle ${result.settings.maxNewPerCycle}, first-hour ${result.settings.firstHourMaxEntries}`);
   console.log('');
   console.log(`Trades    : ${result.summary.trades} (${result.summary.wins} wins / ${result.summary.losses} losses, ${result.summary.winRate}% win rate)`);
   console.log(`Gross P/L : ${money(result.summary.gross)}`);
@@ -1104,6 +1113,67 @@ function round3(n) {
   return Number.isFinite(Number(n)) ? Math.round(Number(n) * 1000) / 1000 : 0;
 }
 
+function replayAdjustedSignal(score) {
+  const numericScore = Number(score) || 0;
+  if (numericScore >= 35) return 'buy';
+  if (numericScore <= -35) return 'sell';
+  return Math.abs(numericScore) >= 18 ? 'watch' : 'hold';
+}
+
+function computeReplayGapExhaustionScoreAdjustment(candidate) {
+  const indicators = candidate?.indicators || {};
+  const baseScore = Number(candidate?.rawScore ?? candidate?.score);
+  const currentSide = String(candidate?.side || candidate?.signal || '').toLowerCase();
+  if (currentSide !== 'buy' && !(Number.isFinite(baseScore) && baseScore > 0)) {
+    return { penalty: 0, reason: '', baseScore: Number.isFinite(baseScore) ? baseScore : 0 };
+  }
+  const gap = Number(indicators.gapPct);
+  if (!Number.isFinite(gap) || gap <= 1) {
+    return { penalty: 0, reason: '', baseScore: Number.isFinite(baseScore) ? baseScore : 0 };
+  }
+  if (indicators.volumeShock?.isShock) {
+    return { penalty: 0, reason: '', baseScore: Number.isFinite(baseScore) ? baseScore : 0 };
+  }
+
+  let penalty = 12;
+  const dayGain = Number(indicators.dayChange ?? candidate?.quote?.change);
+  if (Number.isFinite(dayGain) && dayGain >= 2) penalty += 4;
+  if (Number.isFinite(dayGain) && dayGain >= 4) penalty += 4;
+  if (gap >= 1.5) penalty += 6;
+  if (gap >= 2.0) penalty += 6;
+  const relVol = Number(indicators.relVolumeTimeAdjusted ?? indicators.relVolume);
+  if (Number.isFinite(relVol) && relVol < 2) penalty += 4;
+
+  return {
+    penalty,
+    reason: 'Stretched gap-up exhaustion risk',
+    baseScore: Number.isFinite(baseScore) ? baseScore : 0,
+  };
+}
+
+function rescoreReplayCandidate(candidate) {
+  if (!candidate || typeof candidate !== 'object') return candidate;
+  const { penalty, reason, baseScore } = computeReplayGapExhaustionScoreAdjustment(candidate);
+  if (penalty <= 0) return candidate;
+
+  const nextScore = baseScore - penalty;
+  const nextSignal = replayAdjustedSignal(nextScore);
+  const previousSide = String(candidate.side || candidate.signal || '').toLowerCase();
+
+  candidate.rawScore = baseScore;
+  candidate.score = nextScore;
+  candidate.signal = nextSignal;
+  candidate.side = nextSignal === previousSide ? nextSignal : null;
+  if (candidate.indicators && typeof candidate.indicators === 'object') {
+    candidate.indicators.score = nextScore;
+    candidate.indicators.signal = nextSignal;
+    const reasons = Array.isArray(candidate.indicators.reasons) ? candidate.indicators.reasons.filter(Boolean) : [];
+    if (!reasons.includes(reason)) reasons.push(reason);
+    candidate.indicators.reasons = reasons;
+  }
+  return candidate;
+}
+
 function cloneSnapshots(snapshots) {
   return JSON.parse(JSON.stringify(snapshots || []));
 }
@@ -1206,6 +1276,7 @@ module.exports = {
   istDateKey,
   loadPortfolioAvailableCash,
   loadSettings,
+  parseArgs,
   readSnapshots,
   runBacktest,
   runSweep,

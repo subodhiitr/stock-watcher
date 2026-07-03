@@ -132,6 +132,8 @@ const SIMULATION_MARKET_CACHE_TTL_MS = 60 * 1000;
 const SIMULATION_SYMBOL_META_CACHE_TTL_MS = 5 * 60 * 1000;
 const STOCK_NEWS_TTL       = 30 * 60 * 1000;             // 30 minutes
 const INTRADAY_SIGNAL_TTL  = 2 * 60 * 1000;              // 2 minutes
+const LIVE_CACHE_STALE_AGE_MS = 5 * 60 * 1000;           // 5 min: beyond this age, live cache entry is stale
+const SHAREKHAN_DAILY_CONTEXT_TTL_MS = 10 * 60 * 1000;   // 10 minutes: avoid daily Yahoo refetch on every WS tick
 const REPLAY_CACHE_MAX     = 30;
 const FRESH_NEWS_CACHE_VERSION = 4;
 const FRESH_NEWS_CACHE_MAX_DAYS = 30;
@@ -164,6 +166,7 @@ let simulationSchedulerTestInputs = null;
 let simulationSnapshotsForTests = null;
 let simulationUniverseSymbols = null;
 const intradayLiveCache = new Map();
+const sharekhanDailyContextCache = new Map();
 let intradayLiveRefreshTimer = null;
 let intradayLiveRefreshInFlight = false;
 let intradayLiveRefreshActive = false;
@@ -1086,8 +1089,34 @@ function buildDefaultIntradaySignal(sym, reason = 'Signal unavailable') {
 }
 
 function normalizeIntradayLiveSignal(sym, payload) {
-  if (payload && typeof payload === 'object') return payload;
+  if (payload && typeof payload === 'object') {
+    if (!payload._updatedAt) payload._updatedAt = Date.now();
+    return payload;
+  }
   return buildDefaultIntradaySignal(sym);
+}
+
+function buildIntradaySignalMaterialSignature(signal) {
+  if (!signal || typeof signal !== 'object') return '';
+  return JSON.stringify({
+    signal: signal.signal || '',
+    score: Number(signal.score) || 0,
+    price: Number(signal.price) || 0,
+    entryStatus: signal.entryStatus || '',
+    entryPrice: Number(signal.entryPrice) || 0,
+    target: Number(signal.target) || 0,
+    stop: Number(signal.stop) || 0,
+    dayChange: Number(signal.dayChange) || 0,
+    stale: !!signal.stale || !!signal.fetchFailed || !!signal.freshness?.stale,
+    staleReason: signal.staleReason || signal.freshness?.reason || '',
+    priceTimeMs: Number(signal.priceTimeMs) || 0,
+    dataSource: signal.dataSource || signal.freshness?.dataSource || '',
+  });
+}
+
+function hasIntradaySignalMaterialChange(prev, next) {
+  if (!prev || !next) return true;
+  return buildIntradaySignalMaterialSignature(prev) !== buildIntradaySignalMaterialSignature(next);
 }
 
 function isIstWeekend(now = Date.now()) {
@@ -1258,7 +1287,7 @@ async function refreshIntradayLiveCache(reason = 'interval') {
           : buildDefaultIntradaySignal(sym, settled[idx].reason?.message || 'Intraday fetch failed');
         const prev = intradayLiveCache.get(sym);
         intradayLiveCache.set(sym, nextValue);
-        if (!prev || JSON.stringify(prev) !== JSON.stringify(nextValue)) {
+        if (hasIntradaySignalMaterialChange(prev, nextValue)) {
           chunkChanged.push(sym);
         }
       }
@@ -1513,6 +1542,15 @@ function buildServerCandidateFromIntraday(sym, setup, settings, meta = null, asO
   const score = highProfitShortTrigger && Math.abs(rawScore) < minShortScore
     ? -minShortScore
     : rawScore;
+
+  // Compute cache age and data source for freshness tracking
+  const asOfMs = asOf ? new Date(asOf).getTime() : Date.now();
+  const updatedAtMs = Number(setup._updatedAt) || 0;
+  const cacheAgeMs = updatedAtMs > 0 ? Math.max(0, asOfMs - updatedAtMs) : null;
+  const cacheAgeMin = cacheAgeMs != null ? +(cacheAgeMs / 60000).toFixed(1) : null;
+  const dataSource = String(setup.dataSource || 'unknown');
+  const ageStale = cacheAgeMin != null && cacheAgeMin > (LIVE_CACHE_STALE_AGE_MS / 60000);
+
   const candidate = {
     symbol: sym,
     __snapshotId: `live-cache:${asOf || new Date().toISOString()}`,
@@ -1522,6 +1560,7 @@ function buildServerCandidateFromIntraday(sym, setup, settings, meta = null, asO
     assetType: meta?.assetType === 'etf' || meta?.cap === 'etf' ? 'etf' : 'stock',
     sector: meta?.sector || '',
     cap: meta?.cap || '',
+    dataSource,
     price,
     priceAtSnapshot: price,
     score,
@@ -1529,9 +1568,12 @@ function buildServerCandidateFromIntraday(sym, setup, settings, meta = null, asO
     signal: side || signal,
     side,
     freshness: {
-      stale: !!setup.stale || !!setup.fetchFailed,
-      reason: setup.staleReason || '',
-      ageMin: null,
+      stale: !!setup.stale || !!setup.fetchFailed || ageStale,
+      reason: ageStale
+        ? `cache-age-${cacheAgeMin}min`
+        : (setup.staleReason || (setup.fetchFailed ? 'fetch-failed' : '')),
+      ageMin: cacheAgeMin,
+      dataSource,
     },
     indicators: {
       ...setup,
@@ -1615,6 +1657,19 @@ async function readSchedulerTickInputAsync(settings) {
   const asOf = new Date().toISOString();
   const serverCandidates = buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol, asOf);
   if (serverCandidates.length) {
+    // Log data source distribution so stale/fallback data is clearly visible
+    const bySource = serverCandidates.reduce((acc, c) => {
+      const src = c.dataSource || 'unknown';
+      acc[src] = (acc[src] || 0) + 1;
+      return acc;
+    }, {});
+    const staleCount = serverCandidates.filter(c => c.freshness?.stale).length;
+    const srcSummary = Object.entries(bySource).map(([k, v]) => `${k}:${v}`).join(', ');
+    if (staleCount > 0) {
+      console.warn(`[tick-input] ${serverCandidates.length} candidates (${srcSummary}) — STALE: ${staleCount}`);
+    } else {
+      console.log(`[tick-input] ${serverCandidates.length} candidates (${srcSummary})`);
+    }
     const market = await getSimulationMarketContext();
     return {
       at: asOf,
@@ -1628,6 +1683,13 @@ async function readSchedulerTickInputAsync(settings) {
   }
   const snapshots = loadAllSimulationSnapshots();
   const latest = snapshots.slice().sort((a, b) => new Date(b?.at || 0) - new Date(a?.at || 0))[0] || null;
+  const snapshotAgeMin = latest?.at
+    ? +((Date.now() - new Date(latest.at).getTime()) / 60000).toFixed(1)
+    : null;
+  console.warn(
+    `[tick-input] Live cache empty — falling back to snapshot ${latest?.id || '(none)'}` +
+    (snapshotAgeMin != null ? ` (${snapshotAgeMin}min old)` : '')
+  );
   const fallbackCandidates = Array.isArray(latest?.candidates)
     ? latest.candidates.map(candidate => ({
         ...candidate,
@@ -1649,6 +1711,40 @@ async function readSchedulerTickInputAsync(settings) {
     sectorTrend: latest?.sectorTrend && typeof latest.sectorTrend === 'object'
       ? latest.sectorTrend
       : buildSectorTrendFromCandidates(fallbackCandidates),
+  };
+}
+
+function buildSimulationDataQualitySummary(candidates = []) {
+  const source = Array.isArray(candidates) ? candidates : [];
+  const bySource = {};
+  const staleReasonCounts = {};
+  let staleCount = 0;
+  let freshCount = 0;
+
+  for (const candidate of source) {
+    const dataSource = String(candidate?.dataSource || candidate?.freshness?.dataSource || 'unknown');
+    if (!bySource[dataSource]) bySource[dataSource] = { total: 0, fresh: 0, stale: 0 };
+    bySource[dataSource].total += 1;
+
+    const stale = !!candidate?.freshness?.stale;
+    if (stale) {
+      staleCount += 1;
+      bySource[dataSource].stale += 1;
+      const reason = String(candidate?.freshness?.reason || 'stale signal');
+      staleReasonCounts[reason] = (staleReasonCounts[reason] || 0) + 1;
+    } else {
+      freshCount += 1;
+      bySource[dataSource].fresh += 1;
+    }
+  }
+
+  return {
+    total: source.length,
+    freshCount,
+    staleCount,
+    stalePct: source.length > 0 ? +((staleCount / source.length) * 100).toFixed(2) : 0,
+    bySource,
+    staleReasons: staleReasonCounts,
   };
 }
 
@@ -1712,6 +1808,7 @@ async function buildServerSimulationAnalysisPayload(source = 'server-analysis') 
       eligibilityReasons: Array.isArray(explanation?.reasons) ? explanation.reasons : [],
     };
   });
+  const dataQuality = buildSimulationDataQualitySummary(analyzedCandidates);
   return {
     ok: true,
     source,
@@ -1726,6 +1823,7 @@ async function buildServerSimulationAnalysisPayload(source = 'server-analysis') 
     eodSettlement: isSimulationEodSettlementTime(at),
     candidateCount: analyzedCandidates.length,
     selectedCount: analyzedCandidates.filter(candidate => candidate.selected).length,
+    dataQuality,
     candidates: analyzedCandidates,
   };
 }
@@ -2072,6 +2170,11 @@ function stopSimulationScheduler(reason = 'manual-stop') {
 
 function getSimulationRuntimeStatus() {
   const runtime = loadSimulationRuntime();
+  const settings = loadTradeSettingsFile().overrides || {};
+  const asOf = new Date().toISOString();
+  const symbolMetaBySymbol = getSimulationSymbolMetaIndex();
+  const candidates = buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol, asOf);
+  const dataQuality = buildSimulationDataQualitySummary(candidates);
   const tradeState = loadPaperStateFile();
   const counts = countOpenTradeOwnership(tradeState.trades);
   return {
@@ -2084,6 +2187,7 @@ function getSimulationRuntimeStatus() {
     lastError: runtime.lastError || '',
     lockActive: mutationLockActive || simulationTickInFlight,
     schedulerActive: !!simulationSchedulerTimer,
+    dataQuality,
     ...counts,
   };
 }
@@ -4181,10 +4285,12 @@ function freshNewsDateKey(now = new Date()) {
 
 function freshNewsRefreshDateKeys(now = new Date()) {
   const primary = freshNewsDateKey(now);
+  const prevBusiness = lastBusinessDateKey(now);
   const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
   const day = ist.getUTCDay();
-  if (day !== 0 && day !== 6) return [primary];
   const dates = [primary];
+  if (!dates.includes(prevBusiness)) dates.push(prevBusiness);
+  if (day !== 0 && day !== 6) return dates;
   const saturday = new Date(ist);
   saturday.setUTCHours(0, 0, 0, 0);
   saturday.setUTCDate(saturday.getUTCDate() - (day === 0 ? 1 : 0));
@@ -5307,6 +5413,31 @@ function buildDailyTradeContext(result) {
   };
 }
 
+function computeGapExhaustionScoreAdjustment({
+  gapPct = null,
+  dayChangePct = null,
+  relVolumeTimeAdjusted = null,
+  volumeShock = null,
+  signal = '',
+} = {}) {
+  const normalizedSignal = String(signal || '').toLowerCase();
+  if (normalizedSignal !== 'buy') return { penalty: 0, reason: '' };
+  const gap = Number(gapPct);
+  if (!Number.isFinite(gap) || gap <= 1) return { penalty: 0, reason: '' };
+  if (volumeShock?.isShock) return { penalty: 0, reason: '' };
+
+  let penalty = 12;
+  const dayGain = Number(dayChangePct);
+  if (Number.isFinite(dayGain) && dayGain >= 2) penalty += 4;
+  if (Number.isFinite(dayGain) && dayGain >= 4) penalty += 4;
+  if (gap >= 1.5) penalty += 6;
+  if (gap >= 2.0) penalty += 6;
+  const relVol = Number(relVolumeTimeAdjusted);
+  if (Number.isFinite(relVol) && relVol < 2) penalty += 4;
+
+  return { penalty, reason: 'Stretched gap-up exhaustion risk' };
+}
+
 const MIN_INTRADAY_REWARD_PCT = 1.2; // Allows room for 1% net target after brokerage/slippage.
 const MAX_INTRADAY_REWARD_PCT = 1.8;
 const MIN_INTRADAY_STOP_PCT = 0.4;
@@ -5613,6 +5744,17 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     score += score >= 0 ? -10 : 10;
     reasons.push('Extended from VWAP');
   }
+  const gapExhaustion = computeGapExhaustionScoreAdjustment({
+    gapPct,
+    dayChangePct: prevClose ? ((price - prevClose) / prevClose) * 100 : null,
+    relVolumeTimeAdjusted,
+    volumeShock,
+    signal: score >= 0 ? 'buy' : 'sell',
+  });
+  if (gapExhaustion.penalty > 0) {
+    score -= gapExhaustion.penalty;
+    reasons.push(gapExhaustion.reason);
+  }
 
   const signal = score >= 35 ? 'buy' : score <= -35 ? 'sell' : Math.abs(score) >= 18 ? 'watch' : 'hold';
   const rawTradeRisk = Math.max(atr14 * 1.25, price * (MIN_INTRADAY_REWARD_PCT / 100));
@@ -5759,28 +5901,54 @@ async function pushSharekhanTickerCandles(sym, candles) {
   try {
     const skResult = buildYahooShapeFromCandles(sym, candles);
     if (!skResult) return; // no candles yet
-    const yahooSym = resolveNseSymbol(sym);
-    const dailyPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=1d&range=1mo&includePrePost=false`;
-    let daily = await httpsGet({ hostname: 'query1.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
-    if (daily.status !== 200) {
-      daily = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+    const now = Date.now();
+    const dayKey = getIstDateKey(now);
+    const cacheKey = String(sym || '').toUpperCase();
+    let dailyContext = {};
+    let previousClose = null;
+    const cachedDaily = sharekhanDailyContextCache.get(cacheKey);
+    const cacheFresh = cachedDaily
+      && cachedDaily.dayKey === dayKey
+      && (now - Number(cachedDaily.fetchedAt || 0)) < SHAREKHAN_DAILY_CONTEXT_TTL_MS;
+
+    if (cacheFresh) {
+      dailyContext = cachedDaily.dailyContext || {};
+      previousClose = Number(cachedDaily.previousClose);
+    } else {
+      const yahooSym = resolveNseSymbol(sym);
+      const dailyPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=1d&range=1mo&includePrePost=false`;
+      let daily = await httpsGet({ hostname: 'query1.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+      if (daily.status !== 200) {
+        daily = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+      }
+      const dailyResult = daily?.status === 200
+        ? (() => { try { return JSON.parse(daily.body)?.chart?.result?.[0] ?? null; } catch (_) { return null; } })()
+        : null;
+      dailyContext = buildDailyTradeContext(dailyResult);
+      previousClose = Number(dailyResult?.meta?.previousClose);
+      sharekhanDailyContextCache.set(cacheKey, {
+        dayKey,
+        fetchedAt: now,
+        dailyContext,
+        previousClose: Number.isFinite(previousClose) ? previousClose : null,
+      });
     }
-    const dailyResult = daily?.status === 200
-      ? (() => { try { return JSON.parse(daily.body)?.chart?.result?.[0] ?? null; } catch (_) { return null; } })()
-      : null;
     const closes = skResult.indicators?.quote?.[0]?.close || [];
-    skResult.meta.previousClose = dailyResult?.meta?.previousClose ?? (closes.length > 1 ? closes[closes.length - 2] : null) ?? undefined;
-    const signal = buildIntradaySignal(sym, skResult, buildDailyTradeContext(dailyResult));
+    skResult.meta.previousClose = (Number.isFinite(previousClose) ? previousClose : null)
+      ?? (closes.length > 1 ? closes[closes.length - 2] : null)
+      ?? undefined;
+    const signal = buildIntradaySignal(sym, skResult, dailyContext);
     if (!signal) return;
     signal.dataSource = 'sharekhan-ws';
-    intradaySignalCache[sym] = { v: signal, t: Date.now() };
+    signal._updatedAt = now;
+    intradaySignalCache[sym] = { v: signal, t: now };
     const nextValue = normalizeIntradayLiveSignal(sym, signal);
     const prev = intradayLiveCache.get(sym);
     intradayLiveCache.set(sym, nextValue);
     // Broadcast if data changed OR if >30s since last broadcast (keeps fetchedAt fresh in browser)
     const lastBroadcastAt = nextValue._lastBroadcastAt || 0;
-    if (!prev || JSON.stringify(prev) !== JSON.stringify(nextValue) || Date.now() - lastBroadcastAt > 30000) {
-      nextValue._lastBroadcastAt = Date.now();
+    if (hasIntradaySignalMaterialChange(prev, nextValue) || now - lastBroadcastAt > 30000) {
+      nextValue._lastBroadcastAt = now;
       broadcastIntradayLive('sharekhan-ws-tick', [sym]);
       triggerSimulationTickAfterScoreUpdate('sharekhan-ws-tick', [sym]);
     }
@@ -5850,7 +6018,11 @@ async function fetchIntradaySignal(sym) {
     }
 
     const signal = buildIntradaySignal(sym, result, buildDailyTradeContext(dailyResult));
-    if (signal) intradaySignalCache[sym] = { v: signal, t: now };
+    if (signal) {
+      if (!signal.dataSource) signal.dataSource = 'yahoo';
+      if (!signal._updatedAt) signal._updatedAt = now;
+      intradaySignalCache[sym] = { v: signal, t: now };
+    }
     return signal;
   } catch (err) {
     console.warn(`[intraday] ${sym}: error - ${err.message}`);

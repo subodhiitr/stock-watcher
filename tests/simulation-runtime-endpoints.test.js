@@ -103,6 +103,9 @@ test('POST /simulation/start and GET /simulation/status expose runtime defaults'
   assert.equal(status.json.state, 'running');
   assert.equal(status.json.tickIntervalSec, 15);
   assert.equal(status.json.lockActive, false);
+  assert.equal(typeof status.json.dataQuality, 'object');
+  assert.equal(typeof status.json.dataQuality.total, 'number');
+  assert.equal(typeof status.json.dataQuality.bySource, 'object');
 });
 
 test('GET /simulation/analysis returns server-side analyzed candidates payload', async () => {
@@ -113,6 +116,11 @@ test('GET /simulation/analysis returns server-side analyzed candidates payload',
   assert.ok(Array.isArray(response.json.candidates), 'candidates should be an array');
   assert.equal(typeof response.json.entryWindowOpen, 'boolean');
   assert.equal(typeof response.json.eodSettlement, 'boolean');
+  assert.equal(typeof response.json.dataQuality, 'object');
+  assert.equal(typeof response.json.dataQuality.total, 'number');
+  assert.equal(typeof response.json.dataQuality.freshCount, 'number');
+  assert.equal(typeof response.json.dataQuality.staleCount, 'number');
+  assert.equal(typeof response.json.dataQuality.bySource, 'object');
 });
 
 test('POST /simulation/start returns 409 on invalid transition', async () => {

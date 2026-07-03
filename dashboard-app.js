@@ -2703,6 +2703,77 @@ function closeOpenTradesModal(e) {
   if (modal) modal.style.display = 'none';
 }
 
+function renderSimulationDataQualityModal() {
+  const body = document.getElementById('simulation-data-quality-modal-body');
+  if (!body) return;
+  const quality = simulationRuntimeStatus?.dataQuality;
+  if (!quality || typeof quality !== 'object') {
+    body.innerHTML = `<div style="color:var(--muted);padding:12px 4px">No simulation data-quality snapshot available yet. Start simulation and wait for a status refresh.</div>`;
+    return;
+  }
+
+  const total = Number(quality.total) || 0;
+  const fresh = Number(quality.freshCount) || 0;
+  const stale = Number(quality.staleCount) || 0;
+  const stalePct = Number(quality.stalePct) || 0;
+  const bySource = quality.bySource && typeof quality.bySource === 'object' ? quality.bySource : {};
+  const staleReasons = quality.staleReasons && typeof quality.staleReasons === 'object' ? quality.staleReasons : {};
+
+  const sourceRows = Object.entries(bySource)
+    .sort((a, b) => (Number(b[1]?.total) || 0) - (Number(a[1]?.total) || 0))
+    .map(([sourceName, counts]) => {
+      const sourceTotal = Number(counts?.total) || 0;
+      const sourceFresh = Number(counts?.fresh) || 0;
+      const sourceStale = Number(counts?.stale) || 0;
+      return `<tr><td>${escapeHTML(sourceName)}</td><td>${sourceFresh}</td><td>${sourceStale}</td><td>${sourceTotal}</td></tr>`;
+    })
+    .join('');
+
+  const reasonRows = Object.entries(staleReasons)
+    .sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0))
+    .map(([reason, count]) => `<tr><td>${escapeHTML(reason)}</td><td>${Number(count) || 0}</td></tr>`)
+    .join('');
+
+  body.innerHTML = `
+    <div class="portfolio-grid">
+      <div class="portfolio-card"><div class="label">Total candidates</div><div class="value">${total}</div></div>
+      <div class="portfolio-card"><div class="label">Fresh</div><div class="value up">${fresh}</div></div>
+      <div class="portfolio-card"><div class="label">Stale</div><div class="value ${stale > 0 ? 'down' : ''}">${stale}</div></div>
+      <div class="portfolio-card"><div class="label">Stale %</div><div class="value ${stale > 0 ? 'down' : ''}">${stalePct.toFixed(2)}%</div></div>
+    </div>
+    <div class="portfolio-section-title">By source</div>
+    <div class="portfolio-table-wrap">
+      <table class="portfolio-table">
+        <thead><tr><th>Source</th><th>Fresh</th><th>Stale</th><th>Total</th></tr></thead>
+        <tbody>${sourceRows || '<tr><td colspan="4" style="color:var(--muted)">No source breakdown available</td></tr>'}</tbody>
+      </table>
+    </div>
+    <div class="portfolio-section-title" style="margin-top:12px">Stale reasons</div>
+    <div class="portfolio-table-wrap">
+      <table class="portfolio-table">
+        <thead><tr><th>Reason</th><th>Count</th></tr></thead>
+        <tbody>${reasonRows || '<tr><td colspan="2" style="color:var(--muted)">No stale reasons recorded</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function openSimulationDataQualityModal(forceRefresh = false) {
+  const modal = document.getElementById('simulation-data-quality-modal');
+  if (modal) modal.style.display = 'flex';
+  renderSimulationDataQualityModal();
+  if (forceRefresh || !simulationRuntimeStatus?.dataQuality) {
+    await refreshSimulationStatusFromServer({ silent: true });
+  }
+  renderSimulationDataQualityModal();
+}
+
+function closeSimulationDataQualityModal(e) {
+  if (e) e.stopPropagation();
+  const modal = document.getElementById('simulation-data-quality-modal');
+  if (modal) modal.style.display = 'none';
+}
+
 function markNewSimulationTradesSeen() {
   newSimulationTradeKeys.clear();
   saveNewSimulationTradeKeys();
@@ -2866,6 +2937,10 @@ function renderTopActionBar() {
     activeBroker.pnl === null ? '' : portfolioValueClass(activeBroker.pnl)
   );
   set('action-last-refresh', bgRefreshActive ? 'Refreshing...' : lastDashboardRefreshAt ? new Date(lastDashboardRefreshAt).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }) : '--');
+  const simQuality = simulationRuntimeStatus?.dataQuality;
+  const simQualityStale = Number(simQuality?.staleCount) || 0;
+  const simQualityTotal = Number(simQuality?.total) || 0;
+  set('action-sim-data-quality', simQualityTotal > 0 ? `${Math.max(0, simQualityTotal - simQualityStale)}/${simQualityTotal}` : '--', simQualityStale > 0 ? 'down' : '');
   const stockSearch = document.getElementById('search-box');
   if (stockSearch) stockSearch.style.display = currentView === 'stocks' ? '' : 'none';
   const newCard = document.getElementById('new-trades-card');
@@ -2894,6 +2969,13 @@ function renderTopActionBar() {
   if (refreshCard) {
     refreshCard.classList.toggle('has-new', !!bgRefreshActive);
     refreshCard.title = bgRefreshActive ? 'Refresh is running' : 'Refresh dashboard data now';
+  }
+  const simQualityBtn = document.getElementById('simulation-data-quality-btn');
+  if (simQualityBtn) {
+    simQualityBtn.classList.toggle('has-new', simQualityStale > 0);
+    simQualityBtn.title = simQualityTotal > 0
+      ? `Simulation Data Quality: ${Math.max(0, simQualityTotal - simQualityStale)}/${simQualityTotal} fresh (${simQualityStale} stale)`
+      : 'Simulation Data Quality';
   }
   renderDashboardHealthBanner();
   // Update notification badge count inline; full panel rebuild is debounced (expensive)

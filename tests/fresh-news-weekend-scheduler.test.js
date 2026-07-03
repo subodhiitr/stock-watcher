@@ -60,6 +60,11 @@ test('fresh-news refresh on Sunday includes Saturday and Sunday plus previous bu
   assert.deepEqual(Array.from(freshNewsRefreshDateKeys()), ['2026-06-26', '2026-06-27', '2026-06-28']);
 });
 
+test('fresh-news refresh on weekday includes today plus previous business day', () => {
+  const { freshNewsRefreshDateKeys } = loadFreshNewsHelpers('2026-06-24T05:00:00.000Z'); // Wed 10:30 IST
+  assert.deepEqual(Array.from(freshNewsRefreshDateKeys()), ['2026-06-24', '2026-06-23']);
+});
+
 test('fresh-news scheduler includes weekend refresh slots', () => {
   const { freshNewsCronDelayMs } = loadFreshNewsHelpers('2026-06-26T11:00:00.000Z'); // Fri 16:30 IST
   const delayMs = freshNewsCronDelayMs();

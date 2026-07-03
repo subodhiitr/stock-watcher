@@ -34,7 +34,7 @@ test('score refresh triggers simulation rules immediately after cache update', (
   assert.match(refreshBody, /triggerSimulationTickAfterScoreUpdate\(reason, chunkChanged\)/);
   const sharekhanStart = source.indexOf('async function pushSharekhanTickerCandles(sym, candles)');
   assert.ok(sharekhanStart > -1);
-  const sharekhanBody = source.slice(sharekhanStart, sharekhanStart + 2400);
+  const sharekhanBody = source.slice(sharekhanStart, sharekhanStart + 5200);
   assert.match(sharekhanBody, /intradayLiveCache\.set\(sym, nextValue\)/);
   assert.match(sharekhanBody, /triggerSimulationTickAfterScoreUpdate\('sharekhan-ws-tick', \[sym\]\)/);
 });
