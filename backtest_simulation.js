@@ -503,6 +503,18 @@ function runBacktest(snapshots, settings) {
     for (const candidate of snapshot.candidates || []) {
       candidate.previousCandidate = previousCandidateBySymbol.get(candidate.symbol) || null;
       candidate.derivedSetupType = candidate.derivedSetupType || SimulationEngine.deriveSetupType(candidate, settings);
+      
+      // Pre-calculate risk metrics on each candidate
+      const stop = candidate.indicators?.stop;
+      const price = candidate.price ?? candidate.priceAtSnapshot ?? candidate.quote?.price;
+      if (Number.isFinite(stop) && Number.isFinite(price) && price > 0) {
+        candidate.preCalcStopPct = Math.abs(100 * (price - stop) / price);
+        candidate.preCalcIsValidStop = candidate.preCalcStopPct <= 0.75; // MAX_STOP_PCT
+      } else {
+        candidate.preCalcStopPct = null;
+        candidate.preCalcIsValidStop = false;
+      }
+      
       currentBySymbol.set(candidate.symbol, candidate);
       lastKnownBySymbol.set(candidate.symbol, candidate);
       previousCandidateBySymbol.set(candidate.symbol, SimulationEngine.toConfirmationCandidate(candidate));
@@ -801,6 +813,17 @@ function buildOpportunityReport(snapshots, closedTrades, settings) {
       if (!candidate || candidate.assetType === 'etf') continue;
       candidate.previousCandidate = previousCandidateBySymbol.get(candidate.symbol) || candidate.previousCandidate || null;
       candidate.derivedSetupType = candidate.derivedSetupType || SimulationEngine.deriveSetupType(candidate, settings);
+       
+      // Pre-calculate risk metrics on each candidate
+      const stop = candidate.indicators?.stop;
+      if (Number.isFinite(stop) && Number.isFinite(price) && price > 0) {
+        candidate.preCalcStopPct = Math.abs(100 * (price - stop) / price);
+        candidate.preCalcIsValidStop = candidate.preCalcStopPct <= 0.75; // MAX_STOP_PCT
+      } else {
+        candidate.preCalcStopPct = null;
+        candidate.preCalcIsValidStop = false;
+      }
+       
       previousCandidateBySymbol.set(candidate.symbol, SimulationEngine.toConfirmationCandidate(candidate));
       const side = candidate.side || candidate.signal;
       if (!['buy', 'sell'].includes(side)) continue;
