@@ -1218,6 +1218,9 @@
     const effectiveSettings = withDefaults(settings);
     const availableCash = Number(context?.cashAvailable);
     const maxExposure = Number(effectiveSettings.MAX_POSITION_EXPOSURE);
+    const positionMultiplier = Number.isFinite(Number(context?.positionMultiplier))
+      ? Math.max(0.1, Math.min(1.0, Number(context.positionMultiplier)))
+      : 1.0;
     return selectSimulationEntryCandidates(candidates, at, effectiveSettings, context)
       .map(candidate => {
         const side = candidate.side || candidate.signal || 'buy';
@@ -1230,7 +1233,8 @@
           price,
           Number.isFinite(availableCash) ? availableCash : null,
           Number.isFinite(maxExposure) ? maxExposure : null,
-          effectiveSettings
+          effectiveSettings,
+          positionMultiplier
         );
         const computedQty = Math.floor(Number(sizing?.qty));
         const qty = Number.isFinite(explicitQtyRaw) && explicitQtyRaw > 0

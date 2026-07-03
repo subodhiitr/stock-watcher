@@ -1909,6 +1909,13 @@ async function runSimulationSchedulerTick() {
           settings
         );
       };
+      const portfolioInitialCapital = Number(state.portfolio?.initialCapital) || 500000;
+      const openExposure = trades
+        .filter(t => t.status === 'open')
+        .reduce((sum, t) => sum + (Number(t.reservedCapital) || Number(t.entryPrice) * Number(t.qty) || 0), 0);
+      const serverCashAvailable = Math.max(0, portfolioInitialCapital - openExposure);
+      const closedTrades = trades.filter(t => t.status === 'closed');
+      const serverPositionMultiplier = TradeRules.computePositionSizeMultiplier(closedTrades);
 
       const { exitIntents, entryIntents } = runSimulationDomainCycle(
         {
@@ -1925,6 +1932,8 @@ async function runSimulationSchedulerTick() {
             dayStats,
             entryBlockReason,
             lastKnownBySymbol: new Map(),
+            cashAvailable: serverCashAvailable,
+            positionMultiplier: serverPositionMultiplier,
           },
         },
         { engine: runtimeEngine }

@@ -96,6 +96,20 @@ test('scheduler passes sector trend context into simulation domain cycle', () =>
   assert.match(body, /indices:\s*tickInput\?\.market\?\.indices \|\| \{\}/);
 });
 
+test('scheduler computes cashAvailable and positionMultiplier for simulation domain context', () => {
+  const source = fs.readFileSync(PROXY_PATH, 'utf8');
+  assert.match(source, /const portfolioInitialCapital = Number\(state\.portfolio\?\.initialCapital\) \|\| 500000;/);
+  assert.match(source, /const openExposure = trades\s*\.filter\(t => t\.status === 'open'\)\s*\.reduce\(\(sum, t\) => sum \+ \(Number\(t\.reservedCapital\) \|\| Number\(t\.entryPrice\) \* Number\(t\.qty\) \|\| 0\), 0\);/);
+  assert.match(source, /const serverCashAvailable = Math\.max\(0, portfolioInitialCapital - openExposure\);/);
+  assert.match(source, /const closedTrades = trades\.filter\(t => t\.status === 'closed'\);/);
+  assert.match(source, /const serverPositionMultiplier = TradeRules\.computePositionSizeMultiplier\(closedTrades\);/);
+  const start = source.indexOf('const { exitIntents, entryIntents } = runSimulationDomainCycle(');
+  assert.ok(start > -1);
+  const body = source.slice(start, start + 900);
+  assert.match(body, /cashAvailable:\s*serverCashAvailable/);
+  assert.match(body, /positionMultiplier:\s*serverPositionMultiplier/);
+});
+
 test('ETF tab uses server-owned intraday stream instead of direct intraday batch fetch', () => {
   const source = fs.readFileSync(path.join(__dirname, '..', 'dashboard-app.js'), 'utf8');
   const start = source.indexOf("async function setView(view, el)");
