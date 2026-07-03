@@ -342,6 +342,7 @@ function isEodSettlement(value) {
 }
 
 function runBacktest(snapshots, settings) {
+  settings = TradeRules.withDefaults(settings);
   const trades = [];
   let nextId = 1;
   let currentBySymbol = new Map();
@@ -350,12 +351,28 @@ function runBacktest(snapshots, settings) {
 
   const openTrades = () => trades.filter(t => t.status === 'open');
   const simOpenTrades = () => openTrades().filter(t => t.source === 'simulation');
-  const realizedPnl = () => trades.filter(t => t.status === 'closed').reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
-  const openExposure = () => openTrades().reduce((sum, t) => sum + (Number(t.entryPrice) * Number(t.qty) || 0), 0);
+  const realizedPnl = () => {
+    const result = trades.filter(t => t.status === 'closed').reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
+    if (process.env.DEBUG_CASH && !Number.isFinite(result)) console.error(`DEBUG_CASH: realizedPnl=${result}`);
+    return result;
+  };
+  const openExposure = () => {
+    const result = openTrades().reduce((sum, t) => sum + (Number(t.entryPrice) * Number(t.qty) || 0), 0);
+    if (process.env.DEBUG_CASH && !Number.isFinite(result)) console.error(`DEBUG_CASH: openExposure=${result}`);
+    return result;
+  };
   const startingCash = Number.isFinite(Number(settings.PORTFOLIO_AVAILABLE_CASH))
     ? Math.max(0, Number(settings.PORTFOLIO_AVAILABLE_CASH))
     : settings.PORTFOLIO_INITIAL_CAPITAL;
-  const cashAvailable = () => startingCash + realizedPnl() - openExposure();
+  const cashAvailable = () => {
+    const rp = realizedPnl();
+    const oe = openExposure();
+    const result = startingCash + rp - oe;
+    if (process.env.DEBUG_CASH && !Number.isFinite(result)) {
+      console.error(`DEBUG_CASH: startingCash=${startingCash}, realizedPnl=${rp}, openExposure=${oe}, result=${result}`);
+    }
+    return result;
+  };
 
   function dayStats(at) {
     return TradeRules.buildDayStats(trades, at, settings, {
@@ -370,17 +387,32 @@ function runBacktest(snapshots, settings) {
 
   function closeTrade(trade, exitPrice, reason, at, mark = false) {
     const pnl = SimulationEngine.getPaperTradePnl(trade, exitPrice);
-    Object.assign(trade, {
-      status: 'closed',
-      exitPrice: round2(exitPrice),
-      closedAt: at,
-      closeReason: reason,
-      pnl: pnl.pnl,
-      grossPnl: pnl.grossPnl,
-      charges: pnl.charges,
-      pnlPct: pnl.pnlPct,
-      mark,
-    });
+    if (!pnl) {
+      console.warn(`Warning: Could not calculate PnL for trade ${trade.id} at exit price ${exitPrice}`);
+      Object.assign(trade, {
+        status: 'closed',
+        exitPrice: round2(exitPrice),
+        closedAt: at,
+        closeReason: reason,
+        pnl: 0,
+        grossPnl: 0,
+        charges: 0,
+        pnlPct: 0,
+        mark,
+      });
+    } else {
+      Object.assign(trade, {
+        status: 'closed',
+        exitPrice: round2(exitPrice),
+        closedAt: at,
+        closeReason: reason,
+        pnl: pnl.pnl,
+        grossPnl: pnl.grossPnl,
+        charges: pnl.charges,
+        pnlPct: pnl.pnlPct,
+        mark,
+      });
+    }
   }
 
   function partialCloseTrade(trade, exitPrice, reason, at, qty, runner = false, newTarget = null) {
@@ -399,12 +431,21 @@ function runBacktest(snapshots, settings) {
       closeReason: reason,
     };
     const pnl = SimulationEngine.getPaperTradePnl(partial, exitPrice);
-    Object.assign(partial, {
-      pnl: pnl.pnl,
-      grossPnl: pnl.grossPnl,
-      charges: pnl.charges,
-      pnlPct: pnl.pnlPct,
-    });
+    if (pnl) {
+      Object.assign(partial, {
+        pnl: pnl.pnl,
+        grossPnl: pnl.grossPnl,
+        charges: pnl.charges,
+        pnlPct: pnl.pnlPct,
+      });
+    } else {
+      Object.assign(partial, {
+        pnl: 0,
+        grossPnl: 0,
+        charges: 0,
+        pnlPct: 0,
+      });
+    }
     trade.qty = openQty - closeQty;
     trade.reservedCapital = round2(Number(trade.entryPrice) * Number(trade.qty));
     trade.partialExits = Array.isArray(trade.partialExits) ? trade.partialExits : [];
@@ -490,6 +531,9 @@ function runBacktest(snapshots, settings) {
       const side = candidate.side || candidate.signal || 'buy';
       const suggestion = SimulationEngine.getSuggestedQty(candidate, side, price, cashAvailable(), allocation, settings);
       if (suggestion.qty <= 0) continue;
+      if (process.env.DEBUG_QTY && (trades.length < 2 || !Number.isFinite(suggestion.qty))) {
+        console.error(`DEBUG: suggestion.qty=${suggestion.qty}, cashAvail=${cashAvailable()}, allocation=${allocation}, byCash=${suggestion.cashLimit}`);
+      }
       trades.push({
         id: nextId++,
         symbol: candidate.symbol,
@@ -577,6 +621,9 @@ function summarize(trades, snapshots, settings, startingCash = settings.PORTFOLI
   const opportunityReport = buildOpportunityReport(snapshots, closed, settings);
   const risk = computeRiskStats(closed, settings.PORTFOLIO_INITIAL_CAPITAL);
   const quality = SimulationEngine.summarizeTradeQuality(closed, settings);
+  if (process.env.DEBUG_QTY && closed.length > 0) {
+    console.error(`DEBUG: First closed trade qty=${closed[0].qty}, keys=${Object.keys(closed[0]).slice(0,10).join(',')}`);
+  }
   const all = closed.map(formatTrade);
   return {
     snapshots: snapshots.length,
