@@ -1859,38 +1859,6 @@ async function runSimulationSchedulerTick() {
           }
         }
       }
-      const runtimeEngine = tickInput?.exitBySymbol
-        ? {
-            getSimulationExitIntent(trade) {
-              return tickInput?.exitBySymbol?.[String(trade?.symbol || '').toUpperCase()] || null;
-            },
-            getSimulationEntryIntents(candidates) {
-              return candidates.map(candidate => ({
-                symbol: candidate.symbol,
-                side: candidate.side || 'buy',
-                price: candidate.price,
-                entryPrice: candidate.price,
-                target: candidate.target,
-                stop: candidate.stop,
-                signal: candidate.signal,
-                score: candidate.score,
-                rr: candidate.rr,
-                setupType: candidate.setupType,
-                setup: candidate.setup,
-                entryContext: {
-                  ...(candidate.entryContext && typeof candidate.entryContext === 'object' ? candidate.entryContext : {}),
-                  snapshotId: candidate.__snapshotId || tickInput?.snapshotId || '',
-                  snapshotAt: candidate.__snapshotAt || tickInput?.snapshotAt || tickInput?.at || schedulerAtIso,
-                  snapshotSource: candidate.__snapshotSource || tickInput?.snapshotSource || '',
-                  snapshotAgeMin: candidate.__snapshotAgeMin ?? null,
-                },
-                notes: candidate.notes,
-                assetType: candidate.assetType,
-              }));
-            },
-          }
-        : SimulationEngine;
-
       const dayStats = TradeRules.buildDayStats(trades, schedulerAtIso, settings, {
         sameDay: sameIstDay,
       });
@@ -1909,6 +1877,8 @@ async function runSimulationSchedulerTick() {
           settings
         );
       };
+
+      // Compute cash and position sizing BEFORE runtimeEngine so both paths can use them
       const portfolioInitialCapital = Number(state.portfolio?.initialCapital) || 500000;
       const openExposure = trades
         .filter(t => t.status === 'open')
@@ -1916,6 +1886,55 @@ async function runSimulationSchedulerTick() {
       const serverCashAvailable = Math.max(0, portfolioInitialCapital - openExposure);
       const closedTrades = trades.filter(t => t.status === 'closed');
       const serverPositionMultiplier = TradeRules.computePositionSizeMultiplier(closedTrades);
+
+      const runtimeEngine = tickInput?.exitBySymbol
+        ? {
+            getSimulationExitIntent(trade) {
+              return tickInput?.exitBySymbol?.[String(trade?.symbol || '').toUpperCase()] || null;
+            },
+            getSimulationEntryIntents(candidates) {
+              return candidates.map(candidate => {
+                const side = candidate.side || 'buy';
+                const price = Number(candidate.price);
+                const sizing = Number.isFinite(price) && price > 0
+                  ? SimulationEngine.getSuggestedQty(
+                      candidate,
+                      side,
+                      price,
+                      serverCashAvailable,
+                      Number(settingsRaw.MAX_POSITION_EXPOSURE) || null,
+                      settingsRaw,
+                      serverPositionMultiplier
+                    )
+                  : null;
+                const qty = Math.max(1, Math.floor(Number(sizing?.qty) || 1));
+                return {
+                  symbol: candidate.symbol,
+                  side,
+                  qty,
+                  price,
+                  entryPrice: price,
+                  target: candidate.target,
+                  stop: candidate.stop,
+                  signal: candidate.signal,
+                  score: candidate.score,
+                  rr: candidate.rr,
+                  setupType: candidate.setupType,
+                  setup: candidate.setup,
+                  entryContext: {
+                    ...(candidate.entryContext && typeof candidate.entryContext === 'object' ? candidate.entryContext : {}),
+                    snapshotId: candidate.__snapshotId || tickInput?.snapshotId || '',
+                    snapshotAt: candidate.__snapshotAt || tickInput?.snapshotAt || tickInput?.at || schedulerAtIso,
+                    snapshotSource: candidate.__snapshotSource || tickInput?.snapshotSource || '',
+                    snapshotAgeMin: candidate.__snapshotAgeMin ?? null,
+                  },
+                  notes: candidate.notes,
+                  assetType: candidate.assetType,
+                };
+              });
+            },
+          }
+        : SimulationEngine;
 
       const { exitIntents, entryIntents } = runSimulationDomainCycle(
         {
