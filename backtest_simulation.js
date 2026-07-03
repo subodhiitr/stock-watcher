@@ -383,7 +383,7 @@ function runBacktest(snapshots, settings) {
     });
   }
 
-  function partialCloseTrade(trade, exitPrice, reason, at, qty, runner = false) {
+  function partialCloseTrade(trade, exitPrice, reason, at, qty, runner = false, newTarget = null) {
     const closeQty = Math.floor(Number(qty));
     const openQty = Math.floor(Number(trade.qty));
     if (!Number.isFinite(closeQty) || closeQty <= 0 || closeQty >= openQty) return false;
@@ -412,7 +412,7 @@ function runBacktest(snapshots, settings) {
     trade._partialTargetBooked = true;
     trade._runnerArmed = true;
     trade._runnerWideTrail = !!runner;
-    trade.target = null;
+    trade.target = runner && Number.isFinite(Number(newTarget)) ? round2(newTarget) : null;
     trades.push(partial);
     return true;
   }
@@ -447,7 +447,7 @@ function runBacktest(snapshots, settings) {
       const exit = SimulationEngine.getSimulationExit(trade, price, candidate, snapshot.at, settings, { isEodSettlement: isEodSettlement(snapshot.at) });
       if (exit?.action === 'partial') {
         const qty = Math.max(1, Math.floor(Number(trade.qty || 0) * Number(exit.qtyPct || 50) / 100));
-        partialCloseTrade(trade, exit.exitPrice, exit.reason, snapshot.at, qty, exit.runner);
+        partialCloseTrade(trade, exit.exitPrice, exit.reason, snapshot.at, qty, exit.runner, exit.newTarget);
       } else if (exit) {
         closeTrade(trade, exit.exitPrice, exit.reason, snapshot.at);
       }

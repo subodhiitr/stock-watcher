@@ -104,6 +104,17 @@ test('onCandleUpdate callback is called on tick', () => {
   assert.ok(Array.isArray(cbCandles) && cbCandles.length === 1);
 });
 
+test('onTick callback receives raw tick for index/cache consumers', () => {
+  let rawTick = null;
+  const ticker = new SharekhanTicker({
+    accessToken: 'fake',
+    onTick: tick => { rawTick = tick; },
+  });
+  ticker._processTick({ exchangeCode: 'NC', scripCode: 26000, ltp: 25000, qty: 0, lastUpdatedTime: '06/30/2026 09:30:10' });
+  assert.equal(rawTick?.scripCode, 26000);
+  assert.equal(rawTick?.ltp, 25000);
+});
+
 test('start opens direct Sharekhan websocket and sends subscription/feed on open', () => {
   const sent = [];
   let openedUrl = '';
@@ -176,5 +187,30 @@ test('missing access token does not create reconnect loop', () => {
   assert.equal(created, false);
   assert.equal(ticker._reconnectTimer, null);
   assert.equal(ticker._connected, false);
+});
+
+test('invalid api key close stops reconnect loop', () => {
+  class FakeSocket extends EventEmitter {
+    constructor() {
+      super();
+      this.readyState = 0;
+    }
+    send() {}
+    close() {}
+  }
+
+  const ticker = new SharekhanTicker({
+    accessToken: 'fake',
+    reconnectDelayMs: 1,
+    webSocketFactory: () => new FakeSocket(),
+  });
+
+  ticker.start();
+  ticker._ws.emit('open');
+  ticker._ws.emit('close', 1000, Buffer.from('103: Invalid Api Key'));
+
+  assert.equal(ticker._connected, false);
+  assert.equal(ticker._reconnectTimer, null);
+  assert.equal(ticker._stopped, true);
 });
 

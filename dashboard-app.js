@@ -1773,6 +1773,14 @@ function updateSparklineCells(syms) {
   }
 }
 
+function applyIntradayVolumeToStockData(sym, setup) {
+  const volume = Number(setup?.dayVolume ?? setup?.ohlc?.session?.volume);
+  if (!sym || !Number.isFinite(volume) || volume <= 0) return false;
+  const prev = stockData[sym] || {};
+  stockData[sym] = { ...prev, volume };
+  return true;
+}
+
 async function fetchSparklines(symbols) {
   if (!symbols || !symbols.length) return;
   const BATCH = 20;
@@ -1817,6 +1825,7 @@ async function fetchIntradaySignalBatch(batch, attempt = 1) {
           fetchFailed: !!setup.fetchFailed,
           retryAttempt: attempt,
         };
+        applyIntradayVolumeToStockData(sym, setup);
         intradayDataUpdateCount++;
         updated++;
         console.debug(`[batch] ${sym}: stored (update #${intradayDataUpdateCount}), keys: ${Object.keys(setup).slice(0,4).join(',')}`);
@@ -1902,6 +1911,7 @@ async function fetchIntradaySignals(symbols) {
             stockData[sym].price = Number(value.price);
             if (Number.isFinite(Number(value.dayChange))) stockData[sym].change = Number(value.dayChange);
           }
+          applyIntradayVolumeToStockData(sym, value);
           intradayDataUpdateCount++;
           anyUpdated = true;
         }
@@ -5482,7 +5492,7 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
       mark,
     });
   };
-  const partialCloseTrade = (trade, exitPrice, reason, at, qty, runner = false) => {
+  const partialCloseTrade = (trade, exitPrice, reason, at, qty, runner = false, newTarget = null) => {
     const closeQty = Math.floor(Number(qty));
     const openQty = Math.floor(Number(trade.qty));
     if (!Number.isFinite(closeQty) || closeQty <= 0 || closeQty >= openQty) return;
@@ -5494,7 +5504,7 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
     trade._partialTargetBooked = true;
     trade._runnerArmed = true;
     trade._runnerWideTrail = !!runner;
-    trade.target = null;
+    trade.target = runner && Number.isFinite(Number(newTarget)) ? +Number(newTarget).toFixed(2) : null;
     trades.push(partial);
   };
 
@@ -5514,7 +5524,7 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
       if (!Number.isFinite(price) || price <= 0) continue;
       const exit = SimulationEngine.getSimulationExit(trade, price, candidate, snapshot.at, settings, { isEodSettlement:isReplayEod(snapshot.at) });
       if (exit?.action === 'partial') {
-        partialCloseTrade(trade, exit.exitPrice, exit.reason, snapshot.at, Math.max(1, Math.floor(Number(trade.qty || 0) * Number(exit.qtyPct || 50) / 100)), exit.runner);
+        partialCloseTrade(trade, exit.exitPrice, exit.reason, snapshot.at, Math.max(1, Math.floor(Number(trade.qty || 0) * Number(exit.qtyPct || 50) / 100)), exit.runner, exit.newTarget);
       } else if (exit) {
         closeTrade(trade, exit.exitPrice, exit.reason, snapshot.at);
       }
@@ -5814,13 +5824,18 @@ function replayJobRows(jobs) {
     const bestNet = replayNetValue(best);
     const started = job.createdAt ? formatTradeDateTime(job.createdAt) : '--';
     const flags = [job.cached ? 'cached' : '', job.reused ? 'reused' : '', job.workerPid ? `pid ${job.workerPid}` : ''].filter(Boolean).join(' | ') || '--';
+    const bestOrError = best
+      ? `Score ${escapeHTML(best.minScore)} / FH ${escapeHTML(best.firstHour ?? '--')} / ${moneyINR(bestNet)}`
+      : (String(job.status || '').toLowerCase() === 'done' && ['deep_sweep', 'sweep'].includes(String(job.mode || '').toLowerCase())
+        ? 'Completed; rows unavailable'
+        : escapeHTML(job.error || '--'));
     return `<tr>
       <td>${escapeHTML(job.mode || '--')}</td>
       <td>${escapeHTML(job.day || '--')}</td>
       <td><span class="job-status ${escapeHTML(job.status || '')}">${escapeHTML(job.status || '--')}</span></td>
       <td>${escapeHTML(started)}</td>
       <td>${escapeHTML(flags)}</td>
-      <td>${best ? `Score ${escapeHTML(best.minScore)} / FH ${escapeHTML(best.firstHour ?? '--')} / ${moneyINR(bestNet)}` : escapeHTML(job.error || '--')}</td>
+      <td>${bestOrError}</td>
     </tr>`;
   }).join('') || `<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:12px">No replay jobs yet</td></tr>`;
 }
@@ -5830,14 +5845,15 @@ function getReplayJobSweepRows(job) {
   return Array.isArray(rows) ? rows : [];
 }
 
-function findCompletedReplaySweepJob(day = lastReplayDebugResult?.day) {
+function findCompletedReplaySweepJob(day = lastReplayDebugResult?.day, options = {}) {
   const targetDay = normalizeReplayDay(day || getTradeDateISO());
+  const requireRows = options.requireRows !== false;
   return (replayJobHistory || []).find(job =>
     job &&
     normalizeReplayDay(job.day) === targetDay &&
     ['deep_sweep', 'sweep'].includes(String(job.mode || '').toLowerCase()) &&
-    job.status === 'done' &&
-    getReplayJobSweepRows(job).length
+    String(job.status || '').toLowerCase() === 'done' &&
+    (!requireRows || getReplayJobSweepRows(job).length)
   ) || null;
 }
 
@@ -6059,6 +6075,7 @@ async function runReplaySweepForCurrent() {
     if (completedJob && hydrateReplaySweepFromJob(completedJob, `Loaded completed Best Settings sweep (${getReplayJobSweepRows(completedJob).length} rows).`)) {
       return;
     }
+    const completedAnyJob = findCompletedReplaySweepJob(day, { requireRows:false });
     const activeJob = findActiveReplaySweepJob(day);
     if (activeJob) {
       const el = document.getElementById(progressId);
@@ -6080,6 +6097,11 @@ async function runReplaySweepForCurrent() {
       const el = document.getElementById(progressId);
       if (el) el.textContent = `Loaded post-market deep sweep cache (${cachedPayload.sweepRows.length} rows).`;
       renderReplayReport(lastReplayDebugResult.day, [], lastReplayDebugResult.result, { sweepRows:cachedPayload.sweepRows || [], autoTuneRows:lastReplayDebugResult.autoTuneRows, actualTrades:cachedPayload.actualTrades || lastReplayDebugResult.actualTrades });
+      return;
+    }
+    if (completedAnyJob) {
+      const el = document.getElementById(progressId);
+      if (el) el.textContent = 'Best Settings sweep already completed for this day, but its rows were not returned by job history/cache. Not starting a duplicate sweep.';
       return;
     }
     const el = document.getElementById(progressId);
@@ -6162,11 +6184,11 @@ async function closePaperTradeAtPrice(trade, exitPrice, reason, silent = false) 
   }
 }
 
-async function partialClosePaperTradeAtPrice(trade, exitPrice, qty, reason, runner = false, silent = false) {
+async function partialClosePaperTradeAtPrice(trade, exitPrice, qty, reason, runner = false, silent = false, newTarget = null) {
   if (!trade?.id || !Number.isFinite(Number(exitPrice)) || !Number.isFinite(Number(qty)) || Number(qty) <= 0) return false;
   try {
     const transactionTime = new Date().toISOString();
-    await postPaperTrade('partial-close', { id: trade.id, exitPrice, qty:Math.floor(Number(qty)), reason, runner:!!runner, transactionTime });
+    await postPaperTrade('partial-close', { id: trade.id, exitPrice, qty:Math.floor(Number(qty)), reason, runner:!!runner, target:Number.isFinite(Number(newTarget)) ? +Number(newTarget).toFixed(2) : null, transactionTime });
     await loadPaperTrades(true, true);
     renderTable();
     if (currentView === 'etfs') renderETFSection();
@@ -6219,7 +6241,7 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
         if (exit?.action === 'partial') {
           const qty = Math.max(1, Math.floor(Number(trade.qty || 0) * Number(exit.qtyPct || 50) / 100));
           if (qty > 0 && qty < Number(trade.qty || 0)) {
-            await partialClosePaperTradeAtPrice(trade, exit.exitPrice, qty, String(exit.reason || 'Manual auto partial exit').replace(/^Simulation\b/i, 'Manual'), exit.runner, true);
+            await partialClosePaperTradeAtPrice(trade, exit.exitPrice, qty, String(exit.reason || 'Manual auto partial exit').replace(/^Simulation\b/i, 'Manual'), exit.runner, true, exit.newTarget);
           }
         } else if (exit) {
           await closePaperTradeAtPrice(trade, exit.exitPrice, String(exit.reason || 'Manual auto exit').replace(/^Simulation\b/i, 'Manual'), true);
@@ -6247,7 +6269,7 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
       if (exit?.action === 'partial') {
         const qty = Math.max(1, Math.floor(Number(trade.qty || 0) * Number(exit.qtyPct || 50) / 100));
         if (qty > 0 && qty < Number(trade.qty || 0)) {
-          await partialClosePaperTradeAtPrice(trade, exit.exitPrice, qty, exit.reason, exit.runner, true);
+          await partialClosePaperTradeAtPrice(trade, exit.exitPrice, qty, exit.reason, exit.runner, true, exit.newTarget);
         }
       } else if (exit) {
         await closePaperTradeAtPrice(trade, exit.exitPrice, exit.reason, true);

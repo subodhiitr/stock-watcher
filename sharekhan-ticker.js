@@ -19,18 +19,32 @@ function parseTickTime(str) {
   return Math.floor(utcMs / (BAR_MINUTES * 60 * 1000)) * (BAR_MINUTES * 60);
 }
 
+function isFatalAuthClose(code, reason) {
+  const text = String(reason || '').toLowerCase();
+  return text.includes('invalid api key') ||
+    text.includes('invalid access token') ||
+    text.includes('unauthorized') ||
+    text.includes('forbidden') ||
+    text.includes('token expired') ||
+    text.includes('invalid token') ||
+    Number(code) === 4001 ||
+    Number(code) === 4003;
+}
+
 class SharekhanTicker {
   /**
    * @param {object} config
    * @param {string}   config.accessToken       - Sharekhan access token
    * @param {Map}      [config.scripToSymbol]   - Map<scripCode(number), symbol(string)> for callback
    * @param {function} [config.onCandleUpdate]  - (symbol, candles[]) called on every tick
+   * @param {function} [config.onTick]          - (tick) called on every raw tick
    * @param {function} [config.webSocketFactory]- Test hook for creating WebSocket clients
    */
   constructor(config = {}) {
     this.accessToken = String(config.accessToken || '');
     this.scripToSymbol = config.scripToSymbol instanceof Map ? config.scripToSymbol : new Map();
     this.onCandleUpdate = typeof config.onCandleUpdate === 'function' ? config.onCandleUpdate : null;
+    this.onTick = typeof config.onTick === 'function' ? config.onTick : null;
     this._webSocketFactory = typeof config.webSocketFactory === 'function'
       ? config.webSocketFactory
       : url => new WebSocketClient(url);
@@ -158,6 +172,12 @@ class SharekhanTicker {
         this._connected = false;
         const text = reason ? reason.toString() : '';
         if (!this._stopped) console.warn(`[sharekhan-ticker] Closed${code ? ` (${code})` : ''}${text ? `: ${text}` : ''}`);
+        if (isFatalAuthClose(code, text)) {
+          this._stopped = true;
+          this._ws = null;
+          console.warn('[sharekhan-ticker] Stopped after auth rejection. Refresh Sharekhan token/API key to resume live ticks; Yahoo fallback remains available.');
+          return;
+        }
         this._scheduleReconnect();
       });
       this._connectTimeout = setTimeout(() => reconnect('Timed out waiting for open'), 15000);
@@ -209,6 +229,9 @@ class SharekhanTicker {
     const code = Number(tick.scripCode);
     const ltp = Number(tick.ltp);
     if (!code || !Number.isFinite(ltp) || ltp <= 0) return;
+    if (this.onTick) {
+      try { this.onTick(tick); } catch (_) {}
+    }
 
     const barSec = parseTickTime(tick.lastUpdatedTime)
       ?? Math.floor(Date.now() / (BAR_MINUTES * 60 * 1000)) * (BAR_MINUTES * 60);

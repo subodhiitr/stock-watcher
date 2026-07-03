@@ -585,6 +585,113 @@ test('scheduler-created trades include target and stop when using SimulationEngi
   assert.equal(opened.signal, 'buy');
 });
 
+test('scheduler blocks entries from stale snapshot context', async () => {
+  const proxy = loadProxyWithFixture('stale-entry-snapshot-blocked');
+  await request(proxy, { method: 'POST', path: '/simulation/start', body: {} });
+  await request(proxy, {
+    method: 'POST',
+    path: '/trade-settings',
+    body: {
+      SIMULATION_ENTRY_MAX_SNAPSHOT_AGE_MIN: 3,
+      SIMULATION_DAILY_MAX_TRADES: 20,
+      SIMULATION_DAILY_MAX_NET_LOSS_PCT: 99,
+    },
+  });
+  proxy.__test__.setPaperTradesForRuntime([]);
+  proxy.__test__.setSchedulerTickInputs({
+    at: '2026-06-25T06:10:00.000Z',
+    snapshotId: 'old-snapshot',
+    snapshotAt: '2026-06-25T06:00:00.000Z',
+    candidates: [{
+      symbol: 'TCS',
+      side: 'buy',
+      signal: 'buy',
+      price: 3900,
+      score: 72,
+      setupType: 'VWAP_PULLBACK_OR_HOLD',
+      freshness: { stale: false },
+      guard: { level: 'ok', label: 'OK' },
+      cost: { ok: true, netPct: 1.6 },
+      indicators: { entryStatus: 'Triggered', target: 3948.75, stop: 3871.2, stopPct: 0.74 },
+    }],
+  });
+
+  await proxy.__test__.runSchedulerTick();
+  const opened = proxy.__test__.getPaperTradesForRuntime().find(trade => trade.status === 'open' && trade.symbol === 'TCS');
+  assert.equal(opened, undefined, 'scheduler should block stale snapshot entries');
+});
+
+test('scheduler blocks entries after clustered losing stops', async () => {
+  const proxy = loadProxyWithFixture('clustered-stop-cooldown');
+  await request(proxy, { method: 'POST', path: '/simulation/start', body: {} });
+  await request(proxy, {
+    method: 'POST',
+    path: '/trade-settings',
+    body: {
+      SIMULATION_OVERRIDE_STOP_GUARD: 0,
+      SIMULATION_DAILY_MAX_STOPS: 4,
+      SIMULATION_CLUSTERED_STOP_COUNT: 2,
+      SIMULATION_CLUSTERED_STOP_WINDOW_MIN: 60,
+      SIMULATION_CLUSTERED_STOP_COOLDOWN_MIN: 45,
+      SIMULATION_DAILY_MAX_TRADES: 20,
+      SIMULATION_DAILY_MAX_NET_LOSS_PCT: 99,
+    },
+  });
+  proxy.__test__.setPaperTradesForRuntime([
+    { id: 'stop-a', status: 'closed', symbol: 'INFY', side: 'buy', qty: 1, entryPrice: 1500, exitPrice: 1485, pnl: -15, closeReason: 'Simulation confirmed stop', openedAt: '2026-06-25T05:20:00.000Z', closedAt: '2026-06-25T05:30:00.000Z', source: 'simulation' },
+    { id: 'stop-b', status: 'closed', symbol: 'HDFCBANK', side: 'buy', qty: 1, entryPrice: 1600, exitPrice: 1580, pnl: -20, closeReason: 'Simulation emergency stop', openedAt: '2026-06-25T05:40:00.000Z', closedAt: '2026-06-25T05:50:00.000Z', source: 'simulation' },
+  ]);
+  proxy.__test__.setSchedulerTickInputs({
+    at: '2026-06-25T06:00:00.000Z',
+    candidates: [{
+      symbol: 'TCS',
+      side: 'buy',
+      signal: 'buy',
+      price: 3900,
+      score: 72,
+      setupType: 'VWAP_PULLBACK_OR_HOLD',
+      freshness: { stale: false },
+      guard: { level: 'ok', label: 'OK' },
+      cost: { ok: true, netPct: 1.6 },
+      indicators: { entryStatus: 'Triggered', target: 3948.75, stop: 3871.2, stopPct: 0.74 },
+    }],
+  });
+
+  await proxy.__test__.runSchedulerTick();
+  const opened = proxy.__test__.getPaperTradesForRuntime().find(trade => trade.status === 'open' && trade.symbol === 'TCS');
+  assert.equal(opened, undefined, 'scheduler should pause entries after clustered stops');
+});
+
+test('scheduler does not create dry-run ghost trade after live ECONNABORTED entry', async () => {
+  const proxy = loadProxyWithFixture('live-timeout-no-ghost-trade');
+  await request(proxy, { method: 'POST', path: '/simulation/start', body: {} });
+  proxy.__test__.setBrokerModeForTests('zerodha_live');
+  proxy.__test__.setZerodhaClientForTests({
+    async placeOrder() {
+      throw new Error('No response from server with error code: ECONNABORTED');
+    },
+  });
+  proxy.__test__.setPaperTradesForRuntime([]);
+  proxy.__test__.setSchedulerTickInputs({
+    at: '2026-06-25T06:00:00.000Z',
+    candidates: [{
+      symbol: 'TCS',
+      side: 'buy',
+      signal: 'buy',
+      price: 3900,
+      score: 72,
+      setupType: 'VWAP_PULLBACK_OR_HOLD',
+      freshness: { stale: false },
+      guard: { level: 'ok', label: 'OK' },
+      cost: { ok: true, netPct: 1.6 },
+      indicators: { entryStatus: 'Triggered', target: 3948.75, stop: 3871.2, stopPct: 0.74 },
+    }],
+  });
+
+  await proxy.__test__.runSchedulerTick();
+  assert.equal(proxy.__test__.getPaperTradesForRuntime().some(trade => trade.symbol === 'TCS'), false);
+});
+
 test('scheduler backfills target and stop for legacy open simulation trades', async () => {
   const proxy = loadProxyWithFixture('scheduler-backfill-target-stop');
   await request(proxy, { method: 'POST', path: '/simulation/start', body: {} });

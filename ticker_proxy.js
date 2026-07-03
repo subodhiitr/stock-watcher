@@ -156,6 +156,8 @@ let simulationSettlingStartedAt = 0;
 let simulationRuntimeInitialized = false;
 let simulationRuntimeAutoResumeArmed = false;
 let simulationTickInFlight = false;
+let simulationImmediateTickTimer = null;
+let simulationImmediateTickPending = false;
 let mutationLockActive = false;
 let mutationLockQueue = Promise.resolve();
 let simulationSchedulerTestInputs = null;
@@ -244,6 +246,7 @@ let sharekhanCredentials = null;
 let sharekhanClientLive = null;
 let sharekhanConfirmationPoller = null;
 let sharekhanTicker = null;
+let sharekhanIndexCodeMap = new Map();
 let sharekhanLiveFailureCount = 0;
 let sharekhanInitializeInFlight = null;
 
@@ -291,6 +294,7 @@ async function ensureSharekhanInitialized({ force = false } = {}) {
     if (sharekhanTicker) {
       try { if (sharekhanTicker._heartbeatTimer) clearInterval(sharekhanTicker._heartbeatTimer); sharekhanTicker.stop(); } catch (_) {}
       sharekhanTicker = null;
+      sharekhanIndexCodeMap = new Map();
     }
     sharekhanCredentials = null;
     sharekhanClientLive = null;
@@ -791,6 +795,29 @@ function countOpenTradeOwnership(trades) {
   };
 }
 
+function isLikelyUnconfirmedLiveOrderError(err) {
+  const msg = String(err?.message || err || '').toLowerCase();
+  return msg.includes('econnaborted') ||
+    msg.includes('timed out') ||
+    msg.includes('timeout') ||
+    msg.includes('no response from server') ||
+    msg.includes('socket hang up') ||
+    msg.includes('econnreset');
+}
+
+function getEntrySnapshotContext(candidate, tickInput, atIso, settings = {}) {
+  const snapshotAt = candidate?.__snapshotAt || candidate?.entryContext?.snapshotAt || tickInput?.snapshotAt || tickInput?.at || atIso;
+  const snapshotId = candidate?.__snapshotId || candidate?.entryContext?.snapshotId || tickInput?.snapshotId || '';
+  const snapshotSource = candidate?.__snapshotSource || candidate?.entryContext?.snapshotSource || tickInput?.snapshotSource || '';
+  const atMs = new Date(atIso || Date.now()).getTime();
+  const snapMs = new Date(snapshotAt || 0).getTime();
+  const ageMin = Number.isFinite(atMs) && Number.isFinite(snapMs) && snapMs > 0
+    ? +Math.max(0, (atMs - snapMs) / 60000).toFixed(2)
+    : null;
+  const maxAgeMin = Math.max(0, Number(settings.SIMULATION_ENTRY_MAX_SNAPSHOT_AGE_MIN) || 0);
+  return { snapshotId, snapshotAt, snapshotSource, ageMin, maxAgeMin };
+}
+
 async function closeTradeFromExitIntent(trade, intent, atIso) {
   const exitPrice = Number(intent?.exitPrice);
   if (!Number.isFinite(exitPrice) || exitPrice <= 0) return false;
@@ -880,6 +907,11 @@ async function openTradeFromEntryIntent(trades, intent, atIso) {
     setupType: intent?.setupType || null,
     setup: intent?.setup || null,
     entryContext: intent?.entryContext && typeof intent.entryContext === 'object' ? intent.entryContext : null,
+    entrySnapshotId: intent?.entryContext?.snapshotId || intent?.snapshotId || null,
+    entrySnapshotAt: intent?.entryContext?.snapshotAt || intent?.snapshotAt || null,
+    entrySnapshotAgeMin: Number.isFinite(Number(intent?.entryContext?.snapshotAgeMin ?? intent?.snapshotAgeMin))
+      ? Number(intent?.entryContext?.snapshotAgeMin ?? intent?.snapshotAgeMin)
+      : null,
     notes: intent?.notes || '',
     openedAt: atIso,
     executionMode: brokerMode,
@@ -912,6 +944,10 @@ async function openTradeFromEntryIntent(trades, intent, atIso) {
         setBrokerMode('zerodha_dry_run');
       }
       // Fall through — record as dry-run so trade is tracked locally
+      if (isLikelyUnconfirmedLiveOrderError(e)) {
+        console.warn(`[sim-entry] Zerodha entry for ${symbol} not recorded locally because broker response was inconclusive. Check broker order book before retrying.`);
+        return false;
+      }
       const dryOrder = buildZerodhaDryRunOrder({ ...intent, symbol, side, qty, entryPrice, assetType: trade.assetType }, null, 'entry');
       trade.broker = { name: 'zerodha', mode: 'dry-run', status: 'entry_dry_run', entryOrder: dryOrder, audit: [{ at: atIso, event: 'live_order_failed', error: e.message }] };
       trade.executionMode = 'zerodha_dry_run';
@@ -943,6 +979,10 @@ async function openTradeFromEntryIntent(trades, intent, atIso) {
       if (sharekhanLiveFailureCount >= 3) {
         console.warn('[sim-entry] Too many failures. Falling back to Zerodha dry-run mode.');
         setBrokerMode('zerodha_dry_run');
+      }
+      if (isLikelyUnconfirmedLiveOrderError(e)) {
+        console.warn(`[sim-entry] Sharekhan entry for ${symbol} not recorded locally because broker response was inconclusive. Check broker order book before retrying.`);
+        return false;
       }
       trade.executionMode = 'zerodha_dry_run';
     }
@@ -1158,6 +1198,32 @@ function broadcastIntradayLive(reason = 'update', changedSymbols = null) {
   }
 }
 
+function triggerSimulationTickAfterScoreUpdate(reason = 'score-update', changedSymbols = []) {
+  if (isIstWeekend()) return;
+  const runtime = loadSimulationRuntime();
+  if (runtime.state !== 'running' && runtime.state !== 'settling') return;
+  simulationImmediateTickPending = true;
+  if (simulationImmediateTickTimer) return;
+  simulationImmediateTickTimer = setTimeout(async () => {
+    simulationImmediateTickTimer = null;
+    if (!simulationImmediateTickPending) return;
+    simulationImmediateTickPending = false;
+    if (simulationTickInFlight) {
+      triggerSimulationTickAfterScoreUpdate(`${reason}:in-flight`, changedSymbols);
+      return;
+    }
+    try {
+      const result = await runSimulationSchedulerTick();
+      if (result?.skipped && result.reason === 'tick-in-flight') {
+        triggerSimulationTickAfterScoreUpdate(`${reason}:retry`, changedSymbols);
+      }
+    } catch (e) {
+      console.warn(`[simulation-runtime] Immediate tick after ${reason} failed:`, e.message);
+    }
+  }, 250);
+  if (typeof simulationImmediateTickTimer.unref === 'function') simulationImmediateTickTimer.unref();
+}
+
 function scheduleIntradayLiveRefresh(reason = 'interval') {
   if (!intradayLiveRefreshActive) return;
   if (!getIntradayLiveUniverseSymbols().size) return;
@@ -1199,10 +1265,13 @@ async function refreshIntradayLiveCache(reason = 'interval') {
       if (chunkChanged.length) {
         allChanged.push(...chunkChanged);
         broadcastIntradayLive(reason, chunkChanged); // broadcast each chunk immediately
+        triggerSimulationTickAfterScoreUpdate(reason, chunkChanged);
       }
     }
     if (allChanged.length) {
-      persistServerSimulationSnapshot(reason, allChanged); // persist once after all chunks
+      persistServerSimulationSnapshot(reason, allChanged).catch(e => {
+        console.warn('[simulation-snapshots] Server snapshot persist failed:', e.message);
+      }); // persist once after all chunks
     }
     return { ok: true, changedCount: allChanged.length };
   } finally {
@@ -1327,19 +1396,98 @@ function buildSectorTrendFromCache() {
   return buildSectorTrendFromCandidates([...intradayLiveCache.values()]);
 }
 
+function hasUsableMarketIndices(indices) {
+  if (!indices || typeof indices !== 'object') return false;
+  const nifty = Number(indices?.nifty50?.change ?? indices?.nifty?.change);
+  return Number.isFinite(nifty);
+}
+
+function getSharekhanConfiguredNiftyCode() {
+  const raw = process.env.SHAREKHAN_NIFTY_SCRIP_CODE ||
+    process.env.SHAREKHAN_NIFTY50_SCRIP_CODE ||
+    process.env.NIFTY_SHAREKHAN_SCRIP_CODE ||
+    sharekhanCredentials?.niftyScripCode ||
+    '';
+  const code = Number(String(raw).trim());
+  return Number.isFinite(code) && code > 0 ? code : 0;
+}
+
+async function getSharekhanIndexSubscriptions(client) {
+  if (!client) return new Map();
+  const indexMap = new Map();
+  const configured = getSharekhanConfiguredNiftyCode();
+  if (configured) {
+    indexMap.set(configured, 'nifty50');
+    return indexMap;
+  }
+  const candidates = ['NIFTY', 'NIFTY50', 'NIFTY 50'];
+  for (const symbol of candidates) {
+    const code = await client.resolveScripCode?.(symbol, 'NC').catch(() => 0);
+    if (Number(code) > 0) {
+      indexMap.set(Number(code), 'nifty50');
+      break;
+    }
+  }
+  return indexMap;
+}
+
+function pickTickNumber(tick, keys) {
+  for (const key of keys) {
+    const value = Number(tick?.[key]);
+    if (Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
+function updateSimulationIndexFromSharekhanTick(indexKey, tick) {
+  const price = pickTickNumber(tick, ['ltp', 'lastPrice', 'price']);
+  if (!Number.isFinite(price) || price <= 0) return false;
+  const previous = simulationMarketCache.indices || {};
+  const existing = previous[indexKey] || {};
+  const directChange = pickTickNumber(tick, ['changePercent', 'percentChange', 'pChange', 'perChange', 'change']);
+  const prevClose = pickTickNumber(tick, ['previousClose', 'prevClose', 'closePrice', 'closedPrice']);
+  const change = Number.isFinite(directChange)
+    ? directChange
+    : (Number.isFinite(prevClose) && prevClose > 0
+      ? ((price - prevClose) / prevClose) * 100
+      : Number(existing.change));
+  simulationMarketCache = {
+    fetchedAt: Date.now(),
+    indices: {
+      ...previous,
+      [indexKey]: {
+        ...existing,
+        price:+price.toFixed(2),
+        change:Number.isFinite(change) ? +Number(change).toFixed(3) : existing.change,
+        source:'sharekhan-ws',
+        updatedAt:new Date().toISOString(),
+      },
+    },
+  };
+  return true;
+}
+
+function handleSharekhanTickerTick(tick) {
+  const code = Number(tick?.scripCode);
+  const indexKey = sharekhanIndexCodeMap.get(code);
+  if (!indexKey) return;
+  updateSimulationIndexFromSharekhanTick(indexKey, tick);
+}
+
 async function getSimulationMarketContext() {
   const now = Date.now();
-  if (simulationMarketCache.indices && now - simulationMarketCache.fetchedAt < SIMULATION_MARKET_CACHE_TTL_MS) {
+  if (hasUsableMarketIndices(simulationMarketCache.indices) && now - simulationMarketCache.fetchedAt < SIMULATION_MARKET_CACHE_TTL_MS) {
     return { indices: simulationMarketCache.indices };
   }
   try {
     const indices = await yahooIndices();
-    if (indices && typeof indices === 'object') {
+    if (hasUsableMarketIndices(indices)) {
       simulationMarketCache = { fetchedAt: now, indices };
       return { indices };
     }
+    console.warn('[market-cache] Ignoring empty index context for simulation regime checks');
   } catch (e) { console.warn('[market-cache] Context fetch failed:', e.message); }
-  return { indices: simulationMarketCache.indices || {} };
+  return { indices: hasUsableMarketIndices(simulationMarketCache.indices) ? simulationMarketCache.indices : {} };
 }
 
 function buildServerCandidateFromIntraday(sym, setup, settings, meta = null, asOf = null) {
@@ -1367,6 +1515,9 @@ function buildServerCandidateFromIntraday(sym, setup, settings, meta = null, asO
     : rawScore;
   const candidate = {
     symbol: sym,
+    __snapshotId: `live-cache:${asOf || new Date().toISOString()}`,
+    __snapshotAt: asOf || new Date().toISOString(),
+    __snapshotSource: 'intraday-live-cache',
     name: meta?.name || sym,
     assetType: meta?.assetType === 'etf' || meta?.cap === 'etf' ? 'etf' : 'stock',
     sector: meta?.sector || '',
@@ -1467,6 +1618,9 @@ async function readSchedulerTickInputAsync(settings) {
     const market = await getSimulationMarketContext();
     return {
       at: asOf,
+      snapshotId: `live-cache:${asOf}`,
+      snapshotAt: asOf,
+      snapshotSource: 'intraday-live-cache',
       candidates: serverCandidates,
       market,
       sectorTrend: buildSectorTrendFromCandidates(serverCandidates),
@@ -1474,12 +1628,22 @@ async function readSchedulerTickInputAsync(settings) {
   }
   const snapshots = loadAllSimulationSnapshots();
   const latest = snapshots.slice().sort((a, b) => new Date(b?.at || 0) - new Date(a?.at || 0))[0] || null;
-  const fallbackCandidates = Array.isArray(latest?.candidates) ? latest.candidates : [];
+  const fallbackCandidates = Array.isArray(latest?.candidates)
+    ? latest.candidates.map(candidate => ({
+        ...candidate,
+        __snapshotId: latest.id || '',
+        __snapshotAt: latest.at || '',
+        __snapshotSource: latest.source || 'simulation-snapshot',
+      }))
+    : [];
   const market = (latest?.market && typeof latest.market === 'object' && Object.keys(latest.market).length)
     ? latest.market
     : await getSimulationMarketContext();
   return {
     at: latest?.at || new Date().toISOString(),
+    snapshotId: latest?.id || '',
+    snapshotAt: latest?.at || '',
+    snapshotSource: latest?.source || 'simulation-snapshot',
     candidates: fallbackCandidates,
     market,
     sectorTrend: latest?.sectorTrend && typeof latest.sectorTrend === 'object'
@@ -1501,7 +1665,15 @@ async function buildServerSimulationAnalysisPayload(source = 'server-analysis') 
   const openTrades = trades.filter(trade => trade?.status === 'open');
   const openSymbols = new Set(openTrades.map(trade => String(trade?.symbol || '').toUpperCase()).filter(Boolean));
   const dayStats = TradeRules.buildDayStats(trades, at, settings, { sameDay: sameIstDay });
-  const entryBlockReason = (sym, setupType = '', time = at) => TradeRules.getEntryBlockReason(sym, setupType, time, dayStats, settings);
+  const maxSnapshotAgeMin = Math.max(0, Number(settings.SIMULATION_ENTRY_MAX_SNAPSHOT_AGE_MIN) || 0);
+  const entryBlockReason = (sym, setupType = '', time = at, candidate = null) => {
+    const snapshotContext = getEntrySnapshotContext(candidate, tickInput, time, settings);
+    if (candidate && snapshotContext.ageMin != null) candidate.__snapshotAgeMin = snapshotContext.ageMin;
+    if (candidate && maxSnapshotAgeMin > 0 && snapshotContext.ageMin != null && snapshotContext.ageMin > maxSnapshotAgeMin) {
+      return `stale entry snapshot ${snapshotContext.ageMin}m > ${maxSnapshotAgeMin}m`;
+    }
+    return TradeRules.getEntryBlockReason(sym, setupType, time, dayStats, settings);
+  };
   const topN = Math.max(1, Math.floor(Number(settings.SIMULATION_TOP_N) || 10));
   const selectedCandidates = SimulationEngine.selectSimulationEntryCandidates(candidates, at, settings, {
     openSymbols,
@@ -1705,7 +1877,13 @@ async function runSimulationSchedulerTick() {
                 rr: candidate.rr,
                 setupType: candidate.setupType,
                 setup: candidate.setup,
-                entryContext: candidate.entryContext,
+                entryContext: {
+                  ...(candidate.entryContext && typeof candidate.entryContext === 'object' ? candidate.entryContext : {}),
+                  snapshotId: candidate.__snapshotId || tickInput?.snapshotId || '',
+                  snapshotAt: candidate.__snapshotAt || tickInput?.snapshotAt || tickInput?.at || schedulerAtIso,
+                  snapshotSource: candidate.__snapshotSource || tickInput?.snapshotSource || '',
+                  snapshotAgeMin: candidate.__snapshotAgeMin ?? null,
+                },
                 notes: candidate.notes,
                 assetType: candidate.assetType,
               }));
@@ -1716,13 +1894,21 @@ async function runSimulationSchedulerTick() {
       const dayStats = TradeRules.buildDayStats(trades, schedulerAtIso, settings, {
         sameDay: sameIstDay,
       });
-      const entryBlockReason = (sym, setupType = '', at = schedulerAtIso) => TradeRules.getEntryBlockReason(
-        sym,
-        setupType,
-        at,
-        dayStats,
-        settings
-      );
+      const maxSnapshotAgeMin = Math.max(0, Number(settings.SIMULATION_ENTRY_MAX_SNAPSHOT_AGE_MIN) || 0);
+      const entryBlockReason = (sym, setupType = '', at = schedulerAtIso, candidate = null) => {
+        const snapshotContext = getEntrySnapshotContext(candidate, tickInput, at, settings);
+        if (candidate && snapshotContext.ageMin != null) candidate.__snapshotAgeMin = snapshotContext.ageMin;
+        if (candidate && maxSnapshotAgeMin > 0 && snapshotContext.ageMin != null && snapshotContext.ageMin > maxSnapshotAgeMin) {
+          return `stale entry snapshot ${snapshotContext.ageMin}m > ${maxSnapshotAgeMin}m`;
+        }
+        return TradeRules.getEntryBlockReason(
+          sym,
+          setupType,
+          at,
+          dayStats,
+          settings
+        );
+      };
 
       const { exitIntents, entryIntents } = runSimulationDomainCycle(
         {
@@ -1821,7 +2007,11 @@ async function runSimulationSchedulerTick() {
 function startSimulationScheduler(reason = 'manual-start') {
   if (simulationSchedulerTimer) return;
   startIntradayLiveRefresh('scheduler-start');
-  refreshIntradayLiveCache('scheduler-start').catch(() => {});
+  refreshIntradayLiveCache('scheduler-start')
+    .then(result => {
+      if (Number(result?.changedCount) > 0) triggerSimulationTickAfterScoreUpdate('scheduler-start', []);
+    })
+    .catch(() => {});
   simulationSchedulerTimer = setInterval(() => {
     runSimulationSchedulerTick().catch(() => {});
   }, Math.max(1, simulationTickIntervalSec) * 1000);
@@ -1833,6 +2023,11 @@ function stopSimulationScheduler(reason = 'manual-stop') {
     clearInterval(simulationSchedulerTimer);
     simulationSchedulerTimer = null;
   }
+  if (simulationImmediateTickTimer) {
+    clearTimeout(simulationImmediateTickTimer);
+    simulationImmediateTickTimer = null;
+  }
+  simulationImmediateTickPending = false;
   simulationSettlingStartedAt = 0;
   console.log(`[simulation-runtime] Scheduler stopped (${reason})`);
 }
@@ -2865,7 +3060,7 @@ function appendSimulationSnapshot(payload) {
   return { day, snapshots, snapshot };
 }
 
-function persistServerSimulationSnapshot(source = 'intraday-live-refresh', changedSymbols = []) {
+async function persistServerSimulationSnapshot(source = 'intraday-live-refresh', changedSymbols = []) {
   try {
     const runtime = loadSimulationRuntime();
     const overrideSettings = loadTradeSettingsFile().overrides || {};
@@ -2876,7 +3071,7 @@ function persistServerSimulationSnapshot(source = 'intraday-live-refresh', chang
       100,
       50
     );
-    const market = { indices: simulationMarketCache.indices || {} };
+    const market = await getSimulationMarketContext();
     const sectorTrend = buildSectorTrendFromCandidates(candidates);
     const trades = loadPaperStateFile().trades || [];
     const openSimulationTrades = trades
@@ -5549,6 +5744,7 @@ async function pushSharekhanTickerCandles(sym, candles) {
     if (!prev || JSON.stringify(prev) !== JSON.stringify(nextValue) || Date.now() - lastBroadcastAt > 30000) {
       nextValue._lastBroadcastAt = Date.now();
       broadcastIntradayLive('sharekhan-ws-tick', [sym]);
+      triggerSimulationTickAfterScoreUpdate('sharekhan-ws-tick', [sym]);
     }
   } catch (e) {
     console.warn(`[sharekhan-ticker] pushCandles ${sym}:`, e.message);
@@ -5945,10 +6141,19 @@ async function fetchETFData(etfSymbols) {
 // ══════════════════════════════════════════════════════════
 //  YAHOO CRUMB SESSION  (needed for quoteSummary fundamentals)
 // ══════════════════════════════════════════════════════════
-const yahooCrumb = { value: null, cookies: '', lastFetch: 0, TTL: 30 * 60 * 1000, fetching: false };
+const yahooCrumb = {
+  value: null,
+  cookies: '',
+  lastFetch: 0,
+  lastErrorAt: 0,
+  TTL: 30 * 60 * 1000,
+  errorCooldownMs: 5 * 60 * 1000,
+  fetching: false,
+};
 
 async function refreshYahooCrumb() {
   if (yahooCrumb.fetching) return;
+  if (!yahooCrumb.value && Date.now() - yahooCrumb.lastErrorAt < yahooCrumb.errorCooldownMs) return;
   yahooCrumb.fetching = true;
   try {
     console.log('[crumb] Fetching Yahoo session...');
@@ -5979,10 +6184,12 @@ async function refreshYahooCrumb() {
       yahooCrumb.lastFetch = Date.now();
       console.log('[crumb] Got crumb:', yahooCrumb.value);
     } else {
+      yahooCrumb.lastErrorAt = Date.now();
       console.warn('[crumb] Failed to get crumb, status:', r1.status, r1.body.slice(0, 100));
     }
   } catch(e) {
-    console.warn('[crumb] Error:', e.message);
+    yahooCrumb.lastErrorAt = Date.now();
+    console.warn('[crumb] Error:', e.message, '- using crumb-free Yahoo fallback for now');
   } finally {
     yahooCrumb.fetching = false;
   }
@@ -5990,6 +6197,7 @@ async function refreshYahooCrumb() {
 
 async function ensureCrumb() {
   if (yahooCrumb.value && (Date.now() - yahooCrumb.lastFetch) < yahooCrumb.TTL) return true;
+  if (!yahooCrumb.value && Date.now() - yahooCrumb.lastErrorAt < yahooCrumb.errorCooldownMs) return false;
   await refreshYahooCrumb();
   return !!yahooCrumb.value;
 }
@@ -7285,6 +7493,8 @@ async function proxyRequestHandler(req, res) {
         mode: brokerMode,
         sharekhanTickerConnected: sharekhanTicker?._connected ?? false,
         sharekhanTickerSymbols: sharekhanTicker ? sharekhanTicker._subscribedCodes.size : 0,
+        sharekhanTickerIndexSymbols: sharekhanIndexCodeMap.size,
+        marketIndexSource: simulationMarketCache.indices?.nifty50?.source || null,
       }));
       return;
     }
@@ -8188,7 +8398,7 @@ async function proxyRequestHandler(req, res) {
           trade._partialTargetBooked = true;
           trade._runnerArmed = true;
           trade._runnerWideTrail = !!payload.runner;
-          trade.target = null;
+          trade.target = payload.runner && Number.isFinite(Number(payload.target)) ? +Number(payload.target).toFixed(2) : null;
           trade.setupType = trade.setupType || 'TARGET_RUNNER';
           if (trade.broker?.name === 'zerodha' && trade.broker?.mode === 'dry-run') {
             const exitOrder = buildZerodhaDryRunOrder({ ...partialTrade, exitPrice, qty: requestedQty }, partialTrade, 'exit');
@@ -8812,15 +9022,17 @@ async function initializeSharekhan() {
       if (code > 0) symToCode.set(sym, code);
     }));
     const scripToSymbol = new Map([...symToCode.entries()].map(([sym, code]) => [code, sym]));
+    sharekhanIndexCodeMap = await getSharekhanIndexSubscriptions(sharekhanClientLive);
     if (sharekhanTicker) { try { sharekhanTicker.stop(); } catch (_) {} }
     sharekhanTicker = new SharekhanTicker({
       accessToken: sharekhanCredentials.accessToken,
       scripToSymbol,
       onCandleUpdate: (sym, candles) => { pushSharekhanTickerCandles(sym, candles).catch(() => {}); },
+      onTick: handleSharekhanTickerTick,
     });
-    sharekhanTicker.subscribe([...symToCode.values()]);
+    sharekhanTicker.subscribe([...symToCode.values(), ...sharekhanIndexCodeMap.keys()]);
     sharekhanTicker.start();
-    console.log(`[sharekhan-ticker] Started, subscribed to ${symToCode.size} symbols`);
+    console.log(`[sharekhan-ticker] Started, subscribed to ${symToCode.size} symbols${sharekhanIndexCodeMap.size ? ` + ${sharekhanIndexCodeMap.size} index` : ''}`);
 
     // Heartbeat: broadcast all sharekhan-ws cached signals every 60s so browser freshness stays valid
     // even for symbols that aren't actively trading (no incoming ticks)
@@ -8909,6 +9121,14 @@ module.exports = {
     },
     setSchedulerTickInputs(inputs) {
       simulationSchedulerTestInputs = inputs && typeof inputs === 'object' ? inputs : null;
+    },
+    setBrokerModeForTests(mode) {
+      brokerMode = mode;
+    },
+    setZerodhaClientForTests(client) {
+      zerodhaCredentials = client ? { apiKey: 'test-api-key', accessToken: 'test-token' } : null;
+      kiteClientLive = client || null;
+      kiteClientDry = client || null;
     },
     selectServerSnapshotCandidatesForTests: selectServerSnapshotCandidates,
     setSharekhanClientForTests(client) {

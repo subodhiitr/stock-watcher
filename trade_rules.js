@@ -16,8 +16,16 @@
     SIMULATION_MAX_ACTIVE_OPEN: 15,
     SIMULATION_MAX_NEW_PER_CYCLE: 4,
     SIMULATION_TOP_N: 10,
+    SIMULATION_DATA_QUALITY_MIN_SAMPLE: 25,
+    SIMULATION_DATA_QUALITY_REDUCE_BAD_RATIO: 0.25,
+    SIMULATION_DATA_QUALITY_BLOCK_BAD_RATIO: 0.45,
+    SIMULATION_DATA_QUALITY_REDUCED_TOP_N: 2,
     SIMULATION_DAILY_MAX_TRADES: 25,
+    SIMULATION_ENTRY_MAX_SNAPSHOT_AGE_MIN: 3,
     SIMULATION_DAILY_MAX_STOPS: 4,
+    SIMULATION_CLUSTERED_STOP_COUNT: 2,
+    SIMULATION_CLUSTERED_STOP_WINDOW_MIN: 60,
+    SIMULATION_CLUSTERED_STOP_COOLDOWN_MIN: 45,
     SIMULATION_OVERRIDE_STOP_GUARD: false,
     SIMULATION_DAILY_MAX_STOPS_PROFIT_MULTIPLIER: 2,
     SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT: 0.2,
@@ -27,14 +35,44 @@
     SIMULATION_SETUP_DAILY_LOSS_GUARD_COUNT: 2,
     SIMULATION_FIRST_HOUR_MAX_ENTRIES: 2,
     SIMULATION_STOP_GRACE_MIN: 10,
+    SIMULATION_NO_PROGRESS_EXIT_MIN: 12,
+    SIMULATION_NO_PROGRESS_RUNNER_EXIT_MIN: 9,
+    SIMULATION_NO_PROGRESS_FRESH_BREAKOUT_EXIT_MIN: 12,
+    SIMULATION_NO_PROGRESS_VWAP_CONT_EXIT_MIN: 8,
+    SIMULATION_NO_PROGRESS_VWAP_CONT_REQUIRE_REL_VOL_FADE: true,
+    SIMULATION_NO_PROGRESS_VWAP_CONT_REL_VOL_FADE: 1.5,
+    SIMULATION_NO_PROGRESS_MIN_FAVORABLE_PCT: 0.2,
+    SIMULATION_NO_PROGRESS_ADVERSE_PCT: 0.15,
     SIMULATION_STOP_CONFIRM_BARS: 2,
     SIMULATION_EMERGENCY_STOP_PCT: 1.25,
     SIMULATION_RUNNER_MIN_SCORE: 65,
     SIMULATION_RUNNER_MIN_REL_VOL: 3,
+    SIMULATION_RUNNER_MAX_DAY_CHANGE_PCT: 8,
+    SIMULATION_RUNNER_LATE_SIZE_REDUCTION_DAY_CHANGE_PCT: 7,
+    SIMULATION_RUNNER_LATE_SIZE_FACTOR: 0.5,
+    SIMULATION_RUNNER_REQUIRE_BULLISH_SUPERTREND: true,
+    SIMULATION_RUNNER_MIN_VOLUME_RATIO_3M: 0.8,
+    SIMULATION_RUNNER_MIN_VOLUME_RATIO_5M: 1,
+    SIMULATION_RUNNER_LATE_BREAKOUT_MIN_VOLUME_RATIO_5M: 1.2,
+    SIMULATION_EARLY_RUNNER_MIN_SCORE: 40,
+    SIMULATION_EARLY_RUNNER_MIN_REL_VOL: 1.8,
+    SIMULATION_EARLY_RUNNER_MIN_DAY_CHANGE_PCT: 3,
+    SIMULATION_EARLY_RUNNER_MAX_DAY_CHANGE_PCT: 8,
+    SIMULATION_EARLY_RUNNER_MAX_TRIGGER_EXTENSION_PCT: 4.25,
+    SIMULATION_EARLY_RUNNER_MAX_VWAP_EXTENSION_PCT: 2.2,
     SIMULATION_RUNNER_MAX_TRIGGER_EXTENSION_PCT: 3.25,
     SIMULATION_RUNNER_MAX_VWAP_EXTENSION_PCT: 1.25,
+    SIMULATION_STRONG_BREAKOUT_MIN_SCORE: 55,
+    SIMULATION_STRONG_BREAKOUT_MIN_REL_VOL: 3,
+    SIMULATION_STRONG_BREAKOUT_MIN_DAY_GAIN_PCT: 3,
+    SIMULATION_STRONG_BREAKOUT_MAX_DAY_GAIN_PCT: 8,
+    SIMULATION_STRONG_BREAKOUT_MAX_RSI: 75,
+    SIMULATION_FRESH_BREAKOUT_MAX_VWAP_EXTENSION_PCT: 0.8,
+    SIMULATION_FRESH_BREAKOUT_HIGH_REL_VOL_MAX_VWAP_EXTENSION_PCT: 1,
+    SIMULATION_FRESH_BREAKOUT_HIGH_REL_VOL: 2,
     SIMULATION_RUNNER_TRAIL_PCT: 0.9,
     SIMULATION_RUNNER_WIDE_TRAIL_PCT: 1.35,
+    SIMULATION_RUNNER_TARGET_STEP_PCT: 1.2,
     SIMULATION_BREAKEVEN_PROTECT_PCT: 0.65,
     SIMULATION_TRAIL_START_PCT: 0.8,
     SIMULATION_LONG_TRAIL_PCT: 0.4,
@@ -47,6 +85,10 @@
     SIMULATION_TARGET_RUNNER_MIN_REL_VOL: 1.5,
     SIMULATION_PROFIT_REENTRY_COOLDOWN_MIN: 45,
     SIMULATION_VWAP_CONT_MIN_SCORE: 85,
+    SIMULATION_VWAP_CONT_MIN_REL_VOL: 1.5,
+    SIMULATION_VWAP_CONT_MIN_VOLUME_RATIO_3M: 0.8,
+    SIMULATION_VWAP_CONT_MIN_VOLUME_RATIO_5M: 1,
+    SIMULATION_VWAP_CONT_BLOCK_NEGATIVE_5M_UNLESS_BREAKOUT: true,
     SIMULATION_VWAP_CONT_MAX_TRIGGER_EXTENSION_PCT: 2.5,
     SIMULATION_VWAP_CONT_MAX_VWAP_EXTENSION_PCT: 1.1,
     SIMULATION_MIN_SCORE: 70,
@@ -58,6 +100,7 @@
     SIMULATION_SHORT_MAX_STOP_PCT: 0.75,
     SIMULATION_SHORT_TRAIL_PCT: 0.4,
     SIMULATION_SHORT_MIN_BEARISH_CONFIRMATIONS: 2,
+    SIMULATION_REQUIRE_NIFTY_FOR_SHORTS: true,
     SIMULATION_MARKET_BREADTH_PCT: 55,
     SIMULATION_MARKET_REGIME_NIFTY_PCT: 0.25,
     SIMULATION_MARKET_REGIME_SECTOR_PCT: 0.15,
@@ -82,8 +125,16 @@
     SIMULATION_MAX_ACTIVE_OPEN: 'Maximum active simulation positions allowed at the same time. This can be lower than total open when partial runners are active.',
     SIMULATION_MAX_NEW_PER_CYCLE: 'Maximum new simulation entries allowed during one refresh cycle.',
     SIMULATION_TOP_N: 'Number of highest-ranked candidates considered first for simulation entries.',
+    SIMULATION_DATA_QUALITY_MIN_SAMPLE: 'Minimum candidate sample size before snapshot-level data-quality throttles activate.',
+    SIMULATION_DATA_QUALITY_REDUCE_BAD_RATIO: 'Bad-candidate ratio that reduces entry selection during degraded intraday data quality.',
+    SIMULATION_DATA_QUALITY_BLOCK_BAD_RATIO: 'Bad-candidate ratio that blocks new entries during degraded intraday data quality.',
+    SIMULATION_DATA_QUALITY_REDUCED_TOP_N: 'Maximum top-N candidates considered while intraday data quality is degraded but not blocked.',
     SIMULATION_DAILY_MAX_TRADES: 'Maximum number of new simulation entries allowed in one trading day.',
+    SIMULATION_ENTRY_MAX_SNAPSHOT_AGE_MIN: 'Maximum age in minutes allowed between the candidate snapshot and automated entry.',
     SIMULATION_DAILY_MAX_STOPS: 'Base number of losing stop exits allowed in one day before blocking fresh entries.',
+    SIMULATION_CLUSTERED_STOP_COUNT: 'Number of recent losing stop exits that trigger a temporary fresh-entry cooldown.',
+    SIMULATION_CLUSTERED_STOP_WINDOW_MIN: 'Lookback minutes for clustered losing stop exits.',
+    SIMULATION_CLUSTERED_STOP_COOLDOWN_MIN: 'Minutes to pause fresh entries after clustered losing stop exits.',
     SIMULATION_OVERRIDE_STOP_GUARD: 'When enabled, simulation does not block fresh entries after hitting the daily stop guard. Other guards (daily loss, trade limit, cooldowns) still apply.',
     SIMULATION_DAILY_MAX_STOPS_PROFIT_MULTIPLIER: 'Multiplier applied to the daily stop limit after the day has enough profit buffer.',
     SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT: 'Portfolio profit percent needed before the higher daily stop limit is allowed.',
@@ -93,14 +144,44 @@
     SIMULATION_SETUP_DAILY_LOSS_GUARD_COUNT: 'Blocks fresh entries for a setup type after this many losing trades in the same setup during the day.',
     SIMULATION_FIRST_HOUR_MAX_ENTRIES: 'Maximum new entries allowed during the first trading hour to avoid overtrading early volatility.',
     SIMULATION_STOP_GRACE_MIN: 'Minutes after entry during which normal stop checks are softened unless emergency conditions occur.',
+    SIMULATION_NO_PROGRESS_EXIT_MIN: 'Minutes after entry before an unproductive trade can be closed early.',
+    SIMULATION_NO_PROGRESS_RUNNER_EXIT_MIN: 'No-progress exit window for momentum-runner or target-runner trades.',
+    SIMULATION_NO_PROGRESS_FRESH_BREAKOUT_EXIT_MIN: 'No-progress exit window for fresh-breakout trades.',
+    SIMULATION_NO_PROGRESS_VWAP_CONT_EXIT_MIN: 'No-progress exit window for VWAP trend-continuation trades when the rule is active.',
+    SIMULATION_NO_PROGRESS_VWAP_CONT_REQUIRE_REL_VOL_FADE: 'When true, VWAP continuation no-progress exits only activate after relative volume fades.',
+    SIMULATION_NO_PROGRESS_VWAP_CONT_REL_VOL_FADE: 'Relative-volume threshold below which VWAP continuation is considered faded for no-progress exits.',
+    SIMULATION_NO_PROGRESS_MIN_FAVORABLE_PCT: 'Minimum favorable move expected by the no-progress window.',
+    SIMULATION_NO_PROGRESS_ADVERSE_PCT: 'Adverse move percent that can close a no-progress trade before full stop damage.',
     SIMULATION_STOP_CONFIRM_BARS: 'Number of consecutive refreshes required to confirm a normal stop exit.',
     SIMULATION_EMERGENCY_STOP_PCT: 'Hard adverse move percent from entry that can exit immediately, even during stop grace.',
     SIMULATION_RUNNER_MIN_SCORE: 'Minimum trade score required for momentum-runner entries.',
     SIMULATION_RUNNER_MIN_REL_VOL: 'Minimum relative volume required for momentum-runner entries.',
+    SIMULATION_RUNNER_MAX_DAY_CHANGE_PCT: 'Maximum day gain allowed for normal momentum-runner entries unless fresh shock/high breakout confirms continuation.',
+    SIMULATION_RUNNER_LATE_SIZE_REDUCTION_DAY_CHANGE_PCT: 'Day gain where momentum-runner sizing is reduced because the move is already extended.',
+    SIMULATION_RUNNER_LATE_SIZE_FACTOR: 'Quantity multiplier applied to late momentum-runner entries.',
+    SIMULATION_RUNNER_REQUIRE_BULLISH_SUPERTREND: 'When true, buy-side momentum runners require bullish SuperTrend.',
+    SIMULATION_RUNNER_MIN_VOLUME_RATIO_3M: 'Minimum recent 3-minute volume impulse accepted for momentum-runner entries unless a fresh high breakout confirms.',
+    SIMULATION_RUNNER_MIN_VOLUME_RATIO_5M: 'Minimum recent 5-minute volume impulse accepted for momentum-runner entries unless a fresh high breakout confirms.',
+    SIMULATION_RUNNER_LATE_BREAKOUT_MIN_VOLUME_RATIO_5M: 'Minimum 5-minute volume impulse required when a late runner is allowed by a fresh high breakout.',
+    SIMULATION_EARLY_RUNNER_MIN_SCORE: 'Lower score floor for early momentum-runner entries when volume, trend, and breakout confirmations are already aligned.',
+    SIMULATION_EARLY_RUNNER_MIN_REL_VOL: 'Minimum relative volume required for early momentum-runner entries.',
+    SIMULATION_EARLY_RUNNER_MIN_DAY_CHANGE_PCT: 'Minimum day gain required for early momentum-runner entries.',
+    SIMULATION_EARLY_RUNNER_MAX_DAY_CHANGE_PCT: 'Maximum day gain allowed before early momentum-runner entries are considered too late.',
+    SIMULATION_EARLY_RUNNER_MAX_TRIGGER_EXTENSION_PCT: 'Maximum trigger extension allowed for early momentum-runner entries.',
+    SIMULATION_EARLY_RUNNER_MAX_VWAP_EXTENSION_PCT: 'Maximum VWAP extension allowed for early momentum-runner entries.',
     SIMULATION_RUNNER_MAX_TRIGGER_EXTENSION_PCT: 'Maximum allowed price extension above the trigger for momentum-runner entries.',
     SIMULATION_RUNNER_MAX_VWAP_EXTENSION_PCT: 'Maximum allowed price extension above VWAP for momentum-runner entries.',
+    SIMULATION_STRONG_BREAKOUT_MIN_SCORE: 'Lower score floor for strong volume-shock or high-relative-volume fresh breakouts.',
+    SIMULATION_STRONG_BREAKOUT_MIN_REL_VOL: 'Minimum relative volume required for strong volume-breakout score relaxation.',
+    SIMULATION_STRONG_BREAKOUT_MIN_DAY_GAIN_PCT: 'Minimum day gain required for strong volume-breakout score relaxation.',
+    SIMULATION_STRONG_BREAKOUT_MAX_DAY_GAIN_PCT: 'Maximum day gain allowed for strong volume-breakout score relaxation.',
+    SIMULATION_STRONG_BREAKOUT_MAX_RSI: 'Maximum RSI allowed for strong volume-breakout score relaxation.',
+    SIMULATION_FRESH_BREAKOUT_MAX_VWAP_EXTENSION_PCT: 'Normal maximum VWAP extension allowed for fresh-breakout entries.',
+    SIMULATION_FRESH_BREAKOUT_HIGH_REL_VOL_MAX_VWAP_EXTENSION_PCT: 'Maximum VWAP extension allowed for fresh breakouts when relative volume is high.',
+    SIMULATION_FRESH_BREAKOUT_HIGH_REL_VOL: 'Relative-volume threshold that allows the relaxed fresh-breakout VWAP extension.',
     SIMULATION_RUNNER_TRAIL_PCT: 'Normal trailing stop percent used for momentum-runner exits.',
     SIMULATION_RUNNER_WIDE_TRAIL_PCT: 'Wider trailing stop percent used when momentum remains strong.',
+    SIMULATION_RUNNER_TARGET_STEP_PCT: 'Next target step percent applied to remaining runner quantity after a momentum-confirmed partial target.',
     SIMULATION_BREAKEVEN_PROTECT_PCT: 'Favorable move percent after which simulation protects capital around breakeven.',
     SIMULATION_TRAIL_START_PCT: 'Favorable move percent after which non-runner positions start using a trailing-profit guard.',
     SIMULATION_LONG_TRAIL_PCT: 'Trailing stop percent used for long positions after enough profit cushion is built.',
@@ -113,6 +194,10 @@
     SIMULATION_TARGET_RUNNER_MIN_REL_VOL: 'Minimum relative volume required to keep the remaining quantity as a target runner.',
     SIMULATION_PROFIT_REENTRY_COOLDOWN_MIN: 'Minutes to wait before re-entering a symbol after a profitable exit.',
     SIMULATION_VWAP_CONT_MIN_SCORE: 'Minimum score required for VWAP trend-continuation entries.',
+    SIMULATION_VWAP_CONT_MIN_REL_VOL: 'Minimum relative volume required for VWAP trend-continuation entries.',
+    SIMULATION_VWAP_CONT_MIN_VOLUME_RATIO_3M: 'Minimum recent 3-minute volume impulse accepted for VWAP trend-continuation entries.',
+    SIMULATION_VWAP_CONT_MIN_VOLUME_RATIO_5M: 'Minimum recent 5-minute volume impulse accepted for VWAP trend-continuation entries.',
+    SIMULATION_VWAP_CONT_BLOCK_NEGATIVE_5M_UNLESS_BREAKOUT: 'Blocks VWAP trend-continuation entries when 5-minute price change is negative unless price is making a fresh high.',
     SIMULATION_VWAP_CONT_MAX_TRIGGER_EXTENSION_PCT: 'Maximum allowed price extension above the trigger for VWAP trend-continuation entries.',
     SIMULATION_VWAP_CONT_MAX_VWAP_EXTENSION_PCT: 'Maximum allowed price extension above VWAP for VWAP trend-continuation entries.',
     SIMULATION_MIN_SCORE: 'Minimum general long-side trade score required before simulation can consider a buy candidate.',
@@ -124,6 +209,7 @@
     SIMULATION_SHORT_MAX_STOP_PCT: 'Maximum stop-loss distance allowed for short entries.',
     SIMULATION_SHORT_TRAIL_PCT: 'Trailing stop percent used after a short trade moves sufficiently in favor.',
     SIMULATION_SHORT_MIN_BEARISH_CONFIRMATIONS: 'Minimum bearish confirmation count required for short entries, using VWAP, EMA, SuperTrend, RSI, trigger and score alignment.',
+    SIMULATION_REQUIRE_NIFTY_FOR_SHORTS: 'When true, short entries are blocked if Nifty regime data is unavailable.',
     SIMULATION_MARKET_BREADTH_PCT: 'Advance/decline breadth threshold used by the market-regime guard when breadth data is available.',
     SIMULATION_MARKET_REGIME_NIFTY_PCT: 'Nifty change threshold used by the market-regime guard. Long entries are blocked below negative threshold; short entries are blocked above positive threshold.',
     SIMULATION_MARKET_REGIME_SECTOR_PCT: 'Sector average change threshold used by the market-regime guard. Long entries are blocked when sector is weaker than this negative threshold; shorts are blocked when sector is stronger than this positive threshold.',
@@ -219,6 +305,20 @@
     if (!stopGuardOverride && (Number(stats.stops) || 0) >= stopLimit) {
       return `daily stop limit ${stopLimit}${stopLimit > settings.SIMULATION_DAILY_MAX_STOPS ? ' (profit buffer)' : ''}`;
     }
+    const clusteredStopCount = Math.max(0, Math.floor(Number(settings.SIMULATION_CLUSTERED_STOP_COUNT) || 0));
+    if (!stopGuardOverride && clusteredStopCount > 0) {
+      const now = at ? new Date(at).getTime() : Date.now();
+      const windowMs = Math.max(1, Number(settings.SIMULATION_CLUSTERED_STOP_WINDOW_MIN) || 60) * 60000;
+      const cooldownMs = Math.max(1, Number(settings.SIMULATION_CLUSTERED_STOP_COOLDOWN_MIN) || 45) * 60000;
+      const clusteredStops = (Array.isArray(stats.closed) ? stats.closed : [])
+        .filter(isLosingStopExit)
+        .map(t => new Date(t.closedAt || t.openedAt || 0).getTime())
+        .filter(ms => Number.isFinite(ms) && ms > 0 && now - ms <= windowMs)
+        .sort((a, b) => b - a);
+      if (clusteredStops.length >= clusteredStopCount && now - clusteredStops[0] < cooldownMs) {
+        return `clustered stop cooldown ${clusteredStops.length}/${clusteredStopCount}`;
+      }
+    }
     if ((Number(stats.netLossPct) || 0) >= settings.SIMULATION_DAILY_MAX_NET_LOSS_PCT) return `daily loss guard ${round3(stats.netLossPct)}%`;
     const profitBlock = getProfitReentryBlockReason(stats.closed, sym, setupType, at, settings);
     if (profitBlock) return profitBlock;
@@ -227,8 +327,8 @@
       return `first-hour trade limit ${settings.SIMULATION_FIRST_HOUR_MAX_ENTRIES}`;
     }
 
-    const closed = Array.isArray(stats.closed) ? stats.closed : [];
     const now = at ? new Date(at).getTime() : Date.now();
+    const closed = Array.isArray(stats.closed) ? stats.closed : [];
     if (setupType) {
       const guardCount = Math.max(1, Math.floor(Number(settings.SIMULATION_SETUP_DAILY_LOSS_GUARD_COUNT) || 2));
       const recentBadSetups = closed

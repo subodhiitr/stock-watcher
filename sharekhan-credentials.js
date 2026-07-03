@@ -12,6 +12,8 @@ SHAREKHAN_SECRET_KEY=your_secret_key_here
 SHAREKHAN_REQUEST_TOKEN=your_request_token_here
 SHAREKHAN_VERSION_ID=your_version_id_here
 SHAREKHAN_VENDOR_KEY=your_vendor_key_here
+# Optional: Sharekhan streaming scrip code for Nifty 50 index, if script master cannot resolve NIFTY/NIFTY50.
+SHAREKHAN_NIFTY_SCRIP_CODE=
 `;
 
 function parseCredentialsFile(content) {
@@ -70,6 +72,7 @@ function loadSharekhanCredentials(options = {}) {
     const requestToken = pickCredential(fileCreds, ['SHAREKHAN_REQUEST_TOKEN']);
     const versionId    = pickCredential(fileCreds, ['SHAREKHAN_VERSION_ID']);
     const vendorKey    = pickCredential(fileCreds, ['SHAREKHAN_VENDOR_KEY']);
+    const niftyScripCode = pickCredential(fileCreds, ['SHAREKHAN_NIFTY_SCRIP_CODE', 'SHAREKHAN_NIFTY50_SCRIP_CODE', 'NIFTY_SHAREKHAN_SCRIP_CODE']);
 
     if (!apiKey) {
       console.error('[sharekhan-credentials] API key is missing in environment or ' + CREDS_FILE);
@@ -77,7 +80,7 @@ function loadSharekhanCredentials(options = {}) {
     }
     if (!customerId) {
       console.error('[sharekhan-credentials] Customer ID is missing in environment or ' + CREDS_FILE);
-      if (!requireSession) return { apiKey, customerId, accessToken, secretKey, requestToken, versionId, vendorKey };
+      if (!requireSession) return { apiKey, customerId, accessToken, secretKey, requestToken, versionId, vendorKey, niftyScripCode };
       return null;
     }
     if (requireSession && !accessToken && !(requestToken && secretKey)) {
@@ -85,7 +88,7 @@ function loadSharekhanCredentials(options = {}) {
       return null;
     }
 
-    return { apiKey, customerId, accessToken, secretKey, requestToken, versionId, vendorKey };
+    return { apiKey, customerId, accessToken, secretKey, requestToken, versionId, vendorKey, niftyScripCode };
   } catch (err) {
     console.error('[sharekhan-credentials] Failed to load credentials:', err.message);
     return null;

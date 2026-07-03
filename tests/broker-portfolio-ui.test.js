@@ -303,3 +303,25 @@ test('broker portfolio modal includes closed-today broker ledger rows', () => {
 
   assert.ok(renderModal, 'broker portfolio modal should show closed-today trades for selected broker');
 });
+
+test('intraday Sharekhan volume updates table stockData volume', () => {
+  const { source } = loadDashboardApp();
+  const helper = findFunctionByContracts(source, [
+    'function applyIntradayVolumeToStockData',
+    'setup?.dayVolume',
+    'setup?.ohlc?.session?.volume',
+    'stockData[sym] = { ...prev, volume }',
+  ]);
+  const batchFetch = findFunctionByContracts(source, [
+    'fetchIntradaySignalBatch',
+    'applyIntradayVolumeToStockData(sym, setup)',
+  ]);
+  const liveStream = findFunctionByContracts(source, [
+    'intradayLiveStream.onmessage',
+    'applyIntradayVolumeToStockData(sym, value)',
+  ]);
+
+  assert.ok(helper, 'dashboard-app.js should map intraday dayVolume into stockData volume');
+  assert.ok(batchFetch, 'batch intraday fetch should refresh table volume');
+  assert.ok(liveStream, 'live intraday stream should refresh table volume');
+});

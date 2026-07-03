@@ -1,8 +1,8 @@
 {
-  "state": "running",
+  "state": "off",
   "autoResume": true,
-  "lastTickAt": 1782876693204,
-  "updatedAt": 1782876693205,
+  "lastTickAt": 0,
+  "updatedAt": 0,
   "lastError": "",
   "version": 1
 }

@@ -59,6 +59,27 @@
     return Number(settings.SIMULATION_MIN_SCORE) || 0;
   }
 
+  function getMinScoreForCandidate(settings, side, setupType, candidate = null) {
+    settings = withDefaults(settings);
+    if (['VOLUME_SHOCK_BREAKOUT', 'FRESH_BREAKOUT'].includes(setupType) && isStrongVolumeBreakoutCandidate(candidate, settings)) {
+      return Math.min(
+        getMinScoreForSide(settings, side),
+        Number(settings.SIMULATION_STRONG_BREAKOUT_MIN_SCORE) || 55
+      );
+    }
+    if (setupType === 'MOMENTUM_RUNNER') {
+      return Math.min(
+        getMinScoreForSide(settings, side),
+        Number(settings.SIMULATION_RUNNER_MIN_SCORE) || getMinScoreForSide(settings, side),
+        Number(settings.SIMULATION_EARLY_RUNNER_MIN_SCORE) || getMinScoreForSide(settings, side)
+      );
+    }
+    if (setupType === 'VOLUME_SHOCK_BREAKOUT') {
+      return getMinScoreForSide(settings, side);
+    }
+    return getMinScoreForSide(settings, side);
+  }
+
   function getAllowedGuardLevelsForSide(settings, side) {
     settings = withDefaults(settings);
     const levels = ['ok', 'small'];
@@ -100,6 +121,25 @@
     return issues;
   }
 
+  function getSnapshotDataQuality(candidates, settings) {
+    settings = withDefaults(settings);
+    const list = Array.isArray(candidates) ? candidates.filter(Boolean) : [];
+    const total = list.length;
+    let bad = 0;
+    for (const candidate of list) {
+      if (getDataQualityIssues(candidate, settings).length) bad += 1;
+    }
+    const badRatio = total > 0 ? bad / total : 0;
+    const minSample = Math.max(1, Math.floor(Number(settings.SIMULATION_DATA_QUALITY_MIN_SAMPLE) || 25));
+    const active = total >= minSample;
+    const blockRatio = Math.max(0, Number(settings.SIMULATION_DATA_QUALITY_BLOCK_BAD_RATIO) || 0.45);
+    const reduceRatio = Math.max(0, Number(settings.SIMULATION_DATA_QUALITY_REDUCE_BAD_RATIO) || 0.25);
+    const mode = active && badRatio >= blockRatio
+      ? 'block'
+      : (active && badRatio >= reduceRatio ? 'reduce' : 'normal');
+    return { total, bad, good: Math.max(0, total - bad), badRatio: round3(badRatio), mode };
+  }
+
   function getEntryTriggerPrice(candidateOrIndicators) {
     const indicators = candidateOrIndicators?.indicators || candidateOrIndicators || {};
     const text = String(indicators.entryTrigger || '');
@@ -119,6 +159,63 @@
     const indicators = candidate?.indicators || {};
     const value = Number(indicators.dayChange ?? indicators.dayChangePct ?? candidate?.change ?? candidate?.quote?.change);
     return Number.isFinite(value) ? value : null;
+  }
+
+  function isStrongVolumeBreakoutCandidate(candidate, settings) {
+    settings = withDefaults(settings);
+    if (!candidate) return false;
+    const side = candidate.side || candidate.signal || adjustedTradeSignal(Number(candidate.score) || 0);
+    if (side === 'sell') return false;
+    const indicators = candidate.indicators || {};
+    const price = getCandidatePrice(candidate);
+    const vwap = Number(indicators.vwap);
+    const relVol = getRelativeVolume(candidate);
+    const dayChange = getCandidateDayChange(candidate);
+    const rsi = Number(indicators.rsi);
+    return Number.isFinite(price) && price > 0 &&
+      Number.isFinite(vwap) && vwap > 0 &&
+      price > vwap &&
+      relVol != null && relVol >= Number(settings.SIMULATION_STRONG_BREAKOUT_MIN_REL_VOL || 3) &&
+      Number.isFinite(dayChange) &&
+      dayChange >= Number(settings.SIMULATION_STRONG_BREAKOUT_MIN_DAY_GAIN_PCT || 3) &&
+      dayChange <= Number(settings.SIMULATION_STRONG_BREAKOUT_MAX_DAY_GAIN_PCT || 8) &&
+      Number.isFinite(rsi) && rsi <= Number(settings.SIMULATION_STRONG_BREAKOUT_MAX_RSI || 75);
+  }
+
+  function getVolumeShockInfo(candidateOrIndicators) {
+    const indicators = candidateOrIndicators?.indicators || candidateOrIndicators || {};
+    return indicators.volumeShock && typeof indicators.volumeShock === 'object' ? indicators.volumeShock : {};
+  }
+
+  function getRecentVolumeImpulseInfo(candidate, settings) {
+    settings = withDefaults(settings);
+    const shock = getVolumeShockInfo(candidate);
+    const ratio3m = Number(shock.volumeRatio3m);
+    const ratio5m = Number(shock.volumeRatio5m);
+    const recentHigh = Number(shock.recentHigh);
+    const price = getCandidatePrice(candidate);
+    const freshHighBreakout = !!shock.breakout || (
+      Number.isFinite(price) &&
+      Number.isFinite(recentHigh) &&
+      recentHigh > 0 &&
+      price >= recentHigh
+    );
+    const impulseOk =
+      Number.isFinite(ratio3m) && ratio3m >= Number(settings.SIMULATION_RUNNER_MIN_VOLUME_RATIO_3M || 0.8) ||
+      Number.isFinite(ratio5m) && ratio5m >= Number(settings.SIMULATION_RUNNER_MIN_VOLUME_RATIO_5M || 1) ||
+      freshHighBreakout;
+    return { shock, ratio3m, ratio5m, recentHigh, freshHighBreakout, impulseOk };
+  }
+
+  function isLateRunnerAllowed(candidate, settings) {
+    settings = withDefaults(settings);
+    const dayChange = getCandidateDayChange(candidate);
+    const maxDayChange = Number(settings.SIMULATION_RUNNER_MAX_DAY_CHANGE_PCT) || 8;
+    if (!Number.isFinite(dayChange) || dayChange <= maxDayChange) return true;
+    const impulse = getRecentVolumeImpulseInfo(candidate, settings);
+    const minBreakoutRatio5m = Number(settings.SIMULATION_RUNNER_LATE_BREAKOUT_MIN_VOLUME_RATIO_5M) || 1.2;
+    return !!impulse.shock.isShock ||
+      (impulse.freshHighBreakout && Number.isFinite(impulse.ratio5m) && impulse.ratio5m >= minBreakoutRatio5m);
   }
 
   function getMarketRegime(candidate, side, context = {}) {
@@ -156,6 +253,9 @@
       if (Number.isFinite(sectorAvg) && sectorAvg < -sectorThreshold) reasons.push(`sector ${round1(sectorAvg)}%`);
       if (Number.isFinite(rs) && rs < -rsThreshold) reasons.push(`RS ${rs}%`);
     } else if (tradeSide === 'sell') {
+      if (settings.SIMULATION_REQUIRE_NIFTY_FOR_SHORTS && niftyThreshold < 999 && !Number.isFinite(nifty)) {
+        reasons.push('Nifty unavailable');
+      }
       if (Number.isFinite(nifty) && nifty > niftyThreshold) reasons.push(`Nifty ${nifty}%`);
       if (Number.isFinite(advPct) && advPct > breadthThreshold) reasons.push(`breadth ${advPct}% advances`);
       if (Number.isFinite(sectorAvg) && sectorAvg > sectorThreshold) reasons.push(`sector ${round1(sectorAvg)}%`);
@@ -296,10 +396,19 @@
     const confirmations = getBreakoutConfirmations(candidate, side);
     const confirmationCount = Object.values(confirmations).filter(Boolean).length;
     const hasBreakoutReason = /Opening range breakout|previous day high|5D breakout|20D breakout/i.test(reasons);
-    const ok =
+    const dayChange = getCandidateDayChange(candidate);
+    const rsi = Number(indicators.rsi);
+    const st = String(indicators.superTrendDirection || '').toLowerCase();
+    const bullishSuperTrendOk = !settings.SIMULATION_RUNNER_REQUIRE_BULLISH_SUPERTREND || st === 'bullish';
+    const volumeImpulse = getRecentVolumeImpulseInfo(candidate, settings);
+    const lateRunnerOk = isLateRunnerAllowed(candidate, settings);
+    const normalOk =
       Number.isFinite(price) && price > 0 &&
       Number.isFinite(score) && score >= settings.SIMULATION_RUNNER_MIN_SCORE &&
       Number.isFinite(relVol) && relVol >= settings.SIMULATION_RUNNER_MIN_REL_VOL &&
+      bullishSuperTrendOk &&
+      volumeImpulse.impulseOk &&
+      lateRunnerOk &&
       hasBreakoutReason &&
       triggerDistancePct != null &&
       triggerDistancePct > 0.6 &&
@@ -307,14 +416,46 @@
       vwapExtensionPct != null &&
       vwapExtensionPct <= settings.SIMULATION_RUNNER_MAX_VWAP_EXTENSION_PCT &&
       confirmationCount >= 1;
+    const earlyOk =
+      Number.isFinite(price) && price > 0 &&
+      Number.isFinite(score) && score >= settings.SIMULATION_EARLY_RUNNER_MIN_SCORE &&
+      Number.isFinite(relVol) && relVol >= settings.SIMULATION_EARLY_RUNNER_MIN_REL_VOL &&
+      Number.isFinite(dayChange) &&
+      dayChange >= settings.SIMULATION_EARLY_RUNNER_MIN_DAY_CHANGE_PCT &&
+      dayChange <= settings.SIMULATION_EARLY_RUNNER_MAX_DAY_CHANGE_PCT &&
+      Number.isFinite(rsi) && rsi >= 52 && rsi <= 78 &&
+      bullishSuperTrendOk &&
+      volumeImpulse.impulseOk &&
+      lateRunnerOk &&
+      hasBreakoutReason &&
+      triggerDistancePct != null &&
+      triggerDistancePct > 0.6 &&
+      triggerDistancePct <= settings.SIMULATION_EARLY_RUNNER_MAX_TRIGGER_EXTENSION_PCT &&
+      vwapExtensionPct != null &&
+      vwapExtensionPct <= settings.SIMULATION_EARLY_RUNNER_MAX_VWAP_EXTENSION_PCT &&
+      confirmationCount >= 3;
+    const ok = normalOk || earlyOk;
     return {
       ok,
+      mode: earlyOk && !normalOk ? 'early' : (normalOk ? 'confirmed' : null),
       score,
       relVol,
+      dayChange,
       triggerDistancePct,
       vwapExtensionPct,
       confirmationCount,
-      reason: ok ? 'momentum runner' : 'not momentum runner',
+      superTrend: st || null,
+      volumeRatio3m: Number.isFinite(volumeImpulse.ratio3m) ? volumeImpulse.ratio3m : null,
+      volumeRatio5m: Number.isFinite(volumeImpulse.ratio5m) ? volumeImpulse.ratio5m : null,
+      freshHighBreakout: volumeImpulse.freshHighBreakout,
+      lateRunnerOk,
+      reason: ok
+        ? (earlyOk && !normalOk ? 'early momentum runner' : 'momentum runner')
+        : (!bullishSuperTrendOk
+          ? 'runner needs bullish SuperTrend'
+          : (!volumeImpulse.impulseOk
+            ? 'runner needs fresh volume impulse or high breakout'
+            : (!lateRunnerOk ? 'late runner needs fresh shock/high breakout' : 'not momentum runner'))),
     };
   }
 
@@ -334,12 +475,33 @@
     const band = String(indicators.vwapBandPosition || '');
     const net = Number(candidate.cost?.netPct);
     const relVol = getRelativeVolume(indicators);
+    const minRelVol = Number(settings.SIMULATION_VWAP_CONT_MIN_REL_VOL) || 1.5;
+    const shock = getVolumeShockInfo(indicators);
+    const volumeRatio3m = Number(shock.volumeRatio3m);
+    const volumeRatio5m = Number(shock.volumeRatio5m);
+    const change5m = Number(shock.change5m);
+    const recentHigh = Number(shock.recentHigh);
+    const freshHighBreakout = !!shock.breakout || (
+      Number.isFinite(price) &&
+      Number.isFinite(recentHigh) &&
+      recentHigh > 0 &&
+      price >= recentHigh
+    );
+    const impulseOk =
+      Number.isFinite(volumeRatio3m) && volumeRatio3m >= (Number(settings.SIMULATION_VWAP_CONT_MIN_VOLUME_RATIO_3M) || 0.8) ||
+      Number.isFinite(volumeRatio5m) && volumeRatio5m >= (Number(settings.SIMULATION_VWAP_CONT_MIN_VOLUME_RATIO_5M) || 1);
+    const change5mOk = !settings.SIMULATION_VWAP_CONT_BLOCK_NEGATIVE_5M_UNLESS_BREAKOUT ||
+      !Number.isFinite(change5m) ||
+      change5m >= 0 ||
+      freshHighBreakout;
     const triggerDistancePct = trigger ? ((price - trigger) / trigger) * 100 : null;
     const vwapExtensionPct = Number.isFinite(vwap) && vwap > 0 ? ((price - vwap) / vwap) * 100 : null;
     const ok =
       Number.isFinite(price) && price > 0 &&
       Number.isFinite(score) && score >= settings.SIMULATION_VWAP_CONT_MIN_SCORE &&
-      relVol != null && relVol >= 1.2 &&
+      relVol != null && relVol >= minRelVol &&
+      impulseOk &&
+      change5mOk &&
       ['upper-half', 'inside'].includes(band) &&
       st === 'bullish' &&
       Number.isFinite(ema9) && Number.isFinite(ema20) && ema9 > ema20 &&
@@ -356,8 +518,19 @@
       triggerDistancePct,
       vwapExtensionPct,
       relVol,
+      minRelVol,
+      volumeRatio3m: Number.isFinite(volumeRatio3m) ? volumeRatio3m : null,
+      volumeRatio5m: Number.isFinite(volumeRatio5m) ? volumeRatio5m : null,
+      change5m: Number.isFinite(change5m) ? change5m : null,
+      freshHighBreakout,
       net,
-      reason: ok ? 'VWAP trend continuation' : 'not VWAP continuation',
+      reason: ok
+        ? 'VWAP trend continuation'
+        : (relVol == null || relVol < minRelVol
+          ? `VWAP continuation volume ${relVol == null ? '--' : round2(relVol)}x < ${round2(minRelVol)}x`
+          : (!impulseOk
+            ? 'VWAP continuation needs fresh volume impulse'
+            : (!change5mOk ? 'VWAP continuation 5m change fading without fresh high' : 'not VWAP continuation'))),
     };
   }
 
@@ -391,8 +564,12 @@
     const buy = side !== 'sell';
     const price = getCandidatePrice(candidate);
     if (!Number.isFinite(price) || price <= 0) return 'missing live price';
-    const runner = setupType === 'MOMENTUM_RUNNER' || getMomentumRunnerInfo(candidate, settings).ok;
-    const continuation = setupType === 'VWAP_TREND_CONTINUATION' || getVwapContinuationInfo(candidate, settings).ok;
+    const runnerInfo = getMomentumRunnerInfo(candidate, settings);
+    if (setupType === 'MOMENTUM_RUNNER' && !runnerInfo.ok) return runnerInfo.reason || 'not momentum runner';
+    const runner = runnerInfo.ok;
+    const continuationInfo = getVwapContinuationInfo(candidate, settings);
+    if (setupType === 'VWAP_TREND_CONTINUATION' && !continuationInfo.ok) return continuationInfo.reason || 'not VWAP continuation';
+    const continuation = continuationInfo.ok;
     const relVol = getRelativeVolume(candidate);
     const guardLevel = String(candidate.guard?.level || '').toLowerCase();
     if (setupType === 'VOLUME_SHOCK_BREAKOUT') {
@@ -405,8 +582,11 @@
         return `volume shock late after ${round2(shock.dayChangePct)}% day move`;
       }
     }
-    if (setupType === 'VWAP_TREND_CONTINUATION' && (relVol == null || relVol < 1.2)) {
-      return `VWAP continuation volume ${relVol == null ? '--' : round2(relVol)}x < 1.2x`;
+    if (setupType === 'VWAP_TREND_CONTINUATION') {
+      const minVwapContRelVol = Number(settings.SIMULATION_VWAP_CONT_MIN_REL_VOL) || 1.5;
+      if (relVol == null || relVol < minVwapContRelVol) {
+        return `VWAP continuation volume ${relVol == null ? '--' : round2(relVol)}x < ${round2(minVwapContRelVol)}x`;
+      }
     }
     if (!buy && ['BREAKDOWN', 'VWAP_REJECTION'].includes(setupType)) {
       const vwap = Number(candidate.indicators?.vwap);
@@ -435,7 +615,12 @@
     const vwap = Number(candidate.indicators?.vwap);
     if (Number.isFinite(vwap) && vwap > 0) {
       const vwapExtensionPct = buy ? ((price - vwap) / vwap) * 100 : ((vwap - price) / vwap) * 100;
-      if (vwapExtensionPct > 0.8 && setupType !== 'VOLUME_SHOCK_BREAKOUT' && !runner && !continuation) return `extended ${round2(vwapExtensionPct)}% from VWAP`;
+      const baseFreshMax = Number(settings.SIMULATION_FRESH_BREAKOUT_MAX_VWAP_EXTENSION_PCT) || 0.8;
+      const highRelVol = relVol != null && relVol >= (Number(settings.SIMULATION_FRESH_BREAKOUT_HIGH_REL_VOL) || 2);
+      const freshMax = setupType === 'FRESH_BREAKOUT' && highRelVol
+        ? Number(settings.SIMULATION_FRESH_BREAKOUT_HIGH_REL_VOL_MAX_VWAP_EXTENSION_PCT) || 1
+        : baseFreshMax;
+      if (vwapExtensionPct > freshMax && setupType !== 'VOLUME_SHOCK_BREAKOUT' && !runner && !continuation) return `extended ${round2(vwapExtensionPct)}% from VWAP`;
     }
     if (setupType === 'FRESH_BREAKOUT' && !runner) {
       if (!hasFreshBreakoutConfirmation(candidate, context.previousCandidate, side)) {
@@ -460,8 +645,8 @@
     if (candidate.assetType === 'etf' && side === 'sell') return false;
     if (!['buy', 'sell'].includes(side)) return false;
     if (!settings.SIMULATION_AUTO_SHORTS && side === 'sell') return false;
-    if (Math.abs(Number(candidate.score) || 0) < getMinScoreForSide(settings, side)) return false;
     const setupType = candidate.derivedSetupType || candidate.setupType || deriveSetupType(candidate, settings);
+    if (Math.abs(Number(candidate.score) || 0) < getMinScoreForCandidate(settings, side, setupType, candidate)) return false;
     if (!isSimulationSetupAllowed(setupType)) return false;
     if (getSetupBlockReason(candidate, setupType, at, settings, context)) return false;
     if (!getMarketRegime(candidate, side, { ...context, settings }).ok) return false;
@@ -488,7 +673,7 @@
     if (candidate.assetType === 'etf' && side === 'sell') reasons.push('ETF short disabled');
     if (!['buy', 'sell'].includes(side)) reasons.push(`signal ${side || '--'}`);
     if (!settings.SIMULATION_AUTO_SHORTS && side === 'sell') reasons.push('auto shorts disabled');
-    const minScore = getMinScoreForSide(settings, side);
+    const minScore = getMinScoreForCandidate(settings, side, setupType, candidate);
     if (Math.abs(Number(candidate.score) || 0) < minScore) reasons.push(`score ${Math.abs(Number(candidate.score) || 0)} < ${minScore}`);
     if (!isSimulationSetupAllowed(setupType)) reasons.push(`setup ${setupType} not allowed`);
     const setupBlock = getSetupBlockReason(candidate, setupType, at, settings, context);
@@ -521,7 +706,11 @@
     const openSymbols = context.openSymbols instanceof Set
       ? context.openSymbols
       : new Set(Array.isArray(context.openSymbols) ? context.openSymbols : []);
-    const topN = Math.max(1, Math.floor(Number(context.topN ?? settings.SIMULATION_TOP_N) || 10));
+    const quality = getSnapshotDataQuality(candidates, settings);
+    if (quality.mode === 'block') return [];
+    const configuredTopN = Math.max(1, Math.floor(Number(context.topN ?? settings.SIMULATION_TOP_N) || 10));
+    const reducedTopN = Math.max(1, Math.floor(Number(settings.SIMULATION_DATA_QUALITY_REDUCED_TOP_N) || 2));
+    const topN = quality.mode === 'reduce' ? Math.min(configuredTopN, reducedTopN) : configuredTopN;
     const entryBlockReason = typeof context.entryBlockReason === 'function'
       ? context.entryBlockReason
       : () => '';
@@ -614,6 +803,15 @@
     return { target: round2(entry + targetDistance), stop: round2(entry - stopDistance) };
   }
 
+  function getNextRunnerTarget(trade, price, settings) {
+    settings = withDefaults(settings);
+    if (!trade || !Number.isFinite(Number(price))) return null;
+    const side = String(trade.side || 'buy').toLowerCase();
+    const stepPct = Math.max(0.1, Number(settings.SIMULATION_RUNNER_TARGET_STEP_PCT) || 1.2) / 100;
+    const next = side === 'sell' ? Number(price) * (1 - stepPct) : Number(price) * (1 + stepPct);
+    return Number.isFinite(next) && next > 0 ? round2(next) : null;
+  }
+
   function getSuggestedQty(candidate, side, price, availableCash, maxExposure, settings) {
     settings = withDefaults(settings);
     const entry = Number(price);
@@ -625,8 +823,16 @@
     const exposureCap = Math.max(0, Math.min(Number(maxExposure) || settings.MAX_POSITION_EXPOSURE, Math.max(0, cash)));
     const byRisk = riskPerShare > 0 ? Math.floor(maxLoss / riskPerShare) : 0;
     const byCash = Math.floor(exposureCap / entry);
-    const qty = Math.max(0, Math.min(byRisk || byCash, byCash));
-    return { qty, riskPerShare: round2(riskPerShare), maxLoss: round2(maxLoss), cashLimit: byCash, exposureCap: round2(exposureCap), plan };
+    const rawQty = Math.max(0, Math.min(byRisk || byCash, byCash));
+    const setupType = candidate.derivedSetupType || candidate.setupType || '';
+    const dayChange = getCandidateDayChange(candidate);
+    const lateSizeThreshold = Number(settings.SIMULATION_RUNNER_LATE_SIZE_REDUCTION_DAY_CHANGE_PCT) || 7;
+    const lateSizeFactor = Math.max(0.1, Math.min(1, Number(settings.SIMULATION_RUNNER_LATE_SIZE_FACTOR) || 0.5));
+    const sizeFactor = setupType === 'MOMENTUM_RUNNER' && Number.isFinite(dayChange) && dayChange > lateSizeThreshold
+      ? lateSizeFactor
+      : 1;
+    const qty = Math.max(0, Math.floor(rawQty * sizeFactor));
+    return { qty, riskPerShare: round2(riskPerShare), maxLoss: round2(maxLoss), cashLimit: byCash, exposureCap: round2(exposureCap), plan, sizeFactor };
   }
 
   function isMomentumRunnerTrade(trade) {
@@ -841,6 +1047,47 @@
     return null;
   }
 
+  function getNoProgressExit(trade, price, candidate, at, settings) {
+    settings = withDefaults(settings);
+    if (!trade || !Number.isFinite(Number(price))) return null;
+    const side = String(trade.side || 'buy').toLowerCase();
+    const entry = Number(trade.entryPrice);
+    if (!Number.isFinite(entry) || entry <= 0) return null;
+    const nowMs = at ? new Date(at).getTime() : Date.now();
+    const openedAt = new Date(trade.openedAt || 0).getTime();
+    if (!Number.isFinite(openedAt) || openedAt <= 0) return null;
+    const holdMs = nowMs - openedAt;
+    const setupType = String(trade.setupType || candidate?.derivedSetupType || candidate?.setupType || '').toUpperCase();
+    const relVol = getRelativeVolume(candidate);
+    let minHoldMin = Math.max(1, Number(settings.SIMULATION_NO_PROGRESS_EXIT_MIN) || 12);
+    if (setupType === 'MOMENTUM_RUNNER' || Number(trade._runnerArmed)) {
+      minHoldMin = Math.max(1, Number(settings.SIMULATION_NO_PROGRESS_RUNNER_EXIT_MIN) || 9);
+    } else if (setupType === 'FRESH_BREAKOUT' || setupType === 'VOLUME_SHOCK_BREAKOUT') {
+      minHoldMin = Math.max(1, Number(settings.SIMULATION_NO_PROGRESS_FRESH_BREAKOUT_EXIT_MIN) || 12);
+    } else if (setupType === 'VWAP_TREND_CONTINUATION') {
+      const fadeThreshold = Number(settings.SIMULATION_NO_PROGRESS_VWAP_CONT_REL_VOL_FADE) || 1.2;
+      if (settings.SIMULATION_NO_PROGRESS_VWAP_CONT_REQUIRE_REL_VOL_FADE && !(relVol != null && relVol < fadeThreshold)) {
+        return null;
+      }
+      minHoldMin = Math.max(1, Number(settings.SIMULATION_NO_PROGRESS_VWAP_CONT_EXIT_MIN) || 8);
+    }
+    const minHoldMs = minHoldMin * 60000;
+    if (holdMs < minHoldMs) return null;
+    const favorablePct = side === 'sell' ? ((entry - Number(price)) / entry) * 100 : ((Number(price) - entry) / entry) * 100;
+    const maxFavorablePct = Math.max(Number(trade._maxFavorablePct) || 0, favorablePct);
+    const minFavorablePct = Math.max(0, Number(settings.SIMULATION_NO_PROGRESS_MIN_FAVORABLE_PCT) || 0.2);
+    if (maxFavorablePct >= minFavorablePct) return null;
+    const adversePct = -favorablePct;
+    const adverseTriggerPct = Math.max(0, Number(settings.SIMULATION_NO_PROGRESS_ADVERSE_PCT) || 0.15);
+    const deteriorated = isSimulationSignalDeteriorated(trade, candidate, Number(price));
+    const vwap = Number(candidate?.indicators?.vwap);
+    const vwapLost = Number.isFinite(vwap) && (side === 'sell' ? Number(price) > vwap : Number(price) < vwap);
+    if (adversePct >= adverseTriggerPct || deteriorated || vwapLost) {
+      return { reason: 'Simulation zero-progress exit', exitPrice: Number(price) };
+    }
+    return null;
+  }
+
   function getSimulationExit(trade, price, candidate, at, settings, opts) {
     settings = withDefaults(settings);
     opts = opts || {};
@@ -880,17 +1127,12 @@
       }
       const negCandleExit = getNegativeCandleExit(trade, price, candidate, settings);
       if (negCandleExit) return negCandleExit;
+      const noProgressExit = getNoProgressExit(trade, price, candidate, at, settings);
+      if (noProgressExit) return noProgressExit;
       if (!isMomentumRunnerTrade(trade) && Number.isFinite(openedAt) && nowMs - openedAt >= Number(settings.SIMULATION_TIME_STOP_MIN || 45) * 60 * 1000 && favorablePct < Number(settings.SIMULATION_TIME_STOP_MIN_PROFIT_PCT || 0.2)) {
         const live = getPaperTradePnl(trade, price);
         if (isSimulationSignalDeteriorated(trade, candidate, price)) return { reason: 'Simulation signal deterioration', exitPrice: Number(price) };
         if (live && live.pnl <= 0 && favorablePct <= -0.15) return { reason: 'Simulation time stop cost guard', exitPrice: Number(price) };
-      }
-      // Fast-exit: if price has never moved favorably after the stop grace window, exit immediately on signal deterioration
-      // rather than waiting for the full EXIT_MIN_HOLD_MIN fade-confirm cycle.
-      if (!isMomentumRunnerTrade(trade) && Number(trade._maxFavorablePct) === 0 &&
-          Number.isFinite(openedAt) && nowMs - openedAt >= Number(settings.SIMULATION_STOP_GRACE_MIN || 10) * 60000 &&
-          favorablePct < 0 && isSimulationSignalDeteriorated(trade, candidate, price)) {
-        return { reason: 'Simulation zero-progress exit', exitPrice: Number(price) };
       }
     }
     const runnerExit = getMomentumRunnerExit(trade, price, candidate, settings);
@@ -901,7 +1143,7 @@
       if (!isMomentumRunnerTrade(trade) && Number.isFinite(target) && price <= target) {
         const runner = getTargetRunnerInfo(trade, candidate, price, settings);
         if (!trade._partialTargetBooked && Number(trade.qty) > 1) {
-          return { reason: runner.ok ? 'Simulation partial target runner' : 'Simulation partial target', exitPrice: target, action: 'partial', qtyPct: settings.SIMULATION_TARGET_PARTIAL_QTY_PCT, runner: runner.ok };
+          return { reason: runner.ok ? 'Simulation partial target runner' : 'Simulation partial target', exitPrice: target, action: 'partial', qtyPct: settings.SIMULATION_TARGET_PARTIAL_QTY_PCT, runner: runner.ok, newTarget: runner.ok ? getNextRunnerTarget(trade, price, settings) : null };
         }
         return { reason: 'Simulation target', exitPrice: target };
       }
@@ -913,7 +1155,7 @@
     if (!isMomentumRunnerTrade(trade) && Number.isFinite(target) && price >= target) {
       const runner = getTargetRunnerInfo(trade, candidate, price, settings);
       if (!trade._partialTargetBooked && Number(trade.qty) > 1) {
-        return { reason: runner.ok ? 'Simulation partial target runner' : 'Simulation partial target', exitPrice: target, action: 'partial', qtyPct: settings.SIMULATION_TARGET_PARTIAL_QTY_PCT, runner: runner.ok };
+        return { reason: runner.ok ? 'Simulation partial target runner' : 'Simulation partial target', exitPrice: target, action: 'partial', qtyPct: settings.SIMULATION_TARGET_PARTIAL_QTY_PCT, runner: runner.ok, newTarget: runner.ok ? getNextRunnerTarget(trade, price, settings) : null };
       }
       return { reason: 'Simulation target', exitPrice: target };
     }
@@ -968,6 +1210,10 @@
         const risk = Number.isFinite(price) && Number.isFinite(stop) ? Math.abs(price - stop) : null;
         const reward = Number.isFinite(price) && Number.isFinite(target) ? Math.abs(target - price) : null;
         const rr = Number.isFinite(risk) && risk > 0 && Number.isFinite(reward) ? round2(reward / risk) : null;
+        const rawEntryContext = candidate.entryContext && typeof candidate.entryContext === 'object' ? candidate.entryContext : {};
+        const snapshotAt = candidate.__snapshotAt || candidate.snapshotAt || rawEntryContext.snapshotAt || at || null;
+        const snapshotId = candidate.__snapshotId || candidate.snapshotId || rawEntryContext.snapshotId || null;
+        const snapshotSource = candidate.__snapshotSource || candidate.snapshotSource || rawEntryContext.snapshotSource || null;
         return {
           symbol: candidate.symbol,
           side,
@@ -981,7 +1227,17 @@
           rr,
           setupType: candidate.derivedSetupType || candidate.setupType || null,
           setup: candidate.setup || candidate.indicators?.setup || null,
-          entryContext: candidate.entryContext && typeof candidate.entryContext === 'object' ? candidate.entryContext : null,
+          entryContext: {
+            ...rawEntryContext,
+            snapshotId,
+            snapshotAt,
+            snapshotSource,
+            snapshotAgeMin: candidate.__snapshotAgeMin ?? rawEntryContext.snapshotAgeMin ?? null,
+            candidateScore: Number.isFinite(Number(candidate.score)) ? Number(candidate.score) : null,
+            candidateSetupType: candidate.derivedSetupType || candidate.setupType || null,
+          },
+          snapshotId,
+          snapshotAt,
           notes: candidate.notes || '',
           assetType: candidate.assetType || null,
           candidate,
@@ -1176,15 +1432,20 @@
     isSimulationSetupAllowed,
     getEntryTriggerPrice,
     getRelativeVolume,
+    isStrongVolumeBreakoutCandidate,
+    getRecentVolumeImpulseInfo,
+    isLateRunnerAllowed,
     getMarketRegime,
     isTriggeredAboveVwap,
     hasFreshBreakoutConfirmation,
     toConfirmationCandidate,
     getMinScoreForSide,
+    getMinScoreForCandidate,
     getAllowedGuardLevelsForSide,
     getMaxStopPctForSide,
     getTriggerDistancePct,
     getDataQualityIssues,
+    getSnapshotDataQuality,
     explainCandidateEligibility,
     getBreakoutConfirmations,
     getShortBearishConfirmations,
@@ -1201,6 +1462,7 @@
     estimateZerodhaIntradayCharges,
     getPaperTradePnl,
     getPaperPlanForCandidate,
+    getNextRunnerTarget,
     getSuggestedQty,
     isMomentumRunnerTrade,
     isSimulationSignalDeteriorated,
