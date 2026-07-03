@@ -394,6 +394,37 @@
     return hour < hourCutoff;
   }
 
+  function computePositionSizeMultiplier(closedTrades) {
+    // Reduce position size when losing streak develops
+    if (!Array.isArray(closedTrades) || closedTrades.length === 0) {
+      return 1.0; // Full size on first trade
+    }
+
+    const recentTrades = closedTrades.slice(-10);
+    const wins = recentTrades.filter(t => Number(t.pnl) > 0).length;
+    const losses = recentTrades.filter(t => Number(t.pnl) < 0).length;
+    const winRate = recentTrades.length > 0 ? wins / recentTrades.length : 0;
+
+    // Count current loss streak
+    let currentLossStreak = 0;
+    for (let i = recentTrades.length - 1; i >= 0; i--) {
+      if (Number(recentTrades[i].pnl) < 0) {
+        currentLossStreak += 1;
+      } else {
+        break;
+      }
+    }
+
+    // Position sizing: scale down aggressively when losing
+    let multiplier = 1.0;
+    if (currentLossStreak >= 3) multiplier = 0.3;  // 3+ losses: 30% position
+    else if (currentLossStreak === 2) multiplier = 0.5;  // 2 losses: 50% position
+    else if (currentLossStreak === 1 && losses > wins) multiplier = 0.7;  // 1 loss + more losses than wins: 70%
+    else if (winRate < 0.25 && recentTrades.length >= 4) multiplier = 0.6;  // Low win rate: 60%
+
+    return multiplier;
+  }
+
   return {
     DEFAULT_SETTINGS,
     SETTING_DESCRIPTIONS,
@@ -405,5 +436,6 @@
     buildDayStats,
     getEntryBlockReason,
     checkHighProfitShortTrigger,
+    computePositionSizeMultiplier,
   };
 });

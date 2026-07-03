@@ -812,7 +812,7 @@
     return Number.isFinite(next) && next > 0 ? round2(next) : null;
   }
 
-  function getSuggestedQty(candidate, side, price, availableCash, maxExposure, settings) {
+  function getSuggestedQty(candidate, side, price, availableCash, maxExposure, settings, positionMultiplier = 1.0) {
     settings = withDefaults(settings);
     const entry = Number(price);
     if (!candidate || !Number.isFinite(entry) || entry <= 0) return { qty: 0, riskPerShare: null, maxLoss: 0, cashLimit: 0, exposureCap: maxExposure };
@@ -831,7 +831,9 @@
     const sizeFactor = setupType === 'MOMENTUM_RUNNER' && Number.isFinite(dayChange) && dayChange > lateSizeThreshold
       ? lateSizeFactor
       : 1;
-    const qty = Math.max(0, Math.floor(rawQty * sizeFactor));
+    const baseQty = Math.max(0, Math.floor(rawQty * sizeFactor));
+    const finalQty = Math.max(0, Math.floor(baseQty * positionMultiplier));
+    const qty = Math.max(0, finalQty);
     return { qty, riskPerShare: round2(riskPerShare), maxLoss: round2(maxLoss), cashLimit: byCash, exposureCap: round2(exposureCap), plan, sizeFactor };
   }
 
