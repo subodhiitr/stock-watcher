@@ -30,6 +30,33 @@
     return Number(candidate?.price ?? candidate?.priceAtSnapshot ?? candidate?.quote?.price ?? candidate?.indicators?.price);
   }
 
+  // Fee calculation memoization cache
+  const feeCache = new Map();
+  const MAX_CACHE_SIZE = 10000;
+
+  function getCacheKey(entryPrice, exitPrice, qty, side) {
+    return `${entryPrice}:${exitPrice}:${qty}:${side}`;
+  }
+
+  function memoizedEstimateZerodhaIntradayCharges(entryPrice, exitPrice, qty, side) {
+    const key = getCacheKey(entryPrice, exitPrice, qty, side);
+
+    if (feeCache.has(key)) {
+      return feeCache.get(key);
+    }
+
+    const result = estimateZerodhaIntradayCharges(entryPrice, exitPrice, qty, side);
+
+    // LRU eviction: remove oldest entry if cache is full
+    if (feeCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = feeCache.keys().next().value;
+      feeCache.delete(firstKey);
+    }
+
+    feeCache.set(key, result);
+    return result;
+  }
+
   function adjustedTradeSignal(score) {
     if (score >= 35) return 'buy';
     if (score <= -35) return 'sell';
@@ -786,7 +813,7 @@
     if (!Number.isFinite(entry) || !Number.isFinite(price) || !Number.isFinite(qty) || entry <= 0 || qty <= 0) return null;
     const side = String(trade.side || 'buy').toLowerCase();
     const grossPnl = side === 'sell' ? (entry - price) * qty : (price - entry) * qty;
-    const charges = estimateZerodhaIntradayCharges(entry, price, qty, side);
+    const charges = memoizedEstimateZerodhaIntradayCharges(entry, price, qty, side);
     const pnl = grossPnl - charges.total;
     return { pnl: round2(pnl), pnlPct: round2((pnl / (entry * qty)) * 100), grossPnl: round2(grossPnl), charges: charges.total, chargeBreakup: charges };
   }
@@ -1487,5 +1514,8 @@
     summarizeTradeQuality,
     summarizeReplayParity,
     summarizeSimulationSafety,
+    clearFeeCache: function() {
+      feeCache.clear();
+    }
   };
 });

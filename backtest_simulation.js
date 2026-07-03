@@ -343,6 +343,10 @@ function isEodSettlement(value) {
 
 function runBacktest(snapshots, settings) {
   settings = TradeRules.withDefaults(settings);
+  
+  // Clear memoization cache for fresh backtest
+  SimulationEngine.clearFeeCache?.();
+  
   const trades = [];
   let nextId = 1;
   let currentBySymbol = new Map();
@@ -498,7 +502,7 @@ function runBacktest(snapshots, settings) {
     currentBySymbol = new Map();
     for (const candidate of snapshot.candidates || []) {
       candidate.previousCandidate = previousCandidateBySymbol.get(candidate.symbol) || null;
-      candidate.derivedSetupType = SimulationEngine.deriveSetupType(candidate, settings);
+      candidate.derivedSetupType = candidate.derivedSetupType || SimulationEngine.deriveSetupType(candidate, settings);
       currentBySymbol.set(candidate.symbol, candidate);
       lastKnownBySymbol.set(candidate.symbol, candidate);
       previousCandidateBySymbol.set(candidate.symbol, SimulationEngine.toConfirmationCandidate(candidate));
@@ -796,7 +800,7 @@ function buildOpportunityReport(snapshots, closedTrades, settings) {
       }
       if (!candidate || candidate.assetType === 'etf') continue;
       candidate.previousCandidate = previousCandidateBySymbol.get(candidate.symbol) || candidate.previousCandidate || null;
-      candidate.derivedSetupType = SimulationEngine.deriveSetupType(candidate, settings);
+      candidate.derivedSetupType = candidate.derivedSetupType || SimulationEngine.deriveSetupType(candidate, settings);
       previousCandidateBySymbol.set(candidate.symbol, SimulationEngine.toConfirmationCandidate(candidate));
       const side = candidate.side || candidate.signal;
       if (!['buy', 'sell'].includes(side)) continue;
