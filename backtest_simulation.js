@@ -374,6 +374,35 @@ function runBacktest(snapshots, settings) {
     return result;
   };
 
+  function computePositionSizeMultiplier(trades) {
+    // Reduce position size when losing streak develops
+    const closedTrades = trades.filter(t => t.status === 'closed').slice(-10);
+    if (closedTrades.length === 0) return 1.0; // Full size on first trade
+    
+    const wins = closedTrades.filter(t => Number(t.pnl) > 0).length;
+    const losses = closedTrades.filter(t => Number(t.pnl) < 0).length;
+    const winRate = closedTrades.length > 0 ? wins / closedTrades.length : 0;
+    
+    // Count current loss streak
+    let currentLossStreak = 0;
+    for (let i = closedTrades.length - 1; i >= 0; i--) {
+      if (Number(closedTrades[i].pnl) < 0) {
+        currentLossStreak += 1;
+      } else {
+        break;
+      }
+    }
+    
+    // Position sizing: scale down aggressively when losing
+    let multiplier = 1.0;
+    if (currentLossStreak >= 3) multiplier = 0.3;  // 3+ losses: 30% position
+    else if (currentLossStreak === 2) multiplier = 0.5;  // 2 losses: 50% position
+    else if (currentLossStreak === 1 && losses > wins) multiplier = 0.7;  // 1 loss + more losses than wins: 70%
+    else if (winRate < 0.25 && closedTrades.length >= 4) multiplier = 0.6;  // Low win rate: 60%
+    
+    return multiplier;
+  }
+
   function dayStats(at) {
     return TradeRules.buildDayStats(trades, at, settings, {
       sameDay: (a, b) => !!a && !!b && istDisplayDate(a) === istDisplayDate(b),
@@ -531,6 +560,11 @@ function runBacktest(snapshots, settings) {
       const side = candidate.side || candidate.signal || 'buy';
       const suggestion = SimulationEngine.getSuggestedQty(candidate, side, price, cashAvailable(), allocation, settings);
       if (suggestion.qty <= 0) continue;
+      
+      // Apply dynamic position sizing based on loss streak
+      const sizingMultiplier = computePositionSizeMultiplier(trades);
+      const adjustedQty = Math.max(1, Math.floor(suggestion.qty * sizingMultiplier));
+      
       if (process.env.DEBUG_QTY && (trades.length < 2 || !Number.isFinite(suggestion.qty))) {
         console.error(`DEBUG: suggestion.qty=${suggestion.qty}, cashAvail=${cashAvailable()}, allocation=${allocation}, byCash=${suggestion.cashLimit}`);
       }
@@ -539,7 +573,7 @@ function runBacktest(snapshots, settings) {
         symbol: candidate.symbol,
         name: candidate.name || candidate.symbol,
         side,
-        qty: suggestion.qty,
+        qty: adjustedQty,
         entryPrice: round2(price),
         target: suggestion.plan.target,
         stop: suggestion.plan.stop,
@@ -548,7 +582,7 @@ function runBacktest(snapshots, settings) {
         rr: candidate.indicators?.rr,
         source: 'simulation',
         assetType: 'stock',
-        reservedCapital: round2(suggestion.qty * price),
+        reservedCapital: round2(adjustedQty * price),
         setupType,
         setup: ['Simulation', setupType, candidate.indicators?.entryStatus, candidate.indicators?.entryTrigger]
           .filter(Boolean).join(' | '),
