@@ -159,6 +159,82 @@ test('late momentum runner can pass only with fresh shock or high breakout confi
   assert.equal(SimulationEngine.isReplayCandidateEligible(candidate, '2026-07-03T07:27:00.000Z'), true);
 });
 
+test('momentum runner late strict window blocks extended entries after 13:45 IST', () => {
+  const candidate = {
+    symbol: 'DIGITIDE',
+    side: 'buy',
+    signal: 'buy',
+    price: 104,
+    score: 82,
+    guard: { level: 'ok' },
+    cost: { ok: true, netPct: 1.2 },
+    indicators: {
+      entryStatus: 'Triggered',
+      entryTrigger: 'Buy above 101',
+      dayChange: 6.2,
+      relVolumeTimeAdjusted: 7,
+      vwap: 103,
+      rsi: 70,
+      ema9: 103.8,
+      ema20: 102.9,
+      superTrendDirection: 'bullish',
+      stopPct: 0.6,
+      reasons: ['Opening range breakout', 'Above previous day high'],
+      volumeShock: {
+        isShock: false,
+        breakout: true,
+        volumeRatio3m: 0.9,
+        volumeRatio5m: 1.35,
+        recentHigh: 103.8,
+        dayChangePct: 6.2,
+      },
+    },
+  };
+
+  assert.equal(SimulationEngine.getMomentumRunnerInfo(candidate, {}, '2026-07-03T08:00:00.000Z').ok, true);
+  const late = SimulationEngine.getMomentumRunnerInfo(candidate, {}, '2026-07-03T08:15:00.000Z');
+  assert.equal(late.ok, false);
+  assert.match(late.reason, /late momentum runner trigger extension/);
+  assert.notEqual(SimulationEngine.deriveSetupType(candidate, {}, '2026-07-03T08:15:00.000Z'), 'MOMENTUM_RUNNER');
+});
+
+test('momentum runner entries are blocked after 14:30 IST', () => {
+  const candidate = {
+    symbol: 'CLEANRUN',
+    side: 'buy',
+    signal: 'buy',
+    price: 102,
+    score: 82,
+    guard: { level: 'ok' },
+    cost: { ok: true, netPct: 1.2 },
+    indicators: {
+      entryStatus: 'Triggered',
+      entryTrigger: 'Buy above 101',
+      dayChange: 5,
+      relVolumeTimeAdjusted: 5,
+      vwap: 101.4,
+      rsi: 66,
+      ema9: 101.8,
+      ema20: 101.1,
+      superTrendDirection: 'bullish',
+      stopPct: 0.6,
+      reasons: ['Opening range breakout', 'Above previous day high'],
+      volumeShock: {
+        isShock: false,
+        breakout: true,
+        volumeRatio3m: 0.9,
+        volumeRatio5m: 1.2,
+        recentHigh: 101.9,
+      },
+    },
+  };
+
+  assert.equal(SimulationEngine.getMomentumRunnerInfo(candidate, {}, '2026-07-03T08:59:00.000Z').ok, true);
+  const late = SimulationEngine.getMomentumRunnerInfo(candidate, {}, '2026-07-03T09:01:00.000Z');
+  assert.equal(late.ok, false);
+  assert.equal(late.reason, 'momentum runner blocked after 14:30 IST');
+});
+
 test('late momentum runner sizing is reduced', () => {
   const candidate = makeEligibleCandidate('RUNNER', 90);
   candidate.setupType = 'MOMENTUM_RUNNER';
@@ -257,6 +333,88 @@ test('fresh breakout VWAP extension relaxes to 1 percent only on high relative v
     ...candidate,
     indicators: { ...candidate.indicators, relVolumeTimeAdjusted: 1.9 },
   }, '2026-07-02T05:00:00.000Z', {}, { previousCandidate }), false);
+});
+
+test('quality fresh breakout can pass just below generic score with modest extension', () => {
+  const previousCandidate = {
+    symbol: 'AEGISLOG',
+    side: 'buy',
+    signal: 'buy',
+    price: 101,
+    indicators: { entryStatus: 'Triggered', vwap: 100 },
+  };
+  const candidate = {
+    symbol: 'AEGISLOG',
+    side: 'buy',
+    signal: 'buy',
+    price: 101.95,
+    score: 73,
+    guard: { level: 'ok' },
+    cost: { ok: true, netPct: 1.3 },
+    indicators: {
+      entryStatus: 'Triggered',
+      entryTrigger: 'Buy above 101',
+      dayChange: 3.2,
+      relVolumeTimeAdjusted: 2.2,
+      vwap: 101,
+      rsi: 66,
+      ema9: 101.5,
+      ema20: 100.8,
+      superTrendDirection: 'bullish',
+      stopPct: 0.6,
+      reasons: ['Opening range breakout', 'previous day high'],
+    },
+  };
+
+  assert.equal(SimulationEngine.deriveSetupType(candidate), 'FRESH_BREAKOUT');
+  assert.equal(SimulationEngine.isReplayCandidateEligible(
+    candidate,
+    '2026-07-02T06:00:00.000Z',
+    { SIMULATION_MIN_SCORE: 78 },
+    { previousCandidate }
+  ), true);
+});
+
+test('quality fresh breakout relaxation still blocks larger trigger chases', () => {
+  const previousCandidate = {
+    symbol: 'ANGELONE',
+    side: 'buy',
+    signal: 'buy',
+    price: 101,
+    indicators: { entryStatus: 'Triggered', vwap: 100 },
+  };
+  const candidate = {
+    symbol: 'ANGELONE',
+    side: 'buy',
+    signal: 'buy',
+    price: 103.1,
+    score: 82,
+    guard: { level: 'ok' },
+    cost: { ok: true, netPct: 1.3 },
+    indicators: {
+      entryStatus: 'Triggered',
+      entryTrigger: 'Buy above 101',
+      dayChange: 3.2,
+      relVolumeTimeAdjusted: 2.2,
+      vwap: 102.2,
+      rsi: 66,
+      ema9: 102.8,
+      ema20: 101.8,
+      superTrendDirection: 'bullish',
+      stopPct: 0.6,
+      reasons: ['Opening range breakout', 'previous day high'],
+    },
+  };
+
+  const explanation = SimulationEngine.explainCandidateEligibility(
+    candidate,
+    '2026-07-02T06:00:00.000Z',
+    { SIMULATION_MIN_SCORE: 78 },
+    { previousCandidate }
+  );
+
+  assert.equal(explanation.eligible, false);
+  assert.ok(explanation.reasons.some(reason => /chasing/.test(reason)));
 });
 
 function makeEligibleCandidate(symbol, score = 85) {
@@ -454,6 +612,68 @@ test('target runner partial sets a next target when momentum continues', () => {
   assert.equal(exit?.newTarget, 102.21);
 });
 
+test('short target runner does not break on bearish continuation', () => {
+  const trade = {
+    symbol: 'OLECTRA',
+    side: 'sell',
+    entryPrice: 1488,
+    stop: 1499,
+    target: 1470,
+    qty: 10,
+    setupType: 'BREAKDOWN',
+    openedAt: '2026-07-03T05:20:23.114Z',
+    _partialTargetBooked: true,
+    _runnerArmed: true,
+    _bestPrice: 1466.5,
+  };
+  const candidate = {
+    symbol: 'OLECTRA',
+    side: 'sell',
+    price: 1466.5,
+    score: -78,
+    indicators: {
+      vwap: 1478,
+      ema9: 1468,
+      ema20: 1474,
+      superTrendDirection: 'bearish',
+    },
+  };
+
+  assert.equal(SimulationEngine.isMomentumRunnerBroken(trade, candidate, 1466.5), false);
+  assert.equal(SimulationEngine.getMomentumRunnerExit(trade, 1466.5, candidate), null);
+});
+
+test('short target runner exits when bearish continuation breaks', () => {
+  const trade = {
+    symbol: 'OLECTRA',
+    side: 'sell',
+    entryPrice: 1488,
+    stop: 1499,
+    target: 1470,
+    qty: 10,
+    setupType: 'BREAKDOWN',
+    openedAt: '2026-07-03T05:20:23.114Z',
+    _partialTargetBooked: true,
+    _runnerArmed: true,
+    _bestPrice: 1466.5,
+  };
+  const candidate = {
+    symbol: 'OLECTRA',
+    side: 'sell',
+    price: 1478.5,
+    score: -20,
+    indicators: {
+      vwap: 1477,
+      ema9: 1478,
+      ema20: 1472,
+      superTrendDirection: 'bullish',
+    },
+  };
+
+  assert.equal(SimulationEngine.isMomentumRunnerBroken(trade, candidate, 1478.5), true);
+  assert.equal(SimulationEngine.getMomentumRunnerExit(trade, 1478.5, candidate)?.reason, 'Simulation momentum break');
+});
+
 test('no-progress exit uses setup-specific timing and VWAP continuation volume fade', () => {
   const baseTrade = {
     symbol: 'TEST',
@@ -533,4 +753,23 @@ test('short market regime fails closed when Nifty data is missing', () => {
 
   assert.equal(regime.ok, false);
   assert.match(regime.reason, /Nifty unavailable/);
+});
+
+test('strict short market guard blocks mild bullish regime before generic threshold', () => {
+  const regime = SimulationEngine.getMarketRegime(
+    { symbol: 'BSOFT', side: 'sell', sector: 'IT', indicators: { dayChange: -0.2 } },
+    'sell',
+    {
+      market: {
+        indices: { nifty50: { change: 0.12 } },
+        breadth: { advancePct: 53 },
+      },
+      sectorTrend: { IT: 0.06 },
+    }
+  );
+
+  assert.equal(regime.ok, false);
+  assert.match(regime.reason, /Nifty 0.12%/);
+  assert.match(regime.reason, /breadth 53% advances/);
+  assert.match(regime.reason, /sector 0.1%/);
 });

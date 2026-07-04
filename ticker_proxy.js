@@ -1599,7 +1599,7 @@ function buildServerCandidateFromIntraday(sym, setup, settings, meta = null, asO
       minNetPct: Number(settings.SIMULATION_MIN_NET_PROFIT_PCT) || 0,
     },
   };
-  candidate.derivedSetupType = SimulationEngine.deriveSetupType(candidate, settings);
+  candidate.derivedSetupType = SimulationEngine.deriveSetupType(candidate, settings, asOfTime);
   if (!candidate.setupType && highProfitShortTrigger) candidate.setupType = 'HIGH_PROFIT_SHORT_TRIGGER';
   if (highProfitShortTrigger) candidate.highProfitShortTrigger = true;
   return candidate;
@@ -1784,7 +1784,7 @@ async function buildServerSimulationAnalysisPayload(source = 'server-analysis') 
   const analyzedCandidates = rankedCandidates.map((candidate, index) => {
     const symbol = String(candidate?.symbol || '').toUpperCase();
     const side = String(candidate?.side || candidate?.signal || '').toLowerCase();
-    const setupType = candidate?.derivedSetupType || candidate?.setupType || SimulationEngine.deriveSetupType(candidate, settings);
+    const setupType = candidate?.derivedSetupType || candidate?.setupType || SimulationEngine.deriveSetupType(candidate, settings, at);
     const explanation = SimulationEngine.explainCandidateEligibility(candidate, at, settings, {
       market,
       sectorTrend,
@@ -3128,7 +3128,7 @@ function buildWhyMissedResponse(day, symbol) {
     const candidate = (snapshot.candidates || []).find(c => String(c?.symbol || '').toUpperCase() === sym);
     if (!candidate) continue;
     candidate.previousCandidate = previousCandidate || candidate.previousCandidate || null;
-    candidate.derivedSetupType = SimulationEngine.deriveSetupType(candidate, settings);
+    candidate.derivedSetupType = SimulationEngine.deriveSetupType(candidate, settings, snapshot.at);
     const explanation = SimulationEngine.explainCandidateEligibility(candidate, snapshot.at, settings, {
       previousCandidate,
       market:snapshot.market,

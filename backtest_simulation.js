@@ -510,7 +510,7 @@ function runBacktest(snapshots, settings) {
         rescoreReplayCandidate(candidate);
       }
       candidate.previousCandidate = previousCandidateBySymbol.get(candidate.symbol) || null;
-      candidate.derivedSetupType = candidate.derivedSetupType || SimulationEngine.deriveSetupType(candidate, settings);
+      candidate.derivedSetupType = candidate.derivedSetupType || SimulationEngine.deriveSetupType(candidate, settings, snapshot.at);
       
       // Pre-calculate risk metrics on each candidate
       const stop = candidate.indicators?.stop;
@@ -536,7 +536,7 @@ function runBacktest(snapshots, settings) {
           score: 0,
           indicators: { ohlc: open.ohlc || null },
         };
-        fallback.derivedSetupType = SimulationEngine.deriveSetupType(fallback, settings);
+        fallback.derivedSetupType = SimulationEngine.deriveSetupType(fallback, settings, snapshot.at);
         currentBySymbol.set(open.symbol, fallback);
       }
     }
@@ -821,7 +821,7 @@ function buildOpportunityReport(snapshots, closedTrades, settings) {
       }
       if (!candidate || candidate.assetType === 'etf') continue;
       candidate.previousCandidate = previousCandidateBySymbol.get(candidate.symbol) || candidate.previousCandidate || null;
-      candidate.derivedSetupType = candidate.derivedSetupType || SimulationEngine.deriveSetupType(candidate, settings);
+      candidate.derivedSetupType = candidate.derivedSetupType || SimulationEngine.deriveSetupType(candidate, settings, snapshot.at);
        
       // Pre-calculate risk metrics on each candidate
       const stop = candidate.indicators?.stop;

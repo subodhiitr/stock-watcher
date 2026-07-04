@@ -4990,7 +4990,8 @@ function getSetupType(row, t, guard) {
   const side = adjustedTradeSignal(score);
   return SimulationEngine.deriveSetupType(
     buildSimulationEngineCandidate(row, t, score, side, guard),
-    getSimulationEngineSettings()
+    getSimulationEngineSettings(),
+    t?.at || row?.snapshotAt || row?.priceTime || null
   );
 }
 
@@ -5649,7 +5650,7 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
     currentBySymbol = new Map();
     for (const candidate of snapshot.candidates || []) {
       candidate.previousCandidate = previousCandidateBySymbol.get(candidate.symbol) || candidate.previousCandidate || null;
-      candidate.derivedSetupType = SimulationEngine.deriveSetupType(candidate, settings);
+      candidate.derivedSetupType = SimulationEngine.deriveSetupType(candidate, settings, snapshot.at);
       currentBySymbol.set(candidate.symbol, candidate);
       lastKnownBySymbol.set(candidate.symbol, candidate);
       previousCandidateBySymbol.set(candidate.symbol, SimulationEngine.toConfirmationCandidate(candidate));
@@ -5678,7 +5679,7 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
       .filter(c => c && c.assetType !== 'etf' && ['buy', 'sell'].includes(c.side || c.signal))
       .map(c => {
         c.previousCandidate = previousCandidateBySymbol.get(c.symbol) || c.previousCandidate || null;
-        c.derivedSetupType = c.derivedSetupType || c.setupType || SimulationEngine.deriveSetupType(c, settings);
+        c.derivedSetupType = c.derivedSetupType || c.setupType || SimulationEngine.deriveSetupType(c, settings, snapshot.at);
         return c;
       })
       .sort(SimulationEngine.compareCandidates);

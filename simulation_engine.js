@@ -94,6 +94,12 @@
         Number(settings.SIMULATION_STRONG_BREAKOUT_MIN_SCORE) || 55
       );
     }
+    if (setupType === 'FRESH_BREAKOUT' && isRelaxedFreshBreakoutCandidate(candidate, settings)) {
+      return Math.min(
+        getMinScoreForSide(settings, side),
+        Number(settings.SIMULATION_FRESH_BREAKOUT_RELAXED_MIN_SCORE) || 72
+      );
+    }
     if (setupType === 'MOMENTUM_RUNNER') {
       return Math.min(
         getMinScoreForSide(settings, side),
@@ -209,6 +215,40 @@
       Number.isFinite(rsi) && rsi <= Number(settings.SIMULATION_STRONG_BREAKOUT_MAX_RSI || 75);
   }
 
+  function isRelaxedFreshBreakoutCandidate(candidate, settings) {
+    settings = withDefaults(settings);
+    if (!candidate) return false;
+    const side = candidate.side || candidate.signal || adjustedTradeSignal(Number(candidate.score) || 0);
+    if (side === 'sell') return false;
+    const price = getCandidatePrice(candidate);
+    const indicators = candidate.indicators || {};
+    const vwap = Number(indicators.vwap);
+    const triggerDistancePct = getTriggerDistancePct(candidate, side);
+    const vwapExtensionPct = Number.isFinite(vwap) && vwap > 0 && Number.isFinite(price) && price > 0
+      ? ((price - vwap) / vwap) * 100
+      : null;
+    const relVol = getRelativeVolume(candidate);
+    const rsi = Number(indicators.rsi);
+    const confirmations = getBreakoutConfirmations(candidate, side);
+    const confirmationCount = Object.values(confirmations).filter(Boolean).length;
+    const minRelVol = Number(settings.SIMULATION_FRESH_BREAKOUT_RELAXED_MIN_REL_VOL) || 2;
+    const maxTriggerExtension = Number(settings.SIMULATION_FRESH_BREAKOUT_RELAXED_MAX_TRIGGER_EXTENSION_PCT) || 1;
+    const maxVwapExtension = Number(settings.SIMULATION_FRESH_BREAKOUT_RELAXED_MAX_VWAP_EXTENSION_PCT) || 1.1;
+    const minConfirmations = Math.max(2, Math.floor(Number(settings.SIMULATION_FRESH_BREAKOUT_RELAXED_MIN_CONFIRMATIONS) || 3));
+    const maxRsi = Number(settings.SIMULATION_FRESH_BREAKOUT_RELAXED_MAX_RSI) || 78;
+    return Number.isFinite(price) && price > 0 &&
+      Number.isFinite(vwap) && vwap > 0 &&
+      price > vwap &&
+      relVol != null && relVol >= minRelVol &&
+      triggerDistancePct != null &&
+      triggerDistancePct > 0 &&
+      triggerDistancePct <= maxTriggerExtension &&
+      vwapExtensionPct != null &&
+      vwapExtensionPct <= maxVwapExtension &&
+      Number.isFinite(rsi) && rsi <= maxRsi &&
+      confirmationCount >= minConfirmations;
+  }
+
   function getVolumeShockInfo(candidateOrIndicators) {
     const indicators = candidateOrIndicators?.indicators || candidateOrIndicators || {};
     return indicators.volumeShock && typeof indicators.volumeShock === 'object' ? indicators.volumeShock : {};
@@ -245,11 +285,56 @@
       (impulse.freshHighBreakout && Number.isFinite(impulse.ratio5m) && impulse.ratio5m >= minBreakoutRatio5m);
   }
 
+  function getMomentumRunnerSnapshotTime(candidate, at) {
+    return at ||
+      candidate?.__snapshotAt ||
+      candidate?.snapshotAt ||
+      candidate?.entryContext?.snapshotAt ||
+      candidate?.priceTime ||
+      candidate?.quote?.time ||
+      null;
+  }
+
+  function getLateMomentumRunnerBlockReason(candidate, settings, info, at) {
+    settings = withDefaults(settings);
+    const mins = TradeRules.getIstMinutes(getMomentumRunnerSnapshotTime(candidate, at));
+    if (mins == null) return '';
+    const cutoff = Math.max(0, Number(settings.SIMULATION_RUNNER_ENTRY_CUTOFF_MIN) || (14 * 60 + 30));
+    const strictStart = Math.max(0, Number(settings.SIMULATION_RUNNER_LATE_STRICT_START_MIN) || (13 * 60 + 45));
+    if (mins >= cutoff) return 'momentum runner blocked after 14:30 IST';
+    if (mins < strictStart) return '';
+    const dayChange = Number(info?.dayChange);
+    const triggerDistancePct = Number(info?.triggerDistancePct);
+    const vwapExtensionPct = Number(info?.vwapExtensionPct);
+    const ratio3m = Number(info?.volumeRatio3m);
+    const ratio5m = Number(info?.volumeRatio5m);
+    const maxDayChange = Number(settings.SIMULATION_RUNNER_LATE_MAX_DAY_CHANGE_PCT) || 7;
+    const maxTrigger = Number(settings.SIMULATION_RUNNER_LATE_MAX_TRIGGER_EXTENSION_PCT) || 2;
+    const maxEarlyTrigger = Number(settings.SIMULATION_EARLY_RUNNER_LATE_MAX_TRIGGER_EXTENSION_PCT) || 2.5;
+    const maxVwap = Number(settings.SIMULATION_RUNNER_LATE_MAX_VWAP_EXTENSION_PCT) || 1;
+    const maxEarlyVwap = Number(settings.SIMULATION_EARLY_RUNNER_LATE_MAX_VWAP_EXTENSION_PCT) || 1.3;
+    const minRatio3m = Number(settings.SIMULATION_RUNNER_LATE_MIN_VOLUME_RATIO_3M) || 0.8;
+    const minRatio5m = Number(settings.SIMULATION_RUNNER_LATE_MIN_VOLUME_RATIO_5M) || 1;
+    const mode = info?.mode;
+    const triggerLimit = mode === 'early' ? maxEarlyTrigger : maxTrigger;
+    const vwapLimit = mode === 'early' ? maxEarlyVwap : maxVwap;
+    const hasFreshVolumeImpulse = !!info?.volumeShockActive ||
+      (Number.isFinite(ratio3m) && ratio3m >= minRatio3m) ||
+      (Number.isFinite(ratio5m) && ratio5m >= minRatio5m);
+    if (!hasFreshVolumeImpulse) return 'late momentum runner needs fresh 3m/5m volume impulse';
+    if (Number.isFinite(dayChange) && dayChange > maxDayChange) return `late momentum runner day move ${round2(dayChange)}% > ${round2(maxDayChange)}%`;
+    if (Number.isFinite(triggerDistancePct) && triggerDistancePct > triggerLimit) return `late momentum runner trigger extension ${round2(triggerDistancePct)}% > ${round2(triggerLimit)}%`;
+    if (Number.isFinite(vwapExtensionPct) && vwapExtensionPct > vwapLimit) return `late momentum runner VWAP extension ${round2(vwapExtensionPct)}% > ${round2(vwapLimit)}%`;
+    return '';
+  }
+
   function getMarketRegime(candidate, side, context = {}) {
     const settings = withDefaults(context.settings || context);
-    const niftyThreshold = Math.abs(Number(settings.SIMULATION_MARKET_REGIME_NIFTY_PCT) || 0);
-    const sectorThreshold = Math.abs(Number(settings.SIMULATION_MARKET_REGIME_SECTOR_PCT) || 0);
-    const rsThreshold = Math.abs(Number(settings.SIMULATION_MARKET_REGIME_RS_PCT) || 0);
+    const tradeSide = side || candidate?.side || candidate?.signal || adjustedTradeSignal(Number(candidate?.score) || 0);
+    const strictShortGuard = tradeSide === 'sell' && settings.SIMULATION_SHORT_MARKET_GUARD_STRICT;
+    const niftyThreshold = Math.abs(Number(strictShortGuard ? settings.SIMULATION_SHORT_MARKET_REGIME_NIFTY_PCT : settings.SIMULATION_MARKET_REGIME_NIFTY_PCT) || 0);
+    const sectorThreshold = Math.abs(Number(strictShortGuard ? settings.SIMULATION_SHORT_MARKET_REGIME_SECTOR_PCT : settings.SIMULATION_MARKET_REGIME_SECTOR_PCT) || 0);
+    const rsThreshold = Math.abs(Number(strictShortGuard ? settings.SIMULATION_SHORT_MARKET_REGIME_RS_PCT : settings.SIMULATION_MARKET_REGIME_RS_PCT) || 0);
     const existingBlock = String(candidate?.blockReason || candidate?.entryBlockReason || '');
     if (/^market regime conflict/i.test(existingBlock)) {
       const rawReasons = existingBlock.replace(/^market regime conflict:\s*/i, '').split(',').map(s => s.trim()).filter(Boolean);
@@ -267,12 +352,11 @@
     const advPct = Number.isFinite(Number(breadth.advancePct))
       ? Number(breadth.advancePct)
       : (Number.isFinite(advances) && Number.isFinite(declines) && advances + declines > 0 ? round2((advances / (advances + declines)) * 100) : null);
-    const breadthThreshold = Math.abs(Number(settings.SIMULATION_MARKET_BREADTH_PCT) || 55);
+    const breadthThreshold = Math.abs(Number(strictShortGuard ? settings.SIMULATION_SHORT_MARKET_BREADTH_PCT : settings.SIMULATION_MARKET_BREADTH_PCT) || 55);
     const sectorTrend = context.sectorTrend || {};
     const sectorAvg = Number(context.sectorAvg ?? sectorTrend[candidate?.sector]);
     const dayChange = getCandidateDayChange(candidate);
     const rs = Number.isFinite(dayChange) && Number.isFinite(nifty) ? round2(dayChange - nifty) : null;
-    const tradeSide = side || candidate?.side || candidate?.signal || adjustedTradeSignal(Number(candidate?.score) || 0);
     const reasons = [];
     if (tradeSide === 'buy') {
       if (Number.isFinite(nifty) && nifty < -niftyThreshold) reasons.push(`Nifty ${nifty}%`);
@@ -407,7 +491,7 @@
     return true;
   }
 
-  function getMomentumRunnerInfo(candidate, settings) {
+  function getMomentumRunnerInfo(candidate, settings, at = null) {
     settings = withDefaults(settings);
     const side = candidate?.side || candidate?.signal || 'buy';
     if (!candidate || side === 'sell') return { ok: false, reason: 'runner only supports buy side' };
@@ -429,7 +513,21 @@
     const bullishSuperTrendOk = !settings.SIMULATION_RUNNER_REQUIRE_BULLISH_SUPERTREND || st === 'bullish';
     const volumeImpulse = getRecentVolumeImpulseInfo(candidate, settings);
     const lateRunnerOk = isLateRunnerAllowed(candidate, settings);
-    const normalOk =
+    const baseInfo = {
+      score,
+      relVol,
+      dayChange,
+      triggerDistancePct,
+      vwapExtensionPct,
+      confirmationCount,
+      superTrend: st || null,
+      volumeRatio3m: Number.isFinite(volumeImpulse.ratio3m) ? volumeImpulse.ratio3m : null,
+      volumeRatio5m: Number.isFinite(volumeImpulse.ratio5m) ? volumeImpulse.ratio5m : null,
+      volumeShockActive: !!volumeImpulse.shock.isShock,
+      freshHighBreakout: volumeImpulse.freshHighBreakout,
+      lateRunnerOk,
+    };
+    const normalBaseOk =
       Number.isFinite(price) && price > 0 &&
       Number.isFinite(score) && score >= settings.SIMULATION_RUNNER_MIN_SCORE &&
       Number.isFinite(relVol) && relVol >= settings.SIMULATION_RUNNER_MIN_REL_VOL &&
@@ -443,7 +541,7 @@
       vwapExtensionPct != null &&
       vwapExtensionPct <= settings.SIMULATION_RUNNER_MAX_VWAP_EXTENSION_PCT &&
       confirmationCount >= 1;
-    const earlyOk =
+    const earlyBaseOk =
       Number.isFinite(price) && price > 0 &&
       Number.isFinite(score) && score >= settings.SIMULATION_EARLY_RUNNER_MIN_SCORE &&
       Number.isFinite(relVol) && relVol >= settings.SIMULATION_EARLY_RUNNER_MIN_REL_VOL &&
@@ -461,28 +559,25 @@
       vwapExtensionPct != null &&
       vwapExtensionPct <= settings.SIMULATION_EARLY_RUNNER_MAX_VWAP_EXTENSION_PCT &&
       confirmationCount >= 3;
+    const baseMode = earlyBaseOk && !normalBaseOk ? 'early' : (normalBaseOk ? 'confirmed' : null);
+    const lateBlockReason = (normalBaseOk || earlyBaseOk)
+      ? getLateMomentumRunnerBlockReason(candidate, settings, { ...baseInfo, mode: baseMode }, at)
+      : '';
+    const normalOk = normalBaseOk && !lateBlockReason;
+    const earlyOk = earlyBaseOk && !lateBlockReason;
     const ok = normalOk || earlyOk;
     return {
       ok,
       mode: earlyOk && !normalOk ? 'early' : (normalOk ? 'confirmed' : null),
-      score,
-      relVol,
-      dayChange,
-      triggerDistancePct,
-      vwapExtensionPct,
-      confirmationCount,
-      superTrend: st || null,
-      volumeRatio3m: Number.isFinite(volumeImpulse.ratio3m) ? volumeImpulse.ratio3m : null,
-      volumeRatio5m: Number.isFinite(volumeImpulse.ratio5m) ? volumeImpulse.ratio5m : null,
-      freshHighBreakout: volumeImpulse.freshHighBreakout,
-      lateRunnerOk,
+      ...baseInfo,
+      lateBlockReason,
       reason: ok
         ? (earlyOk && !normalOk ? 'early momentum runner' : 'momentum runner')
         : (!bullishSuperTrendOk
           ? 'runner needs bullish SuperTrend'
           : (!volumeImpulse.impulseOk
             ? 'runner needs fresh volume impulse or high breakout'
-            : (!lateRunnerOk ? 'late runner needs fresh shock/high breakout' : 'not momentum runner'))),
+            : (!lateRunnerOk ? 'late runner needs fresh shock/high breakout' : (lateBlockReason || 'not momentum runner')))),
     };
   }
 
@@ -561,7 +656,7 @@
     };
   }
 
-  function deriveSetupType(candidate, settings) {
+  function deriveSetupType(candidate, settings, at = null) {
     const indicators = candidate?.indicators || {};
     const side = candidate?.side || candidate?.signal || adjustedTradeSignal(Number(candidate?.score) || 0);
     const band = String(indicators.vwapBandPosition || '');
@@ -573,7 +668,7 @@
       ? Math.abs(price - vwap) / price * 100
       : null;
     if (indicators.volumeShock?.isShock) return 'VOLUME_SHOCK_BREAKOUT';
-    if (getMomentumRunnerInfo(candidate, settings).ok) return 'MOMENTUM_RUNNER';
+    if (getMomentumRunnerInfo(candidate, settings, at).ok) return 'MOMENTUM_RUNNER';
     if (getVwapContinuationInfo(candidate, settings).ok) return 'VWAP_TREND_CONTINUATION';
     if (candidate?.guard?.level === 'chasing' || band === 'above-upper' || band === 'below-lower' || (extensionPct != null && extensionPct > 1.2)) return 'CHASING';
     if (side === 'sell' && /Opening range breakdown|previous day low|5D breakdown|20D breakdown/i.test(reasons)) return 'BREAKDOWN';
@@ -591,7 +686,7 @@
     const buy = side !== 'sell';
     const price = getCandidatePrice(candidate);
     if (!Number.isFinite(price) || price <= 0) return 'missing live price';
-    const runnerInfo = getMomentumRunnerInfo(candidate, settings);
+    const runnerInfo = getMomentumRunnerInfo(candidate, settings, at);
     if (setupType === 'MOMENTUM_RUNNER' && !runnerInfo.ok) return runnerInfo.reason || 'not momentum runner';
     const runner = runnerInfo.ok;
     const continuationInfo = getVwapContinuationInfo(candidate, settings);
@@ -637,15 +732,21 @@
     const trigger = getEntryTriggerPrice(candidate);
     if (trigger) {
       const triggerDistancePct = buy ? ((price - trigger) / trigger) * 100 : ((trigger - price) / trigger) * 100;
-      if (triggerDistancePct > 0.6 && setupType !== 'VOLUME_SHOCK_BREAKOUT' && !runner && !continuation) return `chasing ${round2(triggerDistancePct)}% from trigger`;
+      const relaxedFresh = setupType === 'FRESH_BREAKOUT' && isRelaxedFreshBreakoutCandidate(candidate, settings);
+      const maxFreshTrigger = Number(settings.SIMULATION_FRESH_BREAKOUT_RELAXED_MAX_TRIGGER_EXTENSION_PCT) || 1;
+      const triggerLimit = relaxedFresh ? maxFreshTrigger : 0.6;
+      if (triggerDistancePct > triggerLimit && setupType !== 'VOLUME_SHOCK_BREAKOUT' && !runner && !continuation) return `chasing ${round2(triggerDistancePct)}% from trigger`;
     }
     const vwap = Number(candidate.indicators?.vwap);
     if (Number.isFinite(vwap) && vwap > 0) {
       const vwapExtensionPct = buy ? ((price - vwap) / vwap) * 100 : ((vwap - price) / vwap) * 100;
       const baseFreshMax = Number(settings.SIMULATION_FRESH_BREAKOUT_MAX_VWAP_EXTENSION_PCT) || 0.8;
       const highRelVol = relVol != null && relVol >= (Number(settings.SIMULATION_FRESH_BREAKOUT_HIGH_REL_VOL) || 2);
+      const relaxedFresh = setupType === 'FRESH_BREAKOUT' && isRelaxedFreshBreakoutCandidate(candidate, settings);
       const freshMax = setupType === 'FRESH_BREAKOUT' && highRelVol
-        ? Number(settings.SIMULATION_FRESH_BREAKOUT_HIGH_REL_VOL_MAX_VWAP_EXTENSION_PCT) || 1
+        ? (relaxedFresh
+          ? Number(settings.SIMULATION_FRESH_BREAKOUT_RELAXED_MAX_VWAP_EXTENSION_PCT) || 1.1
+          : Number(settings.SIMULATION_FRESH_BREAKOUT_HIGH_REL_VOL_MAX_VWAP_EXTENSION_PCT) || 1)
         : baseFreshMax;
       if (vwapExtensionPct > freshMax && setupType !== 'VOLUME_SHOCK_BREAKOUT' && !runner && !continuation) return `extended ${round2(vwapExtensionPct)}% from VWAP`;
     }
@@ -672,7 +773,7 @@
     if (candidate.assetType === 'etf' && side === 'sell') return false;
     if (!['buy', 'sell'].includes(side)) return false;
     if (!settings.SIMULATION_AUTO_SHORTS && side === 'sell') return false;
-    const setupType = candidate.derivedSetupType || candidate.setupType || deriveSetupType(candidate, settings);
+    const setupType = candidate.derivedSetupType || candidate.setupType || deriveSetupType(candidate, settings, at);
     if (Math.abs(Number(candidate.score) || 0) < getMinScoreForCandidate(settings, side, setupType, candidate)) return false;
     if (!isSimulationSetupAllowed(setupType)) return false;
     if (getSetupBlockReason(candidate, setupType, at, settings, context)) return false;
@@ -696,7 +797,7 @@
     const reasons = [];
     if (!candidate) return { eligible:false, reasons:['missing candidate'], setupType:null, side:null };
     const side = candidate.side || candidate.signal;
-    const setupType = candidate.derivedSetupType || candidate.setupType || deriveSetupType(candidate, settings);
+    const setupType = candidate.derivedSetupType || candidate.setupType || deriveSetupType(candidate, settings, at);
     if (candidate.assetType === 'etf' && !settings.SIMULATION_ENABLE_ETF) reasons.push('ETF simulation disabled');
     if (candidate.assetType === 'etf' && side === 'sell') reasons.push('ETF short disabled');
     if (!['buy', 'sell'].includes(side)) reasons.push(`signal ${side || '--'}`);
@@ -747,7 +848,7 @@
     return (Array.isArray(candidates) ? candidates : [])
       .map(candidate => {
         if (!candidate) return null;
-        candidate.derivedSetupType = candidate.derivedSetupType || candidate.setupType || deriveSetupType(candidate, settings);
+        candidate.derivedSetupType = candidate.derivedSetupType || candidate.setupType || deriveSetupType(candidate, settings, at);
         return candidate;
       })
       .filter(Boolean)
@@ -906,6 +1007,8 @@
   function isMomentumRunnerBroken(trade, candidate, price, settings) {
     settings = withDefaults(settings);
     if (!candidate || !Number.isFinite(Number(price))) return false;
+    const side = String(trade?.side || 'buy').toLowerCase();
+    const buy = side !== 'sell';
     const score = Number(candidate.score) || 0;
     const signal = adjustedTradeSignal(score);
     const indicators = candidate.indicators || {};
@@ -913,10 +1016,17 @@
     const ema9 = Number(indicators.ema9 ?? indicators.emaShort);
     const ema20 = Number(indicators.ema20 ?? indicators.emaLong);
     const st = String(indicators.superTrendDirection || '').toLowerCase();
-    if (signal !== 'buy' || score < settings.SIMULATION_MIN_SCORE) return true;
-    if (Number.isFinite(vwap) && price < vwap) return true;
-    if (Number.isFinite(ema9) && Number.isFinite(ema20) && ema9 < ema20) return true;
-    if (st === 'bearish') return true;
+    if (buy) {
+      if (signal !== 'buy' || score < getMinScoreForSide(settings, 'buy')) return true;
+      if (Number.isFinite(vwap) && price < vwap) return true;
+      if (Number.isFinite(ema9) && Number.isFinite(ema20) && ema9 < ema20) return true;
+      if (st === 'bearish') return true;
+      return false;
+    }
+    if (signal !== 'sell' || score > -getMinScoreForSide(settings, 'sell')) return true;
+    if (Number.isFinite(vwap) && price > vwap) return true;
+    if (Number.isFinite(ema9) && Number.isFinite(ema20) && ema9 > ema20) return true;
+    if (st === 'bullish') return true;
     return false;
   }
 
