@@ -118,6 +118,23 @@
   .info-box code{font-family:'Space Mono',monospace;background:rgba(0,0,0,.35);padding:1px 6px;border-radius:3px;color:var(--accent);}
   .info-box.yahoo-info{background:rgba(167,139,250,.06);border-color:rgba(167,139,250,.2);}
   .info-box.yahoo-info code{color:var(--accent3);}
+
+  .price-chart-trigger{cursor:pointer;transition:background .18s,border-color .18s;}
+  .price-chart-trigger:hover{background:rgba(14,165,233,.08);}
+  .price-chart-trigger:hover .price-stack span:first-child{color:var(--accent2);text-decoration:underline;text-underline-offset:3px;}
+  .intraday-candle-chart-modal{position:fixed;inset:0;z-index:700;align-items:center;justify-content:center;background:rgba(2,6,23,.72);backdrop-filter:blur(4px);padding:18px;}
+  .intraday-candle-chart-content{width:min(920px,96vw);max-height:90vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:18px;}
+  .intraday-candle-chart-toolbar{display:flex;gap:8px;margin:10px 0 14px;flex-wrap:wrap;}
+  .intraday-candle-chart-toolbar button{border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:999px;padding:7px 13px;cursor:pointer;font-weight:700;}
+  .intraday-candle-chart-toolbar button.active,.intraday-candle-chart-toolbar button:hover{background:var(--accent2);border-color:var(--accent2);color:#06111f;}
+  .intraday-candle-chart-body{min-height:280px;}
+  .intraday-candle-chart-summary{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:8px;}
+  .intraday-candle-chart-svg{width:100%;height:auto;display:block;border:1px solid rgba(100,116,139,.2);border-radius:12px;background:rgba(15,23,42,.2);}
+  .intraday-y-axis-label,.intraday-x-axis-label{font-family:'Space Mono',monospace;}
+  .intraday-crosshair,.intraday-tooltip{opacity:0;pointer-events:none;transition:opacity .12s ease;}
+  .intraday-candle-hover:hover .intraday-crosshair,.intraday-candle-hover:hover .intraday-tooltip{opacity:1;}
+  .intraday-candle-hover:hover line:not(.intraday-crosshair),.intraday-candle-hover:hover rect:not(.intraday-hover-capture){filter:brightness(1.25);}
+  .intraday-candle-chart-empty{min-height:260px;display:flex;align-items:center;justify-content:center;color:var(--muted);border:1px dashed rgba(100,116,139,.3);border-radius:12px;background:rgba(15,23,42,.22);}
   .proxy-status{margin-top:10px;font-size:12px;display:none;}
   .proxy-status.ok{color:var(--green);}
   .proxy-status.fail{color:var(--red);}

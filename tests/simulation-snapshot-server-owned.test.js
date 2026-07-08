@@ -100,3 +100,14 @@ test('sanitizeSimulationSnapshot keeps 200 persisted candidates', () => {
   assert.equal(snapshot.candidates.length, 200);
   assert.equal(snapshot.candidateCount, 260);
 });
+
+test('simulation snapshots GET route does not load all retained snapshot files by default', () => {
+  const routeSource = fs.readFileSync(path.join(__dirname, '..', 'server', 'routes', 'simulation-runtime.js'), 'utf8');
+  const snapshotRouteStart = routeSource.indexOf("if (pathname === '/simulation-snapshots')");
+  assert.notEqual(snapshotRouteStart, -1, 'snapshot route missing');
+  const snapshotRouteSource = routeSource.slice(snapshotRouteStart, routeSource.indexOf("if (pathname === '/simulation/start')", snapshotRouteStart));
+
+  assert.doesNotMatch(snapshotRouteSource, /loadAllSimulationSnapshots\(\)/);
+  assert.match(snapshotRouteSource, /400/);
+  assert.match(snapshotRouteSource, /day/);
+});

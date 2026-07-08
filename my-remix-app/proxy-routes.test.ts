@@ -22,3 +22,7 @@ test('should proxy broker portfolio paths', () => {
 test('should proxy dedicated result calendar path', () => {
   assert.equal(shouldProxyPath('/result-calendar'), true)
 })
+
+test('should proxy intraday candle chart path', () => {
+  assert.equal(shouldProxyPath('/intraday-candles'), true)
+})

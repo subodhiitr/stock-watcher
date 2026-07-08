@@ -10,6 +10,18 @@ function toOpenSymbols(openTrades, context = {}) {
   return openSymbols;
 }
 
+function toOpenPositionCounts(openTrades, context = {}) {
+  const counts = context.openPositionCounts instanceof Map
+    ? new Map(context.openPositionCounts)
+    : new Map();
+  for (const trade of Array.isArray(openTrades) ? openTrades : []) {
+    if (trade?.symbol) {
+      counts.set(trade.symbol, (counts.get(trade.symbol) || 0) + 1);
+    }
+  }
+  return counts;
+}
+
 function toExitContext(context = {}, isEodSettlement) {
   if (typeof context.exitOptions === 'object' && context.exitOptions) {
     return context.exitOptions;
@@ -47,11 +59,33 @@ function applyExitIntentsToOpenSymbols(openSymbols, exitIntents) {
   return next;
 }
 
+function applyExitIntentsToOpenPositionCounts(openPositionCounts, exitIntents) {
+  const next = new Map(openPositionCounts);
+  for (const intent of Array.isArray(exitIntents) ? exitIntents : []) {
+    if (String(intent?.action || '').toLowerCase() === 'partial') continue;
+    if (intent?.symbol) {
+      const count = (next.get(intent.symbol) || 1) - 1;
+      if (count > 0) {
+        next.set(intent.symbol, count);
+      } else {
+        next.delete(intent.symbol);
+      }
+    }
+  }
+  return next;
+}
+
 function runSimulationDomainCycle({ openTrades, candidates, at, settings, context = {}, isEodSettlement = false } = {}, deps = {}) {
   const exitIntents = manageExits({ openTrades, at, settings, context, isEodSettlement }, deps);
   const openSymbolsBeforeEntries = toOpenSymbols(openTrades, context);
+  const openPositionCountsBeforeEntries = toOpenPositionCounts(openTrades, context);
   const openSymbolsForEntries = applyExitIntentsToOpenSymbols(openSymbolsBeforeEntries, exitIntents);
-  const entryContext = { ...context, openSymbols: openSymbolsForEntries };
+  const openPositionCountsForEntries = applyExitIntentsToOpenPositionCounts(openPositionCountsBeforeEntries, exitIntents);
+  const entryContext = { 
+    ...context, 
+    openSymbols: openSymbolsForEntries,
+    openPositionCounts: openPositionCountsForEntries 
+  };
   const entryIntents = selectEntries({ candidates, at, settings, context: entryContext }, deps);
   return { exitIntents, entryIntents };
 }
@@ -60,4 +94,8 @@ module.exports = {
   manageExits,
   selectEntries,
   runSimulationDomainCycle,
+  toOpenSymbols,
+  toOpenPositionCounts,
+  applyExitIntentsToOpenSymbols,
+  applyExitIntentsToOpenPositionCounts,
 };

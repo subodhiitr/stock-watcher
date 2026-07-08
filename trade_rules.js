@@ -15,6 +15,8 @@
     SIMULATION_MAX_OPEN: 20,
     SIMULATION_MAX_ACTIVE_OPEN: 15,
     SIMULATION_MAX_NEW_PER_CYCLE: 4,
+    SIMULATION_MAX_CONCURRENT_POSITIONS_PER_SYMBOL: 1,
+    SIMULATION_MAX_DAILY_ENTRIES_PER_SYMBOL: 2,
     SIMULATION_TOP_N: 10,
     SIMULATION_DATA_QUALITY_MIN_SAMPLE: 25,
     SIMULATION_DATA_QUALITY_REDUCE_BAD_RATIO: 0.25,
@@ -319,6 +321,12 @@
     const isBrokerFailed = t => ['cancelled','rejected','timeout','failed'].includes(String(t?.broker?.status||'').toLowerCase());
     const dayTrades = list.filter(isTodayTrade);
     const closed = dayTrades.filter(t => t.status === 'closed' && !isBrokerFailed(t));
+    const entries = dayTrades.filter(t => !isBrokerFailed(t) && (!helpers.sameDay || sameDay(t.openedAt, at)));
+    const symbolEntries = entries.reduce((counts, trade) => {
+      const symbol = String(trade?.symbol || '').trim().toUpperCase();
+      if (symbol) counts[symbol] = (counts[symbol] || 0) + 1;
+      return counts;
+    }, {});
     const netPnl = closed.reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
     const firstHourEntries = dayTrades.filter(t => {
       const mins = getIstMinutes(t.openedAt);
@@ -328,7 +336,8 @@
       trades: dayTrades,
       dayTrades,
       closed,
-      entries: dayTrades.filter(t => !isBrokerFailed(t) && (!helpers.sameDay || sameDay(t.openedAt, at))).length,
+      entries: entries.length,
+      symbolEntries,
       firstHourEntries,
       stops: closed.filter(isLosingStopExit).length,
       dailyStopLimit: getEffectiveStopLimit(netPnl, settings),
@@ -340,6 +349,12 @@
   function getEntryBlockReason(sym, setupType = '', at = Date.now(), stats = {}, settings = {}) {
     settings = withDefaults(settings);
     if ((Number(stats.entries) || 0) >= settings.SIMULATION_DAILY_MAX_TRADES) return `daily trade limit ${settings.SIMULATION_DAILY_MAX_TRADES}`;
+    const symbol = String(sym || '').trim().toUpperCase();
+    const symbolEntryLimit = Math.max(0, Math.floor(Number(settings.SIMULATION_MAX_DAILY_ENTRIES_PER_SYMBOL) || 0));
+    const symbolEntryCount = Number(stats.symbolEntries?.[symbol]) || 0;
+    if (symbol && symbolEntryLimit > 0 && symbolEntryCount >= symbolEntryLimit) {
+      return `daily symbol entry limit ${symbolEntryLimit}`;
+    }
     const stopLimit = Number(stats.dailyStopLimit ?? getEffectiveStopLimit(stats.netPnl, settings));
     const stopGuardOverride = !!settings.SIMULATION_OVERRIDE_STOP_GUARD;
     if (!stopGuardOverride && (Number(stats.stops) || 0) >= stopLimit) {

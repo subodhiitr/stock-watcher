@@ -1,12 +1,12 @@
 {
   "ok": true,
   "date": "2026-07-24",
-  "savedAt": 1783478439319,
-  "builtInMs": 117,
+  "savedAt": 1783505490616,
+  "builtInMs": 65471,
   "source": "nse-board-meetings",
-  "scanned": 20,
-  "count": 2,
-  "symbolCount": 2,
+  "scanned": 3028,
+  "count": 4,
+  "symbolCount": 4,
   "items": [
     {
       "symbol": "ACC",
@@ -27,6 +27,30 @@
       "title": "Bank Of Baroda has informed the Exchange about Board Meeting to be held on 24-Jul-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
       "source": "NSE",
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=BANKBARODA",
+      "eventDate": "2026-07-23T18:30:00.000Z",
+      "dateKey": "2026-07-24",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "CONCOR",
+      "name": "Container Corporation of India Limited",
+      "type": "Financial Results",
+      "title": "CONTAINER CORPORATION OF INDIA LIMITED has informed the Exchange about Board Meeting to be held on 24-Jul-2026 to consider and approve the Quarterly Unaudited Financial results of the Company for the period ended June 2026 and Dividend/Other business.",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=CONCOR",
+      "eventDate": "2026-07-23T18:30:00.000Z",
+      "dateKey": "2026-07-24",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "LALPATHLAB",
+      "name": "Dr. Lal Path Labs Ltd.",
+      "type": "Financial Results",
+      "title": "DR. LAL PATH LABS LTD. has informed the Exchange about Board Meeting to be held on 24-Jul-2026 to consider and approve the Quarterly Unaudited Financial results of the Company for the period ended June 2026 and Other business.",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=LALPATHLAB",
       "eventDate": "2026-07-23T18:30:00.000Z",
       "dateKey": "2026-07-24",
       "status": "upcoming",

@@ -85,6 +85,7 @@ test('getSimulationEntryIntents applies context cashAvailable and positionMultip
   const context = {
     cashAvailable: 10000,
     positionMultiplier: 1.0,
+    openPositionCounts: new Map(),
     previousCandidateBySymbol: new Map([[candidate.symbol, candidate.previousCandidate]])
   };
 

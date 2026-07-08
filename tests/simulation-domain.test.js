@@ -2,6 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { runSimulationDomainCycle } = require('../server/simulation-domain');
+const SimulationEngine = require('../simulation_engine');
+const TradeRules = require('../trade_rules');
 
 test('runSimulationDomainCycle returns entry and exit intent collections', () => {
   const openTrades = [{ symbol: 'INFY' }];
@@ -45,6 +47,7 @@ test('runSimulationDomainCycle computes exits before entries and frees symbols c
     getSimulationEntryIntents(nextCandidates, at, settings, context) {
       callOrder.push('entries');
       assert.equal(context.openSymbols.has('INFY'), false);
+      assert.ok(context.openPositionCounts instanceof Map);
       return nextCandidates.map(candidate => ({ symbol: candidate.symbol, side: candidate.side, price: candidate.price }));
     }
   };
@@ -58,4 +61,50 @@ test('runSimulationDomainCycle computes exits before entries and frees symbols c
   assert.equal(intents.exitIntents.length, 1);
   assert.equal(intents.exitIntents[0].symbol, 'INFY');
   assert.deepEqual(intents.entryIntents, [{ symbol: 'INFY', side: 'buy', price: 1610 }]);
+});
+
+test('runSimulationDomainCycle respects max concurrent positions per symbol setting', () => {
+  // Simulate 1 open position on JKPAPER with 1 new candidate attempting entry
+  const openTrades = [
+    { symbol: 'JKPAPER' }
+  ];
+  const candidates = [
+    { 
+      symbol: 'JKPAPER', 
+      side: 'buy', 
+      signal: 'buy',
+      price: 361, 
+      score: 90, 
+      cost: { ok: true, netPct: 1.4 }, 
+      guard: { level: 'ok' }, 
+      indicators: { 
+        entryStatus: 'Triggered',
+        entryTrigger: 'Above VWAP',
+        dayChange: 2.5, 
+        relVolumeTimeAdjusted: 1.5, 
+        vwap: 360, 
+        rsi: 60, 
+        ema9: 362, 
+        ema20: 359, 
+        superTrendDirection: 'bullish', 
+        stopPct: 0.6,
+        target: 375,
+        stop: 350
+      },
+      freshness: { stale: false }, 
+      derivedSetupType: 'MOMENTUM_RUNNER',
+      previousCandidate: { symbol: 'JKPAPER', side: 'buy', indicators: { vwap: 360 } }
+    }
+  ];
+
+  const settings = TradeRules.withDefaults({ SIMULATION_MAX_CONCURRENT_POSITIONS_PER_SYMBOL: 1 });
+  
+  // Use the real engine to properly filter candidates
+  const intents = runSimulationDomainCycle(
+    { openTrades, candidates, at: '2026-07-07T09:00:00.000Z', settings, context: {} },
+    { engine: SimulationEngine }
+  );
+
+  // JKPAPER candidate should be filtered out because max concurrent positions (1) is already reached
+  assert.equal(intents.entryIntents.length, 0, 'Should not allow a 2nd position on JKPAPER when max concurrent is 1');
 });

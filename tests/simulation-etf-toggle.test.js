@@ -45,7 +45,7 @@ test('ETF candidates are excluded by default from simulation', () => {
     SimulationEngine.explainCandidateEligibility(candidate, Date.now(), settings).reasons.join('|'),
     /ETF simulation disabled/
   );
-  assert.equal(SimulationEngine.selectSimulationEntryCandidates([candidate], Date.now(), settings).length, 0);
+  assert.equal(SimulationEngine.selectSimulationEntryCandidates([candidate], Date.now(), settings, { openPositionCounts: new Map() }).length, 0);
 });
 
 test('ETF buy candidates are allowed when SIMULATION_ENABLE_ETF is enabled', () => {
@@ -55,8 +55,8 @@ test('ETF buy candidates are allowed when SIMULATION_ENABLE_ETF is enabled', () 
   });
 
   assert.equal(SimulationEngine.isReplayCandidateEligible(candidate, Date.now(), settings), true);
-  assert.equal(SimulationEngine.selectSimulationEntryCandidates([candidate], Date.now(), settings).length, 1);
-  assert.equal(SimulationEngine.getSimulationEntryIntents([candidate], Date.now(), settings)[0].assetType, 'etf');
+  assert.equal(SimulationEngine.selectSimulationEntryCandidates([candidate], Date.now(), settings, { openPositionCounts: new Map() }).length, 1);
+  assert.equal(SimulationEngine.getSimulationEntryIntents([candidate], Date.now(), settings, { openPositionCounts: new Map() })[0].assetType, 'etf');
 });
 
 test('ETF short candidates stay disabled even when ETF simulation is enabled', () => {

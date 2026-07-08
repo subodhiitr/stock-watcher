@@ -836,6 +836,15 @@
     const openSymbols = context.openSymbols instanceof Set
       ? context.openSymbols
       : new Set(Array.isArray(context.openSymbols) ? context.openSymbols : []);
+    const openPositionCounts = context.openPositionCounts instanceof Map
+      ? context.openPositionCounts
+      : new Map();
+    
+    // Warn if openSymbols not provided (could bypass duplicate checks)
+    if (!(context.openSymbols instanceof Set) && !Array.isArray(context.openSymbols)) {
+      console.warn('[selectSimulationEntryCandidates] WARNING: openSymbols not provided in context, duplicate entry checks may be bypassed');
+    }
+    
     const quality = getSnapshotDataQuality(candidates, settings);
     if (quality.mode === 'block') return [];
     const configuredTopN = Math.max(1, Math.floor(Number(context.topN ?? settings.SIMULATION_TOP_N) || 10));
@@ -845,6 +854,8 @@
       ? context.entryBlockReason
       : () => '';
     const market = context.market || {};
+    const maxConcurrentPerSymbol = Math.max(1, Math.floor(Number(settings.SIMULATION_MAX_CONCURRENT_POSITIONS_PER_SYMBOL) || 2));
+    
     return (Array.isArray(candidates) ? candidates : [])
       .map(candidate => {
         if (!candidate) return null;
@@ -861,7 +872,15 @@
         previousCandidate: candidate.previousCandidate || context.previousCandidate,
         market,
       }))
-      .filter(candidate => !openSymbols.has(candidate.symbol))
+      .filter(candidate => {
+        // Check concurrent positions instead of just binary open/closed check
+        const positionCount = openPositionCounts.get(candidate.symbol) || 0;
+        if (positionCount >= maxConcurrentPerSymbol) {
+          candidate.entryBlockReason = `Already have ${positionCount} open position(s) for ${candidate.symbol}; max concurrent: ${maxConcurrentPerSymbol}`;
+          return false;
+        }
+        return true;
+      })
       .filter(candidate => {
         let block = entryBlockReason(candidate.symbol, candidate.derivedSetupType || candidate.setupType || '', at, candidate);
         if (/profit re-entry cooldown/i.test(String(block || '')) && isCandidateContinuationReentryAllowed(candidate, settings)) {

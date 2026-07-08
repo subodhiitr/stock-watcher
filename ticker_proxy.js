@@ -72,6 +72,7 @@ const { handleReplayRoute } = require('./server/routes/replay');
 const { handleSimulationRuntimeRoute } = require('./server/routes/simulation-runtime');
 const { handleTradeExecutionRoute } = require('./server/routes/trade-execution');
 const { createResultCalendarService } = require('./server/result-calendar');
+const { createIntradayCandlesService } = require('./server/intraday-candles');
 const { createFreshNewsService } = require('./server/fresh-news');
 const {
   initDb,
@@ -113,6 +114,7 @@ if (fs.existsSync(ENV_FILE)) {
 const PORT  = process.env.PROXY_PORT ? Number.parseInt(process.env.PROXY_PORT, 10) : 3001;
 const USER_OPENAI_PROPERTIES = path.join(os.homedir(), 'openai.properties');
 const APP_CACHE_DIR        = path.join(__dirname, 'cache');
+const DASHBOARD_APP_PATH   = path.join(__dirname, 'dashboard-app.js');
 const ETF_LIST_CACHE_TTL   = 24 * 60 * 60 * 1000;        // 24 hours (NSE price/nav batch)
 const ETF_META_TTL         = 30 * 24 * 60 * 60 * 1000;   // 30 days (static: TER, family, 1Y/3Y/5Y)
 const FUND_CACHE_TTL       = 30 * 24 * 60 * 60 * 1000;   // 30 days (mostly static fundamentals)
@@ -358,6 +360,57 @@ function saveSavedETFsFile(symbols) {
 function loadSavedStocksFile() {
   try { return getSavedStockSymbols(); } catch (e) { return []; }
 }
+
+let resultCalendarDashboardSymbolsCache = null;
+function loadDashboardStockUniverse() {
+  if (resultCalendarDashboardSymbolsCache) return resultCalendarDashboardSymbolsCache;
+  try {
+    const source = fs.readFileSync(DASHBOARD_APP_PATH, 'utf8');
+    const marker = 'let MIDCAP_STOCKS = [';
+    const start = source.indexOf(marker);
+    if (start < 0) return [];
+    const arrayStart = source.indexOf('[', start);
+    let depth = 0;
+    let arrayEnd = -1;
+    for (let i = arrayStart; i < source.length; i++) {
+      const ch = source[i];
+      if (ch === '[') depth++;
+      else if (ch === ']') {
+        depth--;
+        if (depth === 0) {
+          arrayEnd = i + 1;
+          break;
+        }
+      }
+    }
+    if (arrayStart < 0 || arrayEnd < 0) return [];
+    const rows = Function(`"use strict"; return (${source.slice(arrayStart, arrayEnd)});`)();
+    resultCalendarDashboardSymbolsCache = (Array.isArray(rows) ? rows : [])
+      .map(row => ({
+        sym:String(row?.sym || row?.symbol || '').trim().toUpperCase(),
+        name:row?.name || row?.sym || row?.symbol || '',
+        sector:row?.sector || null,
+        cap:row?.cap || null,
+      }))
+      .filter(row => row.sym && String(row.cap || '').toLowerCase() !== 'etf');
+    return resultCalendarDashboardSymbolsCache;
+  } catch(e) {
+    console.warn('[result-calendar] Could not load dashboard stock universe:', e.message);
+    resultCalendarDashboardSymbolsCache = [];
+    return resultCalendarDashboardSymbolsCache;
+  }
+}
+
+function loadResultCalendarSymbols() {
+  const bySymbol = new Map();
+  for (const row of loadDashboardStockUniverse()) bySymbol.set(row.sym, row);
+  for (const row of loadSavedStocksFile()) {
+    const sym = String(row?.sym || row?.symbol || '').trim().toUpperCase();
+    if (sym) bySymbol.set(sym, { ...row, sym });
+  }
+  return [...bySymbol.values()];
+}
+
 function saveSavedStocksFile(symbols) {
   try {
     if (!Array.isArray(symbols)) return;
@@ -3976,6 +4029,7 @@ const resultCalendarService = createResultCalendarService({
   nseJsonWithRetry,
   stripHtml,
   toISODateOrNull,
+  getResultCalendarSymbols:loadResultCalendarSymbols,
 });
 
 const freshNewsService = createFreshNewsService({
@@ -4511,6 +4565,12 @@ const YAHOO_HEADERS = {
   'Referer'        : 'https://finance.yahoo.com/',
 };
 
+const intradayCandlesService = createIntradayCandlesService({
+  httpsGet,
+  yahooHeaders:YAHOO_HEADERS,
+  resolveNseSymbol,
+});
+
 // Fetch a single symbol via v8/finance/chart (1-day range, 1-day interval).
 // Returns the parsed JSON or null on error.
 async function yahooChart(symbol) {
@@ -4832,6 +4892,13 @@ function superTrend(highs, lows, closes, period = 10, multiplier = 3) {
   return { direction: trend, value, upper: finalUpper, lower: finalLower };
 }
 
+function pickChartPreviousClose(result) {
+  const previousClose = Number(result?.meta?.previousClose);
+  if (Number.isFinite(previousClose) && previousClose > 0) return previousClose;
+  const chartPreviousClose = Number(result?.meta?.chartPreviousClose);
+  return Number.isFinite(chartPreviousClose) && chartPreviousClose > 0 ? chartPreviousClose : null;
+}
+
 function buildDailyTradeContext(result) {
   const quote = result?.indicators?.quote?.[0] || {};
   const highs = quote.high || [];
@@ -4846,9 +4913,17 @@ function buildDailyTradeContext(result) {
   if (!rows.length) return {};
   const latestRawClose = Number(closes[closes.length - 1]);
   const currentSessionAlreadyInSeries = Number.isFinite(latestRawClose) && latestRawClose > 0;
+  const rawPriorClose = Number(closes[closes.length - 2]);
+  const previousCloseFromMeta = Number(result?.meta?.previousClose);
   const prev = currentSessionAlreadyInSeries && rows.length >= 2
     ? rows[rows.length - 2]
     : rows[rows.length - 1];
+  const prevDayClose = currentSessionAlreadyInSeries &&
+    !(Number.isFinite(rawPriorClose) && rawPriorClose > 0) &&
+    Number.isFinite(previousCloseFromMeta) &&
+    previousCloseFromMeta > 0
+      ? previousCloseFromMeta
+      : prev.close;
   const pivot = (prev.high + prev.low + prev.close) / 3;
   const r1 = (2 * pivot) - prev.low;
   const s1 = (2 * pivot) - prev.high;
@@ -4865,7 +4940,7 @@ function buildDailyTradeContext(result) {
   return {
     prevDayHigh: +prev.high.toFixed(2),
     prevDayLow: +prev.low.toFixed(2),
-    prevDayClose: +prev.close.toFixed(2),
+    prevDayClose: +prevDayClose.toFixed(2),
     pivot: +pivot.toFixed(2),
     r1: +r1.toFixed(2),
     s1: +s1.toFixed(2),
@@ -5388,8 +5463,22 @@ async function pushSharekhanTickerCandles(sym, candles) {
       const dailyResult = daily?.status === 200
         ? (() => { try { return JSON.parse(daily.body)?.chart?.result?.[0] ?? null; } catch (_) { return null; } })()
         : null;
-      dailyContext = buildDailyTradeContext(dailyResult);
       previousClose = Number(dailyResult?.meta?.previousClose);
+      if (!(Number.isFinite(previousClose) && previousClose > 0)) {
+        const prevClosePath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=1d&range=1d&includePrePost=false`;
+        let prevCloseRes = await httpsGet({ hostname: 'query1.finance.yahoo.com', path: prevClosePath, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+        if (prevCloseRes.status !== 200) {
+          prevCloseRes = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: prevClosePath, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+        }
+        const prevCloseResult = prevCloseRes?.status === 200
+          ? (() => { try { return JSON.parse(prevCloseRes.body)?.chart?.result?.[0] ?? null; } catch (_) { return null; } })()
+          : null;
+        previousClose = Number(pickChartPreviousClose(prevCloseResult));
+      }
+      const dailyContextInput = dailyResult && Number.isFinite(previousClose) && previousClose > 0
+        ? { ...dailyResult, meta: { ...(dailyResult.meta || {}), previousClose } }
+        : dailyResult;
+      dailyContext = buildDailyTradeContext(dailyContextInput);
       sharekhanDailyContextCache.set(cacheKey, {
         dayKey,
         fetchedAt: now,
@@ -5481,7 +5570,16 @@ async function fetchIntradaySignal(sym) {
       }
     }
 
-    const signal = buildIntradaySignal(sym, result, buildDailyTradeContext(dailyResult));
+    const dailyContextInput = dailyResult && result?.meta
+      ? {
+          ...dailyResult,
+          meta: {
+            ...(dailyResult.meta || {}),
+            previousClose: dailyResult.meta?.previousClose ?? result.meta.previousClose ?? result.meta.chartPreviousClose,
+          },
+        }
+      : dailyResult;
+    const signal = buildIntradaySignal(sym, result, buildDailyTradeContext(dailyContextInput));
     if (signal) {
       if (!signal.dataSource) signal.dataSource = 'yahoo';
       if (!signal._updatedAt) signal._updatedAt = now;
@@ -6028,6 +6126,7 @@ async function proxyRequestHandler(req, res) {
   try { console.log('[proxy] >>', req.method, pathname, req.socket && req.socket.remoteAddress); } catch (e) {}
 
   if (await dispatchRoute([
+    (req, res, pathname, searchParams) => intradayCandlesService.handleRoute(req, res, pathname, searchParams),
     (req, res, pathname, searchParams) => handleDashboardRoute(req, res, pathname, searchParams, {
       buildHealthPayload,
       buildDashboardBootstrap,
@@ -7618,6 +7717,7 @@ module.exports = {
       return buildServerCandidateFromIntraday(sym, setup, effective, meta, asOf);
     },
     buildDailyTradeContextForTests: buildDailyTradeContext,
+    pickChartPreviousCloseForTests: pickChartPreviousClose,
     getSimulationRuntimeSnapshot() {
       const runtime = loadSimulationRuntime();
       return {

@@ -312,6 +312,19 @@ test('portfolio modal moves Entry Why and Exit Reason to the end of transaction 
   );
 });
 
+test('portfolio modal lets users pick transaction date with today as default', () => {
+  const { source } = loadDashboardApp();
+  assert.match(source, /let portfolioTransactionDate = getTradeDateISO\(\)/);
+  assert.match(source, /function setPortfolioTransactionDate\(/);
+  assert.match(source, /function isTradeOnPortfolioDate\(/);
+  assert.match(source, /portfolioTransactionDateInput/);
+  assert.match(source, /type="date"/);
+  assert.match(source, /onchange="setPortfolioTransactionDate\(this\.value\)"/);
+  assert.match(source, /paperTrades\.filter\(t => isTradeOnPortfolioDate\(t, portfolioTransactionDate\)\)/);
+  assert.match(source, /Transactions for \$\{escapeHTML\(formatPortfolioTransactionDate\(portfolioTransactionDate\)\)\}/);
+  assert.doesNotMatch(source, /No transactions today/);
+});
+
 test('intraday Sharekhan volume updates table stockData volume', () => {
   const { source } = loadDashboardApp();
   const helper = findFunctionByContracts(source, [

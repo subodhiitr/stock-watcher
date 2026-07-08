@@ -61,12 +61,19 @@ test('fresh news opens from action bar icon and is removed from setup cards', ()
   const setupStart = source.indexOf('function renderSetupCards(');
   const setupEnd = source.indexOf('function renderTable(', setupStart);
   const setupSource = source.slice(setupStart, setupEnd);
+  const modalStart = source.indexOf('function renderFreshNewsModal()');
+  const modalEnd = source.indexOf('function openFreshNewsModal()', modalStart);
+  const modalSource = source.slice(modalStart, modalEnd);
 
   assert.match(html, /id="fresh-news-btn"/);
   assert.match(html, /onclick="openFreshNewsModal\(\)"/);
   assert.match(html, />📰<\/button>/);
   assert.doesNotMatch(setupSource, /Fresh News/);
   assert.doesNotMatch(setupSource, /openFreshNewsModal/);
+  assert.match(source, /function formatFreshNewsPublishedTime\(/);
+  assert.match(modalSource, /<th>Time<\/th>/);
+  assert.match(modalSource, /formatFreshNewsPublishedTime\(item\.publishedAt\)/);
+  assert.match(modalSource, /colspan="7"/);
 });
 
 test('result calendar opens beside fresh news and renders row badges', () => {
@@ -75,6 +82,8 @@ test('result calendar opens beside fresh news and renders row badges', () => {
 
   assert.match(html, /id="result-calendar-btn"/);
   assert.match(html, /onclick="openResultCalendarModal\(\)"/);
+  assert.match(html, />📅<\/button>/);
+  assert.doesNotMatch(html, />Cal<\/button>/);
   assert.match(html, /id="result-calendar-modal"/);
   assert.match(source, /resultCalendarBySymbol/);
   assert.match(source, /const RESULT_CALENDAR_ENDPOINT/);
@@ -92,5 +101,9 @@ test('result calendar opens beside fresh news and renders row badges', () => {
   assert.match(source, /Result Type/);
   assert.match(source, /Market cap/);
   assert.match(source, /loadResultCalendarSummary\(false\)/);
+  assert.match(source, /force:\s*!!force/);
+  assert.match(source, /AbortSignal\.timeout\(force \? 240000 : 60000\)/);
+  assert.match(source, /calendarBtn\.textContent = '📅'/);
+  assert.doesNotMatch(source, /calendarBtn\.textContent = 'Cal'/);
   assert.match(html, /loadResultCalendarSummary\(true\)\.then\(renderResultCalendarModal\)/);
 });

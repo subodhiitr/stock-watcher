@@ -1,10 +1,10 @@
 {
   "ok": true,
   "date": "2026-07-08",
-  "savedAt": 1783478439319,
-  "builtInMs": 85,
+  "savedAt": 1783505490616,
+  "builtInMs": 64674,
   "source": "nse-board-meetings",
-  "scanned": 20,
+  "scanned": 3028,
   "count": 0,
   "symbolCount": 0,
   "items": [],

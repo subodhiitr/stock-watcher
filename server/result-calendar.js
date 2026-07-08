@@ -140,33 +140,56 @@ function createResultCalendarService(deps = {}) {
   const nseJsonWithRetry = deps.nseJsonWithRetry;
   const stripHtml = deps.stripHtml || defaultStripHtml;
   const toISODateOrNull = deps.toISODateOrNull || defaultToISODateOrNull;
+  const getResultCalendarSymbols = deps.getResultCalendarSymbols || (() => []);
   let indexCache = null;
   let cronTimer = null;
   let refreshInFlight = null;
 
+  function mapNSEBoardMeetingRows(rows) {
+    if (!Array.isArray(rows)) return [];
+    return rows.map(item => {
+      const symbol = nseRowSymbol(item);
+      const resultType = classifyBoardMeetingResultType(item, stripHtml);
+      return {
+        symbol,
+        name:nseRowCompanyName(item, symbol),
+        type:resultType || 'Board Meeting',
+        title:stripHtml(item.bm_desc || item.bm_purpose || 'Board meeting'),
+        isResultCalendarEvent:!!resultType,
+        source:'NSE',
+        eventDate:toISODateOrNull(item.bm_date),
+        publishedAt:toISODateOrNull(item.bm_date || item.bm_timestamp),
+        url:symbol ? `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}` : '',
+      };
+    }).filter(x => x.symbol && x.title);
+  }
+
   async function fetchNSEAllBoardMeetings() {
     try {
       const rows = await nseJsonWithRetry('/api/corporate-board-meetings?index=equities', 'all board meetings');
-      if (!Array.isArray(rows)) return [];
-      return rows.slice(0, 1200).map(item => {
-        const symbol = nseRowSymbol(item);
-        const resultType = classifyBoardMeetingResultType(item, stripHtml);
-        return {
-          symbol,
-          name:nseRowCompanyName(item, symbol),
-          type:resultType || 'Board Meeting',
-          title:stripHtml(item.bm_desc || item.bm_purpose || 'Board meeting'),
-          isResultCalendarEvent:!!resultType,
-          source:'NSE',
-          eventDate:toISODateOrNull(item.bm_date),
-          publishedAt:toISODateOrNull(item.bm_date || item.bm_timestamp),
-          url:symbol ? `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}` : '',
-        };
-      }).filter(x => x.symbol && x.title);
+      return mapNSEBoardMeetingRows(Array.isArray(rows) ? rows.slice(0, 1200) : []);
     } catch(e) {
       console.warn('[result-calendar] NSE all board meetings failed:', e.message);
       return [];
     }
+  }
+
+  async function fetchNSEBoardMeetingsForSymbols(symbols = []) {
+    const universe = normalizeUniverse(symbols, 400);
+    if (!universe.length) return fetchNSEAllBoardMeetings();
+    const events = [];
+    for (const { symbol } of universe) {
+      try {
+        const rows = await nseJsonWithRetry(
+          `/api/corporate-board-meetings?index=equities&symbol=${encodeURIComponent(symbol)}`,
+          `board meetings ${symbol}`
+        );
+        events.push(...mapNSEBoardMeetingRows(rows));
+      } catch(e) {
+        console.warn(`[result-calendar] NSE board meetings failed for ${symbol}:`, e.message);
+      }
+    }
+    return dedupeResultCalendarItems(events);
   }
 
   function buildBySymbol(items, targetUniverse = [], opts = {}) {
@@ -353,8 +376,10 @@ function createResultCalendarService(deps = {}) {
       const fromDate = opts.fromDate || todayDateKey();
       const days = Math.max(1, Math.min(Number(opts.days) || 30, 60));
       const toDate = opts.toDate || dateKeyPlusDays(fromDate, days);
-      console.log(`[result-calendar-cron] Refreshing ${fromDate}..${toDate} (${reason}) for all NSE board-meeting symbols`);
-      const events = await fetchNSEAllBoardMeetings();
+      const symbols = normalizeUniverse(getResultCalendarSymbols(), 400);
+      const sourceLabel = symbols.length ? `${symbols.length} tracked NSE board-meeting symbols` : 'all NSE board-meeting symbols';
+      console.log(`[result-calendar-cron] Refreshing ${fromDate}..${toDate} (${reason}) for ${sourceLabel}`);
+      const events = await fetchNSEBoardMeetingsForSymbols(symbols);
       const entries = buildDayEntries(events, [], { fromDate, toDate, days });
       for (const entry of entries) {
         entry.builtInMs = Date.now() - startedAt;
@@ -477,10 +502,14 @@ function createResultCalendarService(deps = {}) {
       const rawSymbols = req.method === 'GET'
         ? String(searchParams.get('symbols') || '').split(',').map(s => s.trim()).filter(Boolean)
         : (payload.symbols || payload.stocks || []);
+      const days = payload.days || searchParams.get('days') || 30;
+      const fromDate = payload.fromDate || searchParams.get('fromDate') || todayDateKey();
+      const force = payload.force === true || ['1', 'true', 'yes'].includes(String(searchParams.get('force') || '').toLowerCase());
+      if (force) await refreshCache('manual-force', { fromDate, days });
       const data = readCache(rawSymbols, {
-        days: payload.days || searchParams.get('days') || 30,
+        days,
         maxSymbols: payload.maxSymbols || searchParams.get('maxSymbols'),
-        fromDate: payload.fromDate || searchParams.get('fromDate') || todayDateKey(),
+        fromDate,
       });
       res.writeHead(200, { 'Content-Type':'application/json', 'Cache-Control':'no-cache' });
       res.end(JSON.stringify(data));

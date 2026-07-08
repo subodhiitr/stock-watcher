@@ -37,6 +37,7 @@ const BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;
 const ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;
 const SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;
 const INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;
+const INTRADAY_CANDLES_ENDPOINT = `${PROXY}/intraday-candles`;
 const REPLAY_FETCH_TIMEOUT_MS = 120000;
 const TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;
 const TRADE_SETTING_OVERRIDES_KEY = 'stock-watcher-trade-setting-overrides';
@@ -841,6 +842,7 @@ let intradayLiveStream = null;
 let intradayLiveStreamReconnectTimer = null;
 let intradayLiveStreamReconnectAttempt = 0;
 let intradayLiveStreamKey = '';
+let portfolioTransactionDate = getTradeDateISO();
 let etfSort        = { col:'change', dir:-1 };
 let etfSearch      = '';
 let targetFilter   = 'all';
@@ -1192,6 +1194,171 @@ function getDisplayChangePct(data) {
   }
   const fallback = Number(data.change);
   return Number.isFinite(fallback) ? +fallback.toFixed(2) : null;
+}
+
+let intradayCandleChartState = { symbol: '', range: '1d', candles: [], loading: false, error: '' };
+
+function ensureIntradayCandleChartModal() {
+  let modal = document.getElementById('intraday-candle-chart-modal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.id = 'intraday-candle-chart-modal';
+  modal.className = 'modal intraday-candle-chart-modal';
+  modal.style.display = 'none';
+  modal.innerHTML = `
+    <div class="modal-content intraday-candle-chart-content">
+      <div class="modal-header">
+        <h2 id="intraday-candle-chart-title">5m Intraday Chart</h2>
+        <button class="modal-close" type="button" onclick="closeIntradayCandleChart()">×</button>
+      </div>
+      <div class="intraday-candle-chart-toolbar">
+        <button type="button" data-chart-range="1d" onclick="setIntradayCandleChartRange('1d')">Today</button>
+        <button type="button" data-chart-range="2d" onclick="setIntradayCandleChartRange('2d')">2D</button>
+        <button type="button" data-chart-range="5d" onclick="setIntradayCandleChartRange('5d')">5D</button>
+      </div>
+      <div id="intraday-candle-chart-body" class="intraday-candle-chart-body"></div>
+    </div>`;
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function normalizeChartCandles(candles) {
+  const raw = (Array.isArray(candles) ? candles : [])
+    .map(c => ({
+      time: c.time || c.t || null,
+      open: Number(c.open ?? c.o),
+      high: Number(c.high ?? c.h),
+      low: Number(c.low ?? c.l),
+      close: Number(c.close ?? c.c),
+      volume: Number(c.volume ?? c.v ?? 0),
+    }))
+    .filter(c => c.time && [c.open, c.high, c.low, c.close].every(Number.isFinite))
+    .filter(c => [c.open, c.high, c.low, c.close].every(v => v > 0))
+    .filter(c => c.high >= c.low && c.high >= Math.max(c.open, c.close) && c.low <= Math.min(c.open, c.close));
+  const sortedCloses = raw.map(c => c.close).sort((a, b) => a - b);
+  const median = sortedCloses.length ? sortedCloses[Math.floor(sortedCloses.length / 2)] : null;
+  if (!Number.isFinite(median) || median <= 0) return raw;
+  return raw.filter(c => c.low >= median * 0.2 && c.high <= median * 5);
+}
+
+function renderIntradayCandleChart(symbol, candles, opts = {}) {
+  const width = 820, height = 440, padL = 54, padR = 24, padT = 32, padB = 54;
+  const rows = normalizeChartCandles(candles);
+  if (!rows.length) return `<div class="intraday-candle-chart-empty">${escapeHTML(opts.error || 'No 5m candle data available')}</div>`;
+  const highs = rows.map(c => c.high);
+  const lows = rows.map(c => c.low);
+  const rawMin = Math.min(...lows);
+  const rawMax = Math.max(...highs);
+  const rawSpan = Math.max(0.01, rawMax - rawMin);
+  const scalePad = Math.max(rawSpan * 0.16, rawMax * 0.0015);
+  const min = rawMin - scalePad;
+  const max = rawMax + scalePad;
+  const span = Math.max(0.01, max - min);
+  const plotW = width - padL - padR;
+  const pricePlotH = 280;
+  const volumeTop = padT + pricePlotH + 28;
+  const volumePlotH = 58;
+  const xAxisY = padT + pricePlotH;
+  const y = value => padT + ((max - value) / span) * pricePlotH;
+  const step = plotW / Math.max(1, rows.length);
+  const candleW = Math.max(3, Math.min(12, step * 0.58));
+  const maxVolume = Math.max(1, ...rows.map(c => Number(c.volume) || 0));
+  const formatTime = value => new Date(value).toLocaleString('en-IN', { hour:'2-digit', minute:'2-digit', day:'2-digit', month:'short' });
+  const formatTooltipTime = value => new Date(value).toLocaleString('en-IN', { hour:'2-digit', minute:'2-digit', second:'2-digit', day:'2-digit', month:'short' });
+  const axisTicks = Array.from({ length: 5 }, (_, i) => {
+    const value = max - (span * i / 4);
+    const yy = y(value);
+    return `<g class="intraday-y-grid"><line x1="${padL}" y1="${yy.toFixed(1)}" x2="${width - padR}" y2="${yy.toFixed(1)}" stroke="rgba(100,116,139,.18)" stroke-dasharray="3 5"/><text class="intraday-y-axis-label" x="${padL - 8}" y="${(yy + 4).toFixed(1)}" text-anchor="end" fill="var(--muted)" font-size="11">₹${value.toFixed(2)}</text></g>`;
+  }).join('');
+  const xLabelIndexes = [...new Set([0, Math.floor((rows.length - 1) / 2), rows.length - 1])];
+  const xAxisLabels = xLabelIndexes.map(i => {
+    const x = padL + i * step + step / 2;
+    const anchor = i === 0 ? 'start' : i === rows.length - 1 ? 'end' : 'middle';
+    return `<text class="intraday-x-axis-label" x="${x.toFixed(1)}" y="${height - 18}" text-anchor="${anchor}" fill="var(--muted)" font-size="11">${escapeHTML(formatTime(rows[i].time))}</text>`;
+  }).join('');
+  const volumeBars = rows.map((c, i) => {
+    const x = padL + i * step + step / 2;
+    const up = c.close >= c.open;
+    const color = up ? '#10b981' : '#f43f5e';
+    const volumeH = Math.max(1, ((Number(c.volume) || 0) / maxVolume) * volumePlotH);
+    return `<rect class="intraday-volume-bar" x="${(x - candleW / 2).toFixed(1)}" y="${(volumeTop + volumePlotH - volumeH).toFixed(1)}" width="${candleW.toFixed(1)}" height="${volumeH.toFixed(1)}" fill="${color}" opacity=".32"/>`;
+  }).join('');
+  const candlesSvg = rows.map((c, i) => {
+    const x = padL + i * step + step / 2;
+    const up = c.close >= c.open;
+    const color = up ? '#10b981' : '#f43f5e';
+    const bodyTop = y(Math.max(c.open, c.close));
+    const bodyH = Math.max(1, Math.abs(y(c.open) - y(c.close)));
+    const tooltipX = Math.min(width - 190, Math.max(padL + 6, x + 10));
+    const tooltipY = Math.max(28, y(c.high) - 30);
+    const label = `${formatTooltipTime(c.time)} O:${c.open.toFixed(2)} H:${c.high.toFixed(2)} L:${c.low.toFixed(2)} C:${c.close.toFixed(2)} V:${(Number(c.volume) || 0).toLocaleString('en-IN')}`;
+    return `<g class="intraday-candle-hover"><title>${escapeHTML(label)}</title><line class="intraday-crosshair" x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${volumeTop + volumePlotH}" stroke="rgba(226,232,240,.5)" stroke-dasharray="3 4"/><line x1="${x.toFixed(1)}" y1="${y(c.high).toFixed(1)}" x2="${x.toFixed(1)}" y2="${y(c.low).toFixed(1)}" stroke="${color}" stroke-width="1.4"/><rect x="${(x - candleW / 2).toFixed(1)}" y="${bodyTop.toFixed(1)}" width="${candleW.toFixed(1)}" height="${bodyH.toFixed(1)}" fill="${color}" opacity=".86"/><rect class="intraday-hover-capture" x="${(x - step / 2).toFixed(1)}" y="${padT}" width="${Math.max(4, step).toFixed(1)}" height="${(volumeTop + volumePlotH - padT).toFixed(1)}" fill="transparent"/><g class="intraday-tooltip"><rect x="${tooltipX.toFixed(1)}" y="${tooltipY.toFixed(1)}" width="178" height="24" rx="6" fill="rgba(2,6,23,.92)" stroke="rgba(148,163,184,.35)"/><text x="${(tooltipX + 8).toFixed(1)}" y="${(tooltipY + 16).toFixed(1)}" fill="var(--text)" font-size="10">${escapeHTML(label)}</text></g></g>`;
+  }).join('');
+  const latest = rows[rows.length - 1];
+  return `<div class="intraday-candle-chart-summary"><strong>${escapeHTML(symbol)}</strong> ${rows.length} candles | Latest ₹${latest.close.toFixed(2)}</div>
+    <svg class="intraday-candle-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHTML(symbol)} 5 minute candlestick chart">
+      <rect x="0" y="0" width="${width}" height="${height}" rx="12" fill="rgba(15,23,42,.35)"/>
+      ${axisTicks}
+      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${xAxisY}" stroke="rgba(148,163,184,.35)"/>
+      <line x1="${padL}" y1="${xAxisY}" x2="${width - padR}" y2="${xAxisY}" stroke="rgba(148,163,184,.35)"/>
+      <line x1="${padL}" y1="${volumeTop + volumePlotH}" x2="${width - padR}" y2="${volumeTop + volumePlotH}" stroke="rgba(148,163,184,.22)"/>
+      <text x="${padL}" y="${volumeTop - 8}" fill="var(--muted)" font-size="11">Volume</text>
+      ${volumeBars}
+      ${candlesSvg}
+      <line x1="${padL}" y1="${y(latest.close).toFixed(1)}" x2="${width - padR}" y2="${y(latest.close).toFixed(1)}" stroke="rgba(14,165,233,.65)" stroke-dasharray="4 4"/>
+      ${xAxisLabels}
+    </svg>`;
+}
+
+async function loadIntradayCandleChart(symbol, range = '1d') {
+  const body = document.getElementById('intraday-candle-chart-body');
+  if (body) body.innerHTML = '<div class="intraday-candle-chart-empty">Loading 5m candles...</div>';
+  try {
+    const res = await fetch(`${INTRADAY_CANDLES_ENDPOINT}?symbol=${encodeURIComponent(symbol)}&range=${encodeURIComponent(range)}`, { signal: AbortSignal.timeout(20000) });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.ok === false) throw new Error(payload.error || `intraday-candles HTTP ${res.status}`);
+    intradayCandleChartState = { symbol, range, candles: normalizeChartCandles(payload.candles), loading: false, error: '' };
+  } catch (e) {
+    intradayCandleChartState = { symbol, range, candles: [], loading: false, error: e.message || 'Could not load candles' };
+  }
+  renderIntradayCandleChartModal();
+}
+
+function renderIntradayCandleChartModal() {
+  const modal = ensureIntradayCandleChartModal();
+  const title = modal.querySelector('#intraday-candle-chart-title');
+  const body = modal.querySelector('#intraday-candle-chart-body');
+  if (title) title.textContent = `${intradayCandleChartState.symbol || '--'} 5m Intraday`;
+  modal.querySelectorAll('[data-chart-range]').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-chart-range') === intradayCandleChartState.range);
+  });
+  if (body) body.innerHTML = intradayCandleChartState.loading
+    ? '<div class="intraday-candle-chart-empty">Loading 5m candles...</div>'
+    : renderIntradayCandleChart(intradayCandleChartState.symbol, intradayCandleChartState.candles, { error: intradayCandleChartState.error });
+}
+
+function openIntradayCandleChart(symbol, event) {
+  if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+  const sym = String(symbol || '').trim().toUpperCase();
+  if (!sym) return;
+  intradayCandleChartState = { symbol: sym, range: '1d', candles: [], loading: true, error: '' };
+  const modal = ensureIntradayCandleChartModal();
+  modal.style.display = 'flex';
+  renderIntradayCandleChartModal();
+  loadIntradayCandleChart(sym, '1d');
+}
+
+function setIntradayCandleChartRange(range) {
+  const safeRange = ['1d', '2d', '5d'].includes(range) ? range : '1d';
+  if (!intradayCandleChartState.symbol) return;
+  intradayCandleChartState = { ...intradayCandleChartState, range: safeRange, loading: true, error: '' };
+  renderIntradayCandleChartModal();
+  loadIntradayCandleChart(intradayCandleChartState.symbol, safeRange);
+}
+
+function closeIntradayCandleChart() {
+  const modal = document.getElementById('intraday-candle-chart-modal');
+  if (modal) modal.style.display = 'none';
 }
 
 async function fetchYahooStocks(firstLoad = false) {
@@ -1942,8 +2109,14 @@ async function fetchIntradaySignals(symbols) {
             stockData[sym] = stockData[sym] || {};
             stockData[sym].price = Number(value.price);
             const prevClose = Number(value.prevDayClose ?? value.ohlc?.previousClose);
-            if (Number.isFinite(prevClose) && prevClose > 0) stockData[sym].prevClose = prevClose;
-            if (Number.isFinite(Number(value.dayChange))) stockData[sym].change = Number(value.dayChange);
+            if (Number.isFinite(prevClose) && prevClose > 0) {
+              stockData[sym].prevClose = prevClose;
+              // Calculate change percentage against previous close price
+              stockData[sym].change = +(((Number(value.price) - prevClose) / prevClose) * 100).toFixed(2);
+            } else if (Number.isFinite(Number(value.dayChange))) {
+              // Only use dayChange as fallback if prevClose is not available
+              stockData[sym].change = Number(value.dayChange);
+            }
           }
           applyIntradayVolumeToStockData(sym, value);
           intradayDataUpdateCount++;
@@ -2252,6 +2425,25 @@ function isTradeToday(trade) {
   const openedKey = trade?.openedAt ? getTradeDateISO(trade.openedAt) : null;
   const closedKey = trade?.closedAt ? getTradeDateISO(trade.closedAt) : null;
   return openedKey === todayKey || closedKey === todayKey;
+}
+
+function isTradeOnPortfolioDate(trade, dateKey = portfolioTransactionDate) {
+  const selected = normalizeReplayDay(dateKey || getTradeDateISO());
+  const openedKey = trade?.openedAt ? getTradeDateISO(trade.openedAt) : null;
+  const closedKey = trade?.closedAt ? getTradeDateISO(trade.closedAt) : null;
+  return openedKey === selected || closedKey === selected;
+}
+
+function formatPortfolioTransactionDate(dateKey) {
+  const normalized = normalizeReplayDay(dateKey || getTradeDateISO());
+  const d = new Date(`${normalized}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return normalized;
+  return d.toLocaleDateString('en-IN', { year:'numeric', month:'short', day:'2-digit' });
+}
+
+function setPortfolioTransactionDate(value) {
+  portfolioTransactionDate = normalizeReplayDay(value || getTradeDateISO());
+  renderPortfolioModal();
 }
 
 function getTodaysSimulationTrades() {
@@ -3067,7 +3259,7 @@ function renderTopActionBar() {
   const calendarBtn = document.getElementById('result-calendar-btn');
   if (calendarBtn) {
     const resultCount = Number(resultCalendarSummary.symbolCount || resultCalendarSummary.count || 0);
-    calendarBtn.textContent = 'Cal';
+    calendarBtn.textContent = '📅';
     calendarBtn.classList.toggle('has-items', resultCount > 0);
     calendarBtn.title = resultCount ? `Results Calendar (${resultCount})` : 'Results Calendar';
   }
@@ -3185,8 +3377,8 @@ function renderPortfolioModal() {
   const safety = getSimulationSafetySummary();
   const openCount = paperTrades.filter(isOpenTrade).length;
   const closedCount = paperTrades.filter(isClosedTrade).length;
-  const todaysTrades = paperTrades.filter(isTradeToday).filter(t => isOpenTrade(t) || isClosedTrade(t));
-  const transactionRows = todaysTrades.length ? todaysTrades.map(trade => {
+  const selectedDateTrades = paperTrades.filter(t => isTradeOnPortfolioDate(t, portfolioTransactionDate)).filter(t => isOpenTrade(t) || isClosedTrade(t));
+  const transactionRows = selectedDateTrades.length ? selectedDateTrades.map(trade => {
     const isOpen = isOpenTrade(trade);
     const current = isOpen ? getCurrentTradePrice(trade.symbol) : Number(trade.exitPrice);
     const livePnl = getPaperTradePnl(trade, current);
@@ -3217,7 +3409,7 @@ function renderPortfolioModal() {
       <td class="portfolio-journal-cell" title="${escapeHTML(formatEntryJournal(trade))}">${escapeHTML(formatEntryJournal(trade))}</td>
       <td class="portfolio-journal-cell" style="${isBrokerFailed ? 'color:var(--red)' : ''}" title="${escapeHTML(isBrokerFailed ? (trade.broker?.error || `Broker order ${trade.broker?.status}`) : trade.closeReason || '--')}">${escapeHTML(isBrokerFailed ? (trade.broker?.error || `Broker order ${trade.broker?.status}`) : trade.closeReason || '--')}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="16" style="color:var(--muted);text-align:center;padding:16px">No transactions today</td></tr>`;
+  }).join('') : `<tr><td colspan="16" style="color:var(--muted);text-align:center;padding:16px">No transactions for ${escapeHTML(formatPortfolioTransactionDate(portfolioTransactionDate))}</td></tr>`;
   const dayRows = Object.entries(summary.dayPnl).length ? Object.entries(summary.dayPnl)
     .sort(([a], [b]) => b.localeCompare(a))
     .map(([day, pnl]) => {
@@ -3262,7 +3454,13 @@ function renderPortfolioModal() {
       <div class="portfolio-card"><div class="label">Stop guard</div><div class="value ${safety.stops >= safety.stopLimit ? 'down' : ''}">${safety.stops} / ${safety.stopLimit}</div></div>
       <div class="portfolio-card"><div class="label">Fresh-entry status</div><div class="value ${safety.blocked ? 'down' : ''}">${escapeHTML(safety.blocked ? safety.reasons.join(' | ') : 'Allowed')}</div></div>
     </div>
-    <div class="portfolio-section-title">Today's Transactions (${todaysTrades.length})</div>
+    <div class="portfolio-section-title">
+      <span>Transactions for ${escapeHTML(formatPortfolioTransactionDate(portfolioTransactionDate))} (${selectedDateTrades.length})</span>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+        Date
+        <input id="portfolioTransactionDateInput" type="date" value="${escapeHTML(portfolioTransactionDate)}" onchange="setPortfolioTransactionDate(this.value)" style="padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text)" />
+      </label>
+    </div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table">
         <thead><tr><th>Status</th><th>Mode</th><th>Broker</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit/Live</th><th>Capital</th><th>Entry Time</th><th>Exit Time</th><th>Total Cost</th><th>Gross P&L</th><th>Net P&L</th><th>Entry Why</th><th>Exit Reason</th></tr></thead>
@@ -7569,6 +7767,7 @@ function renderFreshNewsModal() {
       <td>${impact}</td>
       <td class="fresh-news-title">${title}${verdict}</td>
       <td>${escapeHTML(item.source || '--')}</td>
+      <td>${escapeHTML(formatFreshNewsPublishedTime(item.publishedAt))}</td>
       <td>${escapeHTML(formatNewsDate(item.publishedAt) || item.dateKey || '--')}</td>
     </tr>`;
   }).join('');
@@ -7600,8 +7799,8 @@ function renderFreshNewsModal() {
     <div class="portfolio-section-title fresh-news-titlebar"><span>Today / Last Business Day News</span>${pager}</div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table fresh-news-table">
-        <thead><tr><th>Symbol</th><th>Type</th><th>Impact</th><th>News</th><th>Source</th><th>Date</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:16px">${freshNewsSummary.loading ? 'Loading fresh news...' : 'No fresh news found for selected date'}</td></tr>`}</tbody>
+        <thead><tr><th>Symbol</th><th>Type</th><th>Impact</th><th>News</th><th>Source</th><th>Time</th><th>Date</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:16px">${freshNewsSummary.loading ? 'Loading fresh news...' : 'No fresh news found for selected date'}</td></tr>`}</tbody>
       </table>
     </div>
     ${freshNewsSummary.errors?.length ? `<div class="replay-note" style="margin-top:10px;color:var(--muted)">Some symbols failed: ${escapeHTML(freshNewsSummary.errors.slice(0, 3).join(' | '))}</div>` : ''}
@@ -7636,8 +7835,8 @@ async function loadResultCalendarSummary(force = false) {
     const res = await fetch(RESULT_CALENDAR_ENDPOINT, {
       method:'POST',
       headers:{ 'Content-Type':'application/json' },
-      body:JSON.stringify({ maxSymbols:400, days:30 }),
-      signal:AbortSignal.timeout(60000),
+      body:JSON.stringify({ maxSymbols:400, days:30, force:!!force }),
+      signal:AbortSignal.timeout(force ? 240000 : 60000),
     });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok || payload.ok === false) throw new Error(payload.error || `result-calendar HTTP ${res.status}`);
@@ -7940,7 +8139,7 @@ function renderStockRowHTML(row) {
       <td data-label=""><button class="fav-btn ${isStockFavorite(row.sym)?'active':''}" onclick="toggleStockFavorite('${row.sym}', event)">${isStockFavorite(row.sym)?'★':'☆'}</button></td>
       <td data-label="Stock" data-open-symbol="${escapeHTML(row.sym)}" onclick="openFundModal('${escapeHTML(row.sym)}')" style="cursor:pointer"><div class="stock-name-cell" title="Open stock details"><button class="stock-name-link" type="button" data-open-symbol="${escapeHTML(row.sym)}"><span class="stock-symbol">${escapeHTML(row.sym)}</span><span class="stock-fullname">${escapeHTML(row.name)}</span></button>${isCustomStock(row)?'<button class="stock-edit-btn" onclick="event.stopPropagation();openStockMetadataModal(\''+escapeHTML(row.sym)+'\')">edit</button>':''}</div></td>
       <td data-label="Sector"><div class="sector-cell"><span class="sector-badge">${escapeHTML(row.sector)}</span><span class="sector-badge cap-badge" style="background:${row.cap==='large'?'rgba(14,165,233,.15)':row.cap==='mid'?'rgba(167,139,250,.15)':row.cap==='etf'?'rgba(167,139,250,.06)':'rgba(167,139,250,.06)'};color:${row.cap==='large'?'var(--accent2)':row.cap==='mid'?'var(--accent3)':row.cap==='etf'?'var(--muted)':'var(--muted)'}">${row.cap==='large'?'L-Cap':row.cap==='mid'?'M-Cap':row.cap==='etf'?'ETF':'Custom'}</span></div></td>
-      <td data-label="Price" class="price-cell"><div class="price-stack"><span>${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</span><span class="chg-cell ${chg>=0?'up':'down'}">${d?(chg>=0?'▲ +':'▼ ')+chg.toFixed(2)+'%':'--'}</span><span class="range-mini">${d&&d.low52&&d.high52?'52W ₹'+d.low52.toLocaleString('en-IN',{maximumFractionDigits:0})+'–₹'+d.high52.toLocaleString('en-IN',{maximumFractionDigits:0}):'52W --'}</span></div></td>
+      <td data-label="Price" class="price-cell price-chart-trigger" onclick="openIntradayCandleChart('${escapeHTML(row.sym)}', event)" title="Open 5m intraday candlestick chart"><div class="price-stack"><span>${price>0?'₹'+price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}):'--'}</span><span class="chg-cell ${chg>=0?'up':'down'}">${d?(chg>=0?'▲ +':'▼ ')+chg.toFixed(2)+'%':'--'}</span><span class="range-mini">${d&&d.low52&&d.high52?'52W ₹'+d.low52.toLocaleString('en-IN',{maximumFractionDigits:0})+'–₹'+d.high52.toLocaleString('en-IN',{maximumFractionDigits:0}):'52W --'}</span></div></td>
       <td data-label="Volume" class="hide-mobile hide-1200" style="font-size:12px;color:var(--muted)">${d?.volume?(d.volume/100000).toFixed(1)+'L':'--'}</td>
       <td data-label="Trade">${renderTradeCell(row)}</td>
       <td data-label="ST Target">${renderShortTargetCell(row)}</td>
@@ -8487,6 +8686,13 @@ function formatNewsDate(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+}
+
+function formatFreshNewsPublishedTime(iso) {
+  if (!iso) return '--';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '--';
+  return d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true });
 }
 
 function fmtCr(v) {

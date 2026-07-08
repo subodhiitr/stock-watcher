@@ -125,10 +125,15 @@ async function handleSimulationRuntimeRoute(req, res, pathname, searchParams, de
   if (pathname === '/simulation-snapshots') {
     if (req.method === 'GET') {
       const day = (searchParams.get('day') || searchParams.get('date') || '').trim();
-      const state = day ? deps.loadSimulationSnapshotsFile(day) : { snapshots: deps.loadAllSimulationSnapshots() };
-      const snapshots = day ? (deps.saveSimulationSnapshotsFile(state, day) || state.snapshots) : state.snapshots;
+      if (!day) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'day or date query parameter is required' }));
+        return true;
+      }
+      const state = deps.loadSimulationSnapshotsFile(day);
+      const snapshots = deps.saveSimulationSnapshotsFile(state, day) || state.snapshots;
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, retentionDays: deps.snapshotRetentionDays, date: day || null, count: snapshots.length, snapshots }));
+      res.end(JSON.stringify({ ok: true, retentionDays: deps.snapshotRetentionDays, date: day, count: snapshots.length, snapshots }));
       return true;
     }
     if (req.method === 'POST') {

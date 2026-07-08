@@ -14,6 +14,7 @@ const proxyPaths = new Set([
   '/etf-summary',
   '/fresh-stock-news',
   '/health',
+  '/intraday-candles',
   '/intraday-signals',
   '/paper-trades',
   '/portfolio/day-pnl',
