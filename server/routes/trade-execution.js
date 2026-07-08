@@ -31,7 +31,13 @@ async function handleTradeExecutionRoute(req, res, pathname, searchParams, deps)
 
   if (req.method === 'GET') {
     const includeAll = searchParams.get('scope') === 'all' || searchParams.get('all') === '1';
-    const state = deps.loadPaperStateFile({ includeAll });
+    const selectedDate = String(searchParams.get('date') || '').trim();
+    if (selectedDate && !/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid date; expected YYYY-MM-DD' }));
+      return true;
+    }
+    const state = deps.loadPaperStateFile({ includeAll, date: selectedDate || null });
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true, trades: state.trades, portfolio: state.portfolio }));
     return true;

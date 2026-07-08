@@ -130,6 +130,7 @@ test('GET /trade-execution aliases /paper-trades and stream routes keep parity',
     path: '/paper-trades',
     body: { action: 'open', symbol: 'INFY', side: 'buy', qty: 2, entryPrice: 1500.123 }
   });
+
   assert.equal(opened.statusCode, 200);
 
   const canonicalGet = await request(proxy, { method: 'GET', path: '/trade-execution' });
@@ -150,6 +151,52 @@ test('GET /trade-execution aliases /paper-trades and stream routes keep parity',
   assert.equal(aliasStream.headers['x-deprecated-route'], '/paper-trades will be removed next minor release');
   assert.match(canonicalStream.body, /"reason":"init"/);
   assert.match(aliasStream.body, /"reason":"init"/);
+});
+
+test('GET /trade-execution?date returns executions opened or closed on selected IST date', async () => {
+  const proxy = loadProxyWithFixture('get-date-filter');
+
+  const july7Open = await request(proxy, {
+    method: 'POST',
+    path: '/trade-execution',
+    body: {
+      action: 'open',
+      symbol: 'TCS',
+      side: 'buy',
+      qty: 1,
+      entryPrice: 100,
+      transactionTime: '2026-07-07T04:00:00.000Z',
+    }
+  });
+  assert.equal(july7Open.statusCode, 200);
+  const july8Open = await request(proxy, {
+    method: 'POST',
+    path: '/trade-execution',
+    body: {
+      action: 'open',
+      symbol: 'INFY',
+      side: 'buy',
+      qty: 1,
+      entryPrice: 100,
+      transactionTime: '2026-07-08T04:00:00.000Z',
+    }
+  });
+  assert.equal(july8Open.statusCode, 200);
+  const july7 = await request(proxy, { method: 'GET', path: '/trade-execution?date=2026-07-07' });
+  const july8 = await request(proxy, { method: 'GET', path: '/trade-execution?date=2026-07-08' });
+
+  assert.equal(july7.statusCode, 200);
+  assert.deepEqual(july7.json.trades.map(t => t.symbol), ['TCS']);
+  assert.equal(july8.statusCode, 200);
+  assert.deepEqual(july8.json.trades.map(t => t.symbol), ['INFY']);
+});
+
+test('GET /trade-execution rejects invalid selected date', async () => {
+  const proxy = loadProxyWithFixture('get-date-filter-invalid');
+  const res = await request(proxy, { method: 'GET', path: '/trade-execution?date=07-07-2026' });
+
+  assert.equal(res.statusCode, 400);
+  assert.match(res.json.error, /Invalid date/);
 });
 
 test('stream init payload includes additive simulationRuntime and keeps legacy keys with alias parity', async () => {

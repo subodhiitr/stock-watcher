@@ -2441,8 +2441,9 @@ function formatPortfolioTransactionDate(dateKey) {
   return d.toLocaleDateString('en-IN', { year:'numeric', month:'short', day:'2-digit' });
 }
 
-function setPortfolioTransactionDate(value) {
+async function setPortfolioTransactionDate(value) {
   portfolioTransactionDate = normalizeReplayDay(value || getTradeDateISO());
+  await loadPortfolioTransactionsForDate(portfolioTransactionDate);
   renderPortfolioModal();
 }
 
@@ -6804,6 +6805,18 @@ async function loadPaperTrades(forceServer = false, trackNewTrades = false) {
   }
   })();
   return paperTradesLoading;
+}
+
+async function loadPortfolioTransactionsForDate(dateKey = portfolioTransactionDate) {
+  dateKey = normalizeReplayDay(dateKey || getTradeDateISO());
+  try {
+    const res = await fetch(`${PAPER_TRADES_ENDPOINT}?date=${encodeURIComponent(dateKey)}`, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) throw new Error('paper-trades HTTP ' + res.status);
+    const payload = await res.json().catch(() => null);
+    applyPaperTradesState(payload, { trackNewTrades:false });
+  } catch (e) {
+    console.warn('loadPortfolioTransactionsForDate failed', e.message);
+  }
 }
 
 async function postPaperTrade(action, payload) {

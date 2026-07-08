@@ -611,7 +611,7 @@ function normalizePaperState(raw) {
   return { savedAt: raw?.savedAt || Date.now(), portfolio: { initialCapital, capitalAdds }, trades };
 }
 
-function loadPaperStateFile({ asOf = null, includeAll = false } = {}) {
+function loadPaperStateFile({ asOf = null, includeAll = false, date = null } = {}) {
   try {
     if (proxyDbReady) {
       const allTrades = listTrades();
@@ -620,11 +620,16 @@ function loadPaperStateFile({ asOf = null, includeAll = false } = {}) {
       // Load open trades + same-day closed trades (keeps SSE payload small).
       // asOf allows the scheduler to pass its tick time for accurate day-stats.
       // All-time realized P&L is pre-aggregated separately via computeAllTimeRealizedPnl()
-      const dayKey = asOf ? toIstDayKey(asOf) : getIstDateKey();
+      const dayKey = date || (asOf ? toIstDayKey(asOf) : getIstDateKey());
       const filteredTrades = includeAll
         ? allTrades
         : allTrades.filter(t => {
-            if (String(t.status || '').toLowerCase() === 'open') return true;
+            if (!date && String(t.status || '').toLowerCase() === 'open') return true;
+            if (date) {
+              const openedDate = toIstDayKey(t.openedAt || '');
+              const closedDate = toIstDayKey(t.closedAt || '');
+              return openedDate === dayKey || closedDate === dayKey;
+            }
             const tradeDate = toIstDayKey(t.closedAt || t.openedAt || '');
             return tradeDate === dayKey;
           });

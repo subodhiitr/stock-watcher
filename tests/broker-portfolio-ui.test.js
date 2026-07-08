@@ -320,6 +320,8 @@ test('portfolio modal lets users pick transaction date with today as default', (
   assert.match(source, /portfolioTransactionDateInput/);
   assert.match(source, /type="date"/);
   assert.match(source, /onchange="setPortfolioTransactionDate\(this\.value\)"/);
+  assert.match(source, /loadPortfolioTransactionsForDate\(portfolioTransactionDate\)/);
+  assert.match(source, /PAPER_TRADES_ENDPOINT\}\?date=\$\{encodeURIComponent\(dateKey\)\}/);
   assert.match(source, /paperTrades\.filter\(t => isTradeOnPortfolioDate\(t, portfolioTransactionDate\)\)/);
   assert.match(source, /Transactions for \$\{escapeHTML\(formatPortfolioTransactionDate\(portfolioTransactionDate\)\)\}/);
   assert.doesNotMatch(source, /No transactions today/);
