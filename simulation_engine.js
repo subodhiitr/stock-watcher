@@ -1204,9 +1204,9 @@
     const holdMs = nowMs - openedAt;
     const setupType = String(trade.setupType || candidate?.derivedSetupType || candidate?.setupType || '').toUpperCase();
     const relVol = getRelativeVolume(candidate);
-    let minHoldMin = Math.max(1, Number(settings.SIMULATION_NO_PROGRESS_EXIT_MIN) || 12);
+    let minHoldMin = Math.max(1, Number(settings.SIMULATION_NO_PROGRESS_EXIT_MIN) || 45);
     if (setupType === 'MOMENTUM_RUNNER' || Number(trade._runnerArmed)) {
-      minHoldMin = Math.max(1, Number(settings.SIMULATION_NO_PROGRESS_RUNNER_EXIT_MIN) || 9);
+      minHoldMin = Math.max(1, Number(settings.SIMULATION_NO_PROGRESS_RUNNER_EXIT_MIN) || 25);
     } else if (setupType === 'FRESH_BREAKOUT' || setupType === 'VOLUME_SHOCK_BREAKOUT') {
       minHoldMin = Math.max(1, Number(settings.SIMULATION_NO_PROGRESS_FRESH_BREAKOUT_EXIT_MIN) || 12);
     } else if (setupType === 'VWAP_TREND_CONTINUATION') {

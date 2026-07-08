@@ -507,7 +507,7 @@ async function migrateSnapshots(fixturesDir) {
 /**
  * Run complete migration
  */
-export async function runMigration(db, fixturesDir) {
+async function runMigration(db, fixturesDir) {
   console.log('🔄 Starting migration...');
   try {
     console.log('  → Migrating trades...');
@@ -591,8 +591,7 @@ export async function runMigration(db, fixturesDir) {
 }
 
 // Execute migration when run as script
-const isCli = process.argv[1]?.endsWith('db-migrate.js');
-if (isCli || import.meta.url === `file://${process.argv[1]}`) {
+if (require.main === module) {
   console.log('🚀 Starting migration script...');
   (async () => {
     const Database = (await import('better-sqlite3')).default;

@@ -58,6 +58,22 @@ const { fetchSharekhanIntraday, buildYahooShapeFromCandles } = require('./sharek
 const { SharekhanTicker } = require('./sharekhan-ticker');
 const ConfirmationPoller = require('./zerodha-confirmation-poller');
 const {
+  applyLocalCors,
+  jsonBodyErrorStatus,
+  readJsonBody,
+  rejectUnsafeNonLocalRequest,
+} = require('./server/http-safety');
+const { dispatchRoute } = require('./server/routes/registry');
+const { handleDashboardRoute } = require('./server/routes/dashboard');
+const { handleTradeSettingsRoute } = require('./server/routes/trade-settings');
+const { handlePreferenceRoute } = require('./server/routes/preferences');
+const { handleBrokerRoute } = require('./server/routes/broker');
+const { handleReplayRoute } = require('./server/routes/replay');
+const { handleSimulationRuntimeRoute } = require('./server/routes/simulation-runtime');
+const { handleTradeExecutionRoute } = require('./server/routes/trade-execution');
+const { createResultCalendarService } = require('./server/result-calendar');
+const { createFreshNewsService } = require('./server/fresh-news');
+const {
   initDb,
   saveTrade,
   listTrades,
@@ -135,19 +151,12 @@ const INTRADAY_SIGNAL_TTL  = 2 * 60 * 1000;              // 2 minutes
 const LIVE_CACHE_STALE_AGE_MS = 5 * 60 * 1000;           // 5 min: beyond this age, live cache entry is stale
 const SHAREKHAN_DAILY_CONTEXT_TTL_MS = 10 * 60 * 1000;   // 10 minutes: avoid daily Yahoo refetch on every WS tick
 const REPLAY_CACHE_MAX     = 30;
-const FRESH_NEWS_CACHE_VERSION = 4;
-const FRESH_NEWS_CACHE_MAX_DAYS = 30;
-const FRESH_NEWS_CRON_TIMES_IST = ['10:30', '15:45'];   // twice daily server-side refresh
-const FRESH_NEWS_STARTUP_STALE_MS = 6 * 60 * 60 * 1000;
 const REPLAY_DEEP_SWEEP_TIME_IST = '15:50';
 const replayResultCache    = new Map();
 const replayJobs           = new Map();
 const activeReplayJobs     = new Map();
 const paperTradeStreamClients = new Set();
 const intradayLiveStreamClients = new Set();
-let freshNewsDayCache      = null;
-const freshNewsBuildJobs   = new Map();
-let freshNewsCronTimer     = null;
 let replayDeepSweepTimer   = null;
 const DEFAULT_SIMULATION_TICK_INTERVAL_SEC = 15;
 const DEFAULT_SIMULATION_STOP_TIMEOUT_SEC = 900;
@@ -2268,6 +2277,16 @@ function buildDashboardBootstrap() {
   };
 }
 
+function buildHealthPayload() {
+  return {
+    ok: true,
+    nse: { cookies: nse.cookies.length, lastRefresh: nse.lastRefresh },
+    yahoo: { mode: 'v8/chart (crumb-free)', ok: true },
+    openai: { configured: !!OPENAI_API_KEY, model: OPENAI_MODEL, propertiesFile: USER_OPENAI_PROPERTIES },
+    ollama: { baseUrl: OLLAMA_BASE_URL, model: OLLAMA_MODEL || 'auto', timeoutMs: OLLAMA_TIMEOUT_MS },
+  };
+}
+
 function getIstDateKey(value = Date.now()) {
   const d = new Date(new Date(value).getTime() + 5.5 * 3600 * 1000);
   if (Number.isNaN(d.getTime())) return getIstDateKey(Date.now());
@@ -3487,22 +3506,8 @@ function buildSharekhanLiveOrder(payload, trade, phase = 'entry', scripCode = 0)
   };
 }
 
-function readJsonBody(req, timeoutMs = 5000) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    const timer = setTimeout(() => resolve({}), timeoutMs);
-    req.on('data', chunk => chunks.push(chunk));
-    req.on('end', () => {
-      clearTimeout(timer);
-      try {
-        const body = Buffer.concat(chunks).toString('utf8');
-        resolve(body ? JSON.parse(body) : {});
-      } catch (e) {
-        reject(e);
-      }
-    });
-    req.on('error', (e) => { clearTimeout(timer); reject(e); });
-  });
+function hasLiveTradeConfirmation(req, payload = {}) {
+  return String(req.headers?.['x-live-trade-confirm'] || payload.liveConfirm || '').trim().toUpperCase() === 'LIVE';
 }
 
 function httpsGet(opts) {
@@ -3966,6 +3971,30 @@ async function nseJsonWithRetry(path, label, retries = 3) {
   throw lastErr || new Error(`${label} failed`);
 }
 
+const resultCalendarService = createResultCalendarService({
+  cacheDir:path.join(APP_CACHE_DIR, 'result_calendar'),
+  nseJsonWithRetry,
+  stripHtml,
+  toISODateOrNull,
+});
+
+const freshNewsService = createFreshNewsService({
+  cacheFile:FRESH_NEWS_CACHE_FILE,
+  cacheDir:FRESH_NEWS_CACHE_DIR,
+  indexFile:FRESH_NEWS_CACHE_INDEX_FILE,
+  dashboardAppPath:path.join(__dirname, 'dashboard-app.js'),
+  loadSavedStocksFile,
+  classifyNewsItem,
+  classifyNewsTradeImpact,
+  isDbReady:() => proxyDbReady,
+  dbSaveFreshNews,
+  fetchNSEAllAnnouncements,
+  fetchNSEAllResults,
+  fetchNSEAllCorporateActions,
+  fetchNSEAllBoardMeetings:() => resultCalendarService.fetchNSEAllBoardMeetings(),
+  fetchNSEStockAnnouncements,
+});
+
 async function fetchNSEStockAnnouncements(symbol) {
   try {
     const payload = await nseJsonWithRetry(`/api/corporate-announcements?index=equities&symbol=${encodeURIComponent(symbol)}`, 'announcements');
@@ -4115,7 +4144,7 @@ async function fetchNSEAllResults() {
   try {
     const rows = await nseJsonWithRetry('/api/corporates-financial-results?index=equities&period=Quarterly', 'all results');
     if (!Array.isArray(rows)) return [];
-    return rows.slice(0, 300).map(item => {
+    return rows.slice(0, 1200).map(item => {
       const symbol = nseRowSymbol(item);
       return {
         symbol,
@@ -4154,28 +4183,6 @@ async function fetchNSEAllCorporateActions() {
     }).filter(x => x.symbol && x.title);
   } catch(e) {
     console.warn('[fresh-news] NSE all corporate actions failed:', e.message);
-    return [];
-  }
-}
-
-async function fetchNSEAllBoardMeetings() {
-  try {
-    const rows = await nseJsonWithRetry('/api/corporate-board-meetings?index=equities', 'all board meetings');
-    if (!Array.isArray(rows)) return [];
-    return rows.slice(0, 300).map(item => {
-      const symbol = nseRowSymbol(item);
-      return {
-        symbol,
-        type:/result/i.test(`${item.bm_purpose || ''} ${item.bm_desc || ''}`) ? 'Result Date' : 'Board Meeting',
-        title:stripHtml(item.bm_desc || item.bm_purpose || 'Board meeting'),
-        source:'NSE',
-        eventDate:toISODateOrNull(item.bm_date),
-        publishedAt:toISODateOrNull(item.bm_date || item.bm_timestamp),
-        url:symbol ? `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}` : '',
-      };
-    }).filter(x => x.symbol && x.title);
-  } catch(e) {
-    console.warn('[fresh-news] NSE all board meetings failed:', e.message);
     return [];
   }
 }
@@ -4278,565 +4285,6 @@ function istDateKeyFromValue(value) {
   if (Number.isNaN(d.getTime())) return null;
   const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
   return ist.toISOString().slice(0, 10);
-}
-
-function lastBusinessDateKey(base = new Date()) {
-  const ist = new Date(base.getTime() + 5.5 * 60 * 60 * 1000);
-  ist.setUTCHours(0, 0, 0, 0);
-  do {
-    ist.setUTCDate(ist.getUTCDate() - 1);
-  } while (ist.getUTCDay() === 0 || ist.getUTCDay() === 6);
-  return ist.toISOString().slice(0, 10);
-}
-
-function freshNewsDateKey(now = new Date()) {
-  const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-  const day = ist.getUTCDay();
-  return (day === 0 || day === 6) ? lastBusinessDateKey(now) : ist.toISOString().slice(0, 10);
-}
-
-function freshNewsRefreshDateKeys(now = new Date()) {
-  const primary = freshNewsDateKey(now);
-  const prevBusiness = lastBusinessDateKey(now);
-  const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-  const day = ist.getUTCDay();
-  const dates = [primary];
-  if (!dates.includes(prevBusiness)) dates.push(prevBusiness);
-  if (day !== 0 && day !== 6) return dates;
-  const saturday = new Date(ist);
-  saturday.setUTCHours(0, 0, 0, 0);
-  saturday.setUTCDate(saturday.getUTCDate() - (day === 0 ? 1 : 0));
-  for (let add = 0; add <= (day === 0 ? 1 : 0); add += 1) {
-    const weekend = new Date(saturday);
-    weekend.setUTCDate(saturday.getUTCDate() + add);
-    const dateKey = weekend.toISOString().slice(0, 10);
-    if (!dates.includes(dateKey)) dates.push(dateKey);
-  }
-  return dates;
-}
-
-function itemNewsDateKey(item) {
-  return istDateKeyFromValue(item?.publishedAt || item?.filingDate || item?.exDate || item?.recordDate || item?.eventDate || item?.toDate);
-}
-
-function isFreshNewsImportant(item) {
-  const text = `${item?.type || ''} ${item?.title || ''} ${item?.subject || ''} ${item?.purpose || ''}`;
-  return /result|financial|earnings|dividend|board|bonus|split|buyback|large deal|bulk deal|block deal|acquisition|merger|mou|contract|order win|bags order|corporate action|announcement/i.test(text);
-}
-
-function normalizeFreshNewsUniverse(symbols, maxSymbols = 300) {
-  return (Array.isArray(symbols) ? symbols : [])
-    .map(item => typeof item === 'string' ? { symbol:item } : item)
-    .map(item => ({
-      symbol:String(item?.symbol || item?.sym || '').trim().toUpperCase(),
-      name:String(item?.name || '').trim(),
-      assetType:String(item?.assetType || item?.type || 'stock').trim().toLowerCase(),
-    }))
-    .filter(item => item.symbol)
-    .slice(0, maxSymbols);
-}
-
-function loadDashboardStockUniverse() {
-  const rows = [];
-  try {
-    const jsFile = path.join(__dirname, 'dashboard-app.js');
-    const source = fs.existsSync(jsFile) ? fs.readFileSync(jsFile, 'utf8') : '';
-    const block = source.match(/const\s+MIDCAP_STOCKS\s*=\s*\[([\s\S]*?)\];/);
-    const text = block ? block[1] : source;
-    const re = /\{\s*sym:'([^']+)'\s*,\s*name:'([^']*)'[\s\S]*?sector:'([^']*)'[\s\S]*?cap:'([^']*)'/g;
-    let m;
-    while ((m = re.exec(text))) {
-      rows.push({ symbol:m[1].trim().toUpperCase(), name:m[2].trim(), assetType:'stock', sector:m[3], cap:m[4] });
-    }
-  } catch(e) {
-    console.warn('[fresh-news-cache] dashboard universe load failed:', e.message);
-  }
-  try {
-    for (const item of loadSavedStocksFile()) {
-      const symbol = String(item?.sym || item?.symbol || item || '').trim().toUpperCase();
-      if (symbol) rows.push({
-        symbol,
-        name:String(item?.name || symbol),
-        assetType:'stock',
-        sector:item?.sector || 'Custom',
-        cap:item?.cap || 'custom'
-      });
-    }
-  } catch(e) {
-    console.warn('[fresh-news-cache] saved stock universe load failed:', e.message);
-  }
-  const seen = new Set();
-  return rows.filter(row => {
-    if (!row.symbol || seen.has(row.symbol)) return false;
-    seen.add(row.symbol);
-    return true;
-  });
-}
-
-function freshNewsBuildUniverse(requestedUniverse) {
-  const rows = [...loadDashboardStockUniverse(), ...(Array.isArray(requestedUniverse) ? requestedUniverse : [])];
-  const seen = new Set();
-  return rows.filter(row => {
-    const symbol = String(row?.symbol || row?.sym || '').trim().toUpperCase();
-    if (!symbol || seen.has(symbol)) return false;
-    seen.add(symbol);
-    row.symbol = symbol;
-    row.name = String(row.name || symbol);
-    row.assetType = String(row.assetType || row.type || 'stock').toLowerCase();
-    return true;
-  }).slice(0, 320);
-}
-
-function freshNewsDayFile(targetDate) {
-  const dateKey = String(targetDate || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) throw new Error(`Invalid fresh news date: ${targetDate}`);
-  return path.join(FRESH_NEWS_CACHE_DIR, `fresh_stock_news_${dateKey}.json`);
-}
-
-function freshNewsDayMeta(entry) {
-  return {
-    date:entry.date,
-    savedAt:entry.savedAt || Date.now(),
-    builtInMs:entry.builtInMs || 0,
-    source:entry.source || 'nse-market-wide',
-    scanned:entry.scanned || 0,
-    count:entry.count || 0,
-    symbolCount:entry.symbolCount || 0,
-  };
-}
-
-function emptyFreshNewsIndex() {
-  return { version:FRESH_NEWS_CACHE_VERSION, savedAt:0, partitioned:true, days:{} };
-}
-
-function loadFreshNewsIndex() {
-  if (freshNewsDayCache) return freshNewsDayCache;
-  freshNewsDayCache = emptyFreshNewsIndex();
-  try {
-    ensureDir(FRESH_NEWS_CACHE_DIR);
-    if (fs.existsSync(FRESH_NEWS_CACHE_INDEX_FILE)) {
-      const raw = JSON.parse(fs.readFileSync(FRESH_NEWS_CACHE_INDEX_FILE, 'utf8') || '{}');
-      if (raw && typeof raw === 'object' && raw.days && typeof raw.days === 'object') {
-        freshNewsDayCache = {
-          version:raw.version || 1,
-          savedAt:raw.savedAt || 0,
-          partitioned:true,
-          days:raw.days,
-        };
-        if (freshNewsDayCache.version !== FRESH_NEWS_CACHE_VERSION) {
-          console.log(`[fresh-news-cache] index v${freshNewsDayCache.version} is old; rebuilding as v${FRESH_NEWS_CACHE_VERSION}`);
-          freshNewsDayCache = emptyFreshNewsIndex();
-        }
-      }
-    } else {
-      migrateFreshNewsCombinedCache();
-    }
-    const count = Object.keys(freshNewsDayCache.days || {}).length;
-    if (count) console.log(`[fresh-news-cache] Loaded ${count} partitioned day entries`);
-  } catch(e) {
-    console.warn('[fresh-news-cache] Index load error:', e.message);
-    freshNewsDayCache = emptyFreshNewsIndex();
-  }
-  return freshNewsDayCache;
-}
-
-function saveFreshNewsIndex() {
-  try {
-    const index = loadFreshNewsIndex();
-    index.version = FRESH_NEWS_CACHE_VERSION;
-    index.partitioned = true;
-    index.savedAt = Date.now();
-    ensureDir(FRESH_NEWS_CACHE_DIR);
-    fs.writeFileSync(FRESH_NEWS_CACHE_INDEX_FILE, JSON.stringify(index, null, 2), 'utf8');
-  } catch(e) {
-    console.warn('[fresh-news-cache] Index save error:', e.message);
-  }
-}
-
-function migrateFreshNewsCombinedCache() {
-  try {
-    if (!fs.existsSync(FRESH_NEWS_CACHE_FILE)) return;
-    const raw = JSON.parse(fs.readFileSync(FRESH_NEWS_CACHE_FILE, 'utf8') || '{}');
-    const days = raw && raw.days && typeof raw.days === 'object' ? raw.days : {};
-    let moved = 0;
-    for (const [day, entry] of Object.entries(days)) {
-      if (!entry || !Array.isArray(entry.items)) continue;
-      const dayEntry = { ...entry, version:FRESH_NEWS_CACHE_VERSION, date:entry.date || day };
-      fs.writeFileSync(freshNewsDayFile(day), JSON.stringify(dayEntry, null, 2), 'utf8');
-      freshNewsDayCache.days[day] = freshNewsDayMeta(dayEntry);
-      moved++;
-    }
-    if (moved) {
-      freshNewsDayCache.savedAt = Date.now();
-      console.log(`[fresh-news-cache] Partitioned ${moved} legacy day entries`);
-      saveFreshNewsIndex();
-    }
-  } catch(e) {
-    console.warn('[fresh-news-cache] Legacy partition error:', e.message);
-  }
-}
-
-function readFreshNewsDayEntry(targetDate) {
-  try {
-    const file = freshNewsDayFile(targetDate);
-    if (!fs.existsSync(file)) return null;
-    const entry = JSON.parse(fs.readFileSync(file, 'utf8') || '{}');
-    if (!entry || !Array.isArray(entry.items)) return null;
-    const needsUpgrade = (entry.version || 1) !== FRESH_NEWS_CACHE_VERSION ||
-      entry.items.some(item => !item.newsSentiment || item.tradeImpactScore == null);
-    if (needsUpgrade) {
-      entry.version = FRESH_NEWS_CACHE_VERSION;
-      entry.items = dedupeFreshNewsItems(entry.items.map(item => ({
-        ...item,
-        ...classifyNewsTradeImpact(item),
-      })));
-      entry.count = entry.items.length;
-      entry.symbolCount = new Set(entry.items.map(item => item.symbol)).size;
-      writeFreshNewsDayEntry(entry);
-    }
-    return entry;
-  } catch(e) {
-    console.warn(`[fresh-news-cache] Day read error ${targetDate}:`, e.message);
-    return null;
-  }
-}
-
-function writeFreshNewsDayEntry(entry) {
-  try {
-    ensureDir(FRESH_NEWS_CACHE_DIR);
-    const dayEntry = { ...entry, version:FRESH_NEWS_CACHE_VERSION };
-    fs.writeFileSync(freshNewsDayFile(dayEntry.date), JSON.stringify(dayEntry, null, 2), 'utf8');
-    const index = loadFreshNewsIndex();
-    index.days[dayEntry.date] = freshNewsDayMeta(dayEntry);
-    pruneFreshNewsDayCache(index);
-    saveFreshNewsIndex();
-    // Dual-write per-symbol news to DB when proxy DB is ready
-    if (proxyDbReady && Array.isArray(dayEntry.items) && dayEntry.date) {
-      try {
-        const bySymbol = new Map();
-        for (const item of dayEntry.items) {
-          if (!item?.symbol) continue;
-          if (!bySymbol.has(item.symbol)) bySymbol.set(item.symbol, []);
-          bySymbol.get(item.symbol).push(item);
-        }
-        for (const [symbol, items] of bySymbol) {
-          dbSaveFreshNews(symbol, dayEntry.date, items);
-        }
-      } catch (e) {
-        console.warn('[fresh-news-cache] DB dual-write error:', e.message);
-      }
-    }
-  } catch(e) {
-    console.warn(`[fresh-news-cache] Day save error ${entry?.date || ''}:`, e.message);
-  }
-}
-
-function pruneFreshNewsDayCache(index) {
-  const days = Object.keys(index.days || {}).sort().reverse();
-  for (const day of days.slice(FRESH_NEWS_CACHE_MAX_DAYS)) {
-    delete index.days[day];
-    try {
-      const file = freshNewsDayFile(day);
-      if (fs.existsSync(file)) fs.unlinkSync(file);
-    } catch(e) {
-      console.warn(`[fresh-news-cache] Prune error ${day}:`, e.message);
-    }
-  }
-}
-
-function normalizeFreshMarketNewsItem(item, targetDate) {
-  const sym = String(item?.symbol || '').trim().toUpperCase();
-  if (!sym) return null;
-  const dateKey = itemNewsDateKey(item);
-  if (dateKey !== targetDate) return null;
-  if (!isFreshNewsImportant(item)) return null;
-  const normalized = {
-    symbol:sym,
-    name:String(item?.name || sym),
-    assetType:String(item?.assetType || 'stock').toLowerCase(),
-    type:item.type || classifyNewsItem(item.title || ''),
-    title:item.title || item.type || 'News',
-    source:item.source || 'NSE',
-    url:item.url || '',
-    publishedAt:item.publishedAt || item.filingDate || item.exDate || item.eventDate || null,
-    dateKey,
-    resultVerdict:item.resultVerdict || null,
-    resultVerdictReason:item.resultVerdictReason || null,
-  };
-  return { ...normalized, ...classifyNewsTradeImpact(normalized) };
-}
-
-function dedupeFreshNewsItems(items) {
-  const seen = new Set();
-  const deduped = [];
-  for (const item of items.sort((a, b) =>
-    (Number(b.tradeImpactAbs || 0) - Number(a.tradeImpactAbs || 0)) ||
-    (Number(b.tradeImpactScore || 0) - Number(a.tradeImpactScore || 0)) ||
-    ((Date.parse(b.publishedAt || 0) || 0) - (Date.parse(a.publishedAt || 0) || 0))
-  )) {
-    const key = `${item.symbol}|${String(item.type || '').toLowerCase()}|${String(item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 120)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    deduped.push(item);
-  }
-  return deduped;
-}
-
-async function buildFreshNewsDayEntry(targetDate, requestedUniverse = []) {
-  if (freshNewsBuildJobs.has(targetDate)) return freshNewsBuildJobs.get(targetDate);
-  const job = (async () => {
-    const startedAt = Date.now();
-    const items = [];
-    const errors = [];
-    const universe = freshNewsBuildUniverse(requestedUniverse);
-    const marketSettled = await Promise.allSettled([
-      fetchNSEAllAnnouncements(),
-      fetchNSEAllResults(),
-      fetchNSEAllCorporateActions(),
-      fetchNSEAllBoardMeetings(),
-    ]);
-    for (const r of marketSettled) {
-      if (r.status === 'rejected') {
-        errors.push(r.reason?.message || String(r.reason || 'unknown'));
-        continue;
-      }
-      for (const raw of (Array.isArray(r.value) ? r.value : [])) {
-        const normalized = normalizeFreshMarketNewsItem(raw, targetDate);
-        if (normalized) items.push(normalized);
-      }
-    }
-    const symbolRows = new Map(universe.map(row => [row.symbol, row]));
-    const alreadySeenAnnouncement = new Set(items
-      .filter(item => item.source === 'NSE')
-      .map(item => `${item.symbol}|${String(item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 120)}`));
-    const concurrency = 8;
-    for (let i = 0; i < universe.length; i += concurrency) {
-      const chunk = universe.slice(i, i + concurrency);
-      const settled = await Promise.allSettled(chunk.map(row =>
-        fetchNSEStockAnnouncements(row.symbol).then(news => ({ row, news }))
-      ));
-      for (const r of settled) {
-        if (r.status !== 'fulfilled') {
-          errors.push(r.reason?.message || String(r.reason || 'unknown'));
-          continue;
-        }
-        const { row, news } = r.value;
-        for (const raw of (Array.isArray(news) ? news : [])) {
-          const item = normalizeFreshMarketNewsItem({ ...raw, symbol:row.symbol, name:row.name, assetType:row.assetType }, targetDate);
-          if (!item) continue;
-          const titleKey = `${item.symbol}|${String(item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 120)}`;
-          if (alreadySeenAnnouncement.has(titleKey)) continue;
-          alreadySeenAnnouncement.add(titleKey);
-          items.push(item);
-        }
-      }
-      if (i + concurrency < universe.length) await new Promise(r => setTimeout(r, 120));
-    }
-    for (const item of items) {
-      const row = symbolRows.get(item.symbol);
-      if (row) {
-        item.name = row.name || item.name || item.symbol;
-        item.assetType = row.assetType || item.assetType || 'stock';
-      }
-    }
-    const deduped = dedupeFreshNewsItems(items);
-    const symbolsWithNews = new Set(deduped.map(item => item.symbol));
-    return {
-      ok:true,
-      date:targetDate,
-      savedAt:Date.now(),
-      builtInMs:Date.now() - startedAt,
-      source:'nse-market-wide+symbol-announcements',
-      scanned:universe.length,
-      count:deduped.length,
-      symbolCount:symbolsWithNews.size,
-      items:deduped.slice(0, 500),
-      errors:errors.slice(0, 10),
-    };
-  })().finally(() => freshNewsBuildJobs.delete(targetDate));
-  freshNewsBuildJobs.set(targetDate, job);
-  return job;
-}
-
-async function getFreshNewsDayEntry(targetDate, requestedUniverse = [], opts = {}) {
-  loadFreshNewsIndex();
-  const cached = !opts.force ? readFreshNewsDayEntry(targetDate) : null;
-  if (cached) return { ...cached, fromCache:true };
-  const entry = await buildFreshNewsDayEntry(targetDate, requestedUniverse);
-  writeFreshNewsDayEntry(entry);
-  console.log(`[fresh-news-cache] Saved ${entry.count} items for ${targetDate}`);
-  return { ...entry, fromCache:false };
-}
-
-function mergeFreshNewsDayEntries(entries) {
-  const valid = (Array.isArray(entries) ? entries : []).filter(entry => entry && Array.isArray(entry.items));
-  if (valid.length <= 1) return valid[0] || null;
-  const items = dedupeFreshNewsItems(valid.flatMap(entry => entry.items || []));
-  return {
-    ok:true,
-    date:valid.map(entry => entry.date).filter(Boolean).join('+'),
-    savedAt:Math.max(...valid.map(entry => Number(entry.savedAt) || 0)),
-    builtInMs:valid.reduce((sum, entry) => sum + (Number(entry.builtInMs) || 0), 0),
-    source:[...new Set(valid.map(entry => entry.source).filter(Boolean))].join('+') || 'nse-market-wide',
-    scanned:Math.max(...valid.map(entry => Number(entry.scanned) || 0)),
-    count:items.length,
-    symbolCount:new Set(items.map(item => item.symbol)).size,
-    items,
-    errors:valid.flatMap(entry => Array.isArray(entry.errors) ? entry.errors : []).slice(0, 10),
-    fromCache:valid.every(entry => !!entry.fromCache),
-  };
-}
-
-async function fetchFreshStockNews(symbols, opts = {}) {
-  const explicitDate = !!opts.date;
-  const targetDate = opts.date || freshNewsDateKey();
-  const maxSymbols = Math.max(1, Math.min(Number(opts.maxSymbols) || 220, 300));
-  const limit = Math.max(1, Math.min(Number(opts.limit) || 25, 100));
-  const offset = Math.max(0, Number(opts.offset) || 0);
-  const universe = normalizeFreshNewsUniverse(symbols, maxSymbols);
-  const dateKeys = explicitDate ? [targetDate] : freshNewsRefreshDateKeys();
-  const dayEntries = [];
-  for (const dateKey of dateKeys) {
-    dayEntries.push(await getFreshNewsDayEntry(dateKey, universe, { force:!!opts.force }));
-  }
-  const dayEntry = mergeFreshNewsDayEntries(dayEntries) || {
-    date:targetDate,
-    items:[],
-    count:0,
-    symbolCount:0,
-    scanned:0,
-    errors:[],
-  };
-  const symbolMap = new Map(universe.map(row => [row.symbol, row]));
-  const requestedSymbols = new Set(universe.map(row => row.symbol));
-  const items = [];
-  for (const item of (Array.isArray(dayEntry.items) ? dayEntry.items : [])) {
-    const sym = String(item.symbol || '').toUpperCase();
-    if (requestedSymbols.size && !requestedSymbols.has(sym)) continue;
-    const row = symbolMap.get(sym) || {};
-    items.push({
-      symbol:sym,
-      name:row.name || item.name || sym,
-      assetType:row.assetType || item.assetType || 'stock',
-      type:item.type || classifyNewsItem(item.title || ''),
-      title:item.title || item.type || 'News',
-      source:item.source || 'NSE',
-      url:item.url || '',
-      publishedAt:item.publishedAt || item.filingDate || item.exDate || item.eventDate || null,
-      dateKey:item.dateKey || targetDate,
-      resultVerdict:item.resultVerdict || null,
-      resultVerdictReason:item.resultVerdictReason || null,
-      newsSentiment:item.newsSentiment || classifyNewsTradeImpact(item).newsSentiment,
-      tradeImpactScore:item.tradeImpactScore ?? classifyNewsTradeImpact(item).tradeImpactScore,
-      tradeImpactAbs:item.tradeImpactAbs ?? classifyNewsTradeImpact(item).tradeImpactAbs,
-      tradeImpactReason:item.tradeImpactReason || classifyNewsTradeImpact(item).tradeImpactReason,
-    });
-  }
-  const deduped = dedupeFreshNewsItems(items);
-  const symbolsWithNews = new Set(deduped.map(item => item.symbol));
-  const impactBySymbol = {};
-  for (const item of deduped) {
-    const sym = String(item.symbol || '').toUpperCase();
-    if (!sym) continue;
-    const current = impactBySymbol[sym];
-    const impactAbs = Number(item.tradeImpactAbs || Math.abs(Number(item.tradeImpactScore || 0)));
-    const currentAbs = Number(current?.tradeImpactAbs || Math.abs(Number(current?.tradeImpactScore || 0)));
-    if (!current || impactAbs > currentAbs) {
-      impactBySymbol[sym] = {
-        symbol:sym,
-        type:item.type || 'News',
-        title:item.title || 'News',
-        newsSentiment:item.newsSentiment || 'Neutral',
-        tradeImpactScore:Number(item.tradeImpactScore || 0),
-        tradeImpactAbs:impactAbs,
-        tradeImpactReason:item.tradeImpactReason || '',
-        publishedAt:item.publishedAt || item.dateKey || null,
-      };
-    }
-  }
-  return {
-    ok:true,
-    date:dayEntry.date || targetDate,
-    scanned:universe.length,
-    marketCount:dayEntry.count || 0,
-    marketSymbolCount:dayEntry.symbolCount || 0,
-    count:deduped.length,
-    symbolCount:symbolsWithNews.size,
-    symbols:Array.from(symbolsWithNews),
-    impactBySymbol,
-    limit,
-    offset,
-    returned:deduped.slice(offset, offset + limit).length,
-    hasPrev:offset > 0,
-    hasNext:offset + limit < deduped.length,
-    items:deduped.slice(offset, offset + limit),
-    errors:Array.isArray(dayEntry.errors) ? dayEntry.errors.slice(0, 10) : [],
-    fromCache:!!dayEntry.fromCache,
-    cachedAt:dayEntry.savedAt || null,
-    source:dayEntry.source || 'nse-market-wide',
-  };
-}
-
-// ══════════════════════════════════════════════════════════
-//  NSE SESSION
-// ══════════════════════════════════════════════════════════
-function freshNewsCronDelayMs(now = new Date()) {
-  const offsetMs = 5.5 * 60 * 60 * 1000;
-  const ist = new Date(now.getTime() + offsetMs);
-  const y = ist.getUTCFullYear();
-  const m = ist.getUTCMonth();
-  const d = ist.getUTCDate();
-  for (let add = 0; add < 8; add++) {
-    for (const slot of FRESH_NEWS_CRON_TIMES_IST) {
-      const [hh, mm] = slot.split(':').map(Number);
-      const candidateIstMs = Date.UTC(y, m, d + add, hh, mm, 0, 0);
-      const candidateUtcMs = candidateIstMs - offsetMs;
-      if (candidateUtcMs > now.getTime() + 5000) return candidateUtcMs - now.getTime();
-    }
-  }
-  return 6 * 60 * 60 * 1000;
-}
-
-async function refreshFreshNewsCache(reason = 'manual') {
-  const targetDates = freshNewsRefreshDateKeys();
-  const universe = freshNewsBuildUniverse([]);
-  let primaryEntry = null;
-  for (const targetDate of targetDates) {
-    console.log(`[fresh-news-cron] Refreshing ${targetDate} (${reason}) for ${universe.length} symbols`);
-    const entry = await getFreshNewsDayEntry(targetDate, universe, { force:true });
-    console.log(`[fresh-news-cron] Done ${targetDate}: ${entry.count} items, ${entry.symbolCount} symbols, cache=${entry.fromCache}`);
-    if (!primaryEntry) primaryEntry = entry;
-  }
-  return primaryEntry;
-}
-
-function scheduleNextFreshNewsRefresh() {
-  if (freshNewsCronTimer) clearTimeout(freshNewsCronTimer);
-  const delay = freshNewsCronDelayMs();
-  freshNewsCronTimer = setTimeout(async () => {
-    try {
-      await refreshFreshNewsCache('scheduled');
-    } catch(e) {
-      console.warn('[fresh-news-cron] Refresh failed:', e.message);
-    } finally {
-      scheduleNextFreshNewsRefresh();
-    }
-  }, delay);
-  if (freshNewsCronTimer.unref) freshNewsCronTimer.unref();
-  console.log(`[fresh-news-cron] Next refresh in ${Math.round(delay / 60000)}m`);
-}
-
-function startFreshNewsCron() {
-  scheduleNextFreshNewsRefresh();
-  const targetDate = freshNewsDateKey();
-  loadFreshNewsIndex();
-  const missingTarget = freshNewsRefreshDateKeys().some(dateKey => !readFreshNewsDayEntry(dateKey));
-  if (missingTarget) {
-    const startupTimer = setTimeout(() => {
-      refreshFreshNewsCache('startup-missing-cache').catch(e => console.warn('[fresh-news-cron] Startup refresh failed:', e.message));
-    }, 5000);
-    if (startupTimer.unref) startupTimer.unref();
-  }
 }
 
 function replayDeepSweepDelayMs(now = new Date()) {
@@ -6568,10 +6016,9 @@ async function yahooIndices() {
 //  HTTP SERVER
 // ══════════════════════════════════════════════════════════
 async function proxyRequestHandler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin',  '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS, POST');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  applyLocalCors(req, res);
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+  if (rejectUnsafeNonLocalRequest(req, res)) return;
 
   const { pathname, searchParams } = new URL(req.url, `http://localhost:${PORT}`);
   if (pathname === PAPER_TRADES_ALIAS_PATH || pathname === PAPER_TRADES_ALIAS_STREAM_PATH) {
@@ -6580,61 +6027,15 @@ async function proxyRequestHandler(req, res) {
   // Log incoming requests for debugging client 404s
   try { console.log('[proxy] >>', req.method, pathname, req.socket && req.socket.remoteAddress); } catch (e) {}
 
-  // /health
-  if (pathname === '/health') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true,
-      nse  : { cookies: nse.cookies.length, lastRefresh: nse.lastRefresh },
-      yahoo: { mode: 'v8/chart (crumb-free)', ok: true },
-      openai: { configured: !!OPENAI_API_KEY, model: OPENAI_MODEL, propertiesFile: USER_OPENAI_PROPERTIES },
-      ollama: { baseUrl: OLLAMA_BASE_URL, model: OLLAMA_MODEL || 'auto', timeoutMs: OLLAMA_TIMEOUT_MS },
-    }));
-    return;
-  }
-
-  // /dashboard-bootstrap -- one-shot startup payload for the Remix dashboard
-  if (pathname === '/dashboard-bootstrap') {
-    if (req.method !== 'GET') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method not allowed' }));
-      return;
-    }
-    try {
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
-      res.end(JSON.stringify(buildDashboardBootstrap()));
-    } catch (e) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok:false, error:e.message || 'Bootstrap failed' }));
-    }
-    return;
-  }
-
-  // /dashboard-market?symbols=A,B -- compact initial market payload for Remix dashboard
-  if (pathname === '/dashboard-market') {
-    if (req.method !== 'GET') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method not allowed' }));
-      return;
-    }
-    try {
-      const symbols = (searchParams.get('symbols') || '')
-        .split(',')
-        .map(s => s.trim().toUpperCase())
-        .filter(Boolean)
-        .slice(0, 300);
-      rememberSimulationUniverse(symbols);
-      const [indices, quotes] = await Promise.all([
-        yahooIndices().catch(e => ({ ok:false, error:e.message })),
-        symbols.length ? yahooQuote(symbols).catch(e => ({ ok:false, error:e.message, quotes:{} })) : Promise.resolve({ ok:true, quotes:{} }),
-      ]);
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
-      res.end(JSON.stringify({ ok:true, savedAt:Date.now(), indices, quotes:quotes.quotes || {}, quoteError:quotes.error || null }));
-    } catch (e) {
-      res.writeHead(502, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok:false, error:e.message || 'Market payload failed' }));
-    }
-    return;
-  }
+  if (await dispatchRoute([
+    (req, res, pathname, searchParams) => handleDashboardRoute(req, res, pathname, searchParams, {
+      buildHealthPayload,
+      buildDashboardBootstrap,
+      rememberSimulationUniverse,
+      yahooIndices,
+      yahooQuote,
+    }),
+  ], req, res, pathname, searchParams)) return;
 
   // /openai/status -- frontend check for AI mode
   if (pathname === '/openai/status') {
@@ -7109,33 +6510,15 @@ async function proxyRequestHandler(req, res) {
     return;
   }
 
+  // /result-calendar -- dedicated earnings/result calendar for tracked stocks over the next N days
+  if (pathname === '/result-calendar') {
+    await resultCalendarService.handleRoute(req, res, { searchParams, readJsonBody });
+    return;
+  }
+
   // /fresh-stock-news -- server-side scan for today's / last business day's fresh stock news
   if (pathname === '/fresh-stock-news') {
-    try {
-      let payload = {};
-      if (req.method === 'POST') {
-        payload = await readJsonBody(req);
-      } else if (req.method !== 'GET') {
-        res.writeHead(405, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Method not allowed' }));
-        return;
-      }
-      const rawSymbols = req.method === 'GET'
-        ? String(searchParams.get('symbols') || '').split(',').map(s => s.trim()).filter(Boolean)
-        : (payload.symbols || payload.stocks || []);
-      const data = await fetchFreshStockNews(rawSymbols, {
-        date: payload.date || searchParams.get('date') || '',
-        maxSymbols: payload.maxSymbols || searchParams.get('maxSymbols'),
-        concurrency: payload.concurrency || searchParams.get('concurrency'),
-        limit: payload.limit || searchParams.get('limit'),
-        offset: payload.offset || searchParams.get('offset'),
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(data));
-    } catch(e) {
-      res.writeHead(502, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok:false, error: e.message }));
-    }
+    await freshNewsService.handleRoute(req, res, { searchParams, readJsonBody });
     return;
   }
 
@@ -7677,1313 +7060,156 @@ async function proxyRequestHandler(req, res) {
     return;
   }
 
-  // Holdings are populated as a side-effect of /etf-summary fetches.
-  // This endpoint ONLY serves from cache — no live fetch.
-  if (pathname === TRADE_EXECUTION_STREAM_PATH || pathname === PAPER_TRADES_ALIAS_STREAM_PATH) {
-    if (req.method !== 'GET') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method not allowed' }));
-      return;
-    }
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-      'X-Accel-Buffering': 'no',
-    });
-    res.write(': connected\n\n');
+  if (await handleTradeExecutionRoute(req, res, pathname, searchParams, {
+    tradeExecutionPath:TRADE_EXECUTION_PATH,
+    paperTradesAliasPath:PAPER_TRADES_ALIAS_PATH,
+    tradeExecutionStreamPath:TRADE_EXECUTION_STREAM_PATH,
+    paperTradesAliasStreamPath:PAPER_TRADES_ALIAS_STREAM_PATH,
+    paperTradeStreamClients,
+    writeSseEvent,
+    buildPaperTradeStreamPayload,
+    readJsonBody,
+    runWithMutationLock,
+    loadPaperStateFile,
+    savePaperStateFile,
+    savePaperTradesFile,
+    defaultPaperPortfolio,
+    broadcastPaperTradeState,
+    validBrokerModes:VALID_BROKER_MODES,
+    hasLiveTradeConfirmation,
+    buildZerodhaDryRunOrder,
+    normalizeTradeOwnership,
+    getTradeOwnershipContext,
+    loadTradeSettingsFile,
+    getKiteClientLive:() => kiteClientLive,
+    getZerodhaCredentials:() => zerodhaCredentials,
+    getSharekhanClientLive:() => sharekhanClientLive,
+    getSharekhanCredentials:() => sharekhanCredentials,
+    ensureZerodhaInitialized,
+    ensureSharekhanInitialized,
+    isZerodhaIpBlockError,
+    getZerodhaLiveFailureCount:() => zerodhaLiveFailureCount,
+    setZerodhaLiveFailureCount:value => { zerodhaLiveFailureCount = value; },
+    getSharekhanLiveFailureCount:() => sharekhanLiveFailureCount,
+    setSharekhanLiveFailureCount:value => { sharekhanLiveFailureCount = value; },
+    setBrokerMode,
+    withSharekhanCredentialReload,
+    buildSharekhanLiveOrder,
+    computePaperTradePnl,
+    isDbReady:() => proxyDbReady,
+    deleteTrade,
+    jsonBodyErrorStatus,
+  })) return;
 
-    const client = {
-      res,
-      keepAlive: setInterval(() => {
-        try { res.write(': ping\n\n'); } catch (_) {}
-      }, 25000),
-    };
-    paperTradeStreamClients.add(client);
-    writeSseEvent(res, buildPaperTradeStreamPayload('init'));
+  if (await handleBrokerRoute(req, res, pathname, searchParams, {
+    readJsonBody,
+    jsonBodyErrorStatus,
+    validBrokerModes:VALID_BROKER_MODES,
+    hasLiveTradeConfirmation,
+    getBrokerMode:() => brokerMode,
+    setBrokerMode,
+    getSharekhanTicker:() => sharekhanTicker,
+    getSharekhanIndexCodeMap:() => sharekhanIndexCodeMap,
+    getSimulationMarketCache:() => simulationMarketCache,
+    getActiveLiveBrokerKey,
+    getZerodhaCredentials:() => zerodhaCredentials,
+    getSharekhanCredentials:() => sharekhanCredentials,
+    getKiteClientLive:() => kiteClientLive,
+    getKiteClientDry:() => kiteClientDry,
+    getSharekhanClientLive:() => sharekhanClientLive,
+    getZerodhaConfirmationPoller:() => zerodhaConfirmationPoller,
+    getSharekhanConfirmationPoller:() => sharekhanConfirmationPoller,
+    getZerodhaLiveFailureCount:() => zerodhaLiveFailureCount,
+    getSharekhanLiveFailureCount:() => sharekhanLiveFailureCount,
+    readBrokerAuthParams,
+    sendBrokerAuthHtml,
+    buildBrokerLoginUrl,
+    htmlEscape,
+    brokerNameFromParam,
+    exchangeSharekhanRequestToken,
+    exchangeZerodhaRequestToken,
+    ensureSharekhanInitialized,
+    ensureZerodhaInitialized,
+    setSharekhanAccessToken:value => { if (sharekhanCredentials) sharekhanCredentials.accessToken = value; },
+    saveSharekhanAccessToken,
+    updateZerodhaTokens:tokens => {
+      if (tokens.refreshToken) zerodhaCredentials.refreshToken = tokens.refreshToken;
+      if (tokens.accessToken) zerodhaCredentials.accessToken = tokens.accessToken;
+    },
+    isDbReady:() => proxyDbReady,
+    rebuildDayPnl,
+    getDayPnl,
+    withSharekhanCredentialReload,
+    buildStoredAppPriceMap,
+    isSharekhanAuthReloadError,
+  })) return;
 
-    req.on('close', () => {
-      if (client.keepAlive) clearInterval(client.keepAlive);
-      paperTradeStreamClients.delete(client);
-    });
-    return;
-  }
+  if (await handleSimulationRuntimeRoute(req, res, pathname, searchParams, {
+    readJsonBody,
+    jsonBodyErrorStatus,
+    defaultTickIntervalSec:DEFAULT_SIMULATION_TICK_INTERVAL_SEC,
+    defaultStopTimeoutSec:DEFAULT_SIMULATION_STOP_TIMEOUT_SEC,
+    RuntimeStateTransitionError,
+    runWithMutationLock,
+    getSimulationTickIntervalSec:() => simulationTickIntervalSec,
+    setSimulationTickIntervalSec:value => { simulationTickIntervalSec = value; },
+    getSimulationStopTimeoutSec:() => simulationStopTimeoutSec,
+    setSimulationStopTimeoutSec:value => { simulationStopTimeoutSec = value; },
+    setSimulationSettlingStartedAt:value => { simulationSettlingStartedAt = value; },
+    transitionAndSaveSimulationRuntime,
+    startSimulationScheduler,
+    stopSimulationScheduler,
+    saveSimulationRuntime,
+    loadTradeSettingsFile,
+    getTradeOwnershipContext,
+    loadPaperStateFile,
+    savePaperStateFile,
+    normalizeTradeCollectionOwnership,
+    broadcastPaperTradeState,
+    getSimulationRuntimeStatus,
+    buildServerSimulationAnalysisPayload,
+    snapshotRetentionDays:SIM_SNAPSHOT_RETENTION_DAYS,
+    loadSimulationSnapshotsFile,
+    loadAllSimulationSnapshots,
+    saveSimulationSnapshotsFile,
+    appendSimulationSnapshot,
+    getSimulationSnapshotFile,
+  })) return;
+  if (await handleReplayRoute(req, res, pathname, searchParams, {
+    readJsonBody,
+    getIstDateKey,
+    buildWhyMissedResponse,
+    replayModeFromParams,
+    createReplayJob,
+    compactReplayJob,
+    compactReplayJobHistory,
+    replayJobs,
+    buildReplayAutoTuneResponse,
+    buildReplayDeepSweepResponse,
+    buildReplayResponse,
+  })) return;
 
-  // /broker-mode -- Switch between zerodha_dry_run, zerodha_live, sharekhan_live
-  if (pathname === '/broker-mode') {
-    if (req.method === 'GET') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        ok: true,
-        mode: brokerMode,
-        sharekhanTickerConnected: sharekhanTicker?._connected ?? false,
-        sharekhanTickerSymbols: sharekhanTicker ? sharekhanTicker._subscribedCodes.size : 0,
-        sharekhanTickerIndexSymbols: sharekhanIndexCodeMap.size,
-        marketIndexSource: simulationMarketCache.indices?.nifty50?.source || null,
-      }));
-      return;
-    }
-    if (req.method === 'POST') {
-      try {
-        const payload = await readJsonBody(req);
-        const newMode = String(payload.mode || '').toLowerCase();
-        if (!VALID_BROKER_MODES.has(newMode)) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid mode. Valid modes: zerodha_dry_run, zerodha_live, sharekhan_live' }));
-          return;
-        }
-        setBrokerMode(newMode);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, mode: brokerMode }));
-        return;
-      } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
-        return;
-      }
-      return;
-    }
-  }
+  if (await dispatchRoute([
+    (req, res, pathname) => handleTradeSettingsRoute(req, res, pathname, {
+      readJsonBody,
+      jsonBodyErrorStatus,
+      loadTradeSettingsFile,
+      saveTradeSettingsFile,
+    }),
+  ], req, res, pathname, searchParams)) return;
 
-  // /broker-status -- Get broker connection health and status
-  if (pathname === '/broker-status') {
-    if (req.method === 'GET') {
-      const status = {
-        mode: brokerMode,
-        activeLiveBroker: getActiveLiveBrokerKey(),
-        zerodha: {
-          credentialsLoaded: !!zerodhaCredentials,
-          clientsInitialized: !!kiteClientLive && !!kiteClientDry,
-          autoRenewConfigured: !!zerodhaCredentials?.refreshToken,
-          lastTokenRefreshAt: kiteClientLive?.lastTokenRefreshAt || null,
-          pollerRunning: zerodhaConfirmationPoller !== null,
-          failureCount: zerodhaLiveFailureCount,
-          isDisabled: zerodhaLiveFailureCount >= 3,
-        },
-        sharekhan: {
-          credentialsLoaded: !!sharekhanCredentials,
-          clientsInitialized: !!sharekhanClientLive,
-          autoRenewConfigured: !!sharekhanCredentials?.requestToken && !!sharekhanCredentials?.secretKey,
-          lastTokenRefreshAt: sharekhanClientLive?.lastTokenRefreshAt || null,
-          pollerRunning: sharekhanConfirmationPoller !== null,
-          failureCount: sharekhanLiveFailureCount,
-          isDisabled: sharekhanLiveFailureCount >= 3,
-        },
-      };
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, ...status }));
-      return;
-    }
-  }
-
-  // /broker/login -- Open the broker-hosted login page in a popup
-  if (pathname === '/broker/login' || pathname === '/borker/login') {
-    const { broker } = readBrokerAuthParams(searchParams);
-    if (req.method !== 'GET') {
-      sendBrokerAuthHtml(res, 405, { ok:false, broker, title:'Method not allowed', message:'Use GET for broker login.' });
-      return;
-    }
-    if (!broker) {
-      sendBrokerAuthHtml(res, 400, { ok:false, broker:'', title:'Broker login failed', message:'Use name=sharekhan or name=zerodha.' });
-      return;
-    }
-    try {
-      const loginUrl = buildBrokerLoginUrl(req, broker);
-      res.writeHead(200, { 'Content-Type':'text/html; charset=utf-8', 'Cache-Control':'no-store' });
-      res.end(`<!doctype html><html><head><meta charset="utf-8"><title>${htmlEscape(broker)} login</title><style>
-        body{margin:0;background:#0c1114;color:#f4f7f8;font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;min-height:100vh}
-        main{width:min(420px,calc(100vw - 28px));border:1px solid #2d3941;border-radius:12px;background:#151c21;padding:22px;box-shadow:0 18px 50px rgba(0,0,0,.35)}
-        h1{font-size:18px;margin:0 0 8px}.msg{color:#94a2aa;line-height:1.45}a{color:#38bdf8}
-      </style></head><body><main><h1>${htmlEscape(broker)} login</h1><div class="msg">Opening secure broker login...<br><a href="${htmlEscape(loginUrl)}">Continue manually</a></div></main><script>
-        window.location.replace(${JSON.stringify(loginUrl)});
-      </script></body></html>`);
-      return;
-    } catch (e) {
-      sendBrokerAuthHtml(res, 500, { ok:false, broker, title:'Broker login failed', message:e.message || 'Could not build broker login URL.' });
-      return;
-    }
-  }
-
-  // /broker/refresh/:broker -- Exchange redirect request_token for access token
-  // Supports both /broker/refresh/sharekhan (new) and /broker/refresh?name=sharekhan (legacy)
-  const brokerRefreshMatch = pathname.match(/^\/b[ro]+ker\/refresh(?:\/([^/]+))?$/i);
-  if (brokerRefreshMatch) {
-    const wantsJson = /\bapplication\/json\b/i.test(req.headers.accept || '');
-    const fail = (statusCode, broker, message) => {
-      if (wantsJson) {
-        res.writeHead(statusCode, { 'Content-Type':'application/json', 'Cache-Control':'no-store' });
-        res.end(JSON.stringify({ ok:false, broker, error:message }));
-      } else {
-        sendBrokerAuthHtml(res, statusCode, { ok:false, broker, title:'Broker login failed', message });
-      }
-    };
-    if (req.method !== 'GET') {
-      fail(405, '', 'Use GET for broker refresh redirects.');
-      return;
-    }
-    // Broker name from path segment takes priority over ?name= query param
-    const brokerFromPath = brokerNameFromParam(brokerRefreshMatch[1] || '');
-    const { broker: brokerFromQuery, requestToken } = readBrokerAuthParams(searchParams);
-    const broker = brokerFromPath || brokerFromQuery;
-    if (!broker) {
-      fail(400, '', 'Broker name missing. Use /broker/refresh/sharekhan or /broker/refresh/zerodha.');
-      return;
-    }
-    if (!requestToken) {
-      fail(400, broker, 'Broker redirect did not include request_token.');
-      return;
-    }
-    try {
-      if (broker === 'sharekhan') await exchangeSharekhanRequestToken(requestToken);
-      else await exchangeZerodhaRequestToken(requestToken);
-      if (wantsJson) {
-        res.writeHead(200, { 'Content-Type':'application/json', 'Cache-Control':'no-store' });
-        res.end(JSON.stringify({ ok:true, broker, refreshed:true }));
-      } else {
-        sendBrokerAuthHtml(res, 200, { ok:true, broker, title:'Broker login complete', message:`${broker} access token was updated.` });
-      }
-      return;
-    } catch (e) {
-      fail(500, broker, e.message || 'Could not exchange request token.');
-      return;
-    }
-  }
-
-  // /broker-refresh-token -- Manually trigger access token renew
-  if (pathname === '/broker-refresh-token') {
-    if (req.method !== 'POST') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method not allowed. Use POST.' }));
-      return;
-    }
-    try {
-      const payload = await readJsonBody(req).catch(() => ({}));
-      const broker = String(payload.broker || getActiveLiveBrokerKey() || 'zerodha').toLowerCase();
-      if (broker === 'sharekhan') {
-        if (!sharekhanCredentials || !sharekhanClientLive) {
-          await ensureSharekhanInitialized({ force: true });
-        }
-        if (!sharekhanCredentials || !sharekhanClientLive) {
-          res.writeHead(503, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            error: 'Sharekhan integration is not initialized',
-            hint: 'Credentials were reloaded but Sharekhan could not initialize. Check ~/.sharekhan.properties tokens.',
-          }));
-          return;
-        }
-        if (!sharekhanCredentials.requestToken || !sharekhanCredentials.secretKey) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            error: 'Request token and secret key are not configured',
-            hint: 'Set SHAREKHAN_REQUEST_TOKEN and SHAREKHAN_SECRET_KEY in sharekhan credentials file and restart proxy',
-          }));
-          return;
-        }
-        const refreshed = await sharekhanClientLive.refreshAccessToken();
-        if (!refreshed) {
-          res.writeHead(401, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            ok: false,
-            renewed: false,
-            mode: brokerMode,
-            broker: 'sharekhan',
-            autoRenewConfigured: !!sharekhanCredentials.requestToken && !!sharekhanCredentials.secretKey,
-            lastTokenRefreshAt: sharekhanClientLive.lastTokenRefreshAt || null,
-          }));
-          return;
-        }
-        if (sharekhanClientLive.accessToken) sharekhanCredentials.accessToken = sharekhanClientLive.accessToken;
-        saveSharekhanAccessToken(sharekhanClientLive.accessToken);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          ok: true,
-          renewed: true,
-          mode: brokerMode,
-          broker: 'sharekhan',
-          autoRenewConfigured: !!sharekhanCredentials.requestToken && !!sharekhanCredentials.secretKey,
-          lastTokenRefreshAt: sharekhanClientLive.lastTokenRefreshAt || null,
-        }));
-        return;
-      }
-
-      if (!zerodhaCredentials || !kiteClientLive || !kiteClientDry) {
-        await ensureZerodhaInitialized({ force: true });
-      }
-      if (!zerodhaCredentials || !kiteClientLive || !kiteClientDry) {
-        res.writeHead(503, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: 'Zerodha integration is not initialized',
-          hint: 'Credentials were reloaded but Zerodha could not initialize. Check ~/.zerodha.properties tokens.',
-        }));
-        return;
-      }
-      if (!zerodhaCredentials.refreshToken) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: 'Refresh token is not configured',
-          hint: 'Set ZERODHA_REFRESH_TOKEN in zerodha credentials file and restart proxy'
-        }));
-        return;
-      }
-
-      const refreshed = await kiteClientLive.refreshAccessToken();
-      if (!refreshed) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          ok: false,
-          renewed: false,
-          mode: brokerMode,
-          broker: 'zerodha',
-          autoRenewConfigured: !!zerodhaCredentials.refreshToken,
-          lastTokenRefreshAt: kiteClientLive.lastTokenRefreshAt || null,
-        }));
-        return;
-      }
-
-      kiteClientDry.setTokens({
-        accessToken: kiteClientLive.accessToken,
-        refreshToken: kiteClientLive.refreshToken,
-      });
-      if (kiteClientLive.refreshToken) zerodhaCredentials.refreshToken = kiteClientLive.refreshToken;
-      if (kiteClientLive.accessToken) zerodhaCredentials.accessToken = kiteClientLive.accessToken;
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        ok: true,
-        renewed: true,
-        mode: brokerMode,
-        broker: 'zerodha',
-        autoRenewConfigured: !!zerodhaCredentials.refreshToken,
-        lastTokenRefreshAt: kiteClientLive.lastTokenRefreshAt || null,
-      }));
-      return;
-    } catch (e) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: e.message }));
-      return;
-    }
-  }
-
-  // /portfolio/day-pnl -- Historical day-wise P&L from DB (all closed trades, grouped by IST date)
-  if (pathname === '/portfolio/day-pnl') {
-    if (req.method === 'POST') {
-      // Rebuild the day_pnl table from all closed trades
-      try {
-        const dayPnl = proxyDbReady ? rebuildDayPnl() : {};
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
-        res.end(JSON.stringify({ ok: true, rebuilt: true, dayPnl }));
-      } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: e.message }));
-      }
-      return;
-    }
-    if (req.method !== 'GET') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method not allowed' }));
-      return;
-    }
-    try {
-      const dayPnl = proxyDbReady ? getDayPnl() : {};
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
-      res.end(JSON.stringify({ ok: true, dayPnl }));
-    } catch (e) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: false, error: e.message }));
-    }
-    return;
-  }
-
-  // /sharekhan-portfolio -- Live Sharekhan portfolio snapshot
-  if (pathname === '/sharekhan-portfolio') {
-    if (req.method !== 'GET') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method not allowed. Use GET.' }));
-      return;
-    }
-    try {
-      if (!sharekhanCredentials || !sharekhanClientLive) {
-        await ensureSharekhanInitialized({ force: true });
-      }
-      if (!sharekhanCredentials || !sharekhanClientLive) {
-        res.writeHead(503, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: 'Sharekhan integration is not initialized',
-          hint: 'Credentials were reloaded but Sharekhan could not initialize. Check ~/.sharekhan.properties tokens.',
-        }));
-        return;
-      }
-      const portfolio = await withSharekhanCredentialReload(() => sharekhanClientLive.getPortfolioState());
-      // Enrich holdings LTP from app-stored prices (Sharekhan API has no live quote endpoint)
-      if (Array.isArray(portfolio?.holdings?.list)) {
-        let totalMarketValue = 0;
-        let totalInvested = 0;
-        let totalPnl = 0;
-        const storedPrices = buildStoredAppPriceMap(portfolio.holdings.list.map(h => h.symbol));
-        for (const h of portfolio.holdings.list) {
-          const storedPrice = storedPrices.get(String(h.symbol || '').trim().toUpperCase());
-          if (storedPrice?.price) {
-            h.ltp = Number(storedPrice.price);
-            h.closePrice = Number(storedPrice.prevClose || h.closePrice || 0);
-            h.ltpSource = storedPrice.source;
-            const prevClose = h.closePrice || h.ltp;
-            h.dayChangePct = prevClose ? +((h.ltp - prevClose) / prevClose * 100).toFixed(2) : 0;
-            h.marketValue = +(h.ltp * h.qty).toFixed(2);
-            h.pnl = +(h.marketValue - h.investedValue).toFixed(2);
-          }
-          totalMarketValue += h.marketValue || 0;
-          totalInvested += h.investedValue || 0;
-          totalPnl += h.pnl || 0;
-        }
-        portfolio.holdings.marketValue = +totalMarketValue.toFixed(2);
-        portfolio.positions.totalPnl = +totalPnl.toFixed(2);
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        ok: true,
-        mode: brokerMode,
-        broker: 'sharekhan',
-        portfolio,
-      }));
-      return;
-    } catch (e) {
-      const isAuth = isSharekhanAuthReloadError(e);
-      res.writeHead(isAuth ? 401 : 500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: e.message,
-        hint: isAuth ? 'Token expired. Update Sharekhan credentials, then retry; the server will reload them automatically.' : undefined,
-      }));
-      return;
-    }
-  }
-
-  // /zerodha-portfolio -- Live Zerodha portfolio snapshot
-  if (pathname === '/zerodha-portfolio') {
-    if (req.method !== 'GET') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method not allowed. Use GET.' }));
-      return;
-    }
-    try {
-      if (!zerodhaCredentials || !kiteClientLive) {
-        await ensureZerodhaInitialized({ force: true });
-      }
-      if (!zerodhaCredentials || !kiteClientLive) {
-        res.writeHead(503, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          error: 'Zerodha integration is not initialized',
-          hint: 'Credentials were reloaded but Zerodha could not initialize. Check ~/.zerodha.properties tokens.',
-        }));
-        return;
-      }
-      const portfolio = await kiteClientLive.getPortfolioState();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        ok: true,
-        mode: brokerMode,
-        portfolio,
-      }));
-      return;
-    } catch (e) {
-      const isAuth = /AUTH_FAILED_REFRESH_NEEDED|token|permission/i.test(String(e?.message || ''));
-      res.writeHead(isAuth ? 401 : 500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        error: e.message,
-        hint: isAuth ? 'Token expired. Use Refresh token now in Settings.' : undefined,
-      }));
-      return;
-    }
-  }
-
-  // /simulation/start
-  if (pathname === '/simulation/start') {
-    if (req.method !== 'POST') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method not allowed. Use POST.' }));
-      return;
-    }
-    try {
-      const payload = await readJsonBody(req);
-      const requestedInterval = Number(payload.tickIntervalSec);
-      const tickIntervalSec = Number.isFinite(requestedInterval) && requestedInterval > 0
-        ? Math.max(1, Math.floor(requestedInterval))
-        : DEFAULT_SIMULATION_TICK_INTERVAL_SEC;
-      const autoResume = typeof payload.autoResume === 'boolean' ? payload.autoResume : true;
-      const nextRuntime = await runWithMutationLock(async () => {
-        simulationTickIntervalSec = tickIntervalSec;
-        const next = transitionAndSaveSimulationRuntime({ type: 'start', autoResume });
-        startSimulationScheduler('api-start');
-        return next;
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        ok: true,
-        state: nextRuntime.state,
-        autoResume: nextRuntime.autoResume,
-        tickIntervalSec: simulationTickIntervalSec,
-        updatedAt: nextRuntime.updatedAt,
-      }));
-    } catch (e) {
-      if (e instanceof RuntimeStateTransitionError) {
-        res.writeHead(409, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: e.message, code: e.code, state: e.currentState }));
-        return;
-      }
-      saveSimulationRuntime({ lastError: e?.message || String(e) });
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: false, error: e.message || 'Invalid request' }));
-    }
-    return;
-  }
-
-  // /simulation/stop
-  if (pathname === '/simulation/stop') {
-    if (req.method !== 'POST') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method not allowed. Use POST.' }));
-      return;
-    }
-    try {
-      const payload = await readJsonBody(req);
-      const mode = String(payload.mode || 'settle').toLowerCase() === 'immediate' ? 'immediate' : 'settle';
-      const timeoutCandidate = Number(payload.timeoutSec);
-      const timeoutSec = Number.isFinite(timeoutCandidate) && timeoutCandidate > 0
-        ? Math.max(1, Math.floor(timeoutCandidate))
-        : DEFAULT_SIMULATION_STOP_TIMEOUT_SEC;
-      const nextRuntime = await runWithMutationLock(async () => {
-        if (mode === 'settle') {
-          simulationStopTimeoutSec = timeoutSec;
-          simulationSettlingStartedAt = Date.now();
-        }
-        const next = transitionAndSaveSimulationRuntime({ type: 'stop', mode });
-        const settings = loadTradeSettingsFile().overrides || {};
-        const ownershipContext = getTradeOwnershipContext(next.state, settings);
-        const tradeState = loadPaperStateFile();
-        const normalizedTrades = normalizeTradeCollectionOwnership(tradeState.trades, ownershipContext);
-        if (JSON.stringify(tradeState.trades) !== JSON.stringify(normalizedTrades)) {
-          tradeState.trades = normalizedTrades;
-          savePaperStateFile(tradeState);
-          broadcastPaperTradeState(mode === 'immediate' ? 'simulation-stop-immediate' : 'simulation-stop-settle');
-        }
-        if (next.state === 'off') stopSimulationScheduler('api-stop');
-        else startSimulationScheduler('api-settle');
-        return next;
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        ok: true,
-        state: nextRuntime.state,
-        timeoutSec: mode === 'settle' ? simulationStopTimeoutSec : timeoutSec,
-        updatedAt: nextRuntime.updatedAt,
-      }));
-    } catch (e) {
-      if (e instanceof RuntimeStateTransitionError) {
-        res.writeHead(409, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: e.message, code: e.code, state: e.currentState }));
-        return;
-      }
-      saveSimulationRuntime({ lastError: e?.message || String(e) });
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: false, error: e.message || 'Invalid request' }));
-    }
-    return;
-  }
-
-  // /simulation/status
-  if (pathname === '/simulation/status') {
-    if (req.method !== 'GET') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method not allowed. Use GET.' }));
-      return;
-    }
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(getSimulationRuntimeStatus()));
-    return;
-  }
-
-  // /simulation/analysis
-  if (pathname === '/simulation/analysis') {
-    if (req.method !== 'GET') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method not allowed. Use GET.' }));
-      return;
-    }
-    try {
-      const source = String(searchParams.get('source') || 'server-analysis');
-      const payload = await buildServerSimulationAnalysisPayload(source);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(payload));
-    } catch (e) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: false, error: e.message || 'Could not build simulation analysis' }));
-    }
-    return;
-  }
-
-  // /trade-execution (/paper-trades alias) -- local paper trading journal for locked intraday entries
-  if (pathname === TRADE_EXECUTION_PATH || pathname === PAPER_TRADES_ALIAS_PATH) {
-    if (req.method === 'GET') {
-      const includeAll = searchParams.get('scope') === 'all' || searchParams.get('all') === '1';
-      const state = loadPaperStateFile({ includeAll });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, trades: state.trades, portfolio: state.portfolio }));
-      return;
-    }
-    if (req.method === 'POST') {
-      await runWithMutationLock(async () => {
-        try {
-        const payload = await readJsonBody(req);
-        const action = String(payload.action || '').toLowerCase();
-        const state = loadPaperStateFile();
-        const trades = state.trades;
-
-        if (action === 'add-capital') {
-          const amount = Number(payload.amount);
-          if (!Number.isFinite(amount) || amount <= 0) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Positive amount is required' }));
-            return;
-          }
-          state.portfolio = state.portfolio || defaultPaperPortfolio();
-          state.portfolio.capitalAdds = Array.isArray(state.portfolio.capitalAdds) ? state.portfolio.capitalAdds : [];
-          state.portfolio.capitalAdds.push({
-            amount:+amount.toFixed(2),
-            at: new Date().toISOString(),
-            note: String(payload.note || 'Manual capital add'),
-          });
-          savePaperStateFile(state);
-          broadcastPaperTradeState('add-capital');
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, portfolio: state.portfolio }));
-          return;
-        }
-
-        if (action === 'set-initial-capital') {
-          const amount = Number(payload.amount);
-          if (!Number.isFinite(amount) || amount <= 0) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Positive initial capital is required' }));
-            return;
-          }
-          state.portfolio = state.portfolio || defaultPaperPortfolio();
-          state.portfolio.initialCapital = +amount.toFixed(2);
-          state.portfolio.capitalAdds = Array.isArray(state.portfolio.capitalAdds) ? state.portfolio.capitalAdds : [];
-          savePaperStateFile(state);
-          broadcastPaperTradeState('set-initial-capital');
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, portfolio: state.portfolio }));
-          return;
-        }
-
-        if (action === 'open') {
-          const symbol = String(payload.symbol || '').trim().toUpperCase();
-          const side = String(payload.side || 'buy').toLowerCase();
-          const qty = Number(payload.qty);
-          const entryPrice = Number(payload.entryPrice);
-          if (!symbol || !['buy', 'sell'].includes(side) || !Number.isInteger(qty) || qty <= 0 || !Number.isFinite(entryPrice) || entryPrice <= 0) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'symbol, side, qty and entryPrice are required' }));
-            return;
-          }
-          const existing = trades.find(t => t.symbol === symbol && t.status === 'open');
-          if (existing) {
-            res.writeHead(409, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Open paper trade already exists for this symbol', trade: existing }));
-            return;
-          }
-          const requestedMode = String(payload.brokerMode || payload.executionMode || '').toLowerCase();
-          const executionMode = VALID_BROKER_MODES.has(requestedMode) ? requestedMode : 'zerodha_dry_run';
-          const dryRunEntryOrder = executionMode === 'zerodha_dry_run'
-            ? buildZerodhaDryRunOrder({ ...payload, symbol, side, qty, entryPrice, assetType: payload.assetType === 'etf' ? 'etf' : 'stock' }, null, 'entry')
-            : null;
-          const trade = {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            status: 'open',
-            symbol,
-            name: String(payload.name || symbol),
-            side,
-            qty,
-            entryPrice:+entryPrice.toFixed(2),
-            target: Number.isFinite(Number(payload.target)) ? +Number(payload.target).toFixed(2) : null,
-            stop: Number.isFinite(Number(payload.stop)) ? +Number(payload.stop).toFixed(2) : null,
-            signal: payload.signal || null,
-            score: Number.isFinite(Number(payload.score)) ? Number(payload.score) : null,
-            rr: Number.isFinite(Number(payload.rr)) ? Number(payload.rr) : null,
-            reservedCapital: Number.isFinite(Number(payload.reservedCapital)) ? +Number(payload.reservedCapital).toFixed(2) : +(entryPrice * qty).toFixed(2),
-            portfolioInitial: Number.isFinite(Number(payload.portfolioInitial)) ? +Number(payload.portfolioInitial).toFixed(2) : null,
-            source: payload.source === 'simulation' ? 'simulation' : 'manual',
-            assetType: payload.assetType === 'etf' ? 'etf' : 'stock',
-            setupType: payload.setupType || null,
-            setup: payload.setup || null,
-            entryContext: payload.entryContext && typeof payload.entryContext === 'object' ? payload.entryContext : null,
-            notes: payload.notes || '',
-            openedAt: String(payload.transactionTime || '').match(/\d{4}-\d{2}-\d{2}T/) ? payload.transactionTime : new Date().toISOString(),
-            executionMode,
-          };
-          Object.assign(
-            trade,
-            normalizeTradeOwnership(
-              trade,
-              getTradeOwnershipContext('off', loadTradeSettingsFile().overrides || {}),
-              { applyTransitions: false }
-            )
-          );
-          if (dryRunEntryOrder) {
-            trade.broker = {
-              name: 'zerodha',
-              mode: 'dry-run',
-              status: 'entry_dry_run',
-              entryOrder: dryRunEntryOrder,
-              exitPlan: {
-                target: trade.target,
-                stop: trade.stop,
-                squareOff: 'intraday dashboard managed exit',
-              },
-              audit: [{ at: trade.openedAt, event: 'entry_dry_run_created', order: dryRunEntryOrder }],
-            };
-          } else if (
-            executionMode === 'zerodha_live' &&
-            ((kiteClientLive && zerodhaCredentials) || await ensureZerodhaInitialized({ force: true }))
-          ) {
-            // Attempt to place live order via Kite API
-            const liveEntryOrder = buildZerodhaDryRunOrder({ ...payload, symbol, side, qty, entryPrice, assetType: payload.assetType === 'etf' ? 'etf' : 'stock' }, null, 'entry');
-            try {
-              const orderId = await kiteClientLive.placeOrder(liveEntryOrder);
-              trade.broker = {
-                name: 'zerodha',
-                mode: 'live',
-                orderId: orderId,
-                status: 'pending',
-                createdAt: trade.openedAt,
-                confirmedAt: null,
-                confirmationAttempts: 0,
-                confirmationError: null,
-                exitPlan: {
-                  target: trade.target,
-                  stop: trade.stop,
-                  squareOff: 'intraday dashboard managed exit',
-                },
-                audit: [{ at: trade.openedAt, event: 'live_order_placed', orderId: orderId, elapsed: 0, attempts: 1 }],
-              };
-              zerodhaLiveFailureCount = 0;
-              console.log(`[zerodha-live] Order placed: ${orderId} for ${symbol}`);
-            } catch (e) {
-              if (!isZerodhaIpBlockError(e)) zerodhaLiveFailureCount++;
-              console.error(`[zerodha-live] Order placement failed (${zerodhaLiveFailureCount}):`, e.message);
-              // Fallback to Zerodha dry-run mode if too many failures
-              if (zerodhaLiveFailureCount >= 3) {
-                console.warn('[zerodha-live] Too many failures. Disabling zerodha_live mode, falling back to Zerodha dry-run mode.');
-                setBrokerMode('zerodha_dry_run');
-              }
-              trade.status = 'failed';
-              trade.broker = {
-                name: 'zerodha',
-                mode: 'live',
-                status: 'failed',
-                error: e.message,
-                createdAt: trade.openedAt,
-                audit: [{ at: trade.openedAt, event: 'live_order_failed', error: e.message }],
-              };
-            }
-          } else if (
-            executionMode === 'sharekhan_live' &&
-            ((sharekhanClientLive && sharekhanCredentials) || await ensureSharekhanInitialized({ force: true }))
-          ) {
-            try {
-              const scripCode = await withSharekhanCredentialReload(() => sharekhanClientLive.resolveScripCode(symbol, 'NC'));
-              const sharekhanEntryOrder = buildSharekhanLiveOrder({ ...payload, symbol, side, qty, entryPrice }, null, 'entry', scripCode);
-              if (!sharekhanEntryOrder) {
-                throw new Error(`Unable to build Sharekhan order for ${symbol}. Ensure scrip code is available.`);
-              }
-              const orderId = await withSharekhanCredentialReload(() => sharekhanClientLive.placeOrder(sharekhanEntryOrder));
-              trade.broker = {
-                name: 'sharekhan',
-                mode: 'live',
-                orderId,
-                exchange: sharekhanEntryOrder.exchange,
-                scripCode,
-                status: 'pending',
-                createdAt: trade.openedAt,
-                confirmedAt: null,
-                confirmationAttempts: 0,
-                confirmationError: null,
-                exitPlan: {
-                  target: trade.target,
-                  stop: trade.stop,
-                  squareOff: 'intraday dashboard managed exit',
-                },
-                audit: [{ at: trade.openedAt, event: 'live_order_placed', orderId, elapsed: 0, attempts: 1 }],
-              };
-              sharekhanLiveFailureCount = 0;
-              console.log(`[sharekhan-live] Order placed: ${orderId} for ${symbol}`);
-            } catch (e) {
-              sharekhanLiveFailureCount++;
-              console.error(`[sharekhan-live] Order placement failed (${sharekhanLiveFailureCount}):`, e.message);
-              if (sharekhanLiveFailureCount >= 3) {
-                console.warn('[sharekhan-live] Too many failures. Disabling sharekhan_live mode, falling back to Zerodha dry-run mode.');
-                setBrokerMode('zerodha_dry_run');
-              }
-              trade.status = 'failed';
-              trade.broker = {
-                name: 'sharekhan',
-                mode: 'live',
-                status: 'failed',
-                error: e.message,
-                createdAt: trade.openedAt,
-                audit: [{ at: trade.openedAt, event: 'live_order_failed', error: e.message }],
-              };
-            }
-          }
-          trades.unshift(trade);
-          savePaperTradesFile(trades);
-          broadcastPaperTradeState('open');
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, trade }));
-          return;
-        }
-
-        if (action === 'close') {
-          const id = String(payload.id || '');
-          const exitPrice = Number(payload.exitPrice);
-          const trade = trades.find(t => t.id === id && t.status === 'open');
-          if (!trade) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Open trade id is required', code: 'OPEN_TRADE_REQUIRED' }));
-            return;
-          }
-          if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Open trade id and exitPrice are required' }));
-            return;
-          }
-          const closedAt = String(payload.transactionTime || '').match(/\d{4}-\d{2}-\d{2}T/) ? payload.transactionTime : new Date().toISOString();
-
-          const isZerodhaLive = trade.broker?.name === 'zerodha' && trade.broker?.mode === 'live' && trade.broker?.orderId;
-          const isSharekhanLive = trade.broker?.name === 'sharekhan' && trade.broker?.mode === 'live' && trade.broker?.orderId;
-
-          // For live broker trades, attempt the broker exit BEFORE mutating trade state.
-          // If it fails, leave the trade open and return an error.
-          if (isZerodhaLive && (kiteClientLive || await ensureZerodhaInitialized({ force: true }))) {
-            try {
-              const orderId = trade.broker.orderId;
-              if (trade.broker.status === 'pending') {
-                await kiteClientLive.cancelOrder(orderId);
-                trade.broker.status = 'cancelled';
-              } else if (trade.broker.status === 'confirmed') {
-                const exitOrder = buildZerodhaDryRunOrder({ ...trade, exitPrice }, trade, 'exit');
-                const exitOrderId = await kiteClientLive.placeOrder(exitOrder);
-                trade.broker.exitOrderId = exitOrderId;
-                trade.broker.status = 'exit_placed';
-                trade.broker.exitPlacedAt = closedAt;
-              }
-              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
-              trade.broker.audit.push({ at: closedAt, event: 'live_exit_processed', reason: payload.reason || 'Manual exit', orderId: trade.broker.orderId });
-              zerodhaLiveFailureCount = 0;
-              console.log(`[zerodha-live] Exit processed for order: ${orderId}`);
-            } catch (e) {
-              if (!isZerodhaIpBlockError(e)) zerodhaLiveFailureCount++;
-              console.error(`[zerodha-live] Exit failed (${zerodhaLiveFailureCount}):`, e.message);
-              if (zerodhaLiveFailureCount >= 3) {
-                console.warn('[zerodha-live] Too many failures. Disabling zerodha_live mode, falling back to Zerodha dry-run mode.');
-                setBrokerMode('zerodha_dry_run');
-              }
-              trade.broker.status = 'exit_failed';
-              trade.broker.error = e.message;
-              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
-              trade.broker.audit.push({ at: closedAt, event: 'live_exit_failed', error: e.message });
-              savePaperTradesFile(trades);
-              broadcastPaperTradeState('exit-failed');
-              res.writeHead(500, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: `Zerodha exit failed: ${e.message}`, code: 'EXIT_FAILED', trade }));
-              return;
-            }
-          } else if (isSharekhanLive && (sharekhanClientLive || await ensureSharekhanInitialized({ force: true }))) {
-            try {
-              const orderId = trade.broker.orderId;
-              if (trade.broker.status === 'pending') {
-                await withSharekhanCredentialReload(() => sharekhanClientLive.cancelOrder(trade.broker));
-                trade.broker.status = 'cancelled';
-              } else if (trade.broker.status === 'confirmed') {
-                const exitOrder = buildSharekhanLiveOrder({ ...trade, exitPrice }, trade, 'exit', trade.broker.scripCode);
-                if (!exitOrder) throw new Error('Unable to build Sharekhan exit order');
-                const exitOrderId = await withSharekhanCredentialReload(() => sharekhanClientLive.placeOrder(exitOrder));
-                trade.broker.exitOrderId = exitOrderId;
-                trade.broker.status = 'exit_placed';
-                trade.broker.exitPlacedAt = closedAt;
-              }
-              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
-              trade.broker.audit.push({ at: closedAt, event: 'live_exit_processed', reason: payload.reason || 'Manual exit', orderId: trade.broker.orderId });
-              sharekhanLiveFailureCount = 0;
-              console.log(`[sharekhan-live] Exit processed for order: ${orderId}`);
-            } catch (e) {
-              sharekhanLiveFailureCount++;
-              console.error(`[sharekhan-live] Exit failed (${sharekhanLiveFailureCount}):`, e.message);
-              if (sharekhanLiveFailureCount >= 3) {
-                console.warn('[sharekhan-live] Too many failures. Disabling sharekhan_live mode, falling back to Zerodha dry-run mode.');
-                setBrokerMode('zerodha_dry_run');
-              }
-              trade.broker.status = 'exit_failed';
-              trade.broker.error = e.message;
-              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
-              trade.broker.audit.push({ at: closedAt, event: 'live_exit_failed', error: e.message });
-              savePaperTradesFile(trades);
-              broadcastPaperTradeState('exit-failed');
-              res.writeHead(500, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: `Sharekhan exit failed: ${e.message}`, code: 'EXIT_FAILED', trade }));
-              return;
-            }
-          }
-
-          // Broker exit succeeded (or non-live trade) — now mark the trade as closed.
-          const pnl = computePaperTradePnl(trade, exitPrice);
-          Object.assign(trade, {
-            status: 'closed',
-            exitPrice:+exitPrice.toFixed(2),
-            closedAt,
-            closeReason: payload.reason || 'Manual exit',
-            pnl: pnl.pnl,
-            pnlPct: pnl.pnlPct,
-            grossPnl: pnl.grossPnl,
-            charges: pnl.charges,
-            chargeBreakup: pnl.chargeBreakup,
-            exitOwner: 'manual',
-            managedBySimulation: false,
-            managementState: 'manual_only',
-          });
-          if (trade.broker?.name === 'zerodha' && trade.broker?.mode === 'dry-run') {
-            const exitOrder = buildZerodhaDryRunOrder({ ...trade, exitPrice }, trade, 'exit');
-            trade.broker.status = 'exit_dry_run';
-            trade.broker.exitOrder = exitOrder;
-            trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
-            trade.broker.audit.push({ at: closedAt, event: 'exit_dry_run_created', reason: trade.closeReason, order: exitOrder });
-          }
-          savePaperTradesFile(trades);
-          broadcastPaperTradeState('close');
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, trade }));
-          return;
-        }
-
-        if (action === 'partial-close') {
-          const id = String(payload.id || '');
-          const exitPrice = Number(payload.exitPrice);
-          const requestedQty = Number(payload.qty);
-          const trade = trades.find(t => t.id === id && t.status === 'open');
-          const openQty = Math.floor(Number(trade?.qty || 0));
-          if (!trade) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Open trade id is required', code: 'OPEN_TRADE_REQUIRED' }));
-            return;
-          }
-          if (!Number.isFinite(exitPrice) || exitPrice <= 0 || !Number.isInteger(requestedQty) || requestedQty <= 0) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Open trade id, partial qty below open qty, and exitPrice are required' }));
-            return;
-          }
-          if (requestedQty >= openQty) {
-            res.writeHead(409, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Partial qty must be lower than open qty', code: 'PARTIAL_QTY_CONFLICT' }));
-            return;
-          }
-          const closedAt = String(payload.transactionTime || '').match(/\d{4}-\d{2}-\d{2}T/) ? payload.transactionTime : new Date().toISOString();
-          const partialTrade = {
-            ...trade,
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            parentId: trade.id,
-            status: 'closed',
-            qty: requestedQty,
-            reservedCapital:+(Number(trade.entryPrice) * requestedQty).toFixed(2),
-            exitPrice:+exitPrice.toFixed(2),
-            closedAt,
-            closeReason: payload.reason || 'Partial exit',
-            entryOwner: trade.entryOwner,
-            exitOwner: 'manual',
-            managedBySimulation: false,
-            managementState: 'manual_only',
-          };
-          const pnl = computePaperTradePnl(partialTrade, exitPrice);
-          Object.assign(partialTrade, {
-            pnl: pnl.pnl,
-            pnlPct: pnl.pnlPct,
-            grossPnl: pnl.grossPnl,
-            charges: pnl.charges,
-            chargeBreakup: pnl.chargeBreakup,
-          });
-          trade.qty = openQty - requestedQty;
-          trade.reservedCapital = +(Number(trade.entryPrice) * trade.qty).toFixed(2);
-          trade.partialExits = Array.isArray(trade.partialExits) ? trade.partialExits : [];
-          trade.partialExits.push({
-            id: partialTrade.id,
-            qty: requestedQty,
-            exitPrice:+exitPrice.toFixed(2),
-            closedAt,
-            reason: partialTrade.closeReason,
-            pnl: pnl.pnl,
-          });
-          trade._partialTargetBooked = true;
-          trade._runnerArmed = true;
-          trade._runnerWideTrail = !!payload.runner;
-          trade.target = payload.runner && Number.isFinite(Number(payload.target)) ? +Number(payload.target).toFixed(2) : null;
-          trade.setupType = trade.setupType || 'TARGET_RUNNER';
-          if (trade.broker?.name === 'zerodha' && trade.broker?.mode === 'dry-run') {
-            const exitOrder = buildZerodhaDryRunOrder({ ...partialTrade, exitPrice, qty: requestedQty }, partialTrade, 'exit');
-            partialTrade.broker = partialTrade.broker || {};
-            partialTrade.broker.exitOrder = exitOrder;
-            trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
-            trade.broker.audit.push({ at: closedAt, event: 'partial_exit_dry_run_created', reason: partialTrade.closeReason, order: exitOrder });
-          } else if (
-            trade.broker?.name === 'sharekhan' &&
-            trade.broker?.mode === 'live' &&
-            (sharekhanClientLive || await ensureSharekhanInitialized({ force: true }))
-          ) {
-            try {
-              const exitOrder = buildSharekhanLiveOrder({ ...partialTrade, exitPrice, qty: requestedQty }, partialTrade, 'exit', trade.broker?.scripCode);
-              if (!exitOrder) throw new Error('Unable to build Sharekhan partial exit order');
-              const exitOrderId = await withSharekhanCredentialReload(() => sharekhanClientLive.placeOrder(exitOrder));
-              partialTrade.broker = partialTrade.broker || {};
-              partialTrade.broker.exitOrderId = exitOrderId;
-              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
-              trade.broker.audit.push({ at: closedAt, event: 'partial_exit_live_placed', reason: partialTrade.closeReason, orderId: exitOrderId });
-              sharekhanLiveFailureCount = 0;
-            } catch (e) {
-              sharekhanLiveFailureCount++;
-              trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
-              trade.broker.audit.push({ at: closedAt, event: 'partial_exit_live_failed', reason: partialTrade.closeReason, error: e.message });
-            }
-          }
-          trades.unshift(partialTrade);
-          savePaperTradesFile(trades);
-          broadcastPaperTradeState('partial-close');
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, trade, partial: partialTrade }));
-          return;
-        }
-
-        if (action === 'delete') {
-          const id = String(payload.id || '');
-          const trade = trades.find(t => t.id === id);
-          if (trade && trade.status !== 'closed') {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Only closed trades can be deleted', code: 'TRADE_NOT_CLOSED' }));
-            return;
-          }
-          if (proxyDbReady && id) {
-            try { deleteTrade(id); } catch (e) { console.warn('[trades] Delete failed:', id, e.message); }
-          }
-          const next = trades.filter(t => t.id !== id);
-          savePaperTradesFile(next);
-          broadcastPaperTradeState('delete');
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, deleted: trades.length - next.length }));
-          return;
-        }
-
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Unknown action' }));
-        } catch (e) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid JSON' }));
-        }
-      });
-      return;
-    }
-    res.writeHead(405, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Method not allowed' }));
-    return;
-  }
-
-  // /simulation-replay/why -- compact explanation for one symbol.
-  if (pathname === '/simulation-replay/why') {
-    if (req.method !== 'GET') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method not allowed' }));
-      return;
-    }
-    try {
-      const day = String(searchParams.get('day') || getIstDateKey()).trim();
-      const symbol = String(searchParams.get('symbol') || '').trim();
-      if (!symbol) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok:false, error:'symbol is required' }));
-        return;
-      }
-      const payload = buildWhyMissedResponse(day, symbol);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(payload));
-    } catch(e) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok:false, error:e.message || 'Why missed failed' }));
-    }
-    return;
-  }
-
-  // /simulation-replay/jobs -- async replay/backtest job wrapper for long sweep/autotune runs.
-  if (pathname === '/simulation-replay/jobs') {
-    if (req.method === 'POST') {
-      try {
-        // Read from query params first (more reliable via Remix proxy), then body
-        let day = searchParams.get('day') || '';
-        let mode = searchParams.get('mode') || '';
-        if (!day || !mode) {
-          let payload = {};
-          try { payload = await readJsonBody(req, 3000); } catch (_) { payload = {}; }
-          day = day || String(payload.day || '').trim();
-          mode = mode || String(payload.mode || '').trim();
-        }
-        day = day || getIstDateKey();
-        const jobMode = replayModeFromParams({ mode });
-        const job = createReplayJob(day, jobMode);
-        res.writeHead(202, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok:true, job:compactReplayJob(job), jobs:compactReplayJobHistory() }));
-      } catch(e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok:false, error:e.message || 'Could not create replay job' }));
-      }
-      return;
-    }
-    if (req.method === 'GET') {
-      const id = String(searchParams.get('id') || '').trim();
-      if (!id) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok:true, jobs:compactReplayJobHistory() }));
-        return;
-      }
-      const job = replayJobs.get(id);
-      if (!job) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok:false, error:'Replay job not found' }));
-        return;
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok:true, job:compactReplayJob(job), jobs:compactReplayJobHistory() }));
-      return;
-    }
-    res.writeHead(405, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Method not allowed' }));
-    return;
-  }
-
-  // /trade-settings -- persist dashboard-applied trade rule overrides in workspace
-  if (pathname === '/trade-settings') {
-    if (req.method === 'GET') {
-      const state = loadTradeSettingsFile();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok:true, ...state }));
-      return;
-    }
-    if (req.method === 'POST') {
-      try {
-        const payload = await readJsonBody(req);
-        const overrides = saveTradeSettingsFile(payload?.overrides || payload || {});
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok:true, savedAt:Date.now(), overrides }));
-      } catch(e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok:false, error:e.message || 'Could not save trade settings' }));
-      }
-      return;
-    }
-    res.writeHead(405, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Method not allowed' }));
-    return;
-  }
-
-  // /simulation-replay -- run replay/backtest on the proxy and return compact report rows.
-  if (pathname === '/simulation-replay') {
-    if (req.method !== 'GET') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method not allowed' }));
-      return;
-    }
-    try {
-      const day = (searchParams.get('day') || searchParams.get('date') || getIstDateKey()).trim();
-      const mode = String(searchParams.get('mode') || 'report').toLowerCase();
-      const cachedOnly = searchParams.get('cachedOnly') === '1';
-      let payload;
-      if (mode === 'autotune') {
-        payload = buildReplayAutoTuneResponse(day);
-      } else if (mode === 'deep_sweep') {
-        payload = buildReplayDeepSweepResponse(day, { cachedOnly });
-      } else {
-        payload = buildReplayResponse(day, { sweep: mode === 'sweep' || searchParams.get('sweep') === '1' });
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(payload));
-    } catch(e) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok:false, error:e.message || 'Replay failed' }));
-    }
-    return;
-  }
-
-  // /simulation-snapshots -- intraday strategy replay snapshots, retained for configured days
-  if (pathname === '/simulation-snapshots') {
-    if (req.method === 'GET') {
-      const day = (searchParams.get('day') || searchParams.get('date') || '').trim();
-      const state = day ? loadSimulationSnapshotsFile(day) : { snapshots: loadAllSimulationSnapshots() };
-      const snapshots = day ? (saveSimulationSnapshotsFile(state, day) || state.snapshots) : state.snapshots;
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: day || null, count: snapshots.length, snapshots }));
-      return;
-    }
-    if (req.method === 'POST') {
-      try {
-        const payload = await readJsonBody(req);
-        const { day, snapshots, snapshot } = appendSimulationSnapshot(payload || {});
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: day, file: path.basename(getSimulationSnapshotFile(day)), count: snapshots.length, snapshot }));
-      } catch(e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message || 'Invalid snapshot payload' }));
-      }
-      return;
-    }
-    res.writeHead(405, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Method not allowed' }));
-    return;
-  }
-
-  // /etf-prefs  -- persist custom ETF symbols in workspace
-  if (pathname === '/etf-prefs') {
-    if (req.method === 'GET') {
-      const list = loadSavedETFsFile();
-      console.log('[proxy] /etf-prefs GET -> 200, items=', list.length);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(list));
-      return;
-    }
-    if (req.method === 'POST') {
-      const chunks = [];
-      req.on('data', chunk => chunks.push(chunk));
-      req.on('end', () => {
-        try {
-          const body = Buffer.concat(chunks).toString('utf8');
-          const payload = JSON.parse(body);
-          const symbols = Array.isArray(payload) ? payload.map(s => String(s).trim().toUpperCase()).filter(Boolean) : [];
-          saveSavedETFsFile(symbols);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, saved: symbols.length }));
-        } catch (e) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid JSON' }));
-        }
-      });
-      return;
-    }
-    res.writeHead(405, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Method not allowed' }));
-    return;
-  }
-
-  // /etf-favs  -- persist ETF favorites in workspace
-  if (pathname === '/etf-favs') {
-    if (req.method === 'GET') {
-      const list = loadSavedETFFavsFile();
-      console.log('[proxy] /etf-favs GET -> 200, items=', list.length);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(list));
-      return;
-    }
-    if (req.method === 'POST') {
-      const chunks = [];
-      req.on('data', chunk => chunks.push(chunk));
-      req.on('end', () => {
-        try {
-          const body = Buffer.concat(chunks).toString('utf8');
-          const payload = JSON.parse(body);
-          const symbols = Array.isArray(payload) ? payload.map(s => String(s).trim().toUpperCase()).filter(Boolean) : [];
-          saveSavedETFFavsFile(symbols);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, saved: symbols.length }));
-        } catch (e) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid JSON' }));
-        }
-      });
-      return;
-    }
-    res.writeHead(405, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Method not allowed' }));
-    return;
-  }
-
-  // /stock-prefs  -- persist custom stock symbols in workspace
-  if (pathname === '/stock-prefs') {
-    if (req.method === 'GET') {
-      const list = loadSavedStocksFile();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(list));
-      return;
-    }
-    if (req.method === 'POST') {
-      const chunks = [];
-      req.on('data', chunk => chunks.push(chunk));
-      req.on('end', () => {
-        try {
-          const body = Buffer.concat(chunks).toString('utf8');
-          const payload = JSON.parse(body);
-          let toSave = [];
-          if (Array.isArray(payload)) {
-            // Support array of strings or array of objects { sym, sector, cap }
-            if (payload.length && typeof payload[0] === 'string') {
-              toSave = payload.map(s => resolveNseSymbol(s)).filter(Boolean);
-            } else {
-              toSave = payload.map(item => {
-                if (!item || typeof item === 'string') return null;
-                const sym = resolveNseSymbol(item.sym||item.symbol||'');
-                if (!sym) return null;
-                return { sym, name: item.name || sym, sector: item.sector||null, cap: item.cap||null };
-              }).filter(Boolean);
-            }
-          }
-          console.log('[proxy] saving stock prefs:', JSON.stringify(toSave));
-          saveSavedStocksFile(toSave);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, saved: toSave.length }));
-        } catch (e) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid JSON' }));
-        }
-      });
-      return;
-    }
-    res.writeHead(405, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Method not allowed' }));
-    return;
-  }
-
-  // /stock-favs  -- persist Stock favorites in workspace
-  if (pathname === '/stock-favs') {
-    if (req.method === 'GET') {
-      const list = loadSavedStockFavsFile();
-      console.log('[proxy] /stock-favs GET -> 200, items=', list.length);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(list));
-      return;
-    }
-    if (req.method === 'POST') {
-      const chunks = [];
-      req.on('data', chunk => chunks.push(chunk));
-      req.on('end', () => {
-        try {
-          const body = Buffer.concat(chunks).toString('utf8');
-          const payload = JSON.parse(body);
-          const symbols = Array.isArray(payload) ? payload.map(s => String(s).trim().toUpperCase()).filter(Boolean) : [];
-          saveSavedStockFavsFile(symbols);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, saved: symbols.length }));
-        } catch (e) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid JSON' }));
-        }
-      });
-      return;
-    }
-    res.writeHead(405, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Method not allowed' }));
-    return;
-  }
+  if (await handlePreferenceRoute(req, res, pathname, {
+    readJsonBody,
+    loadSavedETFsFile,
+    saveSavedETFsFile,
+    loadSavedETFFavsFile,
+    saveSavedETFFavsFile,
+    loadSavedStocksFile,
+    saveSavedStocksFile,
+    loadSavedStockFavsFile,
+    saveSavedStockFavsFile,
+    resolveNseSymbol,
+  })) return;
 
   // ── Static file serving (serve dashboard and assets from repo) ──
   try {
@@ -9097,7 +7323,8 @@ async function initializeProxy() {
   // Initialize Zerodha integration
   await Promise.all([initializeZerodha(), initializeSharekhan()]);
   
-  startFreshNewsCron();
+  freshNewsService.startCron();
+  resultCalendarService.startCron();
   startReplayDeepSweepScheduler();
 }
 

@@ -17,6 +17,7 @@ const proxyPaths = new Set([
   '/intraday-signals',
   '/paper-trades',
   '/portfolio/day-pnl',
+  '/result-calendar',
   '/simulation-snapshots',
   '/sparklines',
   '/stock-favs',

@@ -18,3 +18,7 @@ test('should proxy broker portfolio paths', () => {
   assert.equal(shouldProxyPath('/zerodha-portfolio'), true)
   assert.equal(shouldProxyPath('/sharekhan-portfolio'), true)
 })
+
+test('should proxy dedicated result calendar path', () => {
+  assert.equal(shouldProxyPath('/result-calendar'), true)
+})

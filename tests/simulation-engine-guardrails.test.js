@@ -34,9 +34,9 @@ test('momentum runner exits early when it makes no progress and deteriorates', (
     trade,
     99.8,
     candidate,
-    '2026-06-25T05:13:00.000Z',
+    '2026-06-25T05:25:00.000Z',
     {
-      SIMULATION_NO_PROGRESS_EXIT_MIN: 12,
+      SIMULATION_NO_PROGRESS_RUNNER_EXIT_MIN: 25,
       SIMULATION_NO_PROGRESS_MIN_FAVORABLE_PCT: 0.2,
       SIMULATION_NO_PROGRESS_ADVERSE_PCT: 0.15,
     }
@@ -704,13 +704,13 @@ test('no-progress exit uses setup-specific timing and VWAP continuation volume f
     { ...baseTrade, setupType: 'MOMENTUM_RUNNER' },
     99.8,
     weakCandidate,
-    '2026-07-02T05:08:30.000Z'
+    '2026-07-02T05:24:30.000Z'
   ), null);
   assert.equal(SimulationEngine.getSimulationExit(
     { ...baseTrade, setupType: 'MOMENTUM_RUNNER' },
     99.8,
     weakCandidate,
-    '2026-07-02T05:09:00.000Z'
+    '2026-07-02T05:25:00.000Z'
   )?.reason, 'Simulation zero-progress exit');
   assert.equal(SimulationEngine.getSimulationExit(
     { ...baseTrade, setupType: 'FRESH_BREAKOUT' },

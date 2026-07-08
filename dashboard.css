@@ -41,6 +41,7 @@
   .icon-btn{width:32px;height:32px;border-radius:50%;border:1px solid rgba(245,158,11,.35);background:rgba(245,158,11,.12);color:var(--yellow);font-weight:900;cursor:pointer;margin-left:auto;}
   #top-action-bar .icon-btn{width:26px;height:26px;padding:0;margin-left:0;font-size:13px;line-height:1;display:inline-flex;align-items:center;justify-content:center;flex:0 0 26px;}
   #top-action-bar #fresh-news-btn{margin-left:auto;}
+  #top-action-bar #result-calendar-btn{font-size:11px;font-weight:900;}
   .icon-btn.has-items{background:rgba(244,63,94,.16);border-color:rgba(244,63,94,.45);color:var(--red);}
   #dashboard-health-banner{margin:-4px 0 16px;padding:10px 12px;border-radius:9px;border:1px solid rgba(245,158,11,.28);background:rgba(245,158,11,.09);color:var(--yellow);font-size:12px;line-height:1.5;}
   #dashboard-health-banner.ok{border-color:rgba(16,185,129,.25);background:rgba(16,185,129,.07);color:var(--green);}
@@ -285,10 +286,15 @@
   .spark-bar{width:2px;border-radius:1px;}
   .health-cell{display:flex;flex-direction:column;gap:4px;min-width:80px;}
   .health-stack{display:flex;flex-direction:column;align-items:flex-start;gap:4px;}
+  .health-badge-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap;max-width:180px;}
   .result-badge{display:inline-flex;align-items:center;width:max-content;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800;border:1px solid var(--border);}
   .result-badge.positive{background:rgba(16,185,129,.13);border-color:rgba(16,185,129,.32);color:var(--green);}
   .result-badge.mixed{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3);color:var(--yellow);}
   .result-badge.negative{background:rgba(244,63,94,.12);border-color:rgba(244,63,94,.3);color:var(--red);}
+  .result-calendar-badge{display:inline-flex;align-items:center;width:max-content;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:900;border:1px solid rgba(14,165,233,.32);background:rgba(14,165,233,.12);color:var(--accent2);white-space:nowrap;}
+  .result-calendar-badge.today{border-color:rgba(245,158,11,.38);background:rgba(245,158,11,.13);color:var(--yellow);}
+  .result-calendar-badge.upcoming{border-color:rgba(14,165,233,.34);background:rgba(14,165,233,.12);color:var(--accent2);}
+  .result-calendar-badge.filed{border-color:rgba(100,116,139,.32);background:rgba(100,116,139,.12);color:var(--muted);}
   .health-bar-wrap{display:flex;align-items:center;gap:6px;}
   .health-label{font-size:10px;color:var(--muted);width:30px;}
   .health-bar{flex:1;height:4px;background:var(--dim);border-radius:2px;overflow:hidden;}
@@ -353,6 +359,19 @@
 .new-trade-pill{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;background:rgba(16,185,129,.16);border:1px solid rgba(16,185,129,.35);color:var(--green);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.3px;}
 .open-trades-table{min-width:1120px;}
 .fresh-news-table{min-width:980px;}
+.result-calendar-table{min-width:860px;}
+.result-calendar-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;}
+.result-calendar-subtitle,.result-calendar-window{color:var(--muted);font-size:12px;}
+.result-calendar-window{white-space:nowrap;padding-top:4px;}
+.result-calendar-date-strip{display:flex;gap:0;overflow-x:auto;border-bottom:1px solid var(--border);margin:6px 0 16px;}
+.result-calendar-date-tab{min-width:104px;padding:10px 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--text);text-align:left;cursor:pointer;font-weight:800;}
+.result-calendar-date-tab small{display:block;margin-top:3px;color:var(--muted);font-size:11px;font-weight:600;}
+.result-calendar-date-tab.active{border-bottom-color:var(--accent);color:var(--accent);}
+.result-calendar-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;}
+.result-calendar-search{min-width:260px;flex:1;border:1px solid var(--border);background:var(--panel);color:var(--text);border-radius:6px;padding:10px 12px;}
+.result-calendar-controls label{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;white-space:nowrap;}
+.result-calendar-sort{border:1px solid var(--border);background:var(--panel);color:var(--text);border-radius:6px;padding:9px 10px;}
+.result-calendar-symbol{margin-top:3px;color:var(--muted);font-size:11px;font-weight:700;}
 .fresh-news-title{white-space:normal!important;line-height:1.35;min-width:360px;}
 .fresh-news-title a{color:var(--text);text-decoration:none;}
 .fresh-news-title a:hover{color:var(--accent);}

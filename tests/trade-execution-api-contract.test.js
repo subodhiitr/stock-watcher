@@ -25,12 +25,12 @@ function loadProxyWithFixture(fixtureName) {
   return proxy;
 }
 
-async function request(proxy, { method, path: requestPath, body }) {
+async function request(proxy, { method, path: requestPath, body, headers = {}, remoteAddress = '127.0.0.1' }) {
   const req = new PassThrough();
   req.method = method;
   req.url = requestPath;
-  req.headers = body == null ? {} : { 'content-type': 'application/json' };
-  req.socket = { remoteAddress: '127.0.0.1' };
+  req.headers = { ...(body == null ? {} : { 'content-type': 'application/json' }), ...headers };
+  req.socket = { remoteAddress };
 
   const state = { statusCode: 200, headers: {}, chunks: [] };
   const res = {
@@ -362,6 +362,60 @@ test('broker mode excludes paper and defaults opens to zerodha dry run', async (
   assert.equal(opened.json?.trade?.executionMode, 'zerodha_dry_run');
   assert.equal(opened.json?.trade?.broker?.name, 'zerodha');
   assert.equal(opened.json?.trade?.broker?.mode, 'dry-run');
+});
+
+test('local mutation APIs reject non-local origins and require live confirmations', async () => {
+  const proxy = loadProxyWithFixture('local-api-safety');
+
+  const crossOrigin = await request(proxy, {
+    method: 'POST',
+    path: '/broker-mode',
+    headers: { origin: 'https://example.com', host: 'localhost:3001' },
+    body: { mode: 'zerodha_dry_run' }
+  });
+  assert.equal(crossOrigin.statusCode, 403);
+
+  const liveWithoutConfirm = await request(proxy, {
+    method: 'POST',
+    path: '/broker-mode',
+    headers: { origin: 'http://localhost:44100', host: 'localhost:44100' },
+    body: { mode: 'zerodha_live' }
+  });
+  assert.equal(liveWithoutConfirm.statusCode, 409);
+  assert.match(liveWithoutConfirm.json?.error || '', /confirmation token LIVE/);
+
+  const liveWithConfirm = await request(proxy, {
+    method: 'POST',
+    path: '/broker-mode',
+    headers: {
+      origin: 'http://localhost:44100',
+      host: 'localhost:44100',
+      'x-live-trade-confirm': 'LIVE',
+    },
+    body: { mode: 'zerodha_live', liveConfirm: 'LIVE' }
+  });
+  assert.equal(liveWithConfirm.statusCode, 200);
+  assert.equal(liveWithConfirm.json?.mode, 'zerodha_live');
+
+  const liveTradeWithoutConfirm = await request(proxy, {
+    method: 'POST',
+    path: '/trade-execution',
+    headers: { origin: 'http://localhost:44100', host: 'localhost:44100' },
+    body: { action: 'open', symbol: 'INFY', side: 'buy', qty: 1, entryPrice: 1000, brokerMode: 'sharekhan_live' }
+  });
+  assert.equal(liveTradeWithoutConfirm.statusCode, 409);
+  assert.match(liveTradeWithoutConfirm.json?.error || '', /Live trade execution requires confirmation token LIVE/);
+});
+
+test('JSON body parser returns 413 for oversized mutation bodies', async () => {
+  const proxy = loadProxyWithFixture('json-body-limit');
+  const oversized = await request(proxy, {
+    method: 'POST',
+    path: '/stock-favs',
+    body: [String('A').repeat(300 * 1024)]
+  });
+  assert.equal(oversized.statusCode, 413);
+  assert.match(oversized.json?.error || '', /exceeds/);
 });
 
 test('open action captures requested broker mode and close uses per-trade broker details', async () => {

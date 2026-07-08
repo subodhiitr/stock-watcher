@@ -1,0 +1,286 @@
+{
+  "version": 3,
+  "savedAt": 1783478439415,
+  "partitioned": true,
+  "days": {
+    "2026-07-08": {
+      "date": "2026-07-08",
+      "savedAt": 1783478439319,
+      "builtInMs": 85,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-09": {
+      "date": "2026-07-09",
+      "savedAt": 1783478439319,
+      "builtInMs": 91,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-10": {
+      "date": "2026-07-10",
+      "savedAt": 1783478439319,
+      "builtInMs": 94,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 2,
+      "symbolCount": 2
+    },
+    "2026-07-11": {
+      "date": "2026-07-11",
+      "savedAt": 1783478439319,
+      "builtInMs": 95,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-12": {
+      "date": "2026-07-12",
+      "savedAt": 1783478439319,
+      "builtInMs": 97,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-13": {
+      "date": "2026-07-13",
+      "savedAt": 1783478439319,
+      "builtInMs": 98,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-14": {
+      "date": "2026-07-14",
+      "savedAt": 1783478439319,
+      "builtInMs": 100,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-15": {
+      "date": "2026-07-15",
+      "savedAt": 1783478439319,
+      "builtInMs": 101,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 1,
+      "symbolCount": 1
+    },
+    "2026-07-16": {
+      "date": "2026-07-16",
+      "savedAt": 1783478439319,
+      "builtInMs": 103,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 1,
+      "symbolCount": 1
+    },
+    "2026-07-17": {
+      "date": "2026-07-17",
+      "savedAt": 1783478439319,
+      "builtInMs": 105,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-18": {
+      "date": "2026-07-18",
+      "savedAt": 1783478439319,
+      "builtInMs": 107,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-19": {
+      "date": "2026-07-19",
+      "savedAt": 1783478439319,
+      "builtInMs": 109,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-20": {
+      "date": "2026-07-20",
+      "savedAt": 1783478439319,
+      "builtInMs": 110,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-21": {
+      "date": "2026-07-21",
+      "savedAt": 1783478439319,
+      "builtInMs": 112,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 1,
+      "symbolCount": 1
+    },
+    "2026-07-22": {
+      "date": "2026-07-22",
+      "savedAt": 1783478439319,
+      "builtInMs": 114,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-23": {
+      "date": "2026-07-23",
+      "savedAt": 1783478439319,
+      "builtInMs": 116,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 1,
+      "symbolCount": 1
+    },
+    "2026-07-24": {
+      "date": "2026-07-24",
+      "savedAt": 1783478439319,
+      "builtInMs": 117,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 2,
+      "symbolCount": 2
+    },
+    "2026-07-25": {
+      "date": "2026-07-25",
+      "savedAt": 1783478439319,
+      "builtInMs": 119,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-26": {
+      "date": "2026-07-26",
+      "savedAt": 1783478439319,
+      "builtInMs": 120,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-27": {
+      "date": "2026-07-27",
+      "savedAt": 1783478439319,
+      "builtInMs": 122,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-28": {
+      "date": "2026-07-28",
+      "savedAt": 1783478439319,
+      "builtInMs": 124,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 2,
+      "symbolCount": 2
+    },
+    "2026-07-29": {
+      "date": "2026-07-29",
+      "savedAt": 1783478439319,
+      "builtInMs": 127,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 1,
+      "symbolCount": 1
+    },
+    "2026-07-30": {
+      "date": "2026-07-30",
+      "savedAt": 1783478439319,
+      "builtInMs": 129,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-31": {
+      "date": "2026-07-31",
+      "savedAt": 1783478439319,
+      "builtInMs": 130,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-08-01": {
+      "date": "2026-08-01",
+      "savedAt": 1783478439319,
+      "builtInMs": 132,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-08-02": {
+      "date": "2026-08-02",
+      "savedAt": 1783478439319,
+      "builtInMs": 133,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-08-03": {
+      "date": "2026-08-03",
+      "savedAt": 1783478439319,
+      "builtInMs": 135,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-08-04": {
+      "date": "2026-08-04",
+      "savedAt": 1783478439319,
+      "builtInMs": 136,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-08-05": {
+      "date": "2026-08-05",
+      "savedAt": 1783478439319,
+      "builtInMs": 139,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-08-06": {
+      "date": "2026-08-06",
+      "savedAt": 1783478439319,
+      "builtInMs": 140,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-08-07": {
+      "date": "2026-08-07",
+      "savedAt": 1783478439319,
+      "builtInMs": 142,
+      "source": "nse-board-meetings",
+      "scanned": 20,
+      "count": 0,
+      "symbolCount": 0
+    }
+  }
+}

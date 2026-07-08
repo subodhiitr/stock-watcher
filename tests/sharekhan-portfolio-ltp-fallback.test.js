@@ -6,6 +6,7 @@ const { PassThrough } = require('node:stream');
 
 const FIXTURE_ROOT = path.join(__dirname, '.sharekhan-portfolio-ltp-fixtures');
 const PROXY_MODULE_PATH = path.join(__dirname, '..', 'ticker_proxy.js');
+const BROKER_ROUTE_PATH = path.join(__dirname, '..', 'server', 'routes', 'broker.js');
 
 function resetFixtureRoot() {
   fs.rmSync(FIXTURE_ROOT, { recursive: true, force: true });
@@ -108,10 +109,11 @@ test('Sharekhan portfolio enriches missing LTP from app-stored snapshot prices',
 
 test('Sharekhan portfolio builds app price fallback once per request', () => {
   const source = fs.readFileSync(PROXY_MODULE_PATH, 'utf8');
+  const brokerRouteSource = fs.readFileSync(BROKER_ROUTE_PATH, 'utf8');
   assert.match(source, /function buildStoredAppPriceMap\(/);
   assert.match(source, /function loadLatestSimulationSnapshots\(/);
-  assert.match(source, /const storedPrices = buildStoredAppPriceMap\(/);
-  assert.doesNotMatch(source, /readStoredAppPrice\(h\.symbol\)/);
+  assert.match(brokerRouteSource, /const storedPrices = deps\.buildStoredAppPriceMap\(/);
+  assert.doesNotMatch(brokerRouteSource, /readStoredAppPrice\(h\.symbol\)/);
   const buildPriceMapSource = source.slice(
     source.indexOf('function buildStoredAppPriceMap('),
     source.indexOf('function broadcastIntradayLive(')

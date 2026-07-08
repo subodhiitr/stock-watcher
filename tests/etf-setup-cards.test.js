@@ -68,3 +68,29 @@ test('fresh news opens from action bar icon and is removed from setup cards', ()
   assert.doesNotMatch(setupSource, /Fresh News/);
   assert.doesNotMatch(setupSource, /openFreshNewsModal/);
 });
+
+test('result calendar opens beside fresh news and renders row badges', () => {
+  const source = fs.readFileSync(DASHBOARD_APP_PATH, 'utf8');
+  const html = fs.readFileSync(DASHBOARD_HTML_PATH, 'utf8');
+
+  assert.match(html, /id="result-calendar-btn"/);
+  assert.match(html, /onclick="openResultCalendarModal\(\)"/);
+  assert.match(html, /id="result-calendar-modal"/);
+  assert.match(source, /resultCalendarBySymbol/);
+  assert.match(source, /const RESULT_CALENDAR_ENDPOINT/);
+  assert.match(source, /function loadResultCalendarSummary\(/);
+  assert.match(source, /function renderResultCalendarBadge\(/);
+  assert.match(source, /function renderHealthEventBadges\(/);
+  assert.match(source, /renderHealthEventBadges\(row\.sym\)/);
+  assert.match(source, /function renderResultCalendarModal\(/);
+  assert.match(source, /function setResultCalendarDate\(/);
+  assert.match(source, /function setResultCalendarSearch\(/);
+  assert.match(source, /function setResultCalendarSort\(/);
+  assert.match(source, /result-calendar-date-strip/);
+  assert.match(source, /Search calendar by symbol or company/);
+  assert.match(source, /Company Name/);
+  assert.match(source, /Result Type/);
+  assert.match(source, /Market cap/);
+  assert.match(source, /loadResultCalendarSummary\(false\)/);
+  assert.match(html, /loadResultCalendarSummary\(true\)\.then\(renderResultCalendarModal\)/);
+});

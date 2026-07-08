@@ -27,6 +27,7 @@ const SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;
 const SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;
 const SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;
 const FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;
+const RESULT_CALENDAR_ENDPOINT = `${PROXY}/result-calendar`;
 const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;
 const SIM_REPLAY_ENDPOINT = `${PROXY}/simulation-replay`;
 const SIM_REPLAY_JOB_ENDPOINT = `${PROXY}/simulation-replay/jobs`;
@@ -958,6 +959,7 @@ let simulationRuntimeStatus = null;
 let brokerMode = ['zerodha_dry_run', 'zerodha_live', 'sharekhan_live'].includes(localStorage.getItem(BROKER_MODE_KEY))
   ? localStorage.getItem(BROKER_MODE_KEY)
   : 'zerodha_dry_run';
+let liveTradeConfirmArmed = false;
 let brokerConnectionStatus = null; // { mode, zerodha: { credentialsLoaded, clientsInitialized, pollerRunning, failureCount, isDisabled } }
 let brokerRefreshState = { busy:false, ok:null, message:'' };
 let brokerLoginPopup = null;
@@ -972,8 +974,14 @@ let notificationsOpen = false;
 let newSimulationTradeKeys = loadNewSimulationTradeKeys();
 let openTradesModalMode = 'all'; // all | new
 let freshNewsSummary = { loading:false, loaded:false, date:null, count:0, symbolCount:0, items:[], scanned:0, error:'' };
+let resultCalendarSummary = { loading:false, loaded:false, fromDate:null, toDate:null, days:30, count:0, symbolCount:0, resultCalendarBySymbol:{}, items:[], scanned:0, error:'' };
+let resultCalendarSelectedDate = '';
+let resultCalendarSearch = '';
+let resultCalendarSort = 'marketcap';
 let freshNewsLastFetchAt = 0;
+let resultCalendarLastFetchAt = 0;
 let freshNewsBusy = false;
+let resultCalendarBusy = false;
 const FRESH_NEWS_PAGE_SIZE = 25;
 let freshNewsOffset = 0;
 let secondaryLoadActive = false;
@@ -2152,6 +2160,20 @@ function normalizeManualTradeBrokerMode(mode) {
   return ['zerodha_dry_run', 'zerodha_live', 'sharekhan_live'].includes(normalized) ? normalized : 'zerodha_dry_run';
 }
 
+function isLiveBrokerMode(mode) {
+  const normalized = normalizeManualTradeBrokerMode(mode);
+  return normalized === 'zerodha_live' || normalized === 'sharekhan_live';
+}
+
+function requestLiveTradeConfirmation(mode, context = 'live trading') {
+  if (!isLiveBrokerMode(mode)) return true;
+  const label = mode === 'sharekhan_live' ? 'Sharekhan Live' : 'Zerodha Live';
+  const answer = window.prompt(`Type LIVE to confirm ${label} for ${context}. Real orders may be placed.`, '');
+  const ok = String(answer || '').trim().toUpperCase() === 'LIVE';
+  liveTradeConfirmArmed = ok;
+  return ok;
+}
+
 function getManualTradeBrokerMode(sym) {
   const key = String(sym || '').toUpperCase();
   const input = document.getElementById(paperBrokerSelectId(sym));
@@ -3041,6 +3063,13 @@ function renderTopActionBar() {
     newsBtn.textContent = '📰';
     newsBtn.classList.toggle('has-items', newsCount > 0);
     newsBtn.title = newsCount ? `Fresh News (${newsCount})` : 'Fresh News';
+  }
+  const calendarBtn = document.getElementById('result-calendar-btn');
+  if (calendarBtn) {
+    const resultCount = Number(resultCalendarSummary.symbolCount || resultCalendarSummary.count || 0);
+    calendarBtn.textContent = 'Cal';
+    calendarBtn.classList.toggle('has-items', resultCount > 0);
+    calendarBtn.title = resultCount ? `Results Calendar (${resultCount})` : 'Results Calendar';
   }
   scheduleNotificationPanel();
 }
@@ -4401,22 +4430,25 @@ function updateBrokerModeButton() {
 
 function toggleBrokerMode() {
   // Cycle through: zerodha_dry_run → zerodha_live → sharekhan_live → zerodha_dry_run
+  let nextMode;
   if (brokerMode === 'zerodha_dry_run') {
-    brokerMode = 'zerodha_live';
+    nextMode = 'zerodha_live';
   } else if (brokerMode === 'zerodha_live') {
-    brokerMode = 'sharekhan_live';
+    nextMode = 'sharekhan_live';
   } else if (brokerMode === 'sharekhan_live') {
-    brokerMode = 'zerodha_dry_run';
+    nextMode = 'zerodha_dry_run';
   } else {
-    brokerMode = 'zerodha_dry_run';
+    nextMode = 'zerodha_dry_run';
   }
+  if (isLiveBrokerMode(nextMode) && !requestLiveTradeConfirmation(nextMode, 'broker mode switching')) return;
+  brokerMode = nextMode;
   localStorage.setItem(BROKER_MODE_KEY, brokerMode);
   
   // Update mode on backend
   fetch('/broker-mode', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mode: brokerMode }),
+    headers: { 'Content-Type': 'application/json', ...(isLiveBrokerMode(brokerMode) ? { 'X-Live-Trade-Confirm': 'LIVE' } : {}) },
+    body: JSON.stringify({ mode: brokerMode, ...(isLiveBrokerMode(brokerMode) ? { liveConfirm: 'LIVE' } : {}) }),
   }).catch(e => console.warn('[broker] Mode change failed:', e.message));
   
   brokerPortfolioState = { loading: true, ok: false, data: null, error: '' };
@@ -6577,12 +6609,22 @@ async function loadPaperTrades(forceServer = false, trackNewTrades = false) {
 }
 
 async function postPaperTrade(action, payload) {
+  const requestedBrokerMode = normalizeManualTradeBrokerMode(payload?.brokerMode || payload?.executionMode || brokerMode);
+  const livePayload = action === 'open' && isLiveBrokerMode(requestedBrokerMode);
+  if (livePayload && !liveTradeConfirmArmed && !requestLiveTradeConfirmation(requestedBrokerMode, 'this trade')) {
+    throw new Error('Live trade confirmation cancelled');
+  }
+  const bodyPayload = {
+    action,
+    ...payload,
+    ...(livePayload ? { liveConfirm: 'LIVE' } : {}),
+  };
   let res;
   try {
     res = await fetch(PAPER_TRADES_ENDPOINT, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, ...payload }),
+      headers: { 'Content-Type': 'application/json', ...(livePayload ? { 'X-Live-Trade-Confirm': 'LIVE' } : {}) },
+      body: JSON.stringify(bodyPayload),
     });
   } catch (e) {
     throw new Error(`Could not reach local proxy at ${PROXY}. Start/restart with: node ticker_proxy.js`);
@@ -6873,6 +6915,37 @@ function renderNewsImpactHealthBadge(sym) {
   const prefix = sentiment === 'positive' ? 'News +' : sentiment === 'negative' ? 'News -' : 'News';
   const title = `${item.type || 'News'}: ${item.title || ''}${item.tradeImpactReason ? ' | ' + item.tradeImpactReason : ''}`;
   return `<span class="news-impact-badge health-news-badge ${escapeHTML(sentiment)}" title="${escapeHTML(title)}">${escapeHTML(prefix)}${Math.abs(score)}</span>`;
+}
+
+function getResultCalendarForSymbol(sym) {
+  const symbol = String(sym || '').toUpperCase();
+  const rows = resultCalendarSummary.resultCalendarBySymbol?.[symbol];
+  return Array.isArray(rows) ? rows : [];
+}
+
+function resultCalendarLabel(item) {
+  const date = item?.dateKey || (item?.eventDate ? String(item.eventDate).slice(0, 10) : '');
+  const shortDate = date ? formatNewsDate(date) : '--';
+  if (item?.status === 'today') return `Result Today`;
+  if (item?.status === 'upcoming') return `Result ${shortDate}`;
+  return `Result ${shortDate}`;
+}
+
+function renderResultCalendarBadge(sym) {
+  const item = getResultCalendarForSymbol(sym)[0];
+  if (!item) return '';
+  const status = escapeHTML(item.status || 'filed');
+  const title = `${item.title || item.type || 'Result calendar'}${item.period ? ' | ' + item.period : ''}`;
+  return `<span class="result-calendar-badge ${status}" title="${escapeHTML(title)}">${escapeHTML(resultCalendarLabel(item))}</span>`;
+}
+
+function renderHealthEventBadges(sym) {
+  const badges = [
+    renderNewsImpactHealthBadge(sym),
+    renderResultCalendarBadge(sym),
+    renderResultVerdictBadge(sym),
+  ].filter(Boolean).join('');
+  return badges ? `<div class="health-badge-row">${badges}</div>` : '';
 }
 
 function renderTradeContext(row, t) {
@@ -7552,6 +7625,253 @@ function closeFreshNewsModal(e) {
   if (modal) modal.style.display = 'none';
 }
 
+async function loadResultCalendarSummary(force = false) {
+  if (resultCalendarBusy) return resultCalendarSummary;
+  const now = Date.now();
+  if (!force && resultCalendarSummary.loaded && (now - resultCalendarLastFetchAt) < 6 * 60 * 60 * 1000) return resultCalendarSummary;
+  resultCalendarBusy = true;
+  resultCalendarSummary = { ...resultCalendarSummary, loading:true, error:'' };
+  renderResultCalendarModal();
+  try {
+    const res = await fetch(RESULT_CALENDAR_ENDPOINT, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify({ maxSymbols:400, days:30 }),
+      signal:AbortSignal.timeout(60000),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.ok === false) throw new Error(payload.error || `result-calendar HTTP ${res.status}`);
+    resultCalendarSummary = {
+      loading:false,
+      loaded:true,
+      fromDate:payload.fromDate || null,
+      toDate:payload.toDate || null,
+      days:Number(payload.days) || 30,
+      count:Number(payload.count) || 0,
+      symbolCount:Number(payload.symbolCount) || 0,
+      scanned:Number(payload.scanned) || 0,
+      resultCalendarBySymbol:payload.resultCalendarBySymbol && typeof payload.resultCalendarBySymbol === 'object' ? payload.resultCalendarBySymbol : {},
+      items:Array.isArray(payload.items) ? payload.items : [],
+      error:'',
+    };
+    resultCalendarLastFetchAt = Date.now();
+  } catch (e) {
+    resultCalendarSummary = { ...resultCalendarSummary, loading:false, loaded:true, error:e.message || String(e) };
+  } finally {
+    resultCalendarBusy = false;
+    renderTable();
+    updateTopActionBar();
+    if (document.getElementById('result-calendar-modal')?.style.display === 'flex') renderResultCalendarModal();
+  }
+  return resultCalendarSummary;
+}
+
+function resultCalendarRows() {
+  const calendar = resultCalendarSummary.resultCalendarBySymbol && typeof resultCalendarSummary.resultCalendarBySymbol === 'object'
+    ? resultCalendarSummary.resultCalendarBySymbol
+    : {};
+  const rows = [];
+  const seen = new Set();
+  for (const [symbol, events] of Object.entries(calendar)) {
+    for (const item of Array.isArray(events) ? events : []) {
+      const date = resultCalendarDateKey(item);
+      const period = String(item.period || item.type || item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      const key = `${String(symbol || item.symbol || '').toUpperCase()}|${date}|${period}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push({ symbol, ...item });
+    }
+  }
+  const rank = { today:0, upcoming:1 };
+  return rows.sort((a, b) => {
+    const ar = rank[a.status] ?? 9;
+    const br = rank[b.status] ?? 9;
+    if (ar !== br) return ar - br;
+    const at = Date.parse(a.eventDate || a.dateKey || 0) || 0;
+    const bt = Date.parse(b.eventDate || b.dateKey || 0) || 0;
+    return at - bt;
+  });
+}
+
+function resultCalendarDateKey(item) {
+  return item?.dateKey || (item?.eventDate ? String(item.eventDate).slice(0, 10) : '');
+}
+
+function resultCalendarDateRange() {
+  const from = resultCalendarSummary.fromDate;
+  const to = resultCalendarSummary.toDate;
+  const out = [];
+  if (!from || !to) return out;
+  const start = new Date(`${from}T00:00:00.000Z`);
+  const end = new Date(`${to}T00:00:00.000Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return out;
+  for (const d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
+}
+
+function resultCalendarStockMeta(symbol) {
+  const sym = String(symbol || '').toUpperCase();
+  const asset = MIDCAP_STOCKS.find(row => row.sym === sym) || {};
+  const data = stockData[sym] || {};
+  const change = getDisplayChangePct(data);
+  return {
+    name:asset.name || sym,
+    cap:asset.cap || 'other',
+    price:Number(data.price || 0) || null,
+    change:change == null ? null : Number(change),
+  };
+}
+
+function resultCalendarCapRank(cap) {
+  const c = String(cap || '').toLowerCase();
+  if (c === 'large') return 0;
+  if (c === 'mid') return 1;
+  if (c === 'custom') return 2;
+  return 3;
+}
+
+function resultCalendarCountsByDate(rows = resultCalendarRows()) {
+  const counts = {};
+  for (const item of rows) {
+    const date = resultCalendarDateKey(item);
+    if (!date) continue;
+    counts[date] = (counts[date] || 0) + 1;
+  }
+  return counts;
+}
+
+function resultCalendarDisplayDate(dateKey) {
+  const d = new Date(`${dateKey}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return dateKey || '--';
+  return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short' });
+}
+
+function ensureResultCalendarSelectedDate(rows) {
+  const dates = resultCalendarDateRange();
+  const counts = resultCalendarCountsByDate(rows);
+  if (resultCalendarSelectedDate && dates.includes(resultCalendarSelectedDate)) return;
+  resultCalendarSelectedDate = dates.find(date => counts[date] > 0) || dates[0] || '';
+}
+
+function filteredResultCalendarRows() {
+  const all = resultCalendarRows().map(item => {
+    const meta = resultCalendarStockMeta(item.symbol);
+    return {
+      ...item,
+      companyName:item.name || meta.name || item.symbol,
+      cap:meta.cap,
+      price:meta.price,
+      change:meta.change,
+    };
+  });
+  ensureResultCalendarSelectedDate(all);
+  const q = resultCalendarSearch.trim().toLowerCase();
+  const selected = all.filter(item => !resultCalendarSelectedDate || resultCalendarDateKey(item) === resultCalendarSelectedDate);
+  const searched = !q ? selected : selected.filter(item =>
+    String(item.symbol || '').toLowerCase().includes(q) ||
+    String(item.companyName || '').toLowerCase().includes(q)
+  );
+  return searched.sort((a, b) => {
+    if (resultCalendarSort === 'name') return String(a.companyName || a.symbol).localeCompare(String(b.companyName || b.symbol));
+    if (resultCalendarSort === 'ltp') return (Number(b.price || 0) - Number(a.price || 0)) || String(a.symbol).localeCompare(String(b.symbol));
+    if (resultCalendarSort === 'change') return (Number(b.change ?? -999) - Number(a.change ?? -999)) || String(a.symbol).localeCompare(String(b.symbol));
+    return (resultCalendarCapRank(a.cap) - resultCalendarCapRank(b.cap)) || String(a.companyName || a.symbol).localeCompare(String(b.companyName || b.symbol));
+  });
+}
+
+function setResultCalendarDate(dateKey) {
+  resultCalendarSelectedDate = String(dateKey || '');
+  renderResultCalendarModal();
+}
+
+function setResultCalendarSearch(value) {
+  resultCalendarSearch = String(value || '');
+  renderResultCalendarModal();
+}
+
+function setResultCalendarSort(value) {
+  resultCalendarSort = String(value || 'marketcap');
+  renderResultCalendarModal();
+}
+
+function renderResultCalendarModal() {
+  const body = document.getElementById('result-calendar-modal-body');
+  if (!body) return;
+  const allRows = resultCalendarRows();
+  ensureResultCalendarSelectedDate(allRows);
+  const counts = resultCalendarCountsByDate(allRows);
+  const dates = resultCalendarDateRange();
+  const rows = filteredResultCalendarRows();
+  const tabs = dates.map(date => `
+    <button class="result-calendar-date-tab ${date === resultCalendarSelectedDate ? 'active' : ''}" type="button" onclick="setResultCalendarDate('${escapeHTML(date)}')">
+      <span>${escapeHTML(resultCalendarDisplayDate(date))}</span>
+      <small>${counts[date] || 0} Events</small>
+    </button>
+  `).join('');
+  const html = rows.map(item => {
+    const company = item.url
+      ? `<a href="${escapeHTML(item.url)}" target="_blank" rel="noopener">${escapeHTML(item.companyName || item.symbol || '--')}</a>`
+      : escapeHTML(item.companyName || item.symbol || '--');
+    const price = item.price ? item.price.toLocaleString('en-IN', { minimumFractionDigits:2, maximumFractionDigits:2 }) : '--';
+    const change = item.change == null ? '--' : `${item.change >= 0 ? '+' : ''}${item.change.toFixed(2)}%`;
+    const changeClass = item.change == null ? '' : (item.change >= 0 ? 'up' : 'down');
+    return `<tr>
+      <td><strong>${company}</strong><div class="result-calendar-symbol">${escapeHTML(item.symbol || '--')}</div></td>
+      <td>${escapeHTML(item.period || item.type || 'Result')}</td>
+      <td>${escapeHTML(item.time || 'NA')}</td>
+      <td>${escapeHTML(price)}</td>
+      <td><span class="${changeClass}">${escapeHTML(change)}</span></td>
+    </tr>`;
+  }).join('');
+  const status = resultCalendarSummary.loading
+    ? 'Loading result calendar...'
+    : resultCalendarSummary.error
+      ? `Error: ${resultCalendarSummary.error}`
+      : `${allRows.length} result calendar entries across ${resultCalendarSummary.symbolCount || 0} stocks`;
+  body.innerHTML = `
+    <div class="result-calendar-header">
+      <div>
+        <div class="portfolio-section-title fresh-news-titlebar"><span>Result Calendar</span></div>
+        <div class="result-calendar-subtitle">${escapeHTML(status)}</div>
+      </div>
+      <div class="result-calendar-window">${escapeHTML((resultCalendarSummary.fromDate && resultCalendarSummary.toDate) ? `${resultCalendarSummary.fromDate} to ${resultCalendarSummary.toDate}` : 'Next 30 days')}</div>
+    </div>
+    <div class="result-calendar-date-strip">${tabs || '<span class="result-calendar-subtitle">No dates loaded</span>'}</div>
+    <div class="result-calendar-controls">
+      <input class="result-calendar-search" type="search" value="${escapeHTML(resultCalendarSearch)}" oninput="setResultCalendarSearch(this.value)" placeholder="Search calendar by symbol or company">
+      <label>Sort By
+        <select class="result-calendar-sort" onchange="setResultCalendarSort(this.value)">
+          <option value="marketcap"${resultCalendarSort === 'marketcap' ? ' selected' : ''}>Market cap</option>
+          <option value="name"${resultCalendarSort === 'name' ? ' selected' : ''}>Company name</option>
+          <option value="ltp"${resultCalendarSort === 'ltp' ? ' selected' : ''}>LTP</option>
+          <option value="change"${resultCalendarSort === 'change' ? ' selected' : ''}>%Chg</option>
+        </select>
+      </label>
+    </div>
+    <div class="portfolio-table-wrap">
+      <table class="portfolio-table result-calendar-table">
+        <thead><tr><th>Company Name</th><th>Result Type</th><th>Time</th><th>LTP</th><th>%Chg</th></tr></thead>
+        <tbody>${html || `<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:16px">${resultCalendarSummary.loading ? 'Loading result calendar...' : 'No result calendar entries found for selected date'}</td></tr>`}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function openResultCalendarModal() {
+  renderResultCalendarModal();
+  const modal = document.getElementById('result-calendar-modal');
+  if (modal) modal.style.display = 'flex';
+  loadResultCalendarSummary(false).then(renderResultCalendarModal).catch(e => console.warn('result calendar refresh failed', e.message));
+}
+
+function closeResultCalendarModal(e) {
+  if (e) e.stopPropagation();
+  const modal = document.getElementById('result-calendar-modal');
+  if (modal) modal.style.display = 'none';
+}
+
 function renderSetupCards(rows = getAllStockRows()) {
   const target = document.getElementById('setup-card-row');
   if (!target) return;
@@ -7579,6 +7899,9 @@ function renderSetupCards(rows = getAllStockRows()) {
   `).join('');
   if (dataSource && !freshNewsBusy && (!freshNewsSummary.loaded || (Date.now() - freshNewsLastFetchAt) > 15 * 60 * 1000)) {
     setTimeout(() => loadFreshNewsSummary(false).catch(e => console.warn('fresh news refresh failed', e.message)), 200);
+  }
+  if (dataSource && !resultCalendarBusy && (!resultCalendarSummary.loaded || (Date.now() - resultCalendarLastFetchAt) > 6 * 60 * 60 * 1000)) {
+    setTimeout(() => loadResultCalendarSummary(false).catch(e => console.warn('result calendar refresh failed', e.message)), 400);
   }
 }
 
@@ -7621,7 +7944,7 @@ function renderStockRowHTML(row) {
       <td data-label="Volume" class="hide-mobile hide-1200" style="font-size:12px;color:var(--muted)">${d?.volume?(d.volume/100000).toFixed(1)+'L':'--'}</td>
       <td data-label="Trade">${renderTradeCell(row)}</td>
       <td data-label="ST Target">${renderShortTargetCell(row)}</td>
-      <td data-label="Health"><div class="health-stack">${renderHealthCell(row)}${renderNewsImpactHealthBadge(row.sym)}${renderResultVerdictBadge(row.sym)}</div></td>
+      <td data-label="Health"><div class="health-stack">${renderHealthCell(row)}${renderHealthEventBadges(row.sym)}</div></td>
       <td data-label="Trend"><div class="spark">${d?sparkBars(row.sym,chg):'<span style="color:var(--muted);font-size:11px">--</span>'}</div></td>
       <td data-label="Signal"><span class="signal-badge ${sig}">${sigLabels[sig]}</span></td>
 	   <td data-label="Target" class="target-cell">${renderTargetCell(row)}</td>
