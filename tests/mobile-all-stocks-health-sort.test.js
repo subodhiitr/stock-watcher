@@ -10,7 +10,7 @@ test('default All Stocks profile sorts complete universe by health descending', 
   const end = source.indexOf('async function loadAllStocks', start);
   const body = source.slice(start, end);
   assert.match(body, /rankedB - rankedA \|\| a\.symbol\.localeCompare\(b\.symbol\)/);
-  assert.match(body, /if \(rows\.length\) connectHealthStream\(rows\)/);
+  assert.match(source, /connectHealthStream\(state\.allStocks\)/);
 });
 
 test('All Stocks reapplies health ordering after progressive health load completes', () => {

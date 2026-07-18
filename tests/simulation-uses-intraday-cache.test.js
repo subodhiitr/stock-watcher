@@ -98,7 +98,8 @@ test('scheduler tick input includes market indices and sector trend for regime c
   assert.match(body, /const market = await getSimulationMarketContext\(\)/);
   assert.match(body, /sectorTrend:\s*buildSectorTrendFromCandidates\(serverCandidates\)/);
   assert.match(source, /function buildSectorTrendFromCache\(\)/);
-  assert.match(source, /buildSectorTrendFromCandidates\(\[\.\.\.intradayLiveCache\.values\(\)\]\)/);
+  assert.match(source, /const enriched = \[\.\.\.intradayLiveCache\.entries\(\)\]\.map/);
+  assert.match(source, /buildSectorTrendFromCandidates\(enriched\)/);
   assert.match(source, /intradayLiveCache\.set\(sym, nextValue\)/);
 });
 
@@ -146,7 +147,7 @@ test('Sharekhan ticker subscribes Nifty 50 and Midcap 150 ticks into the live ma
   const initStart = source.indexOf('sharekhanTicker = new SharekhanTickerPool({');
   assert.ok(initStart > -1);
   const initBody = source.slice(initStart, initStart + 700);
-  assert.match(initBody, /poolSize:\s*2/);
+  assert.match(initBody, /poolSize:\s*1/);
   assert.match(initBody, /onTick:\s*handleSharekhanTickerTick/);
   assert.match(initBody, /sharekhanTicker\.subscribe\(\[\.\.\.symToCode\.values\(\), \.\.\.sharekhanIndexCodeMap\.keys\(\)\]\)/);
 });

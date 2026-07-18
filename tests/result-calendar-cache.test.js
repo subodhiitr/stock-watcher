@@ -44,9 +44,9 @@ test('result calendar refresh fetches tracked symbols individually so TCS July r
       if (requestPath.endsWith('symbol=TCS')) {
         return [{
           bm_symbol: 'TCS',
-          bm_date: '09-Jul-2026',
+          bm_date: '09-Jul-2099',
           bm_purpose: 'Board Meeting Intimation',
-          bm_desc: 'TATA CONSULTANCY SERVICES LIMITED has informed the Exchange about Board Meeting to be held on 09-Jul-2026 to consider and approve the Quarterly Audited Financial results of the Company for the period ended June 2026 and Dividend.',
+          bm_desc: 'TATA CONSULTANCY SERVICES LIMITED has informed the Exchange about Board Meeting to be held on 09-Jul-2099 to consider and approve the Quarterly Audited Financial results of the Company for the period ended June 2099 and Dividend.',
           sm_name: 'Tata Consultancy Services Limited',
         }];
       }
@@ -54,11 +54,11 @@ test('result calendar refresh fetches tracked symbols individually so TCS July r
     },
   });
 
-  await service.refreshCache('test', { fromDate: '2026-07-08', days: 3 });
-  const cached = service.readCache(['TCS'], { fromDate: '2026-07-08', days: 3 });
+  await service.refreshCache('test', { fromDate: '2099-07-08', days: 3 });
+  const cached = service.readCache(['TCS'], { fromDate: '2099-07-08', days: 3 });
 
   assert.ok(calls.some(requestPath => requestPath === '/api/corporate-board-meetings?index=equities&symbol=TCS'));
-  assert.equal(cached.resultCalendarBySymbol.TCS?.[0]?.dateKey, '2026-07-09');
+  assert.equal(cached.resultCalendarBySymbol.TCS?.[0]?.dateKey, '2099-07-09');
   assert.equal(cached.resultCalendarBySymbol.TCS?.[0]?.type, 'Financial Results');
 });
 
@@ -85,7 +85,7 @@ test('result calendar route can force refresh stale cache before reading', async
         refreshed = true;
         return [{
           bm_symbol: 'TCS',
-          bm_date: '09-Jul-2026',
+          bm_date: '09-Jul-2099',
           bm_desc: 'Board Meeting to consider and approve audited financial results',
           sm_name: 'Tata Consultancy Services Limited',
         }];
@@ -102,11 +102,11 @@ test('result calendar route can force refresh stale cache before reading', async
 
   await service.handleRoute(req, res, {
     searchParams:new URLSearchParams(),
-    readJsonBody:async () => ({ force:true, fromDate:'2026-07-08', days:3 }),
+    readJsonBody:async () => ({ force:true, fromDate:'2099-07-08', days:3 }),
   });
   const payload = JSON.parse(chunks.join(''));
 
   assert.equal(res.status, 200);
   assert.equal(refreshed, true);
-  assert.equal(payload.resultCalendarBySymbol.TCS?.[0]?.dateKey, '2026-07-09');
+  assert.equal(payload.resultCalendarBySymbol.TCS?.[0]?.dateKey, '2099-07-09');
 });

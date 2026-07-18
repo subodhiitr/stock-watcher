@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   aggregateCandles,
+  limitCandlesToRange,
   normalizeYahooCandles,
   createIntradayCandlesService,
 } = require('../server/intraday-candles');
@@ -65,6 +66,68 @@ test('normalizeYahooCandles drops invalid zero and extreme outlier candles', () 
   });
 
   assert.deepEqual(result.candles.map(c => c.close), [5198, 5195]);
+});
+
+test('limitCandlesToRange keeps the requested number of latest IST sessions', () => {
+  const candles = [
+    { time:'2026-07-06T03:45:00.000Z', close:100 },
+    { time:'2026-07-07T03:45:00.000Z', close:101 },
+    { time:'2026-07-08T03:45:00.000Z', close:102 },
+  ];
+  assert.deepEqual(limitCandlesToRange(candles, '1d').map(c => c.close), [102]);
+  assert.deepEqual(limitCandlesToRange(candles, '2d').map(c => c.close), [101, 102]);
+});
+
+test('intraday candles use Sharekhan historical 5m data before Yahoo', async () => {
+  let yahooCalls = 0;
+  const service = createIntradayCandlesService({
+    resolveNseSymbol: symbol => symbol,
+    fetchSharekhanCandles: async symbol => ({
+      timestamp:[1783482300, 1783482600],
+      indicators:{ quote:[{
+        open:[100, 102], high:[103, 105], low:[99, 101], close:[102, 104], volume:[100, 200],
+      }] },
+      meta:{ regularMarketPrice:104 },
+      symbol,
+    }),
+    httpsGet: async () => {
+      yahooCalls += 1;
+      throw new Error('Yahoo should not be called');
+    },
+  });
+
+  const payload = await service.fetchCandles('TCS', '1d', '5m');
+
+  assert.equal(payload.source, 'sharekhan-historical');
+  assert.equal(payload.interval, '5m');
+  assert.equal(payload.candles.length, 2);
+  assert.equal(payload.candles[1].close, 104);
+  assert.equal(yahooCalls, 0);
+});
+
+test('intraday candles fall back to Yahoo when Sharekhan history is empty', async () => {
+  let yahooCalls = 0;
+  const service = createIntradayCandlesService({
+    resolveNseSymbol: symbol => symbol,
+    fetchSharekhanCandles: async () => null,
+    httpsGet: async () => {
+      yahooCalls += 1;
+      return {
+        status:200,
+        body:JSON.stringify({ chart:{ result:[{
+          timestamp:[1783482300],
+          indicators:{ quote:[{ open:[100], high:[103], low:[99], close:[102], volume:[100] }] },
+        }] } }),
+      };
+    },
+  });
+
+  const payload = await service.fetchCandles('TCS', '1d', '5m');
+
+  assert.equal(payload.source, 'yahoo');
+  assert.equal(payload.fallbackFrom, 'sharekhan-historical');
+  assert.equal(payload.candles.length, 1);
+  assert.equal(yahooCalls, 1);
 });
 
 test('intraday candles route fetches Yahoo 5m candles for requested range', async () => {

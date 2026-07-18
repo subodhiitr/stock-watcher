@@ -224,6 +224,18 @@ input, select {
 .setup-selector-card { display: grid; grid-template-columns: auto minmax(0, 1fr) 40px; align-items: center; gap: 10px; margin-bottom: 8px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
 .setup-selector-card span { color: var(--text); font-size: 12px; font-weight: 850; }
 .setup-refresh-btn { width: 40px; min-height: 40px; padding: 0; color: var(--blue); font-size: 20px; }
+.earnings-results-icon { color: var(--blue); font-size: 18px; }
+.earnings-results-date-strip { display: flex; flex: 0 0 auto; gap: 0; margin: 4px 0 12px; overflow-x: auto; border-bottom: 1px solid var(--border); scrollbar-width: thin; scroll-snap-type: x proximity; }
+.earnings-date-tab { min-width: 92px; padding: 10px 11px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--text); text-align: left; scroll-snap-align: center; }
+.earnings-date-tab span { display: block; font-size: 13px; font-weight: 850; white-space: nowrap; }
+.earnings-date-tab small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; font-weight: 650; white-space: nowrap; }
+.earnings-date-tab.active { border-bottom-color: var(--blue); color: var(--blue); }
+.earnings-date-tab.active small { color: var(--blue); }
+.earnings-results-list { display: grid; gap: 10px; }
+.earnings-result-row { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+.earnings-result-row > div { display: grid; gap: 3px; }
+.earnings-result-row strong { color: var(--text); }
+.earnings-result-row span { color: var(--muted); font-size: 12px; line-height: 1.4; }
 .all-stock-filter { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; margin-bottom: 8px; padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
 .all-stock-title { display: grid; grid-template-columns: auto minmax(105px, 1fr) auto; }
 .all-stock-title input { height: 36px; padding: 0 9px; }

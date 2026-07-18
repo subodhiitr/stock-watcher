@@ -3,13 +3,25 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
 import { initDb, rememberSymbols, upsertScripCodes, saveTrade } from '../server/db.js';
 import { runMigration } from '../server/db-migrate.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const fixturesDir = path.join(__dirname, 'fixtures', 'sqlite-migrate');
+const sourceFixturesDir = path.join(__dirname, 'fixtures', 'sqlite-migrate');
 
-test('migration is idempotent: running twice produces same row counts', async () => {
+test('migration is idempotent: running twice produces same row counts', async t => {
+  const fixturesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sqlite-migrate-'));
+  fs.cpSync(sourceFixturesDir, fixturesDir, { recursive:true });
+  t.after(() => fs.rmSync(fixturesDir, { recursive:true, force:true }));
+  const now = new Date();
+  for (const file of [
+    path.join(fixturesDir, 'cache', 'fresh_stock_news.json'),
+    path.join(fixturesDir, 'cache', 'fresh_news', 'RELIANCE.json'),
+    path.join(fixturesDir, 'cache', 'fresh_news', 'TCS.json'),
+  ]) {
+    fs.utimesSync(file, now, now);
+  }
   const db = initDb(':memory:');
 
   // Run migration first time

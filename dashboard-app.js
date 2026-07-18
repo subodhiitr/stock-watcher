@@ -1203,7 +1203,7 @@ function getDisplayChangePct(data) {
   return Number.isFinite(fallback) ? +fallback.toFixed(2) : null;
 }
 
-let intradayCandleChartState = { symbol: '', range: '1d', interval: '5m', candles: [], loading: false, error: '' };
+let intradayCandleChartState = { symbol: '', range: '1d', interval: '5m', candles: [], source:'', loading: false, error: '' };
 
 function ensureIntradayCandleChartModal() {
   let modal = document.getElementById('intraday-candle-chart-modal');
@@ -1305,7 +1305,8 @@ function renderIntradayCandleChart(symbol, candles, opts = {}) {
     return `<g class="intraday-candle-hover"><title>${escapeHTML(label)}</title><line class="intraday-crosshair" x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${volumeTop + volumePlotH}" stroke="rgba(226,232,240,.5)" stroke-dasharray="3 4"/><line x1="${x.toFixed(1)}" y1="${y(c.high).toFixed(1)}" x2="${x.toFixed(1)}" y2="${y(c.low).toFixed(1)}" stroke="${color}" stroke-width="1.4"/><rect x="${(x - candleW / 2).toFixed(1)}" y="${bodyTop.toFixed(1)}" width="${candleW.toFixed(1)}" height="${bodyH.toFixed(1)}" fill="${color}" opacity=".86"/><rect class="intraday-hover-capture" x="${(x - step / 2).toFixed(1)}" y="${padT}" width="${Math.max(4, step).toFixed(1)}" height="${(volumeTop + volumePlotH - padT).toFixed(1)}" fill="transparent"/><g class="intraday-tooltip"><rect x="${tooltipX.toFixed(1)}" y="${tooltipY.toFixed(1)}" width="178" height="24" rx="6" fill="rgba(2,6,23,.92)" stroke="rgba(148,163,184,.35)"/><text x="${(tooltipX + 8).toFixed(1)}" y="${(tooltipY + 16).toFixed(1)}" fill="var(--text)" font-size="10">${escapeHTML(label)}</text></g></g>`;
   }).join('');
   const latest = rows[rows.length - 1];
-  return `<div class="intraday-candle-chart-summary"><strong>${escapeHTML(symbol)}</strong> ${rows.length} candles | Latest ₹${latest.close.toFixed(2)}</div>
+  const sourceLabel = opts.source === 'sharekhan-historical' ? 'Sharekhan historical' : opts.source === 'yahoo' ? 'Yahoo fallback' : '';
+  return `<div class="intraday-candle-chart-summary"><strong>${escapeHTML(symbol)}</strong> ${rows.length} candles | Latest ₹${latest.close.toFixed(2)}${sourceLabel ? ` | ${escapeHTML(sourceLabel)}` : ''}</div>
     <svg class="intraday-candle-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHTML(symbol)} ${interval === '15m' ? '15 minute' : '5 minute'} candlestick chart">
       <rect x="0" y="0" width="${width}" height="${height}" rx="12" fill="rgba(15,23,42,.35)"/>
       ${axisTicks}
@@ -1324,12 +1325,12 @@ async function loadIntradayCandleChart(symbol, range = '1d', interval = '5m') {
   const body = document.getElementById('intraday-candle-chart-body');
   if (body) body.innerHTML = '<div class="intraday-candle-chart-empty">Loading 5m candles...</div>';
   try {
-    const res = await fetch(`${INTRADAY_CANDLES_ENDPOINT}?symbol=${encodeURIComponent(symbol)}&range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}`, { signal: AbortSignal.timeout(20000) });
+    const res = await fetch(`${INTRADAY_CANDLES_ENDPOINT}?symbol=${encodeURIComponent(symbol)}&range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}`, { signal: AbortSignal.timeout(35000) });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok || payload.ok === false) throw new Error(payload.error || `intraday-candles HTTP ${res.status}`);
-    intradayCandleChartState = { symbol, range, interval, candles: normalizeChartCandles(payload.candles), loading: false, error: '' };
+    intradayCandleChartState = { symbol, range, interval, candles: normalizeChartCandles(payload.candles), source:payload.source || '', loading: false, error: '' };
   } catch (e) {
-    intradayCandleChartState = { symbol, range, interval, candles: [], loading: false, error: e.message || 'Could not load candles' };
+    intradayCandleChartState = { symbol, range, interval, candles: [], source:'', loading: false, error: e.message || 'Could not load candles' };
   }
   renderIntradayCandleChartModal();
 }
@@ -1347,14 +1348,14 @@ function renderIntradayCandleChartModal() {
   });
   if (body) body.innerHTML = intradayCandleChartState.loading
     ? '<div class="intraday-candle-chart-empty">Loading 5m candles...</div>'
-    : renderIntradayCandleChart(intradayCandleChartState.symbol, intradayCandleChartState.candles, { error: intradayCandleChartState.error, interval:intradayCandleChartState.interval });
+    : renderIntradayCandleChart(intradayCandleChartState.symbol, intradayCandleChartState.candles, { error: intradayCandleChartState.error, interval:intradayCandleChartState.interval, source:intradayCandleChartState.source });
 }
 
 function openIntradayCandleChart(symbol, event) {
   if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) return;
-  intradayCandleChartState = { symbol: sym, range: '1d', interval:'5m', candles: [], loading: true, error: '' };
+  intradayCandleChartState = { symbol: sym, range: '1d', interval:'5m', candles: [], source:'', loading: true, error: '' };
   const modal = ensureIntradayCandleChartModal();
   modal.style.display = 'flex';
   renderIntradayCandleChartModal();
@@ -8215,7 +8216,7 @@ async function loadResultCalendarSummary(force = false) {
   } finally {
     resultCalendarBusy = false;
     renderTable();
-    updateTopActionBar();
+    renderTopActionBar();
     if (document.getElementById('result-calendar-modal')?.style.display === 'flex') renderResultCalendarModal();
   }
   return resultCalendarSummary;
@@ -9039,6 +9040,7 @@ function closeFundModal(event){ if(event) event.stopPropagation(); const m=docum
 const stockNewsCache = {};
 const stockEventFetchQueued = new Set();
 let activeNewsKind = 'stock';
+let activeStockNewsRequestKey = '';
 
 function escapeHTML(v) {
   return String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -9058,6 +9060,19 @@ function formatFreshNewsPublishedTime(iso) {
   return d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true });
 }
 
+function formatStockEventDateTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-IN', {
+    day:'2-digit',
+    month:'short',
+    hour:'2-digit',
+    minute:'2-digit',
+    hour12:true,
+  });
+}
+
 function fmtCr(v) {
   return v == null ? '--' : 'Rs ' + Number(v).toLocaleString('en-IN', { maximumFractionDigits: 0 }) + ' cr';
 }
@@ -9070,23 +9085,27 @@ function renderStockEvents(events) {
     box.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:2px 0 8px">${emptyText}</div>`;
     return;
   }
-  box.innerHTML = events.slice(0, 4).map(ev => {
+  box.innerHTML = events.slice(0, 10).map(ev => {
     const dateBits = [];
-    if (ev.filingDate) dateBits.push('Filed ' + formatNewsDate(ev.filingDate));
+    if (ev.publishedAt) dateBits.push('Published ' + formatStockEventDateTime(ev.publishedAt));
+    else if (ev.filingDate) dateBits.push('Filed ' + formatStockEventDateTime(ev.filingDate));
     if (ev.toDate) dateBits.push('Quarter ended ' + formatNewsDate(ev.toDate));
     if (ev.exDate) dateBits.push('Ex-date ' + formatNewsDate(ev.exDate));
     if (ev.recordDate) dateBits.push('Record ' + formatNewsDate(ev.recordDate));
     if (ev.eventDate) dateBits.push('Meeting ' + formatNewsDate(ev.eventDate));
-    const hasMetrics = [ev.revenueCr, ev.profitAfterTaxCr, ev.profitBeforeTaxCr, ev.eps].some(v => v != null);
+    const hasMetrics = [
+      ev.revenueCr, ev.profitAfterTaxCr, ev.profitBeforeTaxCr, ev.eps,
+      ev.revenueGrowthPct, ev.patGrowthPct, ev.epsGrowthPct,
+    ].some(v => v != null);
     const verdict = ev.resultVerdict
       ? `<span class="result-badge ${String(ev.resultVerdict).toLowerCase()}" title="${escapeHTML(ev.resultVerdictReason || '')}">${escapeHTML(ev.resultVerdict)}</span>`
       : '';
-    const metrics = ev.type === 'Results' && hasMetrics
+    const metrics = (ev.type === 'Results' || ev.resultMetrics) && hasMetrics
       ? `<div class="stock-event-metrics">
-          <span>Revenue ${fmtCr(ev.revenueCr)}</span>
-          <span>PAT ${fmtCr(ev.profitAfterTaxCr)}</span>
-          <span>PBT ${fmtCr(ev.profitBeforeTaxCr)}</span>
-          <span>EPS ${ev.eps == null ? '--' : Number(ev.eps).toFixed(2)}</span>
+          <span>Revenue ${ev.revenueCr == null ? '--' : fmtCr(ev.revenueCr)}${ev.revenueGrowthPct == null ? '' : ` (${Number(ev.revenueGrowthPct) >= 0 ? '+' : ''}${Number(ev.revenueGrowthPct).toFixed(1)}%)`}</span>
+          <span>PAT ${ev.profitAfterTaxCr == null ? '--' : fmtCr(ev.profitAfterTaxCr)}${ev.patGrowthPct == null ? '' : ` (${Number(ev.patGrowthPct) >= 0 ? '+' : ''}${Number(ev.patGrowthPct).toFixed(1)}%)`}</span>
+          <span>PBT ${ev.profitBeforeTaxCr == null ? '--' : fmtCr(ev.profitBeforeTaxCr)}</span>
+          <span>EPS ${ev.eps == null ? '--' : Number(ev.eps).toFixed(2)}${ev.epsGrowthPct == null ? '' : ` (${Number(ev.epsGrowthPct) >= 0 ? '+' : ''}${Number(ev.epsGrowthPct).toFixed(1)}%)`}</span>
         </div>`
       : '';
     return `<a class="stock-event-card" href="${escapeHTML(ev.url || '#')}" target="_blank" rel="noopener" style="display:block;text-decoration:none;color:var(--text)">
@@ -9161,22 +9180,38 @@ async function loadReplayWhyMissed(sym) {
   }
 }
 
-async function loadStockNews(sym, name, assetType = 'stock') {
+async function loadStockNews(sym, name, assetType = 'stock', refreshAttempt = 0) {
   const key = `${sym}|${assetType}|${name || ''}`;
+  activeStockNewsRequestKey = key;
   const cached = stockNewsCache[key];
-  if (cached && (Date.now() - cached.savedAt) < 10 * 60 * 1000) {
+  const cachedHasContent = (cached?.news?.length || 0) > 0 || (cached?.events?.length || 0) > 0;
+  if (refreshAttempt === 0 && cached && cachedHasContent && (Date.now() - cached.savedAt) < 10 * 60 * 1000) {
     renderStockNews(sym, cached.news, cached.events, true);
     return;
   }
   const box = document.getElementById('stock-news-list');
-  if (box) box.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:4px">Loading ${assetType === 'etf' ? 'ETF' : 'stock'} news, announcements and events...</div>`;
+  if (box && refreshAttempt === 0) box.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:4px">Loading ${assetType === 'etf' ? 'ETF' : 'stock'} news, announcements and events...</div>`;
   try {
     const url = `${PROXY}/stock-news?symbol=${encodeURIComponent(sym)}&name=${encodeURIComponent(name || '')}&assetType=${encodeURIComponent(assetType)}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(25000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) throw new Error('stock-news HTTP ' + res.status);
     const payload = await res.json();
-    stockNewsCache[key] = { savedAt: Date.now(), news: payload.news || [], events: payload.events || [] };
+    if ((payload.news || []).length || (payload.events || []).length) {
+      stockNewsCache[key] = { savedAt: Date.now(), news: payload.news || [], events: payload.events || [] };
+    }
     renderStockNews(sym, payload.news || [], payload.events || [], payload.fromCache);
+    if (payload.refreshing && activeStockNewsRequestKey === key && refreshAttempt < 8) {
+      if (!(payload.news || []).length && !(payload.events || []).length && box) {
+        box.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:4px">News is refreshing in the background…</div>`;
+      }
+      const retryDelay = Math.min(8000, 1000 * (refreshAttempt + 1));
+      setTimeout(() => {
+        const modalOpen = document.getElementById('fund-modal')?.style.display === 'flex';
+        if (modalOpen && activeStockNewsRequestKey === key) {
+          loadStockNews(sym, name, assetType, refreshAttempt + 1);
+        }
+      }, retryDelay);
+    }
   } catch(e) {
     renderStockEvents([]);
     if (box) box.innerHTML = `<div style="color:var(--red);font-size:12px;padding:4px">Could not load stock news: ${escapeHTML(e.message)}</div>`;
@@ -9271,11 +9306,13 @@ function scheduleVisibleEventFlags(rows) {
         if (!res.ok) return;
         const payload = await res.json().catch(() => null);
         if (!payload) return;
-        stockNewsCache[`${row.sym}|stock|${row.name || row.sym}`] = {
-          savedAt: Date.now(),
-          news: payload.news || [],
-          events: payload.events || [],
-        };
+        if ((payload.news || []).length || (payload.events || []).length) {
+          stockNewsCache[`${row.sym}|stock|${row.name || row.sym}`] = {
+            savedAt: Date.now(),
+            news: payload.news || [],
+            events: payload.events || [],
+          };
+        }
         if ((payload.events || []).length) renderTable();
       } catch(e) {
         if (DEBUG_EVENT_LOGS) console.warn('event flag fetch failed', row.sym, e.message);

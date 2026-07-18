@@ -27,9 +27,10 @@ test('dashboard SSE handler updates serverSectorTrend from payload', () => {
   assert.match(source, /serverSectorTrend\s*=\s*payload\.sectorTrend/);
 });
 
-test('renderSectors applies serverSectorTrend override to sectorTrendCache', () => {
+test('live sector updates preserve locally computed sector coverage', () => {
   const source = fs.readFileSync(DASHBOARD_APP_PATH, 'utf8');
-  assert.match(source, /Object\.assign\(sectorTrendCache,\s*serverSectorTrend\)/);
+  assert.match(source, /if \(payload\.sectorTrend\) updateSectorTilesPartial\(payload\.sectorTrend\)/);
+  assert.doesNotMatch(source, /Object\.assign\(sectorTrendCache,\s*serverSectorTrend\)/);
 });
 
 test('mobile app subscribes to live intraday and trade streams', () => {

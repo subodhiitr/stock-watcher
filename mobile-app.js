@@ -21,6 +21,8 @@
     setupFilter: localStorage.getItem('intradayx.mobile.setupFilter') || 'tradeable',
     liveStream: null,
     liveStreamKey: '',
+    stockQuoteStream: null,
+    stockQuoteStreamKey: '',
     marketOverviewStream: null,
     tradeStream: null,
     liveReconnectTimer: null,
@@ -35,10 +37,14 @@
     healthStreamKey: '',
     allStocks: [],
     allStocksLoading: false,
+    allStockUniverse: null,
+    allStockUniversePromise: null,
+    allStockStreamsScheduled: false,
     allStockFilter: localStorage.getItem('intradayx.mobile.allStockFilter') || 'all',
     allStockPage: 1,
     allStockSearch: '',
     freshNews: { loading:false, loaded:false, items:[], error:'' },
+    earningsResults: { loading:false, loaded:false, items:[], fromDate:'', toDate:'', selectedDate:'', error:'' },
     pendingTradeSymbols: new Set(),
     statusTimer: null,
     candleChart: { symbol:'', interval:'5m', candles:[], loading:false },
@@ -870,7 +876,7 @@
     const pages = Math.max(1, Math.ceil(rows.length / 10));
     state.allStockPage = Math.min(Math.max(1, state.allStockPage), pages);
     const pageRows = rows.slice((state.allStockPage - 1) * 10, state.allStockPage * 10);
-    setText('all-stock-count', `${rows.length} stocks`);
+    setText('all-stock-count', `${rows.length} stocks${state.allStocksLoading ? ' · updating' : ''}`);
     setText('all-stock-page', `Page ${state.allStockPage} / ${pages}`);
     const prev = $('all-stock-prev');
     const next = $('all-stock-next');
@@ -899,7 +905,118 @@
       </article>`;
     }).join('') : '<div class="empty">No stocks match this profile</div>';
     syncDirectionalActionLabels();
-    if (rows.length) connectHealthStream(rows);
+  }
+
+  function readCachedAllStockUniverse() {
+    try {
+      const cached = JSON.parse(localStorage.getItem('intradayx.mobile.stockUniverse') || 'null');
+      return Array.isArray(cached?.stocks) && cached.stocks.length ? cached : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function preloadAllStockUniverse() {
+    if (state.allStockUniversePromise) return state.allStockUniversePromise;
+    state.allStockUniversePromise = api('/mobile-stock-universe').then(universe => {
+      state.allStockUniverse = universe;
+      try {
+        localStorage.setItem('intradayx.mobile.stockUniverse', JSON.stringify({
+          savedAt:Date.now(),
+          stocks:Array.isArray(universe.stocks) ? universe.stocks : [],
+        }));
+      } catch (_) {}
+      return universe;
+    }).finally(() => {
+      state.allStockUniversePromise = null;
+    });
+    return state.allStockUniversePromise;
+  }
+
+  function populateAllStocks(universe = {}) {
+    const source = Array.isArray(universe.stocks) ? universe.stocks : [];
+    const meta = new Map(source.map(item => {
+      const symbol = String(item?.sym || item?.symbol || item || '').toUpperCase();
+      return [symbol, typeof item === 'object' ? item : { symbol }];
+    }).filter(([symbol]) => symbol));
+    const candidates = new Map(state.candidates.map(candidate => [String(candidate.symbol || '').toUpperCase(), candidate]));
+    state.allStocks = [...meta.keys()].slice(0, 300).map(symbol => {
+      const candidate = candidates.get(symbol) || {};
+      const live = state.liveQuotes.get(symbol) || {};
+      const quote = {
+        ...(candidate.quote || {}),
+        price:n(live.price || candidate.price || candidate.quote?.price),
+        change:live.dayChange ?? live.change ?? candidate.quote?.change ?? candidate.indicators?.dayChange,
+      };
+      return {
+        symbol,
+        name:meta.get(symbol)?.name || symbol,
+        sector:meta.get(symbol)?.sector || candidate.sector || '',
+        assetType:'stock',
+        price:n(quote.price || candidate.price || candidate.quote?.price),
+        change:n(quote.change ?? candidate.quote?.change ?? candidate.indicators?.dayChange),
+        score:n(candidate.score),
+        target:n(candidate.indicators?.target || candidate.target),
+        setupType:resolvedSetupType(candidate),
+        entryStatus:candidate.indicators?.entryStatus || candidate.entryStatus || '',
+        side:candidate.side || candidate.signal || '',
+        indicators:candidate.indicators || {},
+        quote,
+      };
+    });
+  }
+
+  function scheduleAllStockStreams() {
+    if (state.allStockStreamsScheduled) return;
+    state.allStockStreamsScheduled = true;
+    // Two animation frames guarantee the initial table reaches the screen before
+    // opening the 300-symbol live and fundamental-data subscriptions.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      state.allStockStreamsScheduled = false;
+      if (!state.allStocks.length) return;
+      connectHealthStream(state.allStocks);
+      connectAllStockQuoteStream();
+      connectLiveStream();
+      updateManualSymbolOptions();
+    }));
+  }
+
+  function connectAllStockQuoteStream() {
+    if (!window.EventSource) return;
+    const symbols = state.allStocks.map(row => String(row.symbol || '').toUpperCase()).filter(Boolean).slice(0, 300);
+    if (!symbols.length) return;
+    const key = symbols.join(',');
+    if (state.stockQuoteStream && state.stockQuoteStreamKey === key) return;
+    state.stockQuoteStream?.close();
+    state.stockQuoteStreamKey = key;
+    const stream = new EventSource(`/stream/mobile-stock-quotes?symbols=${encodeURIComponent(key)}`);
+    state.stockQuoteStream = stream;
+    stream.onmessage = event => {
+      try {
+        const payload = JSON.parse(event.data || '{}');
+        for (const [rawSymbol, quote] of Object.entries(payload.quotes || {})) {
+          const symbol = String(rawSymbol).toUpperCase();
+          const row = state.allStocks.find(item => item.symbol === symbol);
+          if (!row || !quote) continue;
+          const price = n(quote.price || row.price);
+          const change = n(quote.change ?? quote.changePct ?? quote.percentChange ?? row.change);
+          row.price = price;
+          row.change = change;
+          row.quote = { ...(row.quote || {}), ...quote, price, change };
+          const previousLive = state.liveQuotes.get(symbol) || {};
+          state.liveQuotes.set(symbol, { ...previousLive, ...quote, price, change, dayChange:change });
+        }
+        renderAllStocks();
+        if (payload.done) {
+          stream.close();
+          if (state.stockQuoteStream === stream) state.stockQuoteStream = null;
+        }
+      } catch (_) {}
+    };
+    stream.onerror = () => {
+      stream.close();
+      if (state.stockQuoteStream === stream) state.stockQuoteStream = null;
+    };
   }
 
   async function loadAllStocks() {
@@ -907,38 +1024,32 @@
     state.allStocksLoading = true;
     renderAllStocks();
     try {
-      if (!state.bootstrap?.prefs?.stocks) {
-        const bootstrap = await api('/dashboard-bootstrap');
-        state.bootstrap = { ...(state.bootstrap || {}), ...bootstrap };
+      // A cached or prefetched universe makes the first table paint synchronous.
+      if (state.allStockUniverse?.stocks?.length) {
+        populateAllStocks(state.allStockUniverse);
+        renderAllStocks();
+        scheduleAllStockStreams();
       }
-      const universe = await api('/mobile-stock-universe');
-      const source = Array.isArray(universe.stocks) ? universe.stocks : [];
-      const meta = new Map(source.map(item => {
-        const symbol = String(item?.sym || item?.symbol || item || '').toUpperCase();
-        return [symbol, typeof item === 'object' ? item : { symbol }];
-      }).filter(([symbol]) => symbol));
-      const symbols = [...meta.keys()].slice(0, 300);
-      const market = symbols.length ? await api(`/dashboard-market?symbols=${encodeURIComponent(symbols.join(','))}`) : { quotes:{} };
-      const candidates = new Map(state.candidates.map(candidate => [String(candidate.symbol || '').toUpperCase(), candidate]));
-      state.allStocks = symbols.map(symbol => {
-        const quote = market.quotes?.[symbol] || {};
-        const candidate = candidates.get(symbol) || {};
-        return {
-          symbol,
-          name:meta.get(symbol)?.name || symbol,
-          sector:meta.get(symbol)?.sector || candidate.sector || '',
-          assetType:'stock',
-          price:n(quote.price || candidate.price || candidate.quote?.price),
-          change:n(quote.change ?? candidate.quote?.change ?? candidate.indicators?.dayChange),
-          score:n(candidate.score),
-          target:n(candidate.indicators?.target || candidate.target),
-          setupType:resolvedSetupType(candidate),
-          entryStatus:candidate.indicators?.entryStatus || candidate.entryStatus || '',
-          side:candidate.side || candidate.signal || '',
-          indicators:candidate.indicators || {},
-          quote,
-        };
-      });
+
+      const universe = await preloadAllStockUniverse();
+      populateAllStocks(universe);
+      renderAllStocks();
+      scheduleAllStockStreams();
+
+      // EventSource is unavailable in a few embedded/legacy browsers. Keep the
+      // previous bulk request only as a compatibility fallback for those clients.
+      const symbols = state.allStocks.map(row => row.symbol);
+      if (!window.EventSource && symbols.length) {
+        const market = await api(`/dashboard-market?symbols=${encodeURIComponent(symbols.join(','))}`);
+        for (const row of state.allStocks) {
+          const quote = market.quotes?.[row.symbol];
+          if (!quote) continue;
+          row.quote = { ...(row.quote || {}), ...quote };
+          row.price = n(quote.price || row.price);
+          row.change = n(quote.change ?? row.change);
+        }
+        renderAllStocks();
+      }
     } catch (error) {
       setStatus(error.message || 'Could not load all stocks', true);
     } finally {
@@ -1116,7 +1227,7 @@
       const allStock = state.allStocks.find(row => row.symbol === symbol);
       if (allStock) {
         allStock.price = n(value.price || allStock.price);
-        allStock.change = n(value.dayChange ?? allStock.change);
+        allStock.change = n(value.dayChange ?? value.change ?? value.changePct ?? value.percentChange ?? allStock.change);
         allStock.score = Number.isFinite(Number(value.score)) ? Number(value.score) : allStock.score;
         allStock.target = n(value.target || allStock.target);
         allStock.derivedSetupType = value.derivedSetupType || allStock.derivedSetupType;
@@ -1137,7 +1248,11 @@
         side: value.side || value.signal || current.side,
         derivedSetupType: value.derivedSetupType || current.derivedSetupType,
         setupType: resolvedSetupType({ ...current, ...value }),
-        quote: { ...(current.quote || {}), price, change: value.dayChange ?? current.quote?.change },
+        quote: {
+          ...(current.quote || {}),
+          price,
+          change:value.dayChange ?? value.change ?? value.changePct ?? value.percentChange ?? current.quote?.change,
+        },
         indicators: { ...(current.indicators || {}), ...value, price },
       };
       changed = true;
@@ -1654,6 +1769,121 @@
   }
   window.openMobileFreshNews = openFreshNewsOverlay;
 
+  function earningsResultDateKey(item) {
+    return String(item?.dateKey || item?.eventDate || '').slice(0, 10);
+  }
+
+  function earningsResultDateRange(results) {
+    const start = new Date(`${results.fromDate || ''}T00:00:00.000Z`);
+    const end = new Date(`${results.toDate || ''}T00:00:00.000Z`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+      return [...new Set(results.items.map(earningsResultDateKey).filter(Boolean))].sort();
+    }
+    const dates = [];
+    for (const date = new Date(start); date <= end; date.setUTCDate(date.getUTCDate() + 1)) {
+      dates.push(date.toISOString().slice(0, 10));
+    }
+    return dates;
+  }
+
+  function earningsResultDisplayDate(dateKey) {
+    const date = new Date(`${dateKey}T00:00:00.000Z`);
+    return Number.isNaN(date.getTime())
+      ? dateKey
+      : date.toLocaleDateString('en-IN', { day:'2-digit', month:'short', timeZone:'UTC' });
+  }
+
+  function selectEarningsResultDate(dateKey) {
+    state.earningsResults.selectedDate = String(dateKey || '');
+    renderEarningsResults();
+  }
+
+  function renderEarningsResults() {
+    const body = $('earnings-results-list');
+    const status = $('earnings-results-status');
+    const dateStrip = $('earnings-results-date-strip');
+    if (!body || !status || !dateStrip) return;
+    const results = state.earningsResults;
+    if (results.loading) {
+      dateStrip.innerHTML = '';
+      status.textContent = 'Loading earnings calendar…';
+      body.innerHTML = '<div class="empty">Loading upcoming earnings results…</div>';
+      return;
+    }
+    if (results.error) {
+      dateStrip.innerHTML = '';
+      status.textContent = results.error;
+      body.innerHTML = `<div class="empty negative">${escapeHTML(results.error)}</div>`;
+      return;
+    }
+    const dates = earningsResultDateRange(results);
+    const counts = {};
+    for (const item of results.items) {
+      const dateKey = earningsResultDateKey(item);
+      if (dateKey) counts[dateKey] = (counts[dateKey] || 0) + 1;
+    }
+    if (!dates.includes(results.selectedDate)) {
+      results.selectedDate = dates.find(date => counts[date] > 0) || dates[0] || '';
+    }
+    dateStrip.innerHTML = dates.map(date => `
+      <button class="earnings-date-tab ${date === results.selectedDate ? 'active' : ''}" type="button" data-earnings-date="${escapeHTML(date)}">
+        <span>${escapeHTML(earningsResultDisplayDate(date))}</span>
+        <small>${counts[date] || 0} Events</small>
+      </button>
+    `).join('');
+    status.textContent = results.fromDate && results.toDate
+      ? `${results.items.length} events · ${results.fromDate} to ${results.toDate}`
+      : `${results.items.length} upcoming events`;
+    const selectedItems = results.items.filter(item =>
+      !results.selectedDate || earningsResultDateKey(item) === results.selectedDate
+    );
+    body.innerHTML = selectedItems.length ? selectedItems.map(item => `
+      <article class="earnings-result-row">
+        <div><strong>${escapeHTML(item.symbol || '--')}</strong><span>${escapeHTML(item.name || item.symbol || '')}</span></div>
+        <div><b class="${item.status === 'today' ? 'positive' : ''}">${escapeHTML(item.status === 'today' ? 'Today' : item.type || 'Financial Results')}</b><span>${escapeHTML(item.title || item.type || 'Earnings result')}</span></div>
+      </article>
+    `).join('') : '<div class="empty">No earnings results for the selected date</div>';
+    requestAnimationFrame(() => {
+      dateStrip.querySelector('.earnings-date-tab.active')?.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'center' });
+    });
+  }
+
+  async function openEarningsResultsOverlay() {
+    $('earnings-results-overlay').hidden = false;
+    document.body.classList.add('overlay-open');
+    if (state.earningsResults.loading || (state.earningsResults.loaded && !state.earningsResults.error)) {
+      renderEarningsResults();
+      return;
+    }
+    state.earningsResults = { ...state.earningsResults, loading:true, error:'' };
+    renderEarningsResults();
+    try {
+      const payload = await api('/result-calendar?days=30');
+      state.earningsResults = {
+        loading:false,
+        loaded:true,
+        items:Array.isArray(payload.items) ? payload.items : [],
+        fromDate:payload.fromDate || '',
+        toDate:payload.toDate || '',
+        selectedDate:'',
+        error:'',
+      };
+    } catch (error) {
+      state.earningsResults = {
+        ...state.earningsResults,
+        loading:false,
+        loaded:true,
+        error:error.message || 'Could not load earnings results',
+      };
+    }
+    renderEarningsResults();
+  }
+
+  function closeEarningsResultsOverlay() {
+    $('earnings-results-overlay').hidden = true;
+    document.body.classList.remove('overlay-open');
+  }
+
   function renderCandleSvg(candles = [], interval = '5m') {
     const rows = candles.filter(c => [c.open, c.high, c.low, c.close].every(value => Number.isFinite(Number(value)) && Number(value) > 0)).slice(-72);
     if (!rows.length) return `<div class="empty">No ${interval === '15m' ? '15-minute' : '5-minute'} candles available</div>`;
@@ -1690,7 +1920,9 @@
       $('candle-body').innerHTML = `<div class="empty">Loading ${safeInterval === '15m' ? '15-minute' : '5-minute'} candles…</div>`;
       const payload = await api(`/intraday-candles?symbol=${encodeURIComponent(sym)}&range=1d&interval=${safeInterval}`);
       if (state.candleChart.symbol !== sym || state.candleChart.interval !== safeInterval) return;
-      state.candleChart = { symbol:sym, interval:safeInterval, candles:payload.candles || [], loading:false };
+      state.candleChart = { symbol:sym, interval:safeInterval, candles:payload.candles || [], source:payload.source || '', loading:false };
+      const sourceLabel = payload.source === 'sharekhan-historical' ? 'Sharekhan' : payload.source === 'yahoo' ? 'Yahoo fallback' : '';
+      setText('candle-title', `${sym} · ${safeInterval} Candles${sourceLabel ? ` · ${sourceLabel}` : ''}`);
       $('candle-body').innerHTML = renderCandleSvg(state.candleChart.candles, safeInterval);
     } catch (error) {
       $('candle-body').innerHTML = `<div class="empty negative">${escapeHTML(error.message || 'Could not load candles')}</div>`;
@@ -1722,20 +1954,21 @@
     return `<span class="detail-impact ${className}" title="${escapeHTML(item.tradeImpactReason || item.resultVerdictReason || 'Trade impact')}">${escapeHTML(impact.label)} ${impact.score > 0 ? '+' : ''}${impact.score}</span>`;
   }
 
-  async function openStockDetailOverlay(symbol) {
+  async function openStockDetailOverlay(symbol, refreshAttempt = 0) {
     const sym = String(symbol || '').toUpperCase();
     const row = withLiveQuote(state.allStocks.find(item => item.symbol === sym) || state.candidates.find(item => String(item.symbol || '').toUpperCase() === sym) || { symbol:sym });
     $('stock-detail-overlay').hidden = false;
     document.body.classList.add('overlay-open');
     setText('stock-detail-title', `${sym} Details`);
-    $('stock-detail-body').innerHTML = '<div class="empty">Loading fundamentals and news…</div>';
+    if (refreshAttempt === 0) $('stock-detail-body').innerHTML = '<div class="empty">Loading fundamentals and news…</div>';
     const [fundResult, newsResult] = await Promise.allSettled([
       api(`/yahoo/summary?symbols=${encodeURIComponent(sym)}`),
       api(`/stock-news?symbol=${encodeURIComponent(sym)}&name=${encodeURIComponent(row.name || sym)}&assetType=stock`),
     ]);
     const meta = fundResult.status === 'fulfilled' ? fundResult.value?.metas?.[sym] || {} : {};
-    const newsItems = newsResult.status === 'fulfilled' ? (newsResult.value?.news || []).slice(0, 8) : [];
-    const events = newsResult.status === 'fulfilled' ? (newsResult.value?.events || []).slice(0, 6) : [];
+    const newsPayload = newsResult.status === 'fulfilled' ? newsResult.value || {} : {};
+    const newsItems = (newsPayload.news || []).slice(0, 8);
+    const events = (newsPayload.events || []).slice(0, 6);
     const openTrade = state.trades.find(trade => String(trade.symbol || '').toUpperCase() === sym && String(trade.status || '').toLowerCase() === 'open');
     const health = computeHealthScore(meta, n(row.price));
     const metric = value => value == null || !Number.isFinite(Number(value)) ? '--' : fmt(value);
@@ -1767,6 +2000,14 @@
     if (liveSummary) {
       liveSummary.textContent = `Price ${row.price ? fmt(row.price) : '--'} · Change ${pct(row.change)}`;
       liveSummary.className = cls(row.change);
+    }
+    if (newsPayload.refreshing && refreshAttempt < 8) {
+      const retryDelay = Math.min(8000, 1000 * (refreshAttempt + 1));
+      setTimeout(() => {
+        if (!$('stock-detail-overlay').hidden && $('stock-detail-title').textContent === `${sym} Details`) {
+          openStockDetailOverlay(sym, refreshAttempt + 1);
+        }
+      }, retryDelay);
     }
   }
 
@@ -1864,7 +2105,15 @@
   }
 
   function bindEvents() {
-    $('refresh-btn').addEventListener('click', refreshAll);
+    $('earnings-results-btn').addEventListener('click', openEarningsResultsOverlay);
+    $('earnings-results-close').addEventListener('click', closeEarningsResultsOverlay);
+    $('earnings-results-date-strip').addEventListener('click', event => {
+      const button = event.target.closest('[data-earnings-date]');
+      if (button) selectEarningsResultDate(button.dataset.earningsDate);
+    });
+    $('earnings-results-overlay').addEventListener('click', event => {
+      if (event.target.id === 'earnings-results-overlay') closeEarningsResultsOverlay();
+    });
     $('fresh-news-close').addEventListener('click', closeFreshNewsOverlay);
     $('fresh-news-overlay').addEventListener('click', event => {
       if (event.target.id === 'fresh-news-overlay') closeFreshNewsOverlay();
@@ -2119,6 +2368,8 @@
   document.addEventListener('DOMContentLoaded', () => {
     bindEvents();
     hydrateSetupCache();
+    state.allStockUniverse = readCachedAllStockUniverse();
+    preloadAllStockUniverse().catch(() => {});
     updateManualSymbolOptions();
     window.addEventListener('message', event => {
       const data = event.data || {};
@@ -2135,6 +2386,7 @@
     connectMarketOverviewStream();
     window.addEventListener('pagehide', () => {
       state.liveStream?.close();
+      state.stockQuoteStream?.close();
       state.marketOverviewStream?.close();
       state.tradeStream?.close();
       state.healthStream?.close();

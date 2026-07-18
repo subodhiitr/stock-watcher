@@ -60,22 +60,40 @@ function parseCandle(c) {
   const high  = Number(c.high  ?? c.h ?? NaN);
   const low   = Number(c.low   ?? c.l ?? NaN);
   const close = Number(c.close ?? c.c ?? NaN);
-  const vol   = Number(c.volume ?? c.vol ?? c.v ?? NaN);
+  const vol   = Number(c.volume ?? c.vol ?? c.v ?? c.qty ?? NaN);
 
   let unixSec = null;
-  if (typeof time === 'number' && time > 1e9) {
+  const tradeDate = String(c.tradeDate || '').trim();
+  const tradeTime = String(c.tradeTime || '').trim();
+  const sharekhanDate = tradeDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const sharekhanTime = tradeTime.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (sharekhanDate && sharekhanTime) {
+    const [, day, month, year] = sharekhanDate;
+    const [, hour, minute, second = '0'] = sharekhanTime;
+    const utcMs = Date.UTC(
+      Number(year), Number(month) - 1, Number(day),
+      Number(hour), Number(minute), Number(second),
+    ) - 5.5 * 60 * 60 * 1000;
+    if (Number.isFinite(utcMs)) {
+      // Sharekhan timestamps each bar near its ending second (for example,
+      // 09:19:58 for the 09:15 bar). Align it to the 5-minute candle start.
+      unixSec = Math.floor(utcMs / (5 * 60 * 1000)) * 5 * 60;
+    }
+  } else if (typeof time === 'number' && time > 1e9) {
     unixSec = time >= 1e12 ? Math.floor(time / 1000) : time;
   } else if (typeof time === 'string' && time) {
     const ms = Date.parse(time);
     if (Number.isFinite(ms)) unixSec = Math.floor(ms / 1000);
   }
 
-  if (!unixSec || !Number.isFinite(open) || !Number.isFinite(close)) return null;
+  if (!unixSec || ![open, high, low, close].every(Number.isFinite)) return null;
+  if (![open, high, low, close].every(value => value > 0)) return null;
+  if (high < Math.max(open, close) || low > Math.min(open, close) || high < low) return null;
   return {
     unixSec,
     open,
-    high: Number.isFinite(high) ? high : close,
-    low:  Number.isFinite(low)  ? low  : close,
+    high,
+    low,
     close,
     vol: Number.isFinite(vol) ? vol : 0,
   };

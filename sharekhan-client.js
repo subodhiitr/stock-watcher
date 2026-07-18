@@ -20,6 +20,8 @@ class SharekhanClient {
     this.historicalRequestQueue = Promise.resolve();
     this.historicalNextRequestAt = 0;
     this.historicalRequestSpacingMs = 1500;
+    this.historicalRetryLimit = 3;
+    this.historicalRetryBaseMs = 750;
 
     this.client = new SharekhanApi({
       api_key: this.apiKey,
@@ -152,26 +154,36 @@ class SharekhanClient {
       const waitMs = Math.max(0, this.historicalNextRequestAt - Date.now());
       if (waitMs) await new Promise(resolve => setTimeout(resolve, waitMs));
       this.historicalNextRequestAt = Date.now() + this.historicalRequestSpacingMs;
-      try {
-        let res = await this.withAuthRetry(() =>
-          this.client.getHistoricalIntervalData(exchange, scripCode, interval)
-        );
-        if (Number(res?.status) === 429) {
-          await new Promise(resolve => setTimeout(resolve, 5000));
-          res = await this.withAuthRetry(() =>
+      const maxAttempts = Math.max(1, Number(this.historicalRetryLimit) || 3);
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          const res = await this.withAuthRetry(() =>
             this.client.getHistoricalIntervalData(exchange, scripCode, interval)
           );
+          if (Number(res?.status) === 429) {
+            if (attempt >= maxAttempts) throw new Error('SHAREKHAN_RATE_LIMITED_429');
+            await new Promise(resolve => setTimeout(resolve, Math.max(5000, this.historicalRetryBaseMs * attempt)));
+            continue;
+          }
+          const data = this.parseResponse(res);
+          if (!data) return [];
+          if (Array.isArray(data)) return data;
+          if (Array.isArray(data.data)) return data.data;
+          if (typeof data === 'string') return data;
+          return [];
+        } catch (err) {
+          const message = String(err?.message || err || '');
+          const transient = /SHAREKHAN_SERVER_ERROR_5\d\d|ECONN|EAI_AGAIN|ETIMEDOUT|EACCES|network|socket|timeout/i.test(message);
+          if (!transient || attempt >= maxAttempts) {
+            console.warn(`[sharekhan-client] fetchRawCandles(${exchange}, ${scripCode}, ${interval}) failed: ${message}`);
+            throw err;
+          }
+          const retryMs = Math.max(0, Number(this.historicalRetryBaseMs) || 0) * attempt;
+          console.warn(`[sharekhan-client] fetchRawCandles(${exchange}, ${scripCode}, ${interval}) retry ${attempt}/${maxAttempts - 1}: ${message}`);
+          if (retryMs) await new Promise(resolve => setTimeout(resolve, retryMs));
         }
-        const data = this.parseResponse(res);
-        if (!data) return [];
-        if (Array.isArray(data)) return data;
-        if (Array.isArray(data.data)) return data.data;
-        if (typeof data === 'string') return data;
-        return [];
-      } catch (err) {
-        console.warn(`[sharekhan-client] fetchRawCandles(${exchange}, ${scripCode}, ${interval}) failed: ${err?.message || err}`);
-        throw err;
       }
+      return [];
     };
     const queued = this.historicalRequestQueue.then(run, run);
     this.historicalRequestQueue = queued.catch(() => {});

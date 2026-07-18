@@ -14,6 +14,9 @@ test('mobile setups warm all stocks and gate ETFs behind the simulation setting'
   assert.match(body, /const etfEnabled = settings\.SIMULATION_ENABLE_ETF === true/);
   assert.match(body, /if \(!etfEnabled\) return false/);
   assert.match(body, /isEtfSimulationSymbol\(normalized\)/);
+  assert.match(body, /hasUsableMobileCandidates\(candidates\)/);
+  assert.match(body, /hasUsableMobileCandidates\(persisted\?\.candidates\)/);
+  assert.match(body, /payloadSource = 'snapshot-cache'/);
   assert.match(body, /filter\(candidate => isAllowedMobileSetup\(candidate\.symbol, candidate\)\)/);
 });
 

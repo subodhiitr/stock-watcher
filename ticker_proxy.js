@@ -54,7 +54,7 @@ const { loadSharekhanCredentials, saveSharekhanAccessToken, saveSharekhanTokens 
 const { KiteConnect } = require('kiteconnect');
 const KiteClient = require('./zerodha-kite-client');
 const SharekhanClient = require('./sharekhan-client');
-const { buildYahooShapeFromCandles } = require('./sharekhan-intraday');
+const { buildYahooShapeFromCandles, fetchSharekhanIntraday } = require('./sharekhan-intraday');
 const { SharekhanTickerPool } = require('./sharekhan-ticker');
 const ConfirmationPoller = require('./zerodha-confirmation-poller');
 const {
@@ -2754,6 +2754,12 @@ function buildDashboardBootstrap() {
   };
 }
 
+function hasUsableMobileCandidates(candidates = []) {
+  return Array.isArray(candidates) && candidates.some(candidate =>
+    Number(candidate?.price || candidate?.quote?.price || candidate?.indicators?.price) > 0
+  );
+}
+
 function buildMobileSetupsPayload(filter = 'tradeable') {
   const overrides = loadTradeSettingsFile().overrides || {};
   const settings = SimulationEngine.withDefaults ? SimulationEngine.withDefaults(overrides) : overrides;
@@ -2778,6 +2784,7 @@ function buildMobileSetupsPayload(filter = 'tradeable') {
       ? { name:item.name || symbol, sector:item.sector || '', cap:item.cap || '', assetType:'stock' }
       : { name:symbol, sector:'', cap:'', assetType:'stock' });
   }
+  let payloadSource = 'intraday-live-cache';
   let candidates = [...intradayLiveCache.entries()].filter(([symbol, setup]) => isAllowedMobileSetup(symbol, setup)).map(([symbol, setup]) => {
     const meta = mobileMeta.get(symbol) || getSimulationSymbolMetaIndex().get(symbol) || {};
     const assetType = isEtfSimulationSymbol(symbol) ? 'etf' : 'stock';
@@ -2806,17 +2813,18 @@ function buildMobileSetupsPayload(filter = 'tradeable') {
     candidate.indicators.setupType = setupType;
     return candidate;
   });
-  if (candidates.length && Date.now() - mobileSetupPersistedAt > 30000) {
+  if (hasUsableMobileCandidates(candidates) && Date.now() - mobileSetupPersistedAt > 30000) {
     try {
       kvSet('mobile_setup_cache', { savedAt:Date.now(), candidates });
       mobileSetupPersistedAt = Date.now();
     } catch (_) {}
   }
-  if (!candidates.length) {
+  if (!hasUsableMobileCandidates(candidates)) {
+    payloadSource = 'snapshot-cache';
     const now = Date.now();
-    if (!mobileSetupSnapshotCache.candidates.length || now - mobileSetupSnapshotCache.loadedAt > 60000) {
+    if (!hasUsableMobileCandidates(mobileSetupSnapshotCache.candidates) || now - mobileSetupSnapshotCache.loadedAt > 60000) {
       const persisted = kvGet('mobile_setup_cache');
-      if (Array.isArray(persisted?.candidates) && persisted.candidates.length) {
+      if (hasUsableMobileCandidates(persisted?.candidates)) {
         mobileSetupSnapshotCache = { loadedAt:now, candidates:persisted.candidates };
       } else {
         const snapshots = loadLatestSimulationSnapshots();
@@ -2857,7 +2865,7 @@ function buildMobileSetupsPayload(filter = 'tradeable') {
   return {
     schemaVersion: 2,
     ok: true,
-    source: 'intraday-live-cache',
+    source: payloadSource,
     filter,
     at: new Date().toISOString(),
     settings,
@@ -4311,6 +4319,7 @@ async function callOpenAIResponse({ prompt, mode = 'json', maxOutputTokens = 200
 //  STOCK NEWS / EVENTS
 // ══════════════════════════════════════════════════════════
 const stockNewsCache = {};
+const stockNewsRefreshInFlight = new Map();
 
 function decodeXmlEntities(str) {
   return String(str || '')
@@ -4497,6 +4506,59 @@ function classifyResultVerdict(cur, prev) {
   if (patGrowth != null) parts.push(`PAT ${patGrowth >= 0 ? '+' : ''}${patGrowth}%`);
   if (epsGrowth != null) parts.push(`EPS ${epsGrowth >= 0 ? '+' : ''}${epsGrowth}%`);
   return { verdict, revenueGrowthPct: revGrowth, patGrowthPct: patGrowth, epsGrowthPct: epsGrowth, reason: parts.join(', ') };
+}
+
+function resultHeadlineNumber(text, labels, kind = 'amount') {
+  const label = `(?:${labels.join('|')})`;
+  const source = String(text || '').replace(/\u00a0/g, ' ');
+  if (kind === 'amount') {
+    const after = source.match(new RegExp(`${label}\\s*(?:(?:rose|rises?|jump(?:s|ed)?|surge(?:s|d)?|soar(?:s|ed)?|grew|grows?|up|down|fell|falls?|drop(?:s|ped)?|decline(?:s|d)?)\\s*(?:by\\s*)?[\\d.]+%\\s*(?:yoy\\s*)?)?(?:(?:to|at|of|was|reaches?|hits?|stood\\s+at)\\s*)?(?:₹|rs\\.?|inr)\\s*([\\d,]+(?:\\.\\d+)?)\\s*(?:crores?|cr)\\b`, 'i'));
+    const before = source.match(new RegExp(`(?:₹|rs\\.?|inr)\\s*([\\d,]+(?:\\.\\d+)?)\\s*(?:crores?|cr)\\s+${label}\\b`, 'i'));
+    const raw = after?.[1] || before?.[1];
+    return raw ? Number(raw.replace(/,/g, '')) : null;
+  }
+  const positive = '(?:up|jump(?:s|ed)?|surge(?:s|d)?|soar(?:s|ed)?|rise(?:s|n)?|rose|grow(?:s|th|n)?|increase(?:s|d)?)';
+  const negative = '(?:down|drop(?:s|ped)?|fall(?:s|en)?|fell|decline(?:s|d)?|decrease(?:s|d)?)';
+  const after = source.match(new RegExp(`${label}[^%,;|]{0,55}?(${positive}|${negative})\\s*(?:by|of|to)?\\s*([\\d.]+)%`, 'i'));
+  if (after) return new RegExp(`^${negative}$`, 'i').test(after[1]) ? -Number(after[2]) : Number(after[2]);
+  const before = source.match(new RegExp(`([\\d.]+)%\\s*(?:yoy\\s*)?${label}\\s+growth`, 'i'));
+  if (before) return Number(before[1]);
+  const growth = source.match(new RegExp(`${label}\\s+(?:yoy\\s+)?growth\\s*(?:of|at|:)?\\s*([+-]?[\\d.]+)%`, 'i'));
+  return growth ? Number(growth[1]) : null;
+}
+
+function parseResultHeadlineMetrics(title) {
+  const text = String(title || '');
+  return {
+    revenueCr: resultHeadlineNumber(text, ['revenue', 'sales', 'total income']),
+    profitBeforeTaxCr: resultHeadlineNumber(text, ['profit before tax', 'pbt']),
+    profitAfterTaxCr: resultHeadlineNumber(text, ['net profit', 'profit after tax', 'pat', 'profit']),
+    eps: (() => {
+      const match = text.match(/\b(?:eps|earnings per share)\b[^₹\d-]{0,20}(?:₹|rs\.?)?\s*(-?[\d.]+)/i);
+      return match ? Number(match[1]) : null;
+    })(),
+    revenueGrowthPct: resultHeadlineNumber(text, ['revenue', 'sales', 'total income'], 'growth'),
+    patGrowthPct: resultHeadlineNumber(text, ['net profit', 'profit after tax', 'pat', 'profit'], 'growth'),
+    epsGrowthPct: resultHeadlineNumber(text, ['eps', 'earnings per share'], 'growth'),
+  };
+}
+
+function classifyResultGrowthMetrics(metrics) {
+  const revGrowth = Number.isFinite(metrics?.revenueGrowthPct) ? metrics.revenueGrowthPct : null;
+  const patGrowth = Number.isFinite(metrics?.patGrowthPct) ? metrics.patGrowthPct : null;
+  const epsGrowth = Number.isFinite(metrics?.epsGrowthPct) ? metrics.epsGrowthPct : null;
+  const checks = [revGrowth, patGrowth, epsGrowth].filter(value => value != null);
+  if (!checks.length) return { verdict:null, reason:null };
+  let score = 0;
+  if (revGrowth != null) score += revGrowth >= 5 ? 1 : revGrowth <= -5 ? -1 : 0;
+  if (patGrowth != null) score += patGrowth >= 5 ? 2 : patGrowth <= -5 ? -2 : 0;
+  if (epsGrowth != null) score += epsGrowth >= 5 ? 1 : epsGrowth <= -5 ? -1 : 0;
+  const verdict = score >= 1 ? 'Positive' : score <= -1 ? 'Negative' : 'Mixed';
+  const parts = [];
+  if (revGrowth != null) parts.push(`Revenue ${revGrowth >= 0 ? '+' : ''}${revGrowth}%`);
+  if (patGrowth != null) parts.push(`PAT ${patGrowth >= 0 ? '+' : ''}${patGrowth}%`);
+  if (epsGrowth != null) parts.push(`EPS ${epsGrowth >= 0 ? '+' : ''}${epsGrowth}%`);
+  return { verdict, reason:parts.join(', ') };
 }
 
 function conciseAnnouncementTitle(item) {
@@ -4807,18 +4869,12 @@ function dedupeNews(items) {
 function sortEvents(items) {
   const priority = { Results: 0, 'Result Filing': 1, Dividend: 2, 'Corporate Action': 3, 'Result Date': 4, 'Board Meeting': 5 };
   return dedupeNews(items).sort((a, b) => {
-    const aResult = a.type === 'Results' || a.type === 'Result Filing';
-    const bResult = b.type === 'Results' || b.type === 'Result Filing';
-    if (aResult !== bResult) return aResult ? -1 : 1;
-    const aPublished = Date.parse(a.publishedAt || a.filingDate || 0) || 0;
-    const bPublished = Date.parse(b.publishedAt || b.filingDate || 0) || 0;
-    // Disclosures and filings are the primary timeline. A future ex-date or
-    // meeting date must not rank above a result that was filed more recently.
-    if (!!aPublished !== !!bPublished) return bPublished ? 1 : -1;
-    if (aPublished !== bPublished) return bPublished - aPublished;
-    const aEffective = Date.parse(a.eventDate || a.exDate || a.recordDate || a.toDate || 0) || 0;
-    const bEffective = Date.parse(b.eventDate || b.exDate || b.recordDate || b.toDate || 0) || 0;
-    if (aEffective !== bEffective) return bEffective - aEffective;
+    const aPinned = a.type === 'Result Filing';
+    const bPinned = b.type === 'Result Filing';
+    if (aPinned !== bPinned) return aPinned ? -1 : 1;
+    const aTime = Date.parse(a.publishedAt || a.filingDate || a.eventDate || a.exDate || a.recordDate || a.toDate || 0) || 0;
+    const bTime = Date.parse(b.publishedAt || b.filingDate || b.eventDate || b.exDate || b.recordDate || b.toDate || 0) || 0;
+    if (aTime !== bTime) return bTime - aTime;
     const ap = priority[a.type] ?? 9;
     const bp = priority[b.type] ?? 9;
     return ap - bp;
@@ -4826,18 +4882,101 @@ function sortEvents(items) {
 }
 
 function eventHighlights(items, max = 10) {
-  const sorted = sortEvents(items);
-  const newestResult = sorted.find(item => item.type === 'Results' || item.type === 'Result Filing');
-  return sorted
-    .filter(item => item === newestResult || (item.type !== 'Results' && item.type !== 'Result Filing'))
-    .slice(0, max);
+  return sortEvents(items).slice(0, max);
+}
+
+function selectResultNewsFallback(items, events) {
+  const filing = sortEvents((events || []).filter(item => item?.type === 'Result Filing'))[0];
+  const filingAt = Date.parse(filing?.publishedAt || filing?.filingDate || 0) || 0;
+  if (!filingAt) return null;
+  const maxDistanceMs = 3 * 24 * 60 * 60 * 1000;
+  const hasMatchingDetailedResult = (events || []).some(item => {
+    if (item?.type !== 'Results') return false;
+    const resultAt = Date.parse(item?.publishedAt || item?.filingDate || item?.eventDate || item?.toDate || 0) || 0;
+    return resultAt && Math.abs(resultAt - filingAt) <= maxDistanceMs;
+  });
+  if (hasMatchingDetailedResult) return null;
+  return (items || [])
+    .filter(item => item?.type === 'Results')
+    .map(item => {
+      const publishedAt = Date.parse(item?.publishedAt || 0) || 0;
+      const distance = publishedAt ? Math.abs(publishedAt - filingAt) : Infinity;
+      const text = String(item?.title || '').toLowerCase();
+      const relevance =
+        (/financial results?|quarterly results?|q[1-4]\s*(?:fy)?\d* results?/.test(text) ? 3 : 0) +
+        (/\bearnings?\b|\bprofit\b|\brevenue\b/.test(text) ? 2 : 0) +
+        (Object.values(parseResultHeadlineMetrics(text)).filter(value => value != null).length * 2) +
+        (/\bdividend\b/.test(text) ? -1 : 0);
+      return { item, distance, relevance };
+    })
+    .filter(row => row.distance <= maxDistanceMs)
+    .sort((a, b) => (b.relevance - a.relevance) || (a.distance - b.distance))[0]?.item || null;
+}
+
+function enrichResultNewsFallback(item, items, events) {
+  if (!item) return null;
+  const filing = sortEvents((events || []).filter(event => event?.type === 'Result Filing'))[0];
+  const filingAt = Date.parse(filing?.publishedAt || filing?.filingDate || 0) || 0;
+  const maxDistanceMs = 3 * 24 * 60 * 60 * 1000;
+  const related = (items || []).filter(candidate => {
+    if (candidate?.type !== 'Results') return false;
+    const publishedAt = Date.parse(candidate?.publishedAt || 0) || 0;
+    return filingAt && publishedAt && Math.abs(publishedAt - filingAt) <= maxDistanceMs;
+  });
+  const metrics = {};
+  for (const candidate of [item, ...related]) {
+    const parsed = parseResultHeadlineMetrics(candidate?.title);
+    for (const [key, value] of Object.entries(parsed)) {
+      if (metrics[key] == null && value != null && Number.isFinite(Number(value))) metrics[key] = Number(value);
+    }
+  }
+  const verdict = classifyResultGrowthMetrics(metrics);
+  return {
+    ...item,
+    ...metrics,
+    resultVerdict:verdict.verdict,
+    resultVerdictReason:verdict.reason,
+  };
+}
+
+function attachMetricsToMatchingResultFiling(events, result) {
+  if (!result) return null;
+  const resultAt = Date.parse(result.publishedAt || result.filingDate || 0) || 0;
+  const maxDistanceMs = 3 * 24 * 60 * 60 * 1000;
+  const filing = (events || [])
+    .filter(item => item?.type === 'Result Filing')
+    .map(item => ({
+      item,
+      distance:Math.abs((Date.parse(item.publishedAt || item.filingDate || 0) || 0) - resultAt),
+    }))
+    .filter(row => resultAt && row.distance <= maxDistanceMs)
+    .sort((a, b) => a.distance - b.distance)[0]?.item;
+  if (!filing) return null;
+  const metricFields = [
+    'revenueCr', 'profitBeforeTaxCr', 'profitAfterTaxCr', 'eps',
+    'revenueGrowthPct', 'patGrowthPct', 'epsGrowthPct',
+    'resultVerdict', 'resultVerdictReason',
+  ];
+  for (const field of metricFields) {
+    if (filing[field] == null && result[field] != null) filing[field] = result[field];
+  }
+  filing.resultMetrics = metricFields.some(field => filing[field] != null);
+  if (!filing.resultMetricsSource) filing.resultMetricsSource = result.title || null;
+  return filing;
+}
+
+function stockNewsCacheKey(symbol, name, assetType = 'stock') {
+  const sym = String(symbol || '').trim().toUpperCase();
+  const company = String(name || '').trim();
+  const isETF = String(assetType || '').toLowerCase() === 'etf';
+  return `${sym}|${isETF ? 'etf' : 'stock'}|${company}`;
 }
 
 async function fetchStockNews(symbol, name, assetType = 'stock') {
   const sym = String(symbol || '').trim().toUpperCase();
   const company = String(name || '').trim();
   const isETF = String(assetType || '').toLowerCase() === 'etf';
-  const cacheKey = `${sym}|${isETF ? 'etf' : 'stock'}|${company}`;
+  const cacheKey = stockNewsCacheKey(sym, company, assetType);
   const cached = stockNewsCache[cacheKey];
   if (cached && (Date.now() - cached.savedAt) < STOCK_NEWS_TTL) return { ...cached.data, fromCache: true };
 
@@ -4852,6 +4991,7 @@ async function fetchStockNews(symbol, name, assetType = 'stock') {
       ]
     : [
         `${base} NSE quarterly results earnings`,
+        `${base} quarterly results revenue net profit EPS`,
         `${base} NSE announcement board meeting dividend`,
         `${base} "large deal" OR "bulk deal" OR "order win" OR contract`,
       ];
@@ -4871,6 +5011,14 @@ async function fetchStockNews(symbol, name, assetType = 'stock') {
     else if (r.status === 'fulfilled' && r.value && r.value.type === 'Results') events.unshift(r.value);
     else if (r.status === 'rejected') console.warn('[stock-news] source failed:', r.reason?.message || r.reason);
   }
+  const resultFallbackSource = selectResultNewsFallback(items, events);
+  const resultFallback = enrichResultNewsFallback(resultFallbackSource, items, events);
+  if (resultFallback) {
+    attachMetricsToMatchingResultFiling(events, resultFallback);
+    events.push({ ...resultFallback, resultFallback:true });
+    const fallbackIndex = items.indexOf(resultFallbackSource);
+    if (fallbackIndex >= 0) items.splice(fallbackIndex, 1);
+  }
   const data = {
     ok: true,
     symbol: sym,
@@ -4882,6 +5030,24 @@ async function fetchStockNews(symbol, name, assetType = 'stock') {
   };
   stockNewsCache[cacheKey] = { savedAt: Date.now(), data };
   return data;
+}
+
+function scheduleStockNewsRefresh(symbol, name, assetType = 'stock') {
+  const sym = String(symbol || '').trim().toUpperCase();
+  const cacheKey = stockNewsCacheKey(sym, name, assetType);
+  const existing = stockNewsRefreshInFlight.get(cacheKey);
+  if (existing) return existing;
+  const job = new Promise(resolve => setImmediate(resolve))
+    .then(() => fetchStockNews(sym, name, assetType))
+    .catch(error => {
+      console.warn(`[stock-news] background refresh failed for ${sym}:`, error.message);
+      return null;
+    })
+    .finally(() => {
+      stockNewsRefreshInFlight.delete(cacheKey);
+    });
+  stockNewsRefreshInFlight.set(cacheKey, job);
+  return job;
 }
 
 function istDateKeyFromValue(value) {
@@ -5124,6 +5290,11 @@ const intradayCandlesService = createIntradayCandlesService({
   httpsGet,
   yahooHeaders:YAHOO_HEADERS,
   resolveNseSymbol,
+  fetchSharekhanCandles:async symbol => {
+    const ready = sharekhanClientLive || await ensureSharekhanInitialized({ force:false });
+    if (!ready || !sharekhanClientLive) return null;
+    return fetchSharekhanIntraday(symbol, sharekhanClientLive);
+  },
 });
 
 // Fetch a single symbol via v8/finance/chart (1-day range, 1-day interval).
@@ -6088,9 +6259,9 @@ async function fetchIntradaySignal(sym, options = {}) {
     return intradaySignalCache[sym].v;
   }
 
-  // Sharekhan WebSocket cache is primary when enabled. Historical Sharekhan
-  // support remains available in sharekhan-intraday.js for future use, but is
-  // intentionally not part of the active intraday fallback chain.
+  // Sharekhan WebSocket cache is primary for live signals when enabled.
+  // Historical Sharekhan candles are used separately by /intraday-candles
+  // for price-click charts and do not enter this signal polling path.
   if (!sources.yahoo) return null;
 
   try {
@@ -6663,7 +6834,7 @@ async function yahooSummary(nseSymbols) {
 // Indices via v8/chart
 const INDEX_MAP = {
   '^NSEI'   : 'nifty50',
-  '^NSMIDCP': 'midcap',
+  'NIFTYMIDCAP150.NS': 'midcap',
   '^NSEBANK': 'banknifty',
   '^CNXSC'  : 'smallcap',
 };
@@ -7175,9 +7346,27 @@ async function proxyRequestHandler(req, res) {
     const assetType = (searchParams.get('assetType') || searchParams.get('type') || 'stock').trim().toLowerCase();
     if (!symbol) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'No symbol' })); return; }
     try {
-      const data = await fetchStockNews(symbol, name, assetType);
+      const cacheKey = stockNewsCacheKey(symbol, name, assetType);
+      const cached = stockNewsCache[cacheKey];
+      const cacheFresh = !!cached && (Date.now() - cached.savedAt) < STOCK_NEWS_TTL;
+      const shouldRefresh = !cacheFresh;
+      const data = cached?.data || {
+        ok: true,
+        symbol,
+        name: name || symbol,
+        assetType: assetType === 'etf' ? 'etf' : 'stock',
+        savedAt: null,
+        events: [],
+        news: [],
+      };
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(data));
+      res.end(JSON.stringify({
+        ...data,
+        fromCache: !!cached,
+        refreshing: shouldRefresh || stockNewsRefreshInFlight.has(cacheKey),
+      }), () => {
+        if (shouldRefresh) scheduleStockNewsRefresh(symbol, name, assetType);
+      });
     } catch(e) {
       res.writeHead(502, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
@@ -7306,6 +7495,45 @@ async function proxyRequestHandler(req, res) {
       if (client.keepAlive) clearInterval(client.keepAlive);
       marketOverviewStreamClients.delete(client);
     });
+    return;
+  }
+
+  // /stream/mobile-stock-quotes?symbols=A,B -- stream quote batches as they resolve
+  if (pathname === '/stream/mobile-stock-quotes') {
+    const symbols = (searchParams.get('symbols') || '')
+      .split(',')
+      .map(s => s.trim().toUpperCase())
+      .filter(Boolean)
+      .slice(0, 300);
+    if (!symbols.length) {
+      res.writeHead(400, { 'Content-Type':'application/json' });
+      res.end(JSON.stringify({ ok:false, error:'No symbols' }));
+      return;
+    }
+    res.writeHead(200, {
+      'Content-Type':'text/event-stream',
+      'Cache-Control':'no-cache',
+      'Connection':'keep-alive',
+      'X-Accel-Buffering':'no',
+    });
+    let closed = false;
+    req.on('close', () => { closed = true; });
+    let loaded = 0;
+    for (let i = 0; i < symbols.length && !closed; i += CONCURRENCY) {
+      const chunk = symbols.slice(i, i + CONCURRENCY);
+      const result = await yahooQuote(chunk).catch(error => ({ ok:false, error:error.message, quotes:{} }));
+      loaded += chunk.length;
+      if (!closed && !res.writableEnded) {
+        res.write(`data: ${JSON.stringify({
+          ok:true,
+          quotes:result.quotes || {},
+          loaded,
+          total:symbols.length,
+          done:loaded >= symbols.length,
+        })}\n\n`);
+      }
+    }
+    if (!closed && !res.writableEnded) res.end();
     return;
   }
 
@@ -8302,6 +8530,12 @@ module.exports = {
     resolveValidatedSharekhanIndexChangeForTests: resolveValidatedSharekhanIndexChange,
     sortEventsForTests: sortEvents,
     eventHighlightsForTests: eventHighlights,
+    selectResultNewsFallbackForTests: selectResultNewsFallback,
+    parseResultHeadlineMetricsForTests: parseResultHeadlineMetrics,
+    enrichResultNewsFallbackForTests: enrichResultNewsFallback,
+    attachMetricsToMatchingResultFilingForTests: attachMetricsToMatchingResultFiling,
+    fetchNSELatestResultForTests: fetchNSELatestResult,
+    nseJsonWithRetryForTests: nseJsonWithRetry,
     setSharekhanClientForTests(client) {
       sharekhanCredentials = client ? { accessToken: 'test-token' } : null;
       sharekhanClientLive = client || null;

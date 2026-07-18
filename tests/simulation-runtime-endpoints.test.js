@@ -431,6 +431,7 @@ test('scheduler blocks new entries when daily stop guard is hit and override is 
       SIMULATION_DAILY_MAX_STOPS: 1,
       SIMULATION_DAILY_MAX_TRADES: 20,
       SIMULATION_DAILY_MAX_NET_LOSS_PCT: 99,
+      SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED: false,
     },
   });
 
@@ -489,6 +490,7 @@ test('scheduler allows new entries when daily stop guard override is enabled', a
       SIMULATION_DAILY_MAX_STOPS: 1,
       SIMULATION_DAILY_MAX_TRADES: 20,
       SIMULATION_DAILY_MAX_NET_LOSS_PCT: 99,
+      SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED: false,
     },
   });
 
@@ -561,6 +563,11 @@ test('scheduler-created simulation trades preserve target and stop from candidat
 test('scheduler-created trades include target and stop when using SimulationEngine path', async () => {
   const proxy = loadProxyWithFixture('scheduler-entry-engine-target-stop');
   await request(proxy, { method: 'POST', path: '/simulation/start', body: {} });
+  await request(proxy, {
+    method: 'POST',
+    path: '/trade-settings',
+    body: { SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED: false },
+  });
   proxy.__test__.setPaperTradesForRuntime([]);
 
   proxy.__test__.setSchedulerTickInputs({

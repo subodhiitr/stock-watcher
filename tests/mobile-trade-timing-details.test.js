@@ -10,9 +10,9 @@ test('mobile positions show entry time plus closed exit time and reason', () => 
   assert.match(source, /function tradeExitTimestamp/);
   assert.match(source, /<em>\$\{entryTime\}<\/em>/);
   assert.match(source, /status === 'closed' \? exitTime/);
-  assert.match(source, /Closed\$\{exitReason/);
-  assert.match(source, /pnlPct >= 0 \? 'Gain' : 'Loss'/);
-  assert.match(source, /cls\(pnlPct\)/);
+  assert.match(source, /exitReason \? ` - \$\{escapeHTML\(exitReason\)\}`/);
+  assert.match(source, /mobile-trade-return \$\{cls\(pnlPct\)\}/);
+  assert.match(source, /P\/L \$\{pct\(pnlPct\)\}/);
 });
 
 test('mobile portfolio and P&L show entry and exit prices and times', () => {

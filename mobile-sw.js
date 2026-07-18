@@ -1,8 +1,8 @@
-const CACHE_NAME = 'intradayx-mobile-v49';
+const CACHE_NAME = 'intradayx-mobile-v55';
 const SHELL_ASSETS = [
   '/mobile',
-  '/mobile.css?v=20260715-12',
-  '/mobile-app.js?v=20260715-42',
+  '/mobile.css?v=20260718-14',
+  '/mobile-app.js?v=20260718-49',
   '/mobile-manifest.webmanifest',
   '/mobile-icon.svg',
   '/mobile-icon-192.png',

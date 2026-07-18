@@ -45,7 +45,8 @@ test('getSuggestedQty accepts positionMultiplier parameter', () => {
   const settings = TradeRules.withDefaults({
     MAX_POSITION_EXPOSURE: 100000,
     PORTFOLIO_INITIAL_CAPITAL: 500000,
-    TRADE_RISK_PCT: 1
+    TRADE_RISK_PCT: 1,
+    SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED: false
   });
 
   const candidate = {
@@ -81,7 +82,8 @@ test('getSimulationEntryIntents applies context cashAvailable and positionMultip
   const settings = TradeRules.withDefaults({
     MAX_POSITION_EXPOSURE: 100000,
     PORTFOLIO_INITIAL_CAPITAL: 500000,
-    TRADE_RISK_PCT: 1
+    TRADE_RISK_PCT: 1,
+    SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED: false
   });
   const candidate = makeEligibleCandidate();
   const context = {
@@ -116,7 +118,8 @@ test('entry sizing reserves cash sequentially and skips zero-sized entries', () 
     PORTFOLIO_INITIAL_CAPITAL: 1000000,
     TRADE_RISK_PCT: 1,
     SIMULATION_MAX_NEW_PER_CYCLE: 3,
-    SIMULATION_SECTOR_PRIORITY_ENABLED: false
+    SIMULATION_SECTOR_PRIORITY_ENABLED: false,
+    SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED: false
   });
   const first = makeEligibleCandidate({ symbol: 'FIRST', price: 1000 });
   const second = makeEligibleCandidate({ symbol: 'SECOND', price: 1000 });

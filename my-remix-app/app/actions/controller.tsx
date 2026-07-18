@@ -20,7 +20,9 @@ async function rootFileResponse(
   return new Response(body, {
     headers: {
       'Cache-Control': cacheControl,
+      'Content-Length': String(body.byteLength),
       'Content-Type': contentType,
+      'X-Content-Type-Options': 'nosniff',
     },
   })
 }
@@ -58,7 +60,7 @@ ${body}
 <script>window.__DASHBOARD_ROUTE__=${bootScript};</script>
 <script defer src="/trade_rules.js?v=20260628-25"></script>
 <script defer src="/simulation_engine.js?v=20260628-25"></script>
-<script defer src="/dashboard-app.js?v=20260714-44"></script>
+<script defer src="/dashboard-app.js?v=20260718-51"></script>
 </body>
 </html>`
 
@@ -86,7 +88,7 @@ function mobileResponse() {
 <link rel="manifest" href="/mobile-manifest.webmanifest">
 <link rel="icon" href="/mobile-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/mobile-icon-192.png">
-<link rel="stylesheet" href="/mobile.css?v=20260715-12">
+<link rel="stylesheet" href="/mobile.css?v=20260718-14">
 </head>
 <body>
 <div class="global-status" id="global-status" role="status" aria-live="assertive"></div>
@@ -97,7 +99,7 @@ function mobileResponse() {
       <h1>Trade</h1>
     </div>
     <div class="topbar-actions">
-      <button class="icon-btn" id="refresh-btn" type="button" aria-label="Refresh">↻</button>
+      <button class="icon-btn earnings-results-icon" id="earnings-results-btn" type="button" aria-label="Open earnings results" aria-controls="earnings-results-overlay" title="Earnings Results">&#128202;</button>
       <button class="icon-btn fresh-news-icon" id="fresh-news-icon" type="button" aria-label="Open fresh news" aria-controls="fresh-news-overlay" title="Fresh News" onclick="window.openMobileFreshNews?.()">&#128240;</button>
       <button class="icon-btn broker-login-icon zerodha-icon" id="zerodha-login-icon" type="button" aria-label="Log in to Zerodha" title="Zerodha login">Z</button>
       <button class="icon-btn broker-login-icon sharekhan-icon" id="sharekhan-login-icon" type="button" aria-label="Log in to Sharekhan" title="Sharekhan login">S</button>
@@ -264,6 +266,17 @@ function mobileResponse() {
   </section>
 
 </div>
+<div class="overlay" id="earnings-results-overlay" hidden>
+  <section class="portfolio-sheet news-sheet earnings-results-sheet" role="dialog" aria-modal="true" aria-labelledby="earnings-results-title">
+    <header class="sheet-head">
+      <div><p class="eyebrow">Next 30 days</p><h2 id="earnings-results-title">Earnings Results</h2></div>
+      <button class="icon-btn" id="earnings-results-close" type="button" aria-label="Close">x</button>
+    </header>
+    <div class="news-status" id="earnings-results-status">Loading earnings calendar…</div>
+    <div class="earnings-results-date-strip" id="earnings-results-date-strip" aria-label="Earnings result dates"></div>
+    <div class="transaction-list earnings-results-list" id="earnings-results-list"></div>
+  </section>
+</div>
 <div class="overlay" id="fresh-news-overlay" hidden>
   <section class="portfolio-sheet news-sheet" role="dialog" aria-modal="true" aria-labelledby="fresh-news-title">
     <header class="sheet-head">
@@ -320,7 +333,7 @@ function mobileResponse() {
     <div class="transaction-list" id="portfolio-transactions"></div>
   </section>
 </div>
-<script defer src="/mobile-app.js?v=20260715-42"></script>
+<script defer src="/mobile-app.js?v=20260718-49"></script>
 </body>
 </html>`
 

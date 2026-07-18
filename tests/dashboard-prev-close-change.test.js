@@ -67,5 +67,5 @@ test('dashboard row and summary renderers use previous-close display helper', ()
   assert.match(stockRowSource, /getDisplayChangePct\(d\)/);
   assert.match(statsBarSource, /getDisplayChangePct\(d\)/);
   assert.match(sectorSource, /getDisplayChangePct\(d\)/);
-  assert.match(source, /getDisplayChangePct\(stockData\[sym\]\)/);
+  assert.match(source, /getDisplayChangePct\(getBrowserStockData\(stock\.sym\)\)/);
 });

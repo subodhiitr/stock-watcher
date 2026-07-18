@@ -10,3 +10,9 @@ test('market overview warms the complete dashboard stock universe', () => {
   assert.match(route, /rememberSimulationUniverse\(loadDashboardStockUniverse\(\)\.map\(row => row\.sym\)\)/);
   assert.match(route, /refreshIntradayLiveCache\('market-overview-client'\)/);
 });
+
+test('Yahoo index mapping uses the actual Nifty Midcap 150 symbol', () => {
+  const indexMap = source.slice(source.indexOf('const INDEX_MAP = {'), source.indexOf('async function yahooIndices'));
+  assert.match(indexMap, /'NIFTYMIDCAP150\.NS'\s*:\s*'midcap'/);
+  assert.doesNotMatch(indexMap, /\^NSMIDCP/);
+});

@@ -14,6 +14,22 @@ function normalizeInterval(value) {
   return String(value || '5m').trim().toLowerCase() === '15m' ? '15m' : '5m';
 }
 
+function istDateKey(iso) {
+  const timeMs = Date.parse(iso || 0);
+  if (!Number.isFinite(timeMs)) return '';
+  return new Date(timeMs + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function limitCandlesToRange(candles, range = '1d') {
+  const safeRange = normalizeRange(range);
+  const dayLimit = Number.parseInt(safeRange, 10) || 1;
+  const rows = Array.isArray(candles) ? candles : [];
+  const dayKeys = [...new Set(rows.map(candle => istDateKey(candle?.time)).filter(Boolean))].sort().slice(-dayLimit);
+  if (!dayKeys.length) return [];
+  const allowed = new Set(dayKeys);
+  return rows.filter(candle => allowed.has(istDateKey(candle?.time)));
+}
+
 function aggregateCandles(candles, interval = '5m') {
   const safeInterval = normalizeInterval(interval);
   if (safeInterval === '5m') return Array.isArray(candles) ? candles.slice() : [];
@@ -85,12 +101,9 @@ function createIntradayCandlesService(deps = {}) {
   const httpsGet = deps.httpsGet;
   const yahooHeaders = deps.yahooHeaders || {};
   const resolveNseSymbol = deps.resolveNseSymbol || (symbol => symbol);
+  const fetchSharekhanCandles = deps.fetchSharekhanCandles;
 
-  async function fetchCandles(symbol, range = '1d', interval = '5m') {
-    const sym = String(symbol || '').trim().toUpperCase();
-    if (!sym) throw new Error('No symbol');
-    const safeRange = normalizeRange(range);
-    const safeInterval = normalizeInterval(interval);
+  async function fetchYahooCandles(sym, safeRange) {
     const yahooSym = `${resolveNseSymbol(sym)}.NS`;
     const requestPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=5m&range=${safeRange}&includePrePost=false`;
     let response = await httpsGet({
@@ -110,8 +123,43 @@ function createIntradayCandlesService(deps = {}) {
       });
     }
     if (response.status !== 200) throw new Error(`Yahoo chart HTTP ${response.status}`);
-    const normalized = normalizeYahooCandles(sym, safeRange, JSON.parse(response.body || '{}'));
-    return { ...normalized, interval:safeInterval, candles:aggregateCandles(normalized.candles, safeInterval) };
+    return normalizeYahooCandles(sym, safeRange, JSON.parse(response.body || '{}'));
+  }
+
+  async function fetchCandles(symbol, range = '1d', interval = '5m') {
+    const sym = String(symbol || '').trim().toUpperCase();
+    if (!sym) throw new Error('No symbol');
+    const safeRange = normalizeRange(range);
+    const safeInterval = normalizeInterval(interval);
+    let sharekhanError = null;
+    if (typeof fetchSharekhanCandles === 'function') {
+      try {
+        const sharekhanResult = await fetchSharekhanCandles(sym);
+        if (sharekhanResult) {
+          const normalized = normalizeYahooCandles(sym, safeRange, { chart:{ result:[sharekhanResult] } });
+          const rangedCandles = limitCandlesToRange(normalized.candles, safeRange);
+          if (rangedCandles.length) {
+            return {
+              ...normalized,
+              source:'sharekhan-historical',
+              interval:safeInterval,
+              candles:aggregateCandles(rangedCandles, safeInterval),
+            };
+          }
+        }
+      } catch (error) {
+        sharekhanError = error?.message || String(error);
+      }
+    }
+    const normalized = await fetchYahooCandles(sym, safeRange);
+    return {
+      ...normalized,
+      source:'yahoo',
+      fallbackFrom:typeof fetchSharekhanCandles === 'function' ? 'sharekhan-historical' : null,
+      fallbackReason:sharekhanError,
+      interval:safeInterval,
+      candles:aggregateCandles(normalized.candles, safeInterval),
+    };
   }
 
   async function handleRoute(req, res, pathname, searchParams) {
@@ -141,6 +189,7 @@ function createIntradayCandlesService(deps = {}) {
 
 module.exports = {
   aggregateCandles,
+  limitCandlesToRange,
   normalizeYahooCandles,
   createIntradayCandlesService,
 };

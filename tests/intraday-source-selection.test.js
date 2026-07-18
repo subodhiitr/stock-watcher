@@ -25,10 +25,11 @@ test('settings UI supports either or both intraday sources', () => {
   assert.match(dashboard, /Select at least one intraday data source/);
 });
 
-test('Sharekhan historical code is retained but excluded from active intraday fallback', () => {
-  assert.doesNotMatch(proxy, /await fetchSharekhanIntraday\(sym, sharekhanClientLive\)/);
-  assert.match(proxy, /Historical Sharekhan[\s\S]*intentionally not part of the active intraday fallback chain/);
-  assert.match(dashboard, /String\(value\.dataSource \|\| ''\)\.startsWith\('sharekhan'\)/);
+test('price chart uses Sharekhan historical candles while live signal polling stays websocket-first', () => {
+  assert.match(proxy, /fetchSharekhanCandles:async symbol/);
+  assert.match(proxy, /return fetchSharekhanIntraday\(symbol, sharekhanClientLive\)/);
+  assert.match(proxy, /Sharekhan WebSocket cache is primary for live signals when enabled/);
+  assert.match(dashboard, /t\.dataSource === 'sharekhan-ws'/);
 });
 
 test('server preserves checkbox values as booleans instead of converting them to zero or one', () => {

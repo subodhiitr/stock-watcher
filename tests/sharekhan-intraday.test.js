@@ -83,6 +83,21 @@ test('normalizeSharekhanCandles converts candle array to Yahoo-compatible result
   assert.equal(result.meta.previousClose,      null);
 });
 
+test('normalizeSharekhanCandles handles current tradeDate, tradeTime and qty fields', () => {
+  const candles = [
+    { open:2072.6, high:2106.9, low:2065.1, close:2102.8, qty:493330, tradeTime:'09:19:58', tradeDate:'13/7/2026' },
+    { open:2102.1, high:2109, low:2093.6, close:2095.4, qty:183804, tradeTime:'09:24:59', tradeDate:'13/7/2026' },
+  ];
+  const result = normalizeSharekhanCandles('TCS', candles);
+  assert.ok(result);
+  assert.deepEqual(
+    result.timestamp.map(timestamp => new Date(timestamp * 1000).toISOString()),
+    ['2026-07-13T03:45:00.000Z', '2026-07-13T03:50:00.000Z'],
+  );
+  assert.deepEqual(result.indicators.quote[0].volume, [493330, 183804]);
+  assert.deepEqual(result.indicators.quote[0].close, [2102.8, 2095.4]);
+});
+
 test('normalizeSharekhanCandles sorts candles ascending by timestamp (reverse-order input)', () => {
   const candles = [
     { time: '2026-06-27T04:25:00.000Z', open: 392.5, high: 394.0, low: 391.5, close: 393.0, volume: 8000  },

@@ -10,7 +10,7 @@ test('sector tile percentage and coverage use the same local constituent set', (
   const end = source.indexOf('\nfunction renderTableNow', start);
   const body = source.slice(start, end);
   assert.match(body, /const members = MIDCAP_STOCKS\.filter/);
-  assert.match(body, /getDisplayChangePct\(stockData\[stock\.sym\]\)/);
+  assert.match(body, /getDisplayChangePct\(getBrowserStockData\(stock\.sym\)\)/);
   assert.match(body, /const count = localChanges\.length/);
   assert.match(body, /const total = members\.length/);
   assert.match(body, /localChanges\.reduce/);

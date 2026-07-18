@@ -49,7 +49,10 @@ test('ETF candidates are excluded by default from simulation', () => {
 });
 
 test('ETF buy candidates are allowed when SIMULATION_ENABLE_ETF is enabled', () => {
-  const settings = TradeRules.withDefaults({ SIMULATION_ENABLE_ETF: true });
+  const settings = TradeRules.withDefaults({
+    SIMULATION_ENABLE_ETF: true,
+    SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED: false,
+  });
   const candidate = baseEtfCandidate({
     previousCandidate: baseEtfCandidate(),
   });
