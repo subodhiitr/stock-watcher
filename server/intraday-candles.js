@@ -10,6 +10,36 @@ function normalizeRange(value) {
   return ['1d', '2d', '5d'].includes(range) ? range : '1d';
 }
 
+function normalizeInterval(value) {
+  return String(value || '5m').trim().toLowerCase() === '15m' ? '15m' : '5m';
+}
+
+function aggregateCandles(candles, interval = '5m') {
+  const safeInterval = normalizeInterval(interval);
+  if (safeInterval === '5m') return Array.isArray(candles) ? candles.slice() : [];
+  const bucketMs = 15 * 60 * 1000;
+  const buckets = new Map();
+  for (const candle of (Array.isArray(candles) ? candles : [])) {
+    const timeMs = Date.parse(candle?.time || 0);
+    if (!Number.isFinite(timeMs)) continue;
+    const bucketTime = Math.floor(timeMs / bucketMs) * bucketMs;
+    const current = buckets.get(bucketTime);
+    if (!current) {
+      buckets.set(bucketTime, {
+        time:new Date(bucketTime).toISOString(),
+        open:Number(candle.open), high:Number(candle.high), low:Number(candle.low), close:Number(candle.close),
+        volume:Math.max(0, Number(candle.volume) || 0),
+      });
+      continue;
+    }
+    current.high = Math.max(current.high, Number(candle.high));
+    current.low = Math.min(current.low, Number(candle.low));
+    current.close = Number(candle.close);
+    current.volume += Math.max(0, Number(candle.volume) || 0);
+  }
+  return [...buckets.values()];
+}
+
 function normalizeYahooCandles(symbol, range, data) {
   const result = data?.chart?.result?.[0];
   const timestamps = Array.isArray(result?.timestamp) ? result.timestamp : [];
@@ -56,10 +86,11 @@ function createIntradayCandlesService(deps = {}) {
   const yahooHeaders = deps.yahooHeaders || {};
   const resolveNseSymbol = deps.resolveNseSymbol || (symbol => symbol);
 
-  async function fetchCandles(symbol, range = '1d') {
+  async function fetchCandles(symbol, range = '1d', interval = '5m') {
     const sym = String(symbol || '').trim().toUpperCase();
     if (!sym) throw new Error('No symbol');
     const safeRange = normalizeRange(range);
+    const safeInterval = normalizeInterval(interval);
     const yahooSym = `${resolveNseSymbol(sym)}.NS`;
     const requestPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=5m&range=${safeRange}&includePrePost=false`;
     let response = await httpsGet({
@@ -79,7 +110,8 @@ function createIntradayCandlesService(deps = {}) {
       });
     }
     if (response.status !== 200) throw new Error(`Yahoo chart HTTP ${response.status}`);
-    return normalizeYahooCandles(sym, safeRange, JSON.parse(response.body || '{}'));
+    const normalized = normalizeYahooCandles(sym, safeRange, JSON.parse(response.body || '{}'));
+    return { ...normalized, interval:safeInterval, candles:aggregateCandles(normalized.candles, safeInterval) };
   }
 
   async function handleRoute(req, res, pathname, searchParams) {
@@ -94,7 +126,7 @@ function createIntradayCandlesService(deps = {}) {
         sendJson(res, 400, { ok: false, error: 'No symbol' });
         return true;
       }
-      sendJson(res, 200, await fetchCandles(symbol, searchParams.get('range') || '1d'));
+      sendJson(res, 200, await fetchCandles(symbol, searchParams.get('range') || '1d', searchParams.get('interval') || '5m'));
     } catch (e) {
       sendJson(res, 502, { ok: false, error: e.message || 'Intraday candles failed' });
     }
@@ -108,6 +140,7 @@ function createIntradayCandlesService(deps = {}) {
 }
 
 module.exports = {
+  aggregateCandles,
   normalizeYahooCandles,
   createIntradayCandlesService,
 };

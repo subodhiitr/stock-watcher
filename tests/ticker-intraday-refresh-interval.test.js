@@ -57,5 +57,6 @@ test('server intraday refresh uses 15min outside market hours', () => {
 test('server intraday refresh loop is weekend cache-only (no fetch)', () => {
   const source = fs.readFileSync(PROXY_PATH, 'utf8');
   assert.match(source, /function isIstWeekend\(/);
-  assert.match(source, /if\s*\(isIstWeekend\(\)\)\s*\{\s*return\s*\{\s*ok:\s*true,\s*skipped:\s*true,\s*reason:\s*'weekend-cache-only'\s*\};\s*\}/);
+  assert.match(source, /const allowOffHoursWarmup = reason === 'market-overview-client' \|\| reason === 'universe-update'/);
+  assert.match(source, /if\s*\(isIstWeekend\(\)\s*&&\s*!allowOffHoursWarmup\)\s*\{\s*return\s*\{\s*ok:\s*true,\s*skipped:\s*true,\s*reason:\s*'weekend-cache-only'\s*\};\s*\}/);
 });

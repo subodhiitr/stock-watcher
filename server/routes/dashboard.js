@@ -55,6 +55,32 @@ async function handleDashboardRoute(req, res, pathname, searchParams, deps) {
     return true;
   }
 
+  if (pathname === '/mobile-setups') {
+    if (req.method !== 'GET') {
+      sendJson(res, 405, { error: 'Method not allowed' });
+      return true;
+    }
+    try {
+      sendJson(res, 200, deps.buildMobileSetupsPayload(String(searchParams.get('filter') || 'tradeable')), { 'Cache-Control': 'no-cache' });
+    } catch (e) {
+      sendJson(res, 500, { ok: false, error: e.message || 'Could not load mobile setups' });
+    }
+    return true;
+  }
+
+  if (pathname === '/mobile-stock-universe') {
+    if (req.method !== 'GET') {
+      sendJson(res, 405, { error: 'Method not allowed' });
+      return true;
+    }
+    try {
+      sendJson(res, 200, deps.buildMobileStockUniverse(), { 'Cache-Control': 'no-cache' });
+    } catch (e) {
+      sendJson(res, 500, { ok:false, error:e.message || 'Could not load mobile stock universe' });
+    }
+    return true;
+  }
+
   return false;
 }
 

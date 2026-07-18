@@ -1,13 +1,25 @@
 {
   "ok": true,
   "date": "2026-07-25",
-  "savedAt": 1783505490616,
-  "builtInMs": 65555,
+  "savedAt": 1784344537913,
+  "builtInMs": 44642,
   "source": "nse-board-meetings",
-  "scanned": 3028,
-  "count": 1,
-  "symbolCount": 1,
+  "scanned": 3033,
+  "count": 2,
+  "symbolCount": 2,
   "items": [
+    {
+      "symbol": "AUBANK",
+      "name": "AU Small Finance Bank Limited",
+      "type": "Financial Results",
+      "title": "AU Small Finance Bank Limited has informed the Exchange about Board Meeting to be held on 25-Jul-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=AUBANK",
+      "eventDate": "2026-07-24T18:30:00.000Z",
+      "dateKey": "2026-07-25",
+      "status": "upcoming",
+      "period": null
+    },
     {
       "symbol": "IDFCFIRSTB",
       "name": "IDFC First Bank Limited",

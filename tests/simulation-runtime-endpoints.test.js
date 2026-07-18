@@ -353,7 +353,7 @@ test('scheduler auto-closes manual open trades after EOD cutoff', async () => {
   assert.match(String(closed.closeReason || ''), /EOD square-off/i);
 });
 
-test('scheduler auto-closes open trade at EOD even when symbol is missing from candidates', async () => {
+test('scheduler keeps an EOD trade open when no executable quote is available', async () => {
   const proxy = loadProxyWithFixture('eod-missing-candidate-fallback');
   await request(proxy, { method: 'POST', path: '/simulation/start', body: {} });
 
@@ -384,8 +384,8 @@ test('scheduler auto-closes open trade at EOD even when symbol is missing from c
   await proxy.__test__.runSchedulerTick();
   const closed = proxy.__test__.getPaperTradesForRuntime().find(trade => trade.id === 'eod-missing-1');
   assert.ok(closed, 'trade should remain in paper state');
-  assert.equal(closed.status, 'closed');
-  assert.match(String(closed.closeReason || ''), /EOD square-off/i);
+  assert.equal(closed.status, 'open');
+  assert.equal(closed.exitPrice ?? null, null);
 });
 
 test('scheduler does not open new trades outside simulation entry window', async () => {

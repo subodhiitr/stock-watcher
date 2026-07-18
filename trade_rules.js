@@ -11,18 +11,38 @@
     PORTFOLIO_INITIAL_CAPITAL: 500000, // fallback only; dashboard/backtest replace this from portfolio state
     MAX_POSITION_EXPOSURE: 100000,
     TRADE_RISK_PCT: 1,
+    SIMULATION_MAX_PORTFOLIO_HEAT_PCT: 5,
+    SIMULATION_MAX_SECTOR_HEAT_PCT: 2,
+    SIMULATION_ENTRY_START_MIN: 9 * 60 + 30,
+    SIMULATION_ENTRY_END_MIN: 14 * 60 + 45,
+    SIMULATION_EOD_SETTLEMENT_MIN: 15 * 60 + 15,
+    SIMULATION_AUTO_STOP_MIN: 15 * 60 + 30,
+    SIMULATION_COST_PROFILE: 'zerodha_intraday',
+    SIMULATION_SLIPPAGE_PCT: 0.06,
     SIMULATION_MIN_NET_PROFIT_PCT: 1,
-    SIMULATION_MAX_OPEN: 20,
-    SIMULATION_MAX_ACTIVE_OPEN: 15,
-    SIMULATION_MAX_NEW_PER_CYCLE: 4,
+    SIMULATION_MAX_OPEN: 10,
+    SIMULATION_MAX_ACTIVE_OPEN: 8,
+    SIMULATION_MAX_NEW_PER_CYCLE: 1,
     SIMULATION_MAX_CONCURRENT_POSITIONS_PER_SYMBOL: 1,
     SIMULATION_MAX_DAILY_ENTRIES_PER_SYMBOL: 2,
+    SIMULATION_MAX_OPEN_PER_SECTOR: 2,
+    SIMULATION_ROLLING_ENTRY_WINDOW_MIN: 5,
+    SIMULATION_ROLLING_ENTRY_MAX: 2,
+    SIMULATION_ROLLING_ORDINARY_ENTRY_MAX: 1,
+    SIMULATION_ROLLING_SECTOR_ENTRY_MAX: 1,
+    SIMULATION_SECTOR_PRIORITY_ENABLED: true,
+    SIMULATION_SECTOR_PRIORITY_MIN_SCORE: 80,
+    SIMULATION_SECTOR_PRIORITY_MIN_SECTOR_PCT: 0.5,
+    SIMULATION_SECTOR_PRIORITY_MIN_BREADTH_PCT: 60,
+    SIMULATION_SECTOR_PRIORITY_MIN_RS_PCT: 0.5,
+    SIMULATION_SECTOR_PRIORITY_MIN_CONSTITUENTS: 3,
+    SIMULATION_SECTOR_PRIORITY_MAX_BOOST: 5,
     SIMULATION_TOP_N: 10,
     SIMULATION_DATA_QUALITY_MIN_SAMPLE: 25,
     SIMULATION_DATA_QUALITY_REDUCE_BAD_RATIO: 0.25,
     SIMULATION_DATA_QUALITY_BLOCK_BAD_RATIO: 0.45,
     SIMULATION_DATA_QUALITY_REDUCED_TOP_N: 2,
-    SIMULATION_DAILY_MAX_TRADES: 25,
+    SIMULATION_DAILY_MAX_TRADES: 12,
     SIMULATION_ENTRY_MAX_SNAPSHOT_AGE_MIN: 3,
     SIMULATION_DAILY_MAX_STOPS: 4,
     SIMULATION_CLUSTERED_STOP_COUNT: 2,
@@ -31,23 +51,51 @@
     SIMULATION_OVERRIDE_STOP_GUARD: false,
     SIMULATION_DAILY_MAX_STOPS_PROFIT_MULTIPLIER: 2,
     SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT: 0.2,
-    SIMULATION_DAILY_MAX_NET_LOSS_PCT: 0.6,
+    SIMULATION_DAILY_MAX_NET_LOSS_PCT: 0.3,
     SIMULATION_SYMBOL_COOLDOWN_MIN: 90,
     SIMULATION_SETUP_COOLDOWN_MIN: 90,
     SIMULATION_SETUP_DAILY_LOSS_GUARD_COUNT: 2,
     SIMULATION_FIRST_HOUR_MAX_ENTRIES: 2,
     SIMULATION_STOP_GRACE_MIN: 10,
-    SIMULATION_NO_PROGRESS_EXIT_MIN: 45,
-    SIMULATION_NO_PROGRESS_RUNNER_EXIT_MIN: 25,
-    SIMULATION_NO_PROGRESS_FRESH_BREAKOUT_EXIT_MIN: 12,
-    SIMULATION_NO_PROGRESS_VWAP_CONT_EXIT_MIN: 8,
+    SIMULATION_NO_PROGRESS_EXIT_MIN: 60,
+    SIMULATION_NO_PROGRESS_RUNNER_EXIT_MIN: 60,
+    SIMULATION_NO_PROGRESS_FRESH_BREAKOUT_EXIT_MIN: 30,
+    SIMULATION_NO_PROGRESS_VWAP_CONT_EXIT_MIN: 30,
     SIMULATION_NO_PROGRESS_VWAP_CONT_REQUIRE_REL_VOL_FADE: true,
     SIMULATION_NO_PROGRESS_VWAP_CONT_REL_VOL_FADE: 1.5,
     SIMULATION_NO_PROGRESS_MIN_FAVORABLE_PCT: 0.2,
     SIMULATION_NO_PROGRESS_ADVERSE_PCT: 0.15,
     SIMULATION_STOP_CONFIRM_BARS: 2,
+    SIMULATION_LONG_CONFIRM_BARS: 2,
+    SIMULATION_LONG_CONFIRM_MODE: 'completed_candle_hold',
+    SIMULATION_LONG_CONFIRM_CANDLE_MIN: 5,
+    SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED: true,
+    SIMULATION_LONG_REQUIRE_COMPLETED_CANDLE: true,
+    SIMULATION_LONG_REQUIRE_FRESH_VOLUME_AFTER_CONFIRMATION: true,
+    SIMULATION_LONG_MIN_POST_CONFIRM_VOLUME_RATIO_3M: 1,
+    SIMULATION_LONG_MIN_POST_CONFIRM_VOLUME_RATIO_5M: 1,
+    SIMULATION_LONG_MAX_TRIGGER_EXTENSION_PCT: 0.6,
+    SIMULATION_LONG_MAX_VWAP_EXTENSION_PCT: 0.8,
+    SIMULATION_LONG_PROFIT_LOCK_PCT: 0.4,
+    SIMULATION_LONG_PROFIT_LOCK_MIN_HOLD_MIN: 0,
+    SIMULATION_TOP_GAINER_CONTINUATION_ENABLED: true,
+    SIMULATION_TOP_GAINER_COUNT: 5,
+    SIMULATION_TOP_GAINER_MIN_DAY_GAIN_PCT: 1.5,
+    SIMULATION_TOP_GAINER_MAX_DAY_GAIN_PCT: 6,
+    SIMULATION_TOP_GAINER_MIN_VOLUME_RATIO_3M: 1,
+    SIMULATION_TOP_GAINER_MIN_VOLUME_RATIO_5M: 1,
+    SIMULATION_TOP_GAINER_MIN_REL_VOL: 1.2,
+    SIMULATION_TOP_GAINER_MAX_TRIGGER_EXTENSION_PCT: 0.6,
+    SIMULATION_TOP_GAINER_MAX_VWAP_EXTENSION_PCT: 0.8,
+    SIMULATION_TOP_GAINER_AVOID_START_MIN: 12 * 60,
+    SIMULATION_TOP_GAINER_AVOID_END_MIN: 13 * 60 + 30,
+    SIMULATION_TOP_GAINER_PROFIT_LOCK_PCT: 0.4,
+    SIMULATION_TOP_GAINER_PARTIAL_QTY_PCT: 50,
+    SIMULATION_TOP_GAINER_TRAIL_PCT: 0.35,
     SIMULATION_EMERGENCY_STOP_PCT: 1.25,
     SIMULATION_RUNNER_MIN_SCORE: 65,
+    SIMULATION_RUNNER_STOP_ATR_MULTIPLIER: 1.2,
+    SIMULATION_RUNNER_MAX_INITIAL_STOP_PCT: 1.25,
     SIMULATION_RUNNER_MIN_REL_VOL: 3,
     SIMULATION_RUNNER_MAX_DAY_CHANGE_PCT: 8,
     SIMULATION_RUNNER_LATE_SIZE_REDUCTION_DAY_CHANGE_PCT: 7,
@@ -66,11 +114,11 @@
     SIMULATION_RUNNER_LATE_MIN_VOLUME_RATIO_3M: 0.8,
     SIMULATION_RUNNER_LATE_MIN_VOLUME_RATIO_5M: 1,
     SIMULATION_EARLY_RUNNER_MIN_SCORE: 40,
-    SIMULATION_EARLY_RUNNER_MIN_REL_VOL: 1.8,
-    SIMULATION_EARLY_RUNNER_MIN_DAY_CHANGE_PCT: 3,
+    SIMULATION_EARLY_RUNNER_MIN_REL_VOL: 1.3,
+    SIMULATION_EARLY_RUNNER_MIN_DAY_CHANGE_PCT: 0.5,
     SIMULATION_EARLY_RUNNER_MAX_DAY_CHANGE_PCT: 8,
-    SIMULATION_EARLY_RUNNER_MAX_TRIGGER_EXTENSION_PCT: 4.25,
-    SIMULATION_EARLY_RUNNER_MAX_VWAP_EXTENSION_PCT: 2.2,
+    SIMULATION_EARLY_RUNNER_MAX_TRIGGER_EXTENSION_PCT: 1.25,
+    SIMULATION_EARLY_RUNNER_MAX_VWAP_EXTENSION_PCT: 1.5,
     SIMULATION_RUNNER_MAX_TRIGGER_EXTENSION_PCT: 3.25,
     SIMULATION_RUNNER_MAX_VWAP_EXTENSION_PCT: 1.25,
     SIMULATION_STRONG_BREAKOUT_MIN_SCORE: 55,
@@ -79,6 +127,11 @@
     SIMULATION_STRONG_BREAKOUT_MAX_DAY_GAIN_PCT: 8,
     SIMULATION_STRONG_BREAKOUT_MAX_RSI: 75,
     SIMULATION_FRESH_BREAKOUT_MAX_VWAP_EXTENSION_PCT: 0.8,
+    SIMULATION_FRESH_BREAKOUT_MIN_SCORE: 60,
+    SIMULATION_FRESH_BREAKOUT_MIN_VOLUME_RATIO_3M: 0.7,
+    SIMULATION_FRESH_BREAKOUT_MIN_VOLUME_RATIO_5M: 0.9,
+    SIMULATION_FRESH_BREAKOUT_MIN_NIFTY_CHANGE_PCT: -0.1,
+    SIMULATION_FRESH_BREAKOUT_MIN_BREADTH_PCT: 50,
     SIMULATION_FRESH_BREAKOUT_HIGH_REL_VOL_MAX_VWAP_EXTENSION_PCT: 1,
     SIMULATION_FRESH_BREAKOUT_HIGH_REL_VOL: 2,
     SIMULATION_FRESH_BREAKOUT_RELAXED_MIN_SCORE: 72,
@@ -91,6 +144,8 @@
     SIMULATION_RUNNER_WIDE_TRAIL_PCT: 1.35,
     SIMULATION_RUNNER_TARGET_STEP_PCT: 1.2,
     SIMULATION_BREAKEVEN_PROTECT_PCT: 0.65,
+    SIMULATION_BREAKEVEN_MIN_HOLD_MIN: 5,
+    SIMULATION_BREAKEVEN_COST_BUFFER_PCT: 0.02,
     SIMULATION_TRAIL_START_PCT: 0.8,
     SIMULATION_LONG_TRAIL_PCT: 0.4,
     SIMULATION_TIME_STOP_MIN: 45,
@@ -108,8 +163,15 @@
     SIMULATION_VWAP_CONT_BLOCK_NEGATIVE_5M_UNLESS_BREAKOUT: true,
     SIMULATION_VWAP_CONT_MAX_TRIGGER_EXTENSION_PCT: 2.5,
     SIMULATION_VWAP_CONT_MAX_VWAP_EXTENSION_PCT: 1.1,
-    SIMULATION_MIN_SCORE: 70,
-    SIMULATION_SHORT_MIN_SCORE: 65,
+    SIMULATION_EXPECTANCY_ENABLED: true,
+    SIMULATION_EXPECTANCY_MIN_SAMPLE: 12,
+    SIMULATION_EXPECTANCY_BLOCK_MIN_SAMPLE: 25,
+    SIMULATION_EXPECTANCY_MIN_NET_PCT: 0,
+    SIMULATION_EXPECTANCY_MIN_PROFIT_FACTOR: 0.85,
+    SIMULATION_EXPECTANCY_LOOKBACK_TRADES: 200,
+    SIMULATION_EXPECTANCY_MAX_SCORE_ADJUSTMENT: 10,
+    SIMULATION_MIN_SCORE: 60,
+    SIMULATION_SHORT_MIN_SCORE: 60,
     SIMULATION_SHORT_MIN_REL_VOL: 0.8,
     SIMULATION_SHORT_ALLOW_AVOID_GUARD: true,
     SIMULATION_SHORT_TRIGGER_DISTANCE_PCT: 1.2,
@@ -127,6 +189,11 @@
     SIMULATION_MARKET_REGIME_NIFTY_PCT: 0.25,
     SIMULATION_MARKET_REGIME_SECTOR_PCT: 0.15,
     SIMULATION_MARKET_REGIME_RS_PCT: 0.2,
+    SIMULATION_LONG_SECTOR_RS_OVERRIDE_ENABLED: true,
+    SIMULATION_LONG_SECTOR_RS_OVERRIDE_MIN_SECTOR_PCT: 0.5,
+    SIMULATION_LONG_SECTOR_RS_OVERRIDE_MIN_SCORE: 85,
+    SIMULATION_LONG_SECTOR_RS_OVERRIDE_MIN_RS_PCT: 0.5,
+    SIMULATION_LONG_SECTOR_RS_OVERRIDE_MAX_NIFTY_DECLINE_PCT: 0.75,
     SIMULATION_AUTO_SHORTS: true,
     SIMULATION_AUTO_MANUAL_EXITS: false,
     SIMULATION_ENABLE_ETF: false,
@@ -146,6 +213,7 @@
     SIMULATION_MAX_OPEN: 'Maximum total simulation trades allowed to remain open at the same time.',
     SIMULATION_MAX_ACTIVE_OPEN: 'Maximum active simulation positions allowed at the same time. This can be lower than total open when partial runners are active.',
     SIMULATION_MAX_NEW_PER_CYCLE: 'Maximum new simulation entries allowed during one refresh cycle.',
+    SIMULATION_MAX_OPEN_PER_SECTOR: 'Maximum simultaneous open positions allowed in one sector.',
     SIMULATION_TOP_N: 'Number of highest-ranked candidates considered first for simulation entries.',
     SIMULATION_DATA_QUALITY_MIN_SAMPLE: 'Minimum candidate sample size before snapshot-level data-quality throttles activate.',
     SIMULATION_DATA_QUALITY_REDUCE_BAD_RATIO: 'Bad-candidate ratio that reduces entry selection during degraded intraday data quality.',
@@ -165,6 +233,17 @@
     SIMULATION_SETUP_COOLDOWN_MIN: 'Minutes to wait before re-entering the same symbol and setup type after a losing stop exit.',
     SIMULATION_SETUP_DAILY_LOSS_GUARD_COUNT: 'Blocks fresh entries for a setup type after this many losing trades in the same setup during the day.',
     SIMULATION_FIRST_HOUR_MAX_ENTRIES: 'Maximum new entries allowed during the first trading hour to avoid overtrading early volatility.',
+    SIMULATION_ROLLING_ENTRY_WINDOW_MIN: 'Rolling time window in minutes used to rate-limit new simulation entries.',
+    SIMULATION_ROLLING_ENTRY_MAX: 'Maximum new simulation entries allowed inside the rolling entry window.',
+    SIMULATION_ROLLING_ORDINARY_ENTRY_MAX: 'Maximum non-sector-aligned entries allowed inside the rolling entry window.',
+    SIMULATION_ROLLING_SECTOR_ENTRY_MAX: 'Maximum strongly sector-aligned entries allowed inside the rolling entry window.',
+    SIMULATION_SECTOR_PRIORITY_ENABLED: 'Prioritizes high-quality candidates aligned with a broad, sufficiently covered sector trend.',
+    SIMULATION_SECTOR_PRIORITY_MIN_SCORE: 'Minimum absolute candidate score required for strong sector-alignment priority.',
+    SIMULATION_SECTOR_PRIORITY_MIN_SECTOR_PCT: 'Minimum directional sector move required for strong sector-alignment priority.',
+    SIMULATION_SECTOR_PRIORITY_MIN_BREADTH_PCT: 'Minimum percentage of sector constituents moving in the trade direction.',
+    SIMULATION_SECTOR_PRIORITY_MIN_RS_PCT: 'Minimum directional stock relative strength versus Nifty required for sector priority.',
+    SIMULATION_SECTOR_PRIORITY_MIN_CONSTITUENTS: 'Minimum fresh sector constituents required before sector priority is trusted.',
+    SIMULATION_SECTOR_PRIORITY_MAX_BOOST: 'Maximum ranking-score boost contributed by sector trend, breadth, and relative strength.',
     SIMULATION_STOP_GRACE_MIN: 'Minutes after entry during which normal stop checks are softened unless emergency conditions occur.',
     SIMULATION_NO_PROGRESS_EXIT_MIN: 'Minutes after entry before an unproductive trade can be closed early.',
     SIMULATION_NO_PROGRESS_RUNNER_EXIT_MIN: 'No-progress exit window for momentum-runner or target-runner trades.',
@@ -175,8 +254,36 @@
     SIMULATION_NO_PROGRESS_MIN_FAVORABLE_PCT: 'Minimum favorable move expected by the no-progress window.',
     SIMULATION_NO_PROGRESS_ADVERSE_PCT: 'Adverse move percent that can close a no-progress trade before full stop damage.',
     SIMULATION_STOP_CONFIRM_BARS: 'Number of consecutive refreshes required to confirm a normal stop exit.',
+    SIMULATION_LONG_CONFIRM_BARS: 'Legacy snapshot-confirmation count used only when long confirmation mode is two_snapshots.',
+    SIMULATION_LONG_CONFIRM_MODE: 'Long-entry persistence rule: completed_candle_hold requires a completed breakout candle followed by a live trigger/VWAP hold; two_snapshots retains the legacy rule.',
+    SIMULATION_LONG_CONFIRM_CANDLE_MIN: 'Candle duration in minutes used to determine whether the breakout candle is complete.',
+    SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED: 'Master switch for mandatory long completed-candle, post-confirmation volume, and extension controls.',
+    SIMULATION_LONG_REQUIRE_COMPLETED_CANDLE: 'When true, every allowed long setup must use completed-candle confirmation even if a legacy confirmation mode is configured.',
+    SIMULATION_LONG_REQUIRE_FRESH_VOLUME_AFTER_CONFIRMATION: 'When true, every long entry requires a current 3m or 5m volume impulse after its confirming candle completes.',
+    SIMULATION_LONG_MIN_POST_CONFIRM_VOLUME_RATIO_3M: 'Minimum current three-minute volume ratio required after long candle confirmation.',
+    SIMULATION_LONG_MIN_POST_CONFIRM_VOLUME_RATIO_5M: 'Minimum current five-minute volume ratio required after long candle confirmation.',
+    SIMULATION_LONG_MAX_TRIGGER_EXTENSION_PCT: 'Maximum price extension above the entry trigger for every long setup.',
+    SIMULATION_LONG_MAX_VWAP_EXTENSION_PCT: 'Maximum price extension above VWAP for every long setup.',
+    SIMULATION_LONG_PROFIT_LOCK_PCT: 'Favorable move that activates the cost-protecting profit lock for long positions.',
+    SIMULATION_LONG_PROFIT_LOCK_MIN_HOLD_MIN: 'Minimum hold before the long profit lock can activate; zero protects immediately at the configured favorable move.',
+    SIMULATION_TOP_GAINER_CONTINUATION_ENABLED: 'Enables the dedicated top-gainer continuation setup.',
+    SIMULATION_TOP_GAINER_COUNT: 'Number of highest day-change stocks treated as the top-gainer candidate pool.',
+    SIMULATION_TOP_GAINER_MIN_DAY_GAIN_PCT: 'Minimum day gain required for a top-gainer continuation entry.',
+    SIMULATION_TOP_GAINER_MAX_DAY_GAIN_PCT: 'Maximum day gain allowed before a top-gainer continuation is considered overextended.',
+    SIMULATION_TOP_GAINER_MIN_VOLUME_RATIO_3M: 'Minimum fresh three-minute volume ratio accepted by top-gainer continuation.',
+    SIMULATION_TOP_GAINER_MIN_VOLUME_RATIO_5M: 'Minimum fresh five-minute volume ratio accepted by top-gainer continuation.',
+    SIMULATION_TOP_GAINER_MIN_REL_VOL: 'Fallback minimum time-adjusted relative volume for top-gainer continuation.',
+    SIMULATION_TOP_GAINER_MAX_TRIGGER_EXTENSION_PCT: 'Maximum entry extension above the trigger for top-gainer continuation.',
+    SIMULATION_TOP_GAINER_MAX_VWAP_EXTENSION_PCT: 'Maximum entry extension above VWAP for top-gainer continuation.',
+    SIMULATION_TOP_GAINER_AVOID_START_MIN: 'Start of the IST minute window in which new top-gainer continuation entries are blocked.',
+    SIMULATION_TOP_GAINER_AVOID_END_MIN: 'End of the IST minute window in which new top-gainer continuation entries are blocked.',
+    SIMULATION_TOP_GAINER_PROFIT_LOCK_PCT: 'Favorable move that books a partial top-gainer profit and arms the remainder trail.',
+    SIMULATION_TOP_GAINER_PARTIAL_QTY_PCT: 'Percentage of a top-gainer position booked when its profit lock is reached.',
+    SIMULATION_TOP_GAINER_TRAIL_PCT: 'Trailing distance applied to the remaining top-gainer position after profit lock.',
     SIMULATION_EMERGENCY_STOP_PCT: 'Hard adverse move percent from entry that can exit immediately, even during stop grace.',
     SIMULATION_RUNNER_MIN_SCORE: 'Minimum trade score required for momentum-runner entries.',
+    SIMULATION_RUNNER_STOP_ATR_MULTIPLIER: 'Minimum ATR multiple used for a momentum-runner initial stop so normal volatility does not cause an immediate exit.',
+    SIMULATION_RUNNER_MAX_INITIAL_STOP_PCT: 'Maximum initial momentum-runner stop distance as a percentage of entry price.',
     SIMULATION_RUNNER_MIN_REL_VOL: 'Minimum relative volume required for momentum-runner entries.',
     SIMULATION_RUNNER_MAX_DAY_CHANGE_PCT: 'Maximum day gain allowed for normal momentum-runner entries unless fresh shock/high breakout confirms continuation.',
     SIMULATION_RUNNER_LATE_SIZE_REDUCTION_DAY_CHANGE_PCT: 'Day gain where momentum-runner sizing is reduced because the move is already extended.',
@@ -203,6 +310,11 @@
     SIMULATION_RUNNER_MAX_TRIGGER_EXTENSION_PCT: 'Maximum allowed price extension above the trigger for momentum-runner entries.',
     SIMULATION_RUNNER_MAX_VWAP_EXTENSION_PCT: 'Maximum allowed price extension above VWAP for momentum-runner entries.',
     SIMULATION_STRONG_BREAKOUT_MIN_SCORE: 'Lower score floor for strong volume-shock or high-relative-volume fresh breakouts.',
+    SIMULATION_FRESH_BREAKOUT_MIN_SCORE: 'Independent minimum score for normal fresh-breakout entries; momentum runners use their own score thresholds.',
+    SIMULATION_FRESH_BREAKOUT_MIN_VOLUME_RATIO_3M: 'Minimum recent 3-minute volume ratio accepted for a fresh breakout when the 5-minute ratio does not qualify.',
+    SIMULATION_FRESH_BREAKOUT_MIN_VOLUME_RATIO_5M: 'Minimum recent 5-minute volume ratio accepted for a fresh breakout when the 3-minute ratio does not qualify.',
+    SIMULATION_FRESH_BREAKOUT_MIN_NIFTY_CHANGE_PCT: 'Minimum Nifty session change required for a long fresh-breakout entry.',
+    SIMULATION_FRESH_BREAKOUT_MIN_BREADTH_PCT: 'Minimum percentage of advancing candidates required for a long fresh-breakout entry.',
     SIMULATION_STRONG_BREAKOUT_MIN_REL_VOL: 'Minimum relative volume required for strong volume-breakout score relaxation.',
     SIMULATION_STRONG_BREAKOUT_MIN_DAY_GAIN_PCT: 'Minimum day gain required for strong volume-breakout score relaxation.',
     SIMULATION_STRONG_BREAKOUT_MAX_DAY_GAIN_PCT: 'Maximum day gain allowed for strong volume-breakout score relaxation.',
@@ -220,6 +332,8 @@
     SIMULATION_RUNNER_WIDE_TRAIL_PCT: 'Wider trailing stop percent used when momentum remains strong.',
     SIMULATION_RUNNER_TARGET_STEP_PCT: 'Next target step percent applied to remaining runner quantity after a momentum-confirmed partial target.',
     SIMULATION_BREAKEVEN_PROTECT_PCT: 'Favorable move percent after which simulation protects capital around breakeven.',
+    SIMULATION_BREAKEVEN_MIN_HOLD_MIN: 'Minimum holding time before breakeven protection may close a trade.',
+    SIMULATION_BREAKEVEN_COST_BUFFER_PCT: 'Extra favorable-price buffer above estimated round-trip costs for breakeven protection.',
     SIMULATION_TRAIL_START_PCT: 'Favorable move percent after which non-runner positions start using a trailing-profit guard.',
     SIMULATION_LONG_TRAIL_PCT: 'Trailing stop percent used for long positions after enough profit cushion is built.',
     SIMULATION_TIME_STOP_MIN: 'Minutes after entry before a non-performing trade can be exited by time-stop logic.',
@@ -237,6 +351,13 @@
     SIMULATION_VWAP_CONT_BLOCK_NEGATIVE_5M_UNLESS_BREAKOUT: 'Blocks VWAP trend-continuation entries when 5-minute price change is negative unless price is making a fresh high.',
     SIMULATION_VWAP_CONT_MAX_TRIGGER_EXTENSION_PCT: 'Maximum allowed price extension above the trigger for VWAP trend-continuation entries.',
     SIMULATION_VWAP_CONT_MAX_VWAP_EXTENSION_PCT: 'Maximum allowed price extension above VWAP for VWAP trend-continuation entries.',
+    SIMULATION_EXPECTANCY_ENABLED: 'Uses realized net outcomes to calibrate candidate ranking and block sufficiently sampled negative-expectancy score bands.',
+    SIMULATION_EXPECTANCY_MIN_SAMPLE: 'Minimum closed positions required before realized expectancy can adjust a candidate score.',
+    SIMULATION_EXPECTANCY_BLOCK_MIN_SAMPLE: 'Minimum exact setup and score-band sample required before negative expectancy can block an entry.',
+    SIMULATION_EXPECTANCY_MIN_NET_PCT: 'Minimum average realized net return required for a sufficiently sampled setup and score band.',
+    SIMULATION_EXPECTANCY_MIN_PROFIT_FACTOR: 'Minimum realized profit factor required for a sufficiently sampled setup and score band.',
+    SIMULATION_EXPECTANCY_LOOKBACK_TRADES: 'Maximum recent closed positions used to calibrate net expectancy.',
+    SIMULATION_EXPECTANCY_MAX_SCORE_ADJUSTMENT: 'Maximum positive or negative score adjustment contributed by realized net expectancy.',
     SIMULATION_MIN_SCORE: 'Minimum general long-side trade score required before simulation can consider a buy candidate.',
     SIMULATION_SHORT_MIN_SCORE: 'Minimum absolute short-side score required before simulation can consider a sell candidate.',
     SIMULATION_SHORT_MIN_REL_VOL: 'Minimum time-adjusted relative volume required for short breakdown or VWAP-rejection entries.',
@@ -256,6 +377,11 @@
     SIMULATION_MARKET_REGIME_NIFTY_PCT: 'Nifty change threshold used by the market-regime guard. Long entries are blocked below negative threshold; short entries are blocked above positive threshold.',
     SIMULATION_MARKET_REGIME_SECTOR_PCT: 'Sector average change threshold used by the market-regime guard. Long entries are blocked when sector is weaker than this negative threshold; shorts are blocked when sector is stronger than this positive threshold.',
     SIMULATION_MARKET_REGIME_RS_PCT: 'Relative strength threshold against Nifty used by the market-regime guard. Long entries need stock RS above negative threshold; shorts need stock RS below positive threshold.',
+    SIMULATION_LONG_SECTOR_RS_OVERRIDE_ENABLED: 'Allows a triggered high-score momentum runner or top-gainer continuation in a strongly positive sector to ignore only a mild negative-Nifty conflict. Breadth, sector, relative-strength, setup, cost, stop, heat, and daily-risk guards still apply.',
+    SIMULATION_LONG_SECTOR_RS_OVERRIDE_MIN_SECTOR_PCT: 'Minimum sector average gain required for the long sector-relative-strength Nifty override.',
+    SIMULATION_LONG_SECTOR_RS_OVERRIDE_MIN_SCORE: 'Minimum long score required for the sector-relative-strength Nifty override.',
+    SIMULATION_LONG_SECTOR_RS_OVERRIDE_MIN_RS_PCT: 'Minimum stock relative strength versus Nifty required for the sector-relative-strength Nifty override.',
+    SIMULATION_LONG_SECTOR_RS_OVERRIDE_MAX_NIFTY_DECLINE_PCT: 'Largest Nifty decline that the long sector-relative-strength override may tolerate.',
     SIMULATION_AUTO_SHORTS: 'When true, simulation may open short/sell-side entries. When false, it only auto-buys long setups.',
     SIMULATION_AUTO_MANUAL_EXITS: 'When true, manual open trades use simulation exit logic for target, stop-loss, trailing, time-stop, and EOD square-off.',
     SIMULATION_ENABLE_ETF: 'When true, simulation may open long ETF entries. ETF shorts remain disabled.',
@@ -281,6 +407,58 @@
     if (Number.isNaN(d.getTime())) return null;
     const ist = new Date(d.getTime() + 5.5 * 3600 * 1000);
     return ist.getUTCHours() * 60 + ist.getUTCMinutes();
+  }
+
+  function getIstDay(value) {
+    const d = new Date(value || Date.now());
+    if (Number.isNaN(d.getTime())) return null;
+    return new Date(d.getTime() + 5.5 * 3600 * 1000).getUTCDay();
+  }
+
+  function isSimulationEntryWindow(value, settings = {}) {
+    settings = withDefaults(settings);
+    const day = getIstDay(value);
+    const mins = getIstMinutes(value);
+    return day >= 1 && day <= 5 && mins >= Number(settings.SIMULATION_ENTRY_START_MIN) && mins < Number(settings.SIMULATION_ENTRY_END_MIN);
+  }
+
+  function isSimulationEodSettlement(value, settings = {}) {
+    settings = withDefaults(settings);
+    const day = getIstDay(value);
+    const mins = getIstMinutes(value);
+    return day === 0 || day === 6 || mins >= Number(settings.SIMULATION_EOD_SETTLEMENT_MIN);
+  }
+
+  function shouldAutoStopSimulation(value, settings = {}) {
+    settings = withDefaults(settings);
+    const day = getIstDay(value);
+    const mins = getIstMinutes(value);
+    return day >= 1 && day <= 5 && mins >= Number(settings.SIMULATION_AUTO_STOP_MIN);
+  }
+
+  function computePortfolioEquity(portfolio = {}, trades = [], fallbackCapital = 500000) {
+    const base = Number(portfolio.initialCapital) > 0 ? Number(portfolio.initialCapital) : Number(fallbackCapital) || 500000;
+    const added = Array.isArray(portfolio.capitalAdds) ? portfolio.capitalAdds.reduce((sum, item) => sum + (Number(item?.amount) || 0), 0) : 0;
+    const closed = (Array.isArray(trades) ? trades : []).filter(t => String(t?.status || '').toLowerCase() === 'closed');
+    const open = (Array.isArray(trades) ? trades : []).filter(t => String(t?.status || '').toLowerCase() === 'open');
+    const realized = closed.reduce((sum, trade) => sum + (Number(trade.pnl) || 0), 0);
+    const openExposure = open.reduce((sum, trade) => sum + (Number(trade.reservedCapital) || Number(trade.entryPrice) * Number(trade.qty) || 0), 0);
+    const capital = base + added;
+    return { base, added, capital, realized, equity: capital + realized, openExposure, cashAvailable: Math.max(0, capital + realized - openExposure) };
+  }
+
+  function computePortfolioHeat(trades = [], equity = 0) {
+    const open = (Array.isArray(trades) ? trades : []).filter(t => String(t?.status || '').toLowerCase() === 'open');
+    let risk = 0;
+    const bySector = {};
+    for (const trade of open) {
+      const qty = Number(trade.qty), entry = Number(trade.entryPrice), stop = Number(trade.stop);
+      const tradeRisk = Number.isFinite(qty) && Number.isFinite(entry) && Number.isFinite(stop) ? Math.abs(entry - stop) * qty : 0;
+      risk += tradeRisk;
+      const sector = String(trade.sector || 'UNKNOWN');
+      bySector[sector] = (bySector[sector] || 0) + tradeRisk;
+    }
+    return { risk, heatPct: equity > 0 ? risk / equity * 100 : 0, bySector };
   }
 
   function isLosingStopExit(trade) {
@@ -332,6 +510,18 @@
       const mins = getIstMinutes(t.openedAt);
       return mins != null && mins >= 9 * 60 + 15 && mins < 10 * 60 + 15;
     }).length;
+    const now = at ? new Date(at).getTime() : Date.now();
+    const rollingWindowMin = Math.max(1, Number(settings.SIMULATION_ROLLING_ENTRY_WINDOW_MIN) || 5);
+    const rollingWindowMs = rollingWindowMin * 60000;
+    const rollingEntries = entries.filter(trade => {
+      const openedAt = new Date(trade?.openedAt || 0).getTime();
+      return Number.isFinite(openedAt) && openedAt <= now && now - openedAt < rollingWindowMs;
+    }).length;
+    const rollingEntryTrades = entries.filter(trade => {
+      const openedAt = new Date(trade?.openedAt || 0).getTime();
+      return Number.isFinite(openedAt) && openedAt <= now && now - openedAt < rollingWindowMs;
+    });
+    const isSectorAlignedEntry = trade => !!(trade?.entryContext?.sectorAligned || trade?.sectorPriority?.aligned);
     return {
       trades: dayTrades,
       dayTrades,
@@ -339,6 +529,9 @@
       entries: entries.length,
       symbolEntries,
       firstHourEntries,
+      rollingEntries,
+      rollingOrdinaryEntries:rollingEntryTrades.filter(trade => !isSectorAlignedEntry(trade)).length,
+      rollingSectorEntries:rollingEntryTrades.filter(isSectorAlignedEntry).length,
       stops: closed.filter(isLosingStopExit).length,
       dailyStopLimit: getEffectiveStopLimit(netPnl, settings),
       netPnl:+netPnl.toFixed(2),
@@ -349,6 +542,11 @@
   function getEntryBlockReason(sym, setupType = '', at = Date.now(), stats = {}, settings = {}) {
     settings = withDefaults(settings);
     if ((Number(stats.entries) || 0) >= settings.SIMULATION_DAILY_MAX_TRADES) return `daily trade limit ${settings.SIMULATION_DAILY_MAX_TRADES}`;
+    const rollingEntryMax = Math.max(0, Math.floor(Number(settings.SIMULATION_ROLLING_ENTRY_MAX) || 0));
+    const rollingWindowMin = Math.max(1, Number(settings.SIMULATION_ROLLING_ENTRY_WINDOW_MIN) || 5);
+    if (rollingEntryMax > 0 && (Number(stats.rollingEntries) || 0) >= rollingEntryMax) {
+      return `rolling entry limit ${rollingEntryMax}/${rollingWindowMin}m`;
+    }
     const symbol = String(sym || '').trim().toUpperCase();
     const symbolEntryLimit = Math.max(0, Math.floor(Number(settings.SIMULATION_MAX_DAILY_ENTRIES_PER_SYMBOL) || 0));
     const symbolEntryCount = Number(stats.symbolEntries?.[symbol]) || 0;
@@ -485,6 +683,11 @@
     SETTING_DESCRIPTIONS,
     withDefaults,
     getIstMinutes,
+    isSimulationEntryWindow,
+    isSimulationEodSettlement,
+    shouldAutoStopSimulation,
+    computePortfolioEquity,
+    computePortfolioHeat,
     isLosingStopExit,
     getEffectiveStopLimit,
     getProfitReentryBlockReason,

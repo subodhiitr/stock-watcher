@@ -37,6 +37,7 @@ const BROKER_REFRESH_TOKEN_ENDPOINT = `${PROXY}/broker-refresh-token`;
 const ZERODHA_PORTFOLIO_ENDPOINT = `${PROXY}/zerodha-portfolio`;
 const SHAREKHAN_PORTFOLIO_ENDPOINT = `${PROXY}/sharekhan-portfolio`;
 const INTRADAY_LIVE_STREAM_ENDPOINT = `${PROXY}/stream/intraday-live`;
+const MARKET_OVERVIEW_STREAM_ENDPOINT = `${PROXY}/stream/market-overview`;
 const INTRADAY_CANDLES_ENDPOINT = `${PROXY}/intraday-candles`;
 const REPLAY_FETCH_TIMEOUT_MS = 120000;
 const TRADE_SETTINGS_ENDPOINT = `${PROXY}/trade-settings`;
@@ -824,6 +825,7 @@ function openSSEStream(url, onData, { timeoutMs = 90000 } = {}) {
 }
 const sparklineData = {};  // sym -> normalised % array from /sparklines
 const intradayData = {};   // sym -> short-term VWAP/EMA/RSI/ATR setup
+const intradayLiveQuotes = new Map(); // canonical latest /stream/intraday-live value by symbol
 let intradayDataUpdateCount = 0;  // track how many times we store intraday data
 const setupOutcomeTracker = new Map(); // setup key -> rolling max favorable/adverse move
 const simulationPreviousSignalCandidates = new Map(); // sym -> previous refresh candidate for confirmation
@@ -842,6 +844,9 @@ let intradayLiveStream = null;
 let intradayLiveStreamReconnectTimer = null;
 let intradayLiveStreamReconnectAttempt = 0;
 let intradayLiveStreamKey = '';
+let marketOverviewStream = null;
+let marketOverviewStreamReconnectTimer = null;
+let marketOverviewStreamReconnectAttempt = 0;
 let portfolioTransactionDate = getTradeDateISO();
 let etfSort        = { col:'change', dir:-1 };
 let etfSearch      = '';
@@ -986,6 +991,8 @@ let freshNewsBusy = false;
 let resultCalendarBusy = false;
 const FRESH_NEWS_PAGE_SIZE = 25;
 let freshNewsOffset = 0;
+let freshNewsSortKey = 'time';
+let freshNewsSortDirection = 'desc';
 let secondaryLoadActive = false;
 let fundamentalsBackgroundStarted = false;
 const detailMetadataLoading = new Set();
@@ -1196,7 +1203,7 @@ function getDisplayChangePct(data) {
   return Number.isFinite(fallback) ? +fallback.toFixed(2) : null;
 }
 
-let intradayCandleChartState = { symbol: '', range: '1d', candles: [], loading: false, error: '' };
+let intradayCandleChartState = { symbol: '', range: '1d', interval: '5m', candles: [], loading: false, error: '' };
 
 function ensureIntradayCandleChartModal() {
   let modal = document.getElementById('intraday-candle-chart-modal');
@@ -1212,6 +1219,8 @@ function ensureIntradayCandleChartModal() {
         <button class="modal-close" type="button" onclick="closeIntradayCandleChart()">×</button>
       </div>
       <div class="intraday-candle-chart-toolbar">
+        <button type="button" data-chart-interval="5m" onclick="setIntradayCandleChartInterval('5m')">5 min</button>
+        <button type="button" data-chart-interval="15m" onclick="setIntradayCandleChartInterval('15m')">15 min</button>
         <button type="button" data-chart-range="1d" onclick="setIntradayCandleChartRange('1d')">Today</button>
         <button type="button" data-chart-range="2d" onclick="setIntradayCandleChartRange('2d')">2D</button>
         <button type="button" data-chart-range="5d" onclick="setIntradayCandleChartRange('5d')">5D</button>
@@ -1244,7 +1253,8 @@ function normalizeChartCandles(candles) {
 function renderIntradayCandleChart(symbol, candles, opts = {}) {
   const width = 820, height = 440, padL = 54, padR = 24, padT = 32, padB = 54;
   const rows = normalizeChartCandles(candles);
-  if (!rows.length) return `<div class="intraday-candle-chart-empty">${escapeHTML(opts.error || 'No 5m candle data available')}</div>`;
+  const interval = opts.interval === '15m' ? '15m' : '5m';
+  if (!rows.length) return `<div class="intraday-candle-chart-empty">${escapeHTML(opts.error || `No ${interval} candle data available`)}</div>`;
   const highs = rows.map(c => c.high);
   const lows = rows.map(c => c.low);
   const rawMin = Math.min(...lows);
@@ -1296,7 +1306,7 @@ function renderIntradayCandleChart(symbol, candles, opts = {}) {
   }).join('');
   const latest = rows[rows.length - 1];
   return `<div class="intraday-candle-chart-summary"><strong>${escapeHTML(symbol)}</strong> ${rows.length} candles | Latest ₹${latest.close.toFixed(2)}</div>
-    <svg class="intraday-candle-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHTML(symbol)} 5 minute candlestick chart">
+    <svg class="intraday-candle-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHTML(symbol)} ${interval === '15m' ? '15 minute' : '5 minute'} candlestick chart">
       <rect x="0" y="0" width="${width}" height="${height}" rx="12" fill="rgba(15,23,42,.35)"/>
       ${axisTicks}
       <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${xAxisY}" stroke="rgba(148,163,184,.35)"/>
@@ -1310,16 +1320,16 @@ function renderIntradayCandleChart(symbol, candles, opts = {}) {
     </svg>`;
 }
 
-async function loadIntradayCandleChart(symbol, range = '1d') {
+async function loadIntradayCandleChart(symbol, range = '1d', interval = '5m') {
   const body = document.getElementById('intraday-candle-chart-body');
   if (body) body.innerHTML = '<div class="intraday-candle-chart-empty">Loading 5m candles...</div>';
   try {
-    const res = await fetch(`${INTRADAY_CANDLES_ENDPOINT}?symbol=${encodeURIComponent(symbol)}&range=${encodeURIComponent(range)}`, { signal: AbortSignal.timeout(20000) });
+    const res = await fetch(`${INTRADAY_CANDLES_ENDPOINT}?symbol=${encodeURIComponent(symbol)}&range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}`, { signal: AbortSignal.timeout(20000) });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok || payload.ok === false) throw new Error(payload.error || `intraday-candles HTTP ${res.status}`);
-    intradayCandleChartState = { symbol, range, candles: normalizeChartCandles(payload.candles), loading: false, error: '' };
+    intradayCandleChartState = { symbol, range, interval, candles: normalizeChartCandles(payload.candles), loading: false, error: '' };
   } catch (e) {
-    intradayCandleChartState = { symbol, range, candles: [], loading: false, error: e.message || 'Could not load candles' };
+    intradayCandleChartState = { symbol, range, interval, candles: [], loading: false, error: e.message || 'Could not load candles' };
   }
   renderIntradayCandleChartModal();
 }
@@ -1328,24 +1338,27 @@ function renderIntradayCandleChartModal() {
   const modal = ensureIntradayCandleChartModal();
   const title = modal.querySelector('#intraday-candle-chart-title');
   const body = modal.querySelector('#intraday-candle-chart-body');
-  if (title) title.textContent = `${intradayCandleChartState.symbol || '--'} 5m Intraday`;
+  if (title) title.textContent = `${intradayCandleChartState.symbol || '--'} ${intradayCandleChartState.interval} Intraday`;
+  modal.querySelectorAll('[data-chart-interval]').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-chart-interval') === intradayCandleChartState.interval);
+  });
   modal.querySelectorAll('[data-chart-range]').forEach(btn => {
     btn.classList.toggle('active', btn.getAttribute('data-chart-range') === intradayCandleChartState.range);
   });
   if (body) body.innerHTML = intradayCandleChartState.loading
     ? '<div class="intraday-candle-chart-empty">Loading 5m candles...</div>'
-    : renderIntradayCandleChart(intradayCandleChartState.symbol, intradayCandleChartState.candles, { error: intradayCandleChartState.error });
+    : renderIntradayCandleChart(intradayCandleChartState.symbol, intradayCandleChartState.candles, { error: intradayCandleChartState.error, interval:intradayCandleChartState.interval });
 }
 
 function openIntradayCandleChart(symbol, event) {
   if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) return;
-  intradayCandleChartState = { symbol: sym, range: '1d', candles: [], loading: true, error: '' };
+  intradayCandleChartState = { symbol: sym, range: '1d', interval:'5m', candles: [], loading: true, error: '' };
   const modal = ensureIntradayCandleChartModal();
   modal.style.display = 'flex';
   renderIntradayCandleChartModal();
-  loadIntradayCandleChart(sym, '1d');
+  loadIntradayCandleChart(sym, '1d', '5m');
 }
 
 function setIntradayCandleChartRange(range) {
@@ -1353,7 +1366,15 @@ function setIntradayCandleChartRange(range) {
   if (!intradayCandleChartState.symbol) return;
   intradayCandleChartState = { ...intradayCandleChartState, range: safeRange, loading: true, error: '' };
   renderIntradayCandleChartModal();
-  loadIntradayCandleChart(intradayCandleChartState.symbol, safeRange);
+  loadIntradayCandleChart(intradayCandleChartState.symbol, safeRange, intradayCandleChartState.interval);
+}
+
+function setIntradayCandleChartInterval(interval) {
+  const safeInterval = interval === '15m' ? '15m' : '5m';
+  if (!intradayCandleChartState.symbol || safeInterval === intradayCandleChartState.interval) return;
+  intradayCandleChartState = { ...intradayCandleChartState, interval:safeInterval, loading:true, error:'' };
+  renderIntradayCandleChartModal();
+  loadIntradayCandleChart(intradayCandleChartState.symbol, intradayCandleChartState.range, safeInterval);
 }
 
 function closeIntradayCandleChart() {
@@ -1852,6 +1873,52 @@ function renderIndices(){
   marketUp=(indexData.nifty50?.change||0)>=0;
 }
 
+function mergeLiveIndices(indices) {
+  if (!indices || typeof indices !== 'object' || !Object.keys(indices).length) return false;
+  indexData = { ...indexData, ...indices };
+  renderIndices();
+  return true;
+}
+
+function subscribeMarketOverviewStream() {
+  if (marketOverviewStream) return;
+  if (marketOverviewStreamReconnectTimer) {
+    clearTimeout(marketOverviewStreamReconnectTimer);
+    marketOverviewStreamReconnectTimer = null;
+  }
+  try {
+    marketOverviewStream = new EventSource(MARKET_OVERVIEW_STREAM_ENDPOINT);
+  } catch (e) {
+    marketOverviewStream = null;
+    scheduleMarketOverviewReconnect();
+    return;
+  }
+  const stream = marketOverviewStream;
+  stream.onmessage = event => {
+    try {
+      const payload = JSON.parse(event.data || '{}');
+      marketOverviewStreamReconnectAttempt = 0;
+      mergeLiveIndices(payload.indices);
+    } catch (e) {
+      console.warn('market overview SSE parse failed', e.message);
+    }
+  };
+  stream.onerror = () => {
+    try { stream.close(); } catch (_) {}
+    if (marketOverviewStream === stream) marketOverviewStream = null;
+    scheduleMarketOverviewReconnect();
+  };
+}
+
+function scheduleMarketOverviewReconnect() {
+  if (marketOverviewStreamReconnectTimer) return;
+  const delay = Math.min(1000 * Math.pow(2, marketOverviewStreamReconnectAttempt++), 30000);
+  marketOverviewStreamReconnectTimer = setTimeout(() => {
+    marketOverviewStreamReconnectTimer = null;
+    subscribeMarketOverviewStream();
+  }, delay);
+}
+
 function toggleSector(name) {
   if (activeSectors.has(name)) activeSectors.delete(name);
   else activeSectors.add(name);
@@ -1891,13 +1958,9 @@ function renderSectors(){
     .sort((a,b)=>b.avg-a.avg);
   Object.keys(sectorTrendCache).forEach(k => delete sectorTrendCache[k]);
   avgs.forEach(s => { sectorTrendCache[s.name] = s.avg; });
-  // Override with server-computed values when available (keeps tile count/total from local data)
-  if (serverSectorTrend && Object.keys(serverSectorTrend).length) {
-    Object.assign(sectorTrendCache, serverSectorTrend);
-  }
   // Cache tile data for partial updates
   sectorTileData = {};
-  avgs.forEach(s => { sectorTileData[s.name] = { avg: sectorTrendCache[s.name] ?? s.avg, count: s.count, total: s.total }; });
+  avgs.forEach(s => { sectorTileData[s.name] = { avg: s.avg, count: s.count, total: s.total }; });
   const grid=document.getElementById('sector-grid');grid.innerHTML='';
   for(const s of avgs){
     const tileAvg = sectorTrendCache[s.name] ?? s.avg;
@@ -2054,8 +2117,9 @@ function markIntradayBatchStale(batch, reason) {
 }
 
 async function fetchIntradaySignals(symbols) {
+  const prioritySymbols = getBrowserLiveQuoteSymbols();
   const normalizedSymbols = Array.from(
-    new Set((Array.isArray(symbols) ? symbols : []).map(sym => String(sym || '').trim().toUpperCase()).filter(Boolean))
+    new Set([...prioritySymbols, ...(Array.isArray(symbols) ? symbols : [])].map(sym => String(sym || '').trim().toUpperCase()).filter(Boolean))
   );
   if (!normalizedSymbols.length) return;
   const streamKey = normalizedSymbols.slice().sort().join(',');
@@ -2104,20 +2168,7 @@ async function fetchIntradaySignals(symbols) {
             stale: !!value.stale,
             fetchFailed: !!value.fetchFailed,
           };
-          // Keep price column in sync when intraday data has a fresher price
-          if (value.dataSource === 'sharekhan-ws' && Number.isFinite(Number(value.price)) && Number(value.price) > 0) {
-            stockData[sym] = stockData[sym] || {};
-            stockData[sym].price = Number(value.price);
-            const prevClose = Number(value.prevDayClose ?? value.ohlc?.previousClose);
-            if (Number.isFinite(prevClose) && prevClose > 0) {
-              stockData[sym].prevClose = prevClose;
-              // Calculate change percentage against previous close price
-              stockData[sym].change = +(((Number(value.price) - prevClose) / prevClose) * 100).toFixed(2);
-            } else if (Number.isFinite(Number(value.dayChange))) {
-              // Only use dayChange as fallback if prevClose is not available
-              stockData[sym].change = Number(value.dayChange);
-            }
-          }
+          applyIntradayLiveQuote(sym, value, Number(payload.at) || Date.now());
           applyIntradayVolumeToStockData(sym, value);
           intradayDataUpdateCount++;
           anyUpdated = true;
@@ -2129,6 +2180,7 @@ async function fetchIntradaySignals(symbols) {
           } else {
             scheduleTableRender();
           }
+          scheduleLiveQuoteConsumerRefresh();
         }
       } catch (e) {
         console.warn('intraday live SSE parse failed', e.message);
@@ -2227,8 +2279,28 @@ function moneyINR(v) {
 }
 
 function getCurrentTradePrice(sym) {
-  const price = Number(intradayData[sym]?.price ?? stockData[sym]?.price);
+  const symbol = String(sym || '').trim().toUpperCase();
+  const price = Number(intradayLiveQuotes.get(symbol)?.price ?? intradayData[symbol]?.price ?? stockData[symbol]?.price);
   return Number.isFinite(price) && price > 0 ? price : null;
+}
+
+function getBrowserStockData(sym) {
+  const symbol = String(sym || '').trim().toUpperCase();
+  const base = stockData[symbol] || null;
+  const live = intradayLiveQuotes.get(symbol);
+  if (!live) return base;
+  const price = Number(live.price ?? base?.price);
+  const prevClose = Number(live.prevDayClose ?? live.prevClose ?? live.ohlc?.previousClose ?? base?.prevClose);
+  const directChange = Number(live.dayChange ?? live.change ?? base?.change);
+  const change = Number.isFinite(price) && price > 0 && Number.isFinite(prevClose) && prevClose > 0
+    ? +(((price - prevClose) / prevClose) * 100).toFixed(2)
+    : directChange;
+  return {
+    ...(base || {}),
+    ...(Number.isFinite(price) && price > 0 ? { price } : {}),
+    ...(Number.isFinite(prevClose) && prevClose > 0 ? { prevClose } : {}),
+    ...(Number.isFinite(change) ? { change } : {}),
+  };
 }
 
 function getPortfolioCapital() {
@@ -2520,6 +2592,10 @@ function getPortfolioSummary() {
   for (const [day, pnl] of Object.entries(historicalDayPnl)) {
     if (!(day in dayPnl)) dayPnl[day] = pnl;  // today's local data takes precedence
   }
+  const todayKey = getTradeDateISO();
+  if (unrealized || paperTrades.some(isOpenTrade)) {
+    dayPnl[todayKey] = +(Number(dayPnl[todayKey] || 0) + unrealized).toFixed(2);
+  }
   const totalPnl = realized + unrealized;
   return {
     initial:+baseCapital.toFixed(2),
@@ -2655,6 +2731,7 @@ function applyPaperTradesState(payload, { trackNewTrades = false } = {}) {
   if (currentView === 'etfs') renderETFSection();
   if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
   if (document.getElementById('open-trades-modal')?.style.display === 'flex') renderOpenTradesModal();
+  fetchIntradaySignals(getBrowserLiveQuoteSymbols()).catch(e => console.warn('live quote resubscribe failed', e.message));
 }
 
 function getSimulationRuntimePayload(payload) {
@@ -3084,7 +3161,7 @@ function buildDashboardNotifications() {
   const now = Date.now();
   const openSim = getSimulationOpenTrades();
   const newSim = getNewSimulationOpenTrades();
-  const dayPnl = todaysClosedPnl();
+  const dayPnl = Number(getPortfolioSummary().dayPnl[getTradeDateISO()] || 0);
   const health = getDashboardHealthItems();
   health.slice(0, 4).forEach(text => items.push({ level:'warn', title:'Dashboard health', text, at:now }));
   if (newSim.length) items.push({ level:'good', title:'New simulation trades', text:`${newSim.length} new open trade${newSim.length === 1 ? '' : 's'}: ${newSim.map(t => t.symbol).join(', ')}`, at:now });
@@ -3816,6 +3893,81 @@ async function saveTradeSettingOverrides(overrides, options = {}) {
   }
 }
 
+function getBrowserLiveQuoteSymbols() {
+  const symbols = [];
+  const remember = value => {
+    const symbol = String(value || '').trim().toUpperCase();
+    if (symbol) symbols.push(symbol);
+  };
+  paperTrades.filter(isOpenTrade).forEach(trade => remember(trade.symbol));
+  const rememberPortfolio = payload => {
+    const portfolio = payload?.portfolio || payload;
+    for (const group of ['positions', 'holdings']) {
+      const rows = Array.isArray(portfolio?.[group]?.list) ? portfolio[group].list : [];
+      rows.forEach(row => remember(row.symbol || row.tradingsymbol));
+    }
+  };
+  for (const state of [brokerPortfolioState, zerodhaPortfolioState, sharekhanPortfolioState]) {
+    const data = state?.data;
+    if (!data) continue;
+    rememberPortfolio(data);
+    rememberPortfolio(data.zerodha);
+    rememberPortfolio(data.sharekhan);
+  }
+  MIDCAP_STOCKS.forEach(stock => remember(stock.sym));
+  ETF_ASSETS.forEach(etf => remember(etf.sym));
+  return [...new Set(symbols)];
+}
+
+function applyIntradayLiveQuote(sym, value, receivedAt = Date.now()) {
+  const symbol = String(sym || '').trim().toUpperCase();
+  if (!symbol || !value || typeof value !== 'object') return false;
+  const previousLive = intradayLiveQuotes.get(symbol) || {};
+  const live = { ...previousLive, ...value, symbol, receivedAt };
+  intradayLiveQuotes.set(symbol, live);
+  const previous = stockData[symbol] || {};
+  const price = Number(live.price ?? previous.price);
+  const prevClose = Number(live.prevDayClose ?? live.prevClose ?? live.ohlc?.previousClose ?? previous.prevClose);
+  const directChange = Number(live.dayChange ?? live.change);
+  let change = Number(previous.change);
+  if (Number.isFinite(price) && price > 0 && Number.isFinite(prevClose) && prevClose > 0) {
+    change = +(((price - prevClose) / prevClose) * 100).toFixed(2);
+  } else if (Number.isFinite(directChange)) {
+    change = directChange;
+  }
+  stockData[symbol] = {
+    ...previous,
+    ...(Number.isFinite(price) && price > 0 ? { price } : {}),
+    ...(Number.isFinite(prevClose) && prevClose > 0 ? { prevClose } : {}),
+    ...(Number.isFinite(change) ? { change } : {}),
+  };
+  document.querySelectorAll(`[data-browser-live-price="${symbol}"]`).forEach(element => {
+    element.textContent = Number.isFinite(price) && price > 0 ? moneyINR(price) : '--';
+  });
+  document.querySelectorAll(`[data-browser-live-change="${symbol}"]`).forEach(element => {
+    element.textContent = Number.isFinite(change) ? `${change.toFixed(2)}%` : '--';
+    element.classList.toggle('up', Number.isFinite(change) && change >= 0);
+    element.classList.toggle('down', Number.isFinite(change) && change < 0);
+  });
+  applyIntradayVolumeToStockData(symbol, live);
+  return true;
+}
+
+async function setIntradayDataSource(source, enabled) {
+  const current = loadTradeSettingOverrides();
+  const key = source === 'sharekhan' ? 'INTRADAY_SOURCE_SHAREKHAN' : 'INTRADAY_SOURCE_YAHOO';
+  const next = { ...current, [key]: !!enabled };
+  const yahooEnabled = next.INTRADAY_SOURCE_YAHOO !== false;
+  const sharekhanEnabled = next.INTRADAY_SOURCE_SHAREKHAN !== false;
+  if (!yahooEnabled && !sharekhanEnabled) {
+    alert('Select at least one intraday data source.');
+    renderSettingsModal();
+    return;
+  }
+  await saveTradeSettingOverrides(next);
+  renderSettingsModal();
+}
+
 async function toggleSimulationStopGuardOverride() {
   const current = loadTradeSettingOverrides();
   const enabledNow = !!(current?.SIMULATION_OVERRIDE_STOP_GUARD ?? SIMULATION_OVERRIDE_STOP_GUARD);
@@ -3870,6 +4022,27 @@ async function setDailyMaxTradesOverride(valueStr) {
     await saveTradeSettingOverrides(next);
     if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
   }
+}
+
+async function setMinimumScoreOverride(side, valueStr) {
+  const current = loadTradeSettingOverrides();
+  const value = Math.round(Number(valueStr));
+  if (!Number.isFinite(value) || value < 0 || value > 100) return;
+  const key = side === 'short'
+    ? 'SIMULATION_SHORT_MIN_SCORE'
+    : side === 'fresh' ? 'SIMULATION_FRESH_BREAKOUT_MIN_SCORE' : 'SIMULATION_MIN_SCORE';
+  await saveTradeSettingOverrides({ ...current, [key]: value });
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+}
+
+function clearMinimumScoreOverride(side) {
+  const current = loadTradeSettingOverrides();
+  const next = { ...current };
+  delete next[side === 'short'
+    ? 'SIMULATION_SHORT_MIN_SCORE'
+    : side === 'fresh' ? 'SIMULATION_FRESH_BREAKOUT_MIN_SCORE' : 'SIMULATION_MIN_SCORE'];
+  saveTradeSettingOverrides(next);
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
 }
 
 async function setPositionCapOverride(valueStr) {
@@ -4002,6 +4175,11 @@ function renderSettingsModal() {
     const defaults = (TradeRules && TradeRules.DEFAULT_SETTINGS) ? TradeRules.DEFAULT_SETTINGS : {};
     const descriptions = (TradeRules && TradeRules.SETTING_DESCRIPTIONS) ? TradeRules.SETTING_DESCRIPTIONS : {};
     const overrides = loadTradeSettingOverrides();
+    const intradayYahooEnabled = overrides.INTRADAY_SOURCE_YAHOO !== false;
+    const intradaySharekhanEnabled = overrides.INTRADAY_SOURCE_SHAREKHAN !== false;
+    const intradaySourceSummary = intradayYahooEnabled && intradaySharekhanEnabled
+      ? 'Sharekhan live → Yahoo'
+      : intradaySharekhanEnabled ? 'Sharekhan live only' : 'Yahoo only';
     const effective = (TradeRules && TradeRules.withDefaults)
       ? TradeRules.withDefaults(getSimulationEngineSettings())
       : { ...defaults, ...getSimulationEngineSettings() };
@@ -4023,6 +4201,12 @@ function renderSettingsModal() {
     const dailyMaxTradesValue = Number.isFinite(dailyMaxTradesOverride)
       ? Math.round(dailyMaxTradesOverride)
       : Math.round(Number(effective.SIMULATION_DAILY_MAX_TRADES) || Number(defaults.SIMULATION_DAILY_MAX_TRADES) || 0);
+    const longMinScoreOverride = Number.isFinite(Number(overrides.SIMULATION_MIN_SCORE)) ? Number(overrides.SIMULATION_MIN_SCORE) : null;
+    const shortMinScoreOverride = Number.isFinite(Number(overrides.SIMULATION_SHORT_MIN_SCORE)) ? Number(overrides.SIMULATION_SHORT_MIN_SCORE) : null;
+    const longMinScoreValue = Number.isFinite(longMinScoreOverride) ? longMinScoreOverride : Number(defaults.SIMULATION_MIN_SCORE) || 60;
+    const shortMinScoreValue = Number.isFinite(shortMinScoreOverride) ? shortMinScoreOverride : Number(defaults.SIMULATION_SHORT_MIN_SCORE) || 60;
+    const freshMinScoreOverride = Number.isFinite(Number(overrides.SIMULATION_FRESH_BREAKOUT_MIN_SCORE)) ? Number(overrides.SIMULATION_FRESH_BREAKOUT_MIN_SCORE) : null;
+    const freshMinScoreValue = Number.isFinite(freshMinScoreOverride) ? freshMinScoreOverride : Number(defaults.SIMULATION_FRESH_BREAKOUT_MIN_SCORE) || 60;
     const maxOpenTradesOverrideRaw = overrides.SIMULATION_MAX_OPEN;
     const maxOpenTradesOverride = Number.isFinite(Number(maxOpenTradesOverrideRaw)) ? Number(maxOpenTradesOverrideRaw) : null;
     const maxOpenTradesValue = Number.isFinite(maxOpenTradesOverride)
@@ -4052,11 +4236,15 @@ function renderSettingsModal() {
     }).join('');
     body.innerHTML = `
     <div class="settings-summary">
+      <div class="settings-card"><div class="label">Intraday data source</div><div class="value up">${escapeHTML(intradaySourceSummary)}</div><div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap"><label><input type="checkbox" ${intradaySharekhanEnabled ? 'checked' : ''} onchange="setIntradayDataSource('sharekhan', this.checked)"> Sharekhan</label><label><input type="checkbox" ${intradayYahooEnabled ? 'checked' : ''} onchange="setIntradayDataSource('yahoo', this.checked)"> Yahoo</label></div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Sharekhan uses WebSocket live candles. When both sources are selected, Yahoo is the fallback.</div></div>
       <div class="settings-card"><div class="label">Portfolio capital</div><div class="value">${moneyINR(effective.PORTFOLIO_INITIAL_CAPITAL)}</div><div style="margin-top:8px"><input id="portfolio-initial-capital-input" type="number" step="1000" min="1" value="${Math.round(Number(portfolioState?.initialCapital) || PORTFOLIO_FALLBACK_INITIAL_CAPITAL)}" onchange="setPortfolioInitialCapital(this.value)" style="width:110px; padding:4px"><span style="margin-left:8px; font-size:11px">Initial capital</span></div></div>
       <div class="settings-card"><div class="label">Per position cap</div><div class="value ${Number.isFinite(positionCapOverride) ? 'up' : ''}">${moneyINR(positionCapValue)}</div><div style="margin-top:8px"><input type="number" step="1000" min="10000" max="10000000" value="${Math.round(positionCapValue)}" onchange="setPositionCapOverride(this.value)" style="width:100px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(positionCapOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(positionCapOverride) ? ` <button class="btn" type="button" onclick="clearPositionCapOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
       <div class="settings-card"><div class="label">Minimum net profit</div><div class="value ${Number.isFinite(minNetProfitOverride) ? 'up' : ''}">${minNetProfitValue.toFixed(2)}%</div><div style="margin-top:8px"><input type="number" step="0.1" min="0" max="10" value="${minNetProfitValue.toFixed(2)}" onchange="setMinNetProfitOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(minNetProfitOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(minNetProfitOverride) ? ` <button class="btn" type="button" onclick="clearMinNetProfitOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Minimum net profit % required after brokerage charges.</div></div>
       <div class="settings-card"><div class="label">Max open trades</div><div class="value ${Number.isFinite(maxOpenTradesOverride) ? 'up' : ''}">${maxOpenTradesValue}</div><div style="margin-top:8px"><input type="number" step="1" min="1" max="100" value="${maxOpenTradesValue}" onchange="setMaxOpenTradesOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(maxOpenTradesOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(maxOpenTradesOverride) ? ` <button class="btn" type="button" onclick="clearMaxOpenTradesOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
       <div class="settings-card"><div class="label">Daily max trades</div><div class="value ${Number.isFinite(dailyMaxTradesOverride) ? 'up' : ''}">${dailyMaxTradesValue}</div><div style="margin-top:8px"><input type="number" step="1" min="1" max="200" value="${dailyMaxTradesValue}" onchange="setDailyMaxTradesOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(dailyMaxTradesOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(dailyMaxTradesOverride) ? ` <button class="btn" type="button" onclick="clearDailyMaxTradesOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
+      <div class="settings-card"><div class="label">Long minimum score</div><div class="value ${Number.isFinite(longMinScoreOverride) ? 'up' : ''}">${longMinScoreValue}</div><div style="margin-top:8px"><input type="number" step="1" min="0" max="100" value="${longMinScoreValue}" onchange="setMinimumScoreOverride('long', this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(longMinScoreOverride) ? 'Override active' : 'Default 60'}</span>${Number.isFinite(longMinScoreOverride) ? ` <button class="btn" type="button" onclick="clearMinimumScoreOverride('long')" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
+      <div class="settings-card"><div class="label">Short minimum score</div><div class="value ${Number.isFinite(shortMinScoreOverride) ? 'up' : ''}">${shortMinScoreValue}</div><div style="margin-top:8px"><input type="number" step="1" min="0" max="100" value="${shortMinScoreValue}" onchange="setMinimumScoreOverride('short', this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(shortMinScoreOverride) ? 'Override active' : 'Default 60'}</span>${Number.isFinite(shortMinScoreOverride) ? ` <button class="btn" type="button" onclick="clearMinimumScoreOverride('short')" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
+      <div class="settings-card"><div class="label">Fresh-breakout minimum score</div><div class="value ${Number.isFinite(freshMinScoreOverride) ? 'up' : ''}">${freshMinScoreValue}</div><div style="margin-top:8px"><input type="number" step="1" min="0" max="100" value="${freshMinScoreValue}" onchange="setMinimumScoreOverride('fresh', this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(freshMinScoreOverride) ? 'Override active' : 'Default 60'}</span>${Number.isFinite(freshMinScoreOverride) ? ` <button class="btn" type="button" onclick="clearMinimumScoreOverride('fresh')" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Momentum runners continue to use their independent runner score thresholds.</div></div>
       <div class="settings-card"><div class="label">${liveBroker === 'sharekhan' ? 'Sharekhan token' : 'Zerodha token'}</div><div class="value ${brokerRefreshState.ok === false ? 'down' : (brokerRefreshState.ok ? 'up' : '')}">${autoRenewConfigured ? 'Auto-renew ready' : 'Refresh token missing'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="refreshZerodhaTokenFromSettings()" ${brokerRefreshState.busy || !autoRenewConfigured ? 'disabled' : ''}>${brokerRefreshState.busy ? 'Refreshing...' : 'Refresh token now'}</button><span style="margin-left:8px; font-size:11px">Last refresh: ${escapeHTML(lastRefreshAt)}</span></div><div style="margin-top:6px; font-size:11px; color:${brokerRefreshState.ok === false ? 'var(--red)' : 'var(--muted)'}">${escapeHTML(refreshHint)}</div></div>
       <div class="settings-card"><div class="label">Stop guard override</div><div class="value ${stopGuardOverride ? 'up' : ''}">${stopGuardOverride ? 'Enabled' : 'Disabled'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="toggleSimulationStopGuardOverride()">${stopGuardOverride ? 'Disable override' : 'Enable override'}</button></div></div>
       <div class="settings-card"><div class="label">Auto-exit manual trades</div><div class="value ${manualAutoExitEnabled ? 'up' : ''}">${manualAutoExitEnabled ? 'Enabled' : 'Disabled'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="toggleManualTradeAutoExitOverride()">${manualAutoExitEnabled ? 'Disable auto exits' : 'Enable auto exits'}</button></div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Uses same simulation exit rules (target, SL, trailing, time-stop, EOD).</div></div>
@@ -4468,12 +4656,16 @@ function renderBrokerPortfolioModal() {
   `;
 }
 
-function enrichSharekhanPortfolioWithTablePrices(payload) {
+function enrichBrokerPortfolioWithLivePrices(payload, broker = '') {
   const portfolio = payload?.portfolio;
-  if (!portfolio || !Array.isArray(portfolio.holdings?.list)) return payload;
+  if (!portfolio) return payload;
+  portfolio.positions = portfolio.positions || {};
+  portfolio.holdings = portfolio.holdings || {};
+  const holdings = Array.isArray(portfolio.holdings.list) ? portfolio.holdings.list : [];
+  const positions = Array.isArray(portfolio.positions.list) ? portfolio.positions.list : [];
   let totalMarketValue = 0;
-  let totalPnl = 0;
-  for (const h of portfolio.holdings.list) {
+  let holdingsPnl = 0;
+  for (const h of holdings) {
     const price = getCurrentTradePrice(h.symbol);
     if (price) {
       h.ltp = +price.toFixed(2);
@@ -4485,12 +4677,86 @@ function enrichSharekhanPortfolioWithTablePrices(payload) {
       h.dayChangePct = h.closePrice ? +(((h.ltp - h.closePrice) / h.closePrice) * 100).toFixed(2) : Number(h.dayChangePct || 0);
     }
     totalMarketValue += Number(h.marketValue || 0);
-    totalPnl += Number(h.pnl || 0);
+    holdingsPnl += Number(h.pnl || 0);
   }
   portfolio.holdings.marketValue = +totalMarketValue.toFixed(2);
-  portfolio.positions = portfolio.positions || {};
-  portfolio.positions.totalPnl = +totalPnl.toFixed(2);
+  portfolio.holdings.totalPnl = +holdingsPnl.toFixed(2);
+
+  if (!Number.isFinite(Number(portfolio.positions._snapshotDayPnl))) {
+    portfolio.positions._snapshotDayPnl = Number(portfolio.positions.dayPnl || 0);
+  }
+  const positionSymbols = new Set();
+  let positionPnl = 0;
+  let livePositionAdjustment = 0;
+  for (const position of positions) {
+    const symbol = String(position.symbol || position.tradingsymbol || '').toUpperCase();
+    if (symbol) positionSymbols.add(symbol);
+    if (!Number.isFinite(Number(position._snapshotPnl))) position._snapshotPnl = Number(position.pnl || 0);
+    const price = getCurrentTradePrice(symbol);
+    if (price) {
+      const qty = Number(position.qty ?? position.quantity ?? 0);
+      const avgPrice = Number(position.avgPrice ?? position.averagePrice ?? position.entryPrice ?? 0);
+      position.ltp = +price.toFixed(2);
+      position.ltpSource = 'intraday-live';
+      position.currentValue = +(price * qty).toFixed(2);
+      if (Number.isFinite(avgPrice) && avgPrice > 0 && Number.isFinite(qty)) {
+        position.pnl = +((price - avgPrice) * qty).toFixed(2);
+      }
+    }
+    positionPnl += Number(position.pnl || 0);
+    livePositionAdjustment += Number(position.pnl || 0) - Number(position._snapshotPnl || 0);
+  }
+  const normalizedBroker = String(broker || payload?.broker || '').toLowerCase();
+  const prices = new Map(paperTrades.map(trade => [String(trade.symbol || '').toUpperCase(), getCurrentTradePrice(trade.symbol)]));
+  const unmatchedOpenPnl = paperTrades
+    .filter(isOpenTrade)
+    .filter(trade => !normalizedBroker || tradeMatchesActiveBroker(trade, normalizedBroker))
+    .filter(trade => !positionSymbols.has(String(trade.symbol || '').toUpperCase()))
+    .reduce((sum, trade) => sum + Number(getPaperTradePnl(trade, prices.get(String(trade.symbol || '').toUpperCase()))?.pnl || 0), 0);
+  portfolio.positions.dayPnl = +(Number(portfolio.positions._snapshotDayPnl || 0) + livePositionAdjustment + unmatchedOpenPnl).toFixed(2);
+  portfolio.positions.totalPnl = +(positionPnl + holdingsPnl).toFixed(2);
   return payload;
+}
+
+function enrichSharekhanPortfolioWithTablePrices(payload) {
+  return enrichBrokerPortfolioWithLivePrices(payload, 'sharekhan');
+}
+
+function refreshLiveBrokerPortfolioPrices() {
+  const enrichState = (state, broker) => {
+    if (state?.ok && state.data) enrichBrokerPortfolioWithLivePrices(state.data, broker);
+  };
+  enrichState(zerodhaPortfolioState, 'zerodha');
+  enrichState(sharekhanPortfolioState, 'sharekhan');
+  const activeBroker = brokerMode === 'sharekhan_live' ? 'sharekhan' : 'zerodha';
+  enrichState(brokerPortfolioState, activeBroker);
+  const combined = brokerPortfolioState?.data;
+  if (combined?.zerodha?.ok) enrichBrokerPortfolioWithLivePrices(combined.zerodha, 'zerodha');
+  if (combined?.sharekhan?.ok) enrichBrokerPortfolioWithLivePrices(combined.sharekhan, 'sharekhan');
+  const combinedSlices = [combined?.zerodha, combined?.sharekhan].filter(slice => slice?.ok && slice?.portfolio);
+  if (combinedSlices.length) {
+    combined.combinedOpenCount = combinedSlices.reduce((sum, slice) => sum + Number(slice.portfolio?.positions?.openCount || 0), 0);
+    combined.combinedDayPnl = +combinedSlices.reduce((sum, slice) => sum + Number(slice.portfolio?.positions?.dayPnl || 0), 0).toFixed(2);
+  }
+}
+
+function scheduleLiveQuoteConsumerRefresh() {
+  scheduleRender('live-quote-consumers', () => {
+    refreshLiveBrokerPortfolioPrices();
+    renderSetupCards(getAllStockRows());
+    if (currentView === 'etfs') scheduleETFRender();
+    renderTopActionBar();
+    updateBrokerPortfolioPill();
+    if (document.getElementById('open-trades-modal')?.style.display === 'flex') renderOpenTradesModal();
+    if (document.getElementById('portfolio-modal')?.style.display === 'flex') renderPortfolioModal();
+    if (document.getElementById('broker-portfolio-modal')?.style.display === 'flex') renderBrokerPortfolioModal();
+    if (document.getElementById('result-calendar-modal')?.style.display === 'flex') renderResultCalendarModal();
+    if (brokerPositionsPanelOpen) renderBrokerPositionsPanel();
+    const manualSymbol = String(document.getElementById('mt-sym')?.value || '').trim().toUpperCase();
+    const manualPrice = document.getElementById('mt-price');
+    const price = getCurrentTradePrice(manualSymbol);
+    if (manualSymbol && manualPrice && document.activeElement !== manualPrice && price) manualPrice.value = price.toFixed(2);
+  }, 150);
 }
 
 function syncBrokerPortfolioTabs() {
@@ -4526,8 +4792,9 @@ async function fetchBrokerPortfolioFor(broker) {
     const res = await fetch(endpoint, { signal: AbortSignal.timeout(timeoutMs) });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok || payload.ok === false) throw new Error(payload.error || payload.hint || `HTTP ${res.status}`);
-    if (!isZerodha) enrichSharekhanPortfolioWithTablePrices(payload);
+    enrichBrokerPortfolioWithLivePrices(payload, broker);
     setState({ loading:false, ok:true, data:payload, error:'' });
+    fetchIntradaySignals(getBrowserLiveQuoteSymbols()).catch(e => console.warn('broker live quote resubscribe failed', e.message));
   } catch (e) {
     setState({ loading:false, ok:false, data:null, error:e.message || `Could not fetch ${isZerodha ? 'Zerodha' : 'Sharekhan'} portfolio` });
   }
@@ -5174,8 +5441,13 @@ function getSimulationCandidates() {
     getSimulationEngineSettings(),
     {
       openSymbols:new Set(paperTrades.filter(isOpenTrade).map(t => t.symbol)),
+      openTrades:paperTrades.filter(isOpenTrade),
+      closedTrades:paperTrades.filter(t => t?.status === 'closed'),
       entryBlockReason:(sym, setupType) => getSimulationEntryBlockReason(sym, setupType),
       market:{ indices:indexData },
+      sectorTrend:sectorTrendCache,
+      indices:indexData,
+      dayStats:getSimulationDayStats(),
     }
   );
 }
@@ -5392,8 +5664,13 @@ function buildSimulationSnapshotCandidates(limit = 30, lowestLimit = 30) {
     settings,
     {
       openSymbols:new Set(paperTrades.filter(isOpenTrade).map(t => t.symbol)),
+      openTrades:paperTrades.filter(isOpenTrade),
+      closedTrades:paperTrades.filter(t => t?.status === 'closed'),
       entryBlockReason:(sym, setupType) => getSimulationEntryBlockReason(sym, setupType),
       market:{ indices:indexData },
+      sectorTrend:sectorTrendCache,
+      indices:indexData,
+      dayStats:getSimulationDayStats(),
       topN:SIMULATION_TOP_N,
     }
   );
@@ -5902,8 +6179,13 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
     if (slots <= 0) continue;
     const candidates = SimulationEngine.selectSimulationEntryCandidates(snapshot.candidates || [], snapshot.at, settings, {
       openSymbols:new Set(openTrades().map(t => t.symbol)),
+      openTrades:openTrades(),
+      closedTrades:trades.filter(t => t?.status === 'closed'),
       entryBlockReason:(symbol, setupType) => entryBlockReason(symbol, setupType, snapshot.at),
       market:snapshot.market,
+      sectorTrend:snapshot.sectorTrend,
+      indices:snapshot.market?.indices,
+      dayStats:dayStats(snapshot.at),
     });
     const selectedKeys = new Set(candidates.map(c => `${c.symbol}|${c.side || c.signal}`));
     const rankedAll = (snapshot.candidates || [])
@@ -5921,6 +6203,8 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
       const explanation = SimulationEngine.explainCandidateEligibility(candidate, snapshot.at, settings, {
         previousCandidate:candidate.previousCandidate,
         market:snapshot.market,
+        sectorTrend:snapshot.sectorTrend,
+        indices:snapshot.market?.indices,
       });
       const setupType = explanation.setupType || candidate.derivedSetupType || candidate.setupType || '';
       let block = entryBlockReason(candidate.symbol, setupType, snapshot.at);
@@ -5953,9 +6237,11 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
       const price = Number(candidate.price ?? candidate.priceAtSnapshot ?? candidate.quote?.price);
       if (!Number.isFinite(price) || price <= 0) continue;
       const remainingSlots = Math.max(1, Math.min(slots, Math.max(1, candidates.length - i)));
-      const allocation = Math.min(settings.MAX_POSITION_EXPOSURE, cashAvailable() / remainingSlots);
       const side = candidate.side || candidate.signal || 'buy';
-      const suggestion = SimulationEngine.getSuggestedQty(candidate, side, price, cashAvailable(), allocation, settings, calculatePositionSizingMultiplier());
+      const entryCash = cashAvailable();
+      if (entryCash <= 0) continue;
+      const allocation = Math.min(settings.MAX_POSITION_EXPOSURE, entryCash / remainingSlots);
+      const suggestion = SimulationEngine.getSuggestedQty(candidate, side, price, entryCash, allocation, settings, calculatePositionSizingMultiplier());
       if (suggestion.qty <= 0) continue;
       trades.push({
         id:nextId++,
@@ -5968,12 +6254,26 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
         stop:suggestion.plan.stop,
         signal:side,
         score:Math.abs(Number(candidate.score) || 0),
+        decisionScore:SimulationEngine.getCandidateDecisionScore(candidate),
         source:'simulation',
         assetType:'stock',
+        sector:candidate.sector || candidate.sectorPriority?.sector || '',
         reservedCapital:+(suggestion.qty * price).toFixed(2),
         setupType,
         setup:['Replay', setupType, candidate.indicators?.entryStatus, candidate.indicators?.entryTrigger].filter(Boolean).join(' | '),
-        entryContext:{ reason:`selected rank ${i + 1}`, selectedRank:i + 1 },
+        entryContext:{
+          reason:`selected rank ${i + 1}`,
+          selectedRank:i + 1,
+          score:Number(candidate.score) || 0,
+          decisionScore:SimulationEngine.getCandidateDecisionScore(candidate),
+          scoreAudit:candidate.scoreAudit || null,
+          indicatorSnapshot:SimulationEngine.buildIndicatorAuditSnapshot(candidate),
+          settingsSnapshot:SimulationEngine.buildSettingsAuditSnapshot(settings),
+          settingsFingerprint:SimulationEngine.stableAuditFingerprint(SimulationEngine.buildSettingsAuditSnapshot(settings)),
+          confirmation:SimulationEngine.getLongEntryConfirmation(candidate, candidate.previousCandidate, side, snapshot.at, settings),
+          sectorAligned:!!candidate.sectorPriority?.aligned,
+          sectorPriority:candidate.sectorPriority || null,
+        },
         openedAt:snapshot.at,
         status:'open',
       });
@@ -6695,9 +6995,9 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
       const price = getCurrentTradePrice(row.sym);
       const remainingCandidates = Math.max(1, candidates.length - i);
       const remainingSlots = Math.max(1, Math.min(slots, remainingCandidates));
-      const allocation = Math.min(MAX_POSITION_EXPOSURE, summary.cashAvailable / remainingSlots);
       const tradeSide = side || (score < 0 ? 'sell' : 'buy');
-      const suggestion = getSuggestedPaperQty(t, tradeSide, price, summary.cashAvailable, allocation);
+      const entryAllocation = Math.min(MAX_POSITION_EXPOSURE, summary.cashAvailable / remainingSlots);
+      const suggestion = getSuggestedPaperQty(t, tradeSide, price, summary.cashAvailable, entryAllocation);
       const qty = Number(suggestion.qty || 0);
       if (qty <= 0) continue;
       let plan = suggestion.plan || getPaperPlanForSide(t, tradeSide, price);
@@ -6725,10 +7025,12 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
         stop: plan.stop,
         signal: tradeSide,
         score: Math.abs(score),
+        decisionScore:SimulationEngine.getCandidateDecisionScore(candidates[i]),
         rr: t.rr,
         source: 'simulation',
         brokerMode,
         assetType: isETFAsset(row) ? 'etf' : 'stock',
+        sector:row.sector || candidates[i].sectorPriority?.sector || '',
         reservedCapital:+(qty * price).toFixed(2),
         portfolioInitial:getPortfolioCapital(),
         setupType,
@@ -6736,9 +7038,23 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
         entryContext:{
           selectedRank:i + 1,
           score,
+          decisionScore:SimulationEngine.getCandidateDecisionScore(candidates[i]),
+          scoreAudit:candidates[i].scoreAudit || null,
           setupType,
           side:tradeSide,
+          sectorAligned:!!candidates[i].sectorPriority?.aligned,
+          sectorPriority:candidates[i].sectorPriority || null,
           reason:`selected rank ${i + 1}`,
+          indicatorSnapshot:SimulationEngine.buildIndicatorAuditSnapshot(candidates[i]),
+          settingsSnapshot:SimulationEngine.buildSettingsAuditSnapshot(getSimulationEngineSettings()),
+          settingsFingerprint:SimulationEngine.stableAuditFingerprint(SimulationEngine.buildSettingsAuditSnapshot(getSimulationEngineSettings())),
+          confirmation:SimulationEngine.getLongEntryConfirmation(
+            candidates[i],
+            candidates[i].previousCandidate,
+            tradeSide,
+            transactionTime,
+            getSimulationEngineSettings()
+          ),
           indicators:{
             entryStatus:t.entryStatus || '',
             entryTrigger:t.entryTrigger || '',
@@ -7623,7 +7939,7 @@ function handleStockSearchInput(input) {
 function getAllStockRows() {
   return MIDCAP_STOCKS
     .filter(s => String(s.cap || '').toLowerCase() !== 'etf')
-    .map((s,i)=>({...s,rank:i+1,data:stockData[s.sym]||null}));
+    .map((s,i)=>({...s,rank:i+1,data:getBrowserStockData(s.sym)}));
 }
 
 function hasEventRiskForSymbol(sym) {
@@ -7764,7 +8080,18 @@ async function loadFreshNewsSummary(force = false, opts = {}) {
 function renderFreshNewsModal() {
   const body = document.getElementById('fresh-news-modal-body');
   if (!body) return;
-  const rows = (freshNewsSummary.items || []).map(item => {
+  const direction = freshNewsSortDirection === 'asc' ? 1 : -1;
+  const sortedItems = [...(freshNewsSummary.items || [])].sort((a, b) => {
+    const valueA = freshNewsSortKey === 'score'
+      ? Number(a.tradeImpactScore || 0)
+      : (Date.parse(a.publishedAt || '') || 0);
+    const valueB = freshNewsSortKey === 'score'
+      ? Number(b.tradeImpactScore || 0)
+      : (Date.parse(b.publishedAt || '') || 0);
+    if (valueA !== valueB) return (valueA - valueB) * direction;
+    return String(a.symbol || '').localeCompare(String(b.symbol || ''));
+  });
+  const rows = sortedItems.map(item => {
     const verdict = item.resultVerdict ? `<span class="result-badge ${escapeHTML(String(item.resultVerdict).toLowerCase())}" title="${escapeHTML(item.resultVerdictReason || '')}">${escapeHTML(item.resultVerdict)}</span>` : '';
     const sentiment = String(item.newsSentiment || 'Neutral').toLowerCase();
     const impactLabel = item.newsSentiment || 'Neutral';
@@ -7802,6 +8129,16 @@ function renderFreshNewsModal() {
       <button class="icon-btn" title="Previous news page" ${freshNewsSummary.hasPrev ? '' : 'disabled'} onclick="changeFreshNewsPage(${prevOffset})">‹</button>
       <button class="icon-btn" title="Next news page" ${freshNewsSummary.hasNext ? '' : 'disabled'} onclick="changeFreshNewsPage(${nextOffset})">›</button>
     </div>`;
+  const sortControls = `
+    <div class="fresh-news-sort-controls">
+      <label>Sort
+        <select onchange="setFreshNewsSort(this.value, freshNewsSortDirection)">
+          <option value="time" ${freshNewsSortKey === 'time' ? 'selected' : ''}>Time</option>
+          <option value="score" ${freshNewsSortKey === 'score' ? 'selected' : ''}>Score</option>
+        </select>
+      </label>
+      <button class="btn" type="button" onclick="setFreshNewsSort(freshNewsSortKey, freshNewsSortDirection === 'desc' ? 'asc' : 'desc')">${freshNewsSortDirection === 'desc' ? 'Descending' : 'Ascending'}</button>
+    </div>`;
   body.innerHTML = `
     <div class="portfolio-grid">
       <div class="portfolio-card"><div class="label">Date</div><div class="value">${escapeHTML(freshNewsSummary.date || '--')}</div></div>
@@ -7809,7 +8146,7 @@ function renderFreshNewsModal() {
       <div class="portfolio-card"><div class="label">Items</div><div class="value">${freshNewsSummary.count || 0}</div></div>
       <div class="portfolio-card"><div class="label">Status</div><div class="value ${freshNewsSummary.error ? 'down' : ''}">${escapeHTML(status)}</div></div>
     </div>
-    <div class="portfolio-section-title fresh-news-titlebar"><span>Today / Last Business Day News</span>${pager}</div>
+    <div class="portfolio-section-title fresh-news-titlebar"><span>Today / Last Business Day News</span><div class="fresh-news-title-actions">${sortControls}${pager}</div></div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table fresh-news-table">
         <thead><tr><th>Symbol</th><th>Type</th><th>Impact</th><th>News</th><th>Source</th><th>Time</th><th>Date</th></tr></thead>
@@ -7818,6 +8155,12 @@ function renderFreshNewsModal() {
     </div>
     ${freshNewsSummary.errors?.length ? `<div class="replay-note" style="margin-top:10px;color:var(--muted)">Some symbols failed: ${escapeHTML(freshNewsSummary.errors.slice(0, 3).join(' | '))}</div>` : ''}
   `;
+}
+
+function setFreshNewsSort(key, direction = 'desc') {
+  freshNewsSortKey = key === 'score' ? 'score' : 'time';
+  freshNewsSortDirection = direction === 'asc' ? 'asc' : 'desc';
+  renderFreshNewsModal();
 }
 
 function changeFreshNewsPage(offset) {
@@ -7926,7 +8269,7 @@ function resultCalendarDateRange() {
 function resultCalendarStockMeta(symbol) {
   const sym = String(symbol || '').toUpperCase();
   const asset = MIDCAP_STOCKS.find(row => row.sym === sym) || {};
-  const data = stockData[sym] || {};
+  const data = getBrowserStockData(sym) || {};
   const change = getDisplayChangePct(data);
   return {
     name:asset.name || sym,
@@ -8136,7 +8479,7 @@ function renderTable(options = {}) {
 }
 
 function updateStatsBar() {
-  const allD=MIDCAP_STOCKS.filter(s=>String(s.cap||'').toLowerCase()!=='etf').map(s=>stockData[s.sym]).filter(Boolean);
+  const allD=MIDCAP_STOCKS.filter(s=>String(s.cap||'').toLowerCase()!=='etf').map(s=>getBrowserStockData(s.sym)).filter(Boolean);
   const gainersEl = document.getElementById('stat-gainers');
   const losersEl = document.getElementById('stat-losers');
   const signalsEl = document.getElementById('stat-signals');
@@ -8184,12 +8527,19 @@ function updateSectorTilesPartial(newSectorTrend) {
   if (!newSectorTrend) return;
   const grid = document.getElementById('sector-grid');
   if (!grid) return;
-  for (const [sectorName, avg] of Object.entries(newSectorTrend)) {
+  for (const [sectorName, serverAvg] of Object.entries(newSectorTrend)) {
     const tile = grid.querySelector(`[data-sector="${sectorName.replace(/\\/g,'\\\\').replace(/"/g,'\\"')}"]`);
     if (!tile) continue;
-    const info = sectorTileData[sectorName] || {};
-    const count = info.count ?? 0;
-    const total = info.total ?? 0;
+    const members = MIDCAP_STOCKS.filter(stock => String(stock.cap || '').toLowerCase() !== 'etf' && stock.sector === sectorName);
+    const localChanges = members
+      .map(stock => getDisplayChangePct(getBrowserStockData(stock.sym)))
+      .filter(Number.isFinite);
+    const avg = localChanges.length
+      ? localChanges.reduce((sum, value) => sum + value, 0) / localChanges.length
+      : Number(serverAvg);
+    if (!Number.isFinite(avg)) continue;
+    const count = localChanges.length;
+    const total = members.length;
     const hasData = count > 0;
     const intensity = hasData ? Math.min(Math.abs(avg)/3, 1) : 0;
     const isSelected = activeSectors.has(sectorName);
@@ -8201,7 +8551,7 @@ function updateSectorTilesPartial(newSectorTrend) {
     const chgText = hasData ? ((avg >= 0 ? '+' : '') + avg.toFixed(2) + '%') : '--.--%';
     tile.innerHTML = `<div class="sector-name">${sectorName} <span style="opacity:.5;font-size:10px">${count}/${total}</span></div><div class="sector-chg" style="color:${chgColor}">${chgText}</div>`;
     sectorTrendCache[sectorName] = avg;
-    if (sectorTileData[sectorName]) sectorTileData[sectorName].avg = avg;
+    sectorTileData[sectorName] = { avg, count, total };
   }
 }
 
@@ -8853,7 +9203,7 @@ function lazyLoadDetailMetadata(asset, isETF) {
 function renderTradeDecisionTimeline(asset, t, adjustedScore, guard, whyTrade) {
   try {
     const sym = asset?.sym;
-    const data = stockData[sym] || {};
+    const data = getBrowserStockData(sym) || {};
     const openTrade = getOpenPaperTrade(sym);
     const eventFlag = getEventFlag(sym);
     const steps = [
@@ -8948,7 +9298,7 @@ function openFundModal(sym){
   const f = asset.fund || {};
   const c = f.computed || {};
   const e = asset.etfData || {};
-  const data = stockData[sym] || {};
+  const data = getBrowserStockData(sym) || {};
   const fmt = v => v == null ? '--' : (typeof v === 'number' ? (Math.round((v + Number.EPSILON) * 100) / 100).toString() : String(v));
   const fmtMoney = v => v != null ? 'Rs ' + Number(v).toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '--';
   const fmtNum = v => v != null ? Number(v).toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '--';
@@ -8988,7 +9338,7 @@ function openFundModal(sym){
   const premium = e.premium ?? data.navPremium ?? null;
   const expRatio = e.expenseRatio ?? data.expRatio ?? null;
   const etfDetailRows = [
-    detailRow('Price', fmtMoney(data.price)),
+    detailRow('Price', `<span data-browser-live-price="${escapeHTML(sym)}">${escapeHTML(fmtMoney(data.price))}</span>`, true),
     detailRow('NAV / iNAV', fmtMoney(nav)),
     detailRow('Premium / Discount', premium == null ? '--' : `${Number(premium).toFixed(2)}% ${premium > 0 ? 'Premium' : premium < 0 ? 'Discount' : 'At NAV'}`),
     detailRow('Expense Ratio', fmtExpense(expRatio)),
@@ -9011,7 +9361,7 @@ function openFundModal(sym){
     detailRow('Broker Dry Run', brokerTradeText),
   ].join('');
   const stockDetailRows = [
-    detailRow('Price', fmtMoney(data.price)),
+    detailRow('Price', `<span data-browser-live-price="${escapeHTML(sym)}">${escapeHTML(fmtMoney(data.price))}</span>`, true),
     detailRow('Target', `${fmtMoney(f.priceTarget)} (${targetDelta})`),
     detailRow('Intraday Trade', tradeLabel),
     detailRow('ST Target / SL', `${fmtMoney(t?.target)} / ${fmtMoney(t?.stop)}`),
@@ -9079,8 +9429,8 @@ function openFundModal(sym){
       <div class="stock-detail-panel">
         <h4>Details</h4>
         <table style="width:100%;border-collapse:collapse">
-          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Price</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${escapeHTML(moneyINR(stockData[sym]?.price))}</td></tr>
-          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Change</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${escapeHTML(getDisplayChangePct(stockData[sym]) == null ? '--' : getDisplayChangePct(stockData[sym]).toFixed(2) + '%')}</td></tr>
+          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Price</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)" data-browser-live-price="${escapeHTML(sym)}">${escapeHTML(moneyINR(data.price))}</td></tr>
+          <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Change</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)" data-browser-live-change="${escapeHTML(sym)}">${escapeHTML(getDisplayChangePct(data) == null ? '--' : getDisplayChangePct(data).toFixed(2) + '%')}</td></tr>
           <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Sector</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">${escapeHTML(asset.sector || '--')}</td></tr>
           <tr><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Status</td><td style="padding:6px 8px;border-bottom:1px solid var(--border)">Advanced details unavailable. Basic panel opened.</td></tr>
         </table>
@@ -9190,7 +9540,7 @@ function renderETFSection(){
   const status = document.getElementById('etf-status-bar');
   if (!section || !tbody) return; // required elements missing
   section.style.display = currentView==='etfs' ? 'block' : 'none';
-  let rows = ETF_ASSETS.map((s,i)=>({ ...s, rank:i+1, data: stockData[s.sym] || null }));
+  let rows = ETF_ASSETS.map((s,i)=>({ ...s, rank:i+1, data:getBrowserStockData(s.sym) }));
   const totalETFCount = rows.length;
   renderETFSetupCards(rows);
 
@@ -9523,6 +9873,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   await loadDashboardBootstrap();
+  subscribeMarketOverviewStream();
   // Merge saved/custom stocks into MIDCAP_STOCKS immediately so renderTable
   // always sees the full universe, regardless of when the user clicks Connect.
   await loadSavedStocks();
@@ -9589,7 +9940,9 @@ async function pollBrokerPortfolioState() {
     if (!res.ok || payload.ok === false) {
       throw new Error(payload.error || payload.hint || `HTTP ${res.status}`);
     }
+    enrichBrokerPortfolioWithLivePrices(payload, useSharekhan ? 'sharekhan' : 'zerodha');
     brokerPortfolioState = { loading:false, ok:true, data:payload, error:'' };
+    fetchIntradaySignals(getBrowserLiveQuoteSymbols()).catch(e => console.warn('broker live quote resubscribe failed', e.message));
   } catch (e) {
     brokerPortfolioState = { loading:false, ok:false, data:null, error:e.message || `Could not fetch ${useSharekhan ? 'Sharekhan' : 'Zerodha'} portfolio` };
   }

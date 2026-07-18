@@ -11,6 +11,57 @@ test('scheduler candidate builder uses intraday cache instead of direct fetches'
   const start = source.indexOf('function buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol = null');
   const body = source.slice(start, start + 1200);
   assert.doesNotMatch(body, /fetchIntradaySignal\(/);
+  assert.match(body, /assetType[\s\S]*SIMULATION_ENABLE_ETF !== true/);
+});
+
+test('server snapshot candidates persist a compact latest candle for replay audit', () => {
+  const proxy = require('../ticker_proxy');
+  const candidate = proxy.__test__.buildServerCandidateFromIntradayForTests('TEST', {
+    price: 101.5,
+    signal: 'buy',
+    score: 70,
+    target: 103,
+    stop: 100,
+    ohlc: {
+      latestBar: {
+        time: '2026-07-10T04:45:00.000Z',
+        open: 100,
+        high: 102,
+        low: 99.5,
+        close: 101.5,
+        volume: 12345,
+      },
+    },
+  }, {}, null, '2026-07-10T04:45:22.000Z');
+
+  assert.deepEqual(candidate.candles, [{
+    time: '2026-07-10T04:45:00.000Z',
+    open: 100,
+    high: 102,
+    low: 99.5,
+    close: 101.5,
+    volume: 12345,
+  }]);
+  assert.deepEqual(candidate.candleCapture, {
+    interval: '5m',
+    mode: 'latest-bar-delta',
+    available: true,
+    reason: '',
+  });
+});
+
+test('server snapshot candidates explain when a candle is unavailable', () => {
+  const proxy = require('../ticker_proxy');
+  const candidate = proxy.__test__.buildServerCandidateFromIntradayForTests('TEST', {
+    price: 101.5,
+    signal: 'hold',
+    score: 0,
+    staleReason: 'Insufficient intraday data (0 candles, need 1+)',
+  });
+
+  assert.deepEqual(candidate.candles, []);
+  assert.equal(candidate.candleCapture.available, false);
+  assert.equal(candidate.candleCapture.reason, 'Insufficient intraday data (0 candles, need 1+)');
 });
 
 test('starting simulation scheduler triggers shared intraday cache refresh', () => {
@@ -71,18 +122,31 @@ test('server simulation snapshots fetch market context instead of persisting raw
   assert.doesNotMatch(body, /const market = \{ indices: simulationMarketCache\.indices \|\| \{\} \}/);
 });
 
-test('Sharekhan ticker can subscribe Nifty index ticks into simulation market cache', () => {
+test('Sharekhan ticker subscribes Nifty 50 and Midcap 150 ticks into the live market cache', () => {
   const source = fs.readFileSync(PROXY_PATH, 'utf8');
   assert.match(source, /let sharekhanIndexCodeMap = new Map\(\)/);
   assert.match(source, /function getSharekhanConfiguredNiftyCode\(\)/);
   assert.match(source, /SHAREKHAN_NIFTY_SCRIP_CODE/);
   assert.match(source, /sharekhanCredentials\?\.niftyScripCode/);
+  assert.match(source, /function getSharekhanConfiguredMidcap150Code\(\)/);
+  assert.match(source, /SHAREKHAN_MIDCAP150_SCRIP_CODE/);
+  assert.match(source, /sharekhanCredentials\?\.midcap150ScripCode/);
+  assert.match(source, /key:'midcap'/);
+  assert.match(source, /'NIFTY MIDCAP 150'/);
+  assert.match(source, /function getSharekhanConfiguredSmallcap100Code\(\)/);
+  assert.match(source, /function getSharekhanConfiguredBankNiftyCode\(\)/);
+  assert.match(source, /key:'smallcap'/);
+  assert.match(source, /'NIFTY SMALLCAP 100'/);
+  assert.match(source, /key:'banknifty'/);
+  assert.match(source, /'NIFTY BANK'/);
   assert.match(source, /function updateSimulationIndexFromSharekhanTick\(indexKey, tick\)/);
   assert.match(source, /source:'sharekhan-ws'/);
   assert.match(source, /function handleSharekhanTickerTick\(tick\)/);
-  const initStart = source.indexOf('sharekhanTicker = new SharekhanTicker({');
+  assert.match(source, /broadcastIntradayLive\(`sharekhan-\$\{indexKey\}-tick`, \[\]\)/);
+  const initStart = source.indexOf('sharekhanTicker = new SharekhanTickerPool({');
   assert.ok(initStart > -1);
   const initBody = source.slice(initStart, initStart + 700);
+  assert.match(initBody, /poolSize:\s*2/);
   assert.match(initBody, /onTick:\s*handleSharekhanTickerTick/);
   assert.match(initBody, /sharekhanTicker\.subscribe\(\[\.\.\.symToCode\.values\(\), \.\.\.sharekhanIndexCodeMap\.keys\(\)\]\)/);
 });
@@ -98,9 +162,11 @@ test('scheduler passes sector trend context into simulation domain cycle', () =>
 
 test('scheduler computes cashAvailable and positionMultiplier for simulation domain context', () => {
   const source = fs.readFileSync(PROXY_PATH, 'utf8');
-  assert.match(source, /const portfolioInitialCapital = Number\(state\.portfolio\?\.initialCapital\) \|\| 500000;/);
-  assert.match(source, /const openExposure = trades\s*\.filter\(t => t\.status === 'open'\)\s*\.reduce\(\(sum, t\) => sum \+ \(Number\(t\.reservedCapital\) \|\| Number\(t\.entryPrice\) \* Number\(t\.qty\) \|\| 0\), 0\);/);
-  assert.match(source, /const serverCashAvailable = Math\.max\(0, portfolioInitialCapital - openExposure\);/);
+  assert.match(source, /TradeRules\.computePortfolioEquity\(state\.portfolio, trades, 500000\)/);
+  assert.match(source, /const serverCashAvailable = portfolioMetrics\.cashAvailable;/);
+  assert.match(source, /TradeRules\.computePortfolioHeat\(trades, portfolioMetrics\.equity\)/);
+  assert.match(source, /let remainingCash = serverCashAvailable;/);
+  assert.match(source, /if \(!qty\) return null;/);
   assert.match(source, /const closedTrades = trades\.filter\(t => t\.status === 'closed'\);/);
   assert.match(source, /const serverPositionMultiplier = TradeRules\.computePositionSizeMultiplier\(closedTrades\);/);
   const start = source.indexOf('const { exitIntents, entryIntents } = runSimulationDomainCycle(');

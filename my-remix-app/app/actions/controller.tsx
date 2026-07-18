@@ -58,7 +58,7 @@ ${body}
 <script>window.__DASHBOARD_ROUTE__=${bootScript};</script>
 <script defer src="/trade_rules.js?v=20260628-25"></script>
 <script defer src="/simulation_engine.js?v=20260628-25"></script>
-<script defer src="/dashboard-app.js?v=20260628-42"></script>
+<script defer src="/dashboard-app.js?v=20260714-44"></script>
 </body>
 </html>`
 
@@ -86,9 +86,10 @@ function mobileResponse() {
 <link rel="manifest" href="/mobile-manifest.webmanifest">
 <link rel="icon" href="/mobile-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/mobile-icon-192.png">
-<link rel="stylesheet" href="/mobile.css?v=20260629-2">
+<link rel="stylesheet" href="/mobile.css?v=20260715-12">
 </head>
 <body>
+<div class="global-status" id="global-status" role="status" aria-live="assertive"></div>
 <main class="app-shell">
   <header class="topbar">
     <div>
@@ -97,6 +98,10 @@ function mobileResponse() {
     </div>
     <div class="topbar-actions">
       <button class="icon-btn" id="refresh-btn" type="button" aria-label="Refresh">↻</button>
+      <button class="icon-btn fresh-news-icon" id="fresh-news-icon" type="button" aria-label="Open fresh news" aria-controls="fresh-news-overlay" title="Fresh News" onclick="window.openMobileFreshNews?.()">&#128240;</button>
+      <button class="icon-btn broker-login-icon zerodha-icon" id="zerodha-login-icon" type="button" aria-label="Log in to Zerodha" title="Zerodha login">Z</button>
+      <button class="icon-btn broker-login-icon sharekhan-icon" id="sharekhan-login-icon" type="button" aria-label="Log in to Sharekhan" title="Sharekhan login">S</button>
+      <button class="icon-btn settings-icon" id="settings-icon" type="button" aria-label="Open settings" title="Settings">&#9881;</button>
       <button class="icon-btn notification-btn" id="notification-btn" type="button" aria-label="Notifications">
         <span aria-hidden="true">!</span>
         <em id="notification-count">0</em>
@@ -119,10 +124,18 @@ function mobileResponse() {
     </article>
   </section>
 
+  <section class="market-strip" aria-label="Market overview">
+    <div class="market-nifty">
+      <div class="market-index-row"><span>Nifty 50</span><strong id="market-nifty-price">--</strong><b id="market-nifty-change">--</b></div>
+      <div class="market-index-row"><span>Nifty Midcap 150</span><strong id="market-midcap-price">--</strong><b id="market-midcap-change">--</b></div>
+    </div>
+    <div class="sector-leaders" id="sector-leaders"><span>Top sectors</span><strong>--</strong></div>
+  </section>
+
   <nav class="tabs" aria-label="Mobile views">
     <button class="tab active" type="button" data-view="trade">Trade</button>
     <button class="tab" type="button" data-view="setups">Setups</button>
-    <button class="tab" type="button" data-view="settings">Settings</button>
+    <button class="tab" type="button" data-view="stocks">All Stocks</button>
   </nav>
 
   <section class="view active" id="view-trade">
@@ -131,7 +144,8 @@ function mobileResponse() {
       <span id="updated-at">--</span>
     </div>
     <form class="trade-form" id="manual-entry-form">
-      <input id="manual-symbol" name="symbol" placeholder="Symbol" autocomplete="off">
+      <input id="manual-symbol" name="symbol" placeholder="Select symbol" autocomplete="off" list="manual-symbol-options">
+      <datalist id="manual-symbol-options"></datalist>
       <select id="manual-side" name="side" aria-label="Side">
         <option value="buy">BUY</option>
         <option value="sell">SELL</option>
@@ -154,6 +168,20 @@ function mobileResponse() {
       <h2>Setup Cards</h2>
       <span id="setup-count">--</span>
     </div>
+    <label class="setup-selector-card" for="setup-filter-select">
+      <span>Show stocks</span>
+      <select id="setup-filter-select">
+        <option value="tradeable">Tradeable</option>
+        <option value="gainers">Top Gainers</option>
+        <option value="losers">Top Losers</option>
+        <option value="favorites">Favourites</option>
+        <option value="runners">Momentum Runners</option>
+        <option value="shorts">Shorts</option>
+        <option value="best_pullbacks">Best Pullbacks</option>
+        <option value="near_trigger">Near Trigger</option>
+      </select>
+      <button class="setup-refresh-btn" id="setup-refresh-btn" type="button" aria-label="Refresh selected setups" title="Refresh selected setups">&#8635;</button>
+    </label>
     <div class="setup-grid" id="setup-list"></div>
   </section>
 
@@ -164,8 +192,7 @@ function mobileResponse() {
     <div class="control-panel">
       <label>Broker Mode
         <select id="broker-mode-select">
-          <option value="paper">Paper</option>
-          <option value="zerodha_dry_run">Zerodha Dry</option>
+          <option value="zerodha_dry_run">Paper / Zerodha Dry</option>
           <option value="zerodha_live">Zerodha Live</option>
           <option value="sharekhan_live">Sharekhan Live</option>
         </select>
@@ -180,19 +207,48 @@ function mobileResponse() {
       <span id="settings-state">--</span>
     </div>
     <form class="settings-form" id="settings-form">
+      <label>Minimum Score <input name="SIMULATION_MIN_SCORE" type="number" min="0" max="100" step="1"></label>
+      <label>Short Min Score <input name="SIMULATION_SHORT_MIN_SCORE" type="number" min="0" max="100" step="1"></label>
+      <label>Priority Top N <input name="SIMULATION_TOP_N" type="number" min="1" max="100" step="1"></label>
+      <label>New / Cycle <input name="SIMULATION_MAX_NEW_PER_CYCLE" type="number" min="1" max="50" step="1"></label>
       <label>Position Cap <input name="MAX_POSITION_EXPOSURE" type="number" min="10000" step="1000"></label>
       <label>Min Net % <input name="SIMULATION_MIN_NET_PROFIT_PCT" type="number" min="0" max="10" step="0.1"></label>
       <label>Max Open <input name="SIMULATION_MAX_OPEN" type="number" min="1" max="100" step="1"></label>
       <label>Daily Max <input name="SIMULATION_DAILY_MAX_TRADES" type="number" min="1" max="200" step="1"></label>
       <label>Nifty Regime % <input name="SIMULATION_MARKET_REGIME_NIFTY_PCT" type="number" min="-1" max="1" step="0.001"></label>
       <label>Sector Regime % <input name="SIMULATION_MARKET_REGIME_SECTOR_PCT" type="number" min="-1" max="1" step="0.001"></label>
+      <label class="check-row"><input name="SIMULATION_ENABLE_ETF" type="checkbox"> Enable ETF simulation and setups</label>
       <label class="check-row"><input name="SIMULATION_OVERRIDE_STOP_GUARD" type="checkbox"> Stop guard override</label>
       <label class="check-row"><input name="SIMULATION_AUTO_MANUAL_EXITS" type="checkbox"> Auto-exit manual trades</label>
       <div class="form-actions">
-        <button type="submit">Save Settings</button>
+        <button type="submit" id="settings-save">Save Settings</button>
         <button type="button" id="settings-reset">Clear Overrides</button>
       </div>
+      <div class="settings-status" id="settings-status" role="status" aria-live="polite"></div>
     </form>
+  </section>
+
+  <section class="view" id="view-stocks">
+    <div class="section-title all-stock-title">
+      <h2>All Stocks</h2>
+      <input id="all-stock-search" type="search" placeholder="Search stock" aria-label="Search all stocks" autocomplete="off">
+      <span id="all-stock-count">--</span>
+    </div>
+    <label class="all-stock-filter" for="all-stock-filter-select">
+      <span>Profile</span>
+      <select id="all-stock-filter-select">
+        <option value="all">All Stocks</option>
+        <option value="favorites">Favourites</option>
+        <option value="gainers">Top Gainers</option>
+        <option value="losers">Top Losers</option>
+      </select>
+    </label>
+    <div class="all-stock-list" id="all-stock-list"><div class="empty">Open All Stocks to load data</div></div>
+    <div class="pagination-bar">
+      <button id="all-stock-prev" type="button">Previous</button>
+      <span id="all-stock-page">Page 1</span>
+      <button id="all-stock-next" type="button">Next</button>
+    </div>
   </section>
 </main>
 <div class="overlay" id="notification-overlay" hidden>
@@ -205,6 +261,33 @@ function mobileResponse() {
       <button class="icon-btn" id="notification-close" type="button" aria-label="Close">x</button>
     </header>
     <div class="transaction-list notification-list" id="notification-list"></div>
+  </section>
+
+</div>
+<div class="overlay" id="fresh-news-overlay" hidden>
+  <section class="portfolio-sheet news-sheet" role="dialog" aria-modal="true" aria-labelledby="fresh-news-title">
+    <header class="sheet-head">
+      <div><p class="eyebrow">Market feed</p><h2 id="fresh-news-title">Fresh News</h2></div>
+      <button class="icon-btn" id="fresh-news-close" type="button" aria-label="Close">x</button>
+    </header>
+    <div class="news-status" id="fresh-news-status">Loading fresh news…</div>
+    <div class="transaction-list news-list" id="fresh-news-list"></div>
+  </section>
+</div>
+<div class="overlay" id="candle-overlay" hidden>
+  <section class="portfolio-sheet chart-sheet" role="dialog" aria-modal="true" aria-labelledby="candle-title">
+    <header class="sheet-head"><h2 id="candle-title">5m Candles</h2><button class="icon-btn" id="candle-close" type="button" aria-label="Close">x</button></header>
+    <div class="candle-interval-toolbar" role="group" aria-label="Candle interval">
+      <button class="active" id="candle-interval-5m" type="button">5 min</button>
+      <button id="candle-interval-15m" type="button">15 min</button>
+    </div>
+    <div class="chart-body" id="candle-body"><div class="empty">Loading candles…</div></div>
+  </section>
+</div>
+<div class="overlay" id="stock-detail-overlay" hidden>
+  <section class="portfolio-sheet detail-sheet" role="dialog" aria-modal="true" aria-labelledby="stock-detail-title">
+    <header class="sheet-head"><h2 id="stock-detail-title">Stock Details</h2><button class="icon-btn" id="stock-detail-close" type="button" aria-label="Close">x</button></header>
+    <div class="stock-detail-body" id="stock-detail-body"><div class="empty">Loading details…</div></div>
   </section>
 </div>
 <div class="overlay" id="pnl-overlay" hidden>
@@ -237,7 +320,7 @@ function mobileResponse() {
     <div class="transaction-list" id="portfolio-transactions"></div>
   </section>
 </div>
-<script defer src="/mobile-app.js?v=20260629-2"></script>
+<script defer src="/mobile-app.js?v=20260715-42"></script>
 </body>
 </html>`
 

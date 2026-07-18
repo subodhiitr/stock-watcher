@@ -1,8 +1,8 @@
-const CACHE_NAME = 'intradayx-mobile-v5';
+const CACHE_NAME = 'intradayx-mobile-v49';
 const SHELL_ASSETS = [
   '/mobile',
-  '/mobile.css?v=20260629-2',
-  '/mobile-app.js?v=20260629-2',
+  '/mobile.css?v=20260715-12',
+  '/mobile-app.js?v=20260715-42',
   '/mobile-manifest.webmanifest',
   '/mobile-icon.svg',
   '/mobile-icon-192.png',
@@ -31,7 +31,13 @@ self.addEventListener('fetch', event => {
 
   if (url.pathname === '/mobile' || url.pathname.endsWith('.css') || url.pathname.endsWith('.js') || url.pathname.endsWith('.svg') || url.pathname.endsWith('.png') || url.pathname.endsWith('.webmanifest')) {
     event.respondWith(
-      caches.match(event.request).then(cached => cached || fetch(event.request)),
+      fetch(event.request)
+        .then(response => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request)),
     );
   }
 });

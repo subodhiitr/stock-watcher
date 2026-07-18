@@ -26,10 +26,17 @@ const TRADE_SETTINGS_FILE = path.join(ROOT, 'trade_settings.json');
 
 // Try to load trade setting overrides from DB (if available), else fall back to JSON file
 function loadTradeSettingOverrides(file) {
+  const normalizeSetting = (key, value) => {
+    if (!(key in DEFAULTS)) return undefined;
+    if (typeof DEFAULTS[key] === 'boolean') return value === true || value === 1 || value === '1' || value === 'true';
+    if (typeof DEFAULTS[key] === 'string') return String(value);
+    const n = Number(value);
+    return Number.isFinite(n) ? n : undefined;
+  };
   // Try DB directly via better-sqlite3
   try {
     const Database = require('better-sqlite3');
-    const dbPath = path.join(ROOT, 'stock-watcher.db');
+    const dbPath = DB_FILE;
     if (fs.existsSync(dbPath)) {
       const db = new Database(dbPath, { readonly: true });
       const row = db.prepare("SELECT value FROM kv_store WHERE key = 'trade_settings'").get();
@@ -39,9 +46,8 @@ function loadTradeSettingOverrides(file) {
         if (val?.overrides && typeof val.overrides === 'object') {
           const clean = {};
           for (const [key, value] of Object.entries(val.overrides)) {
-            if (!(key in DEFAULTS)) continue;
-            if (typeof value === 'boolean') clean[key] = value;
-            else { const n = Number(value); if (Number.isFinite(n)) clean[key] = n; }
+            const normalized = normalizeSetting(key, value);
+            if (normalized !== undefined) clean[key] = normalized;
           }
           return clean;
         }
@@ -55,9 +61,8 @@ function loadTradeSettingOverrides(file) {
     const overrides = raw && typeof raw === 'object' && raw.overrides && typeof raw.overrides === 'object' ? raw.overrides : {};
     const clean = {};
     for (const [key, value] of Object.entries(overrides)) {
-      if (!(key in DEFAULTS)) continue;
-      if (typeof value === 'boolean') clean[key] = value;
-      else { const n = Number(value); if (Number.isFinite(n)) clean[key] = n; }
+      const normalized = normalizeSetting(key, value);
+      if (normalized !== undefined) clean[key] = normalized;
     }
     return clean;
   } catch (_) {
@@ -334,16 +339,12 @@ function istWeekday(value) {
   return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(day);
 }
 
-function isEntryWindow(value) {
-  const day = istWeekday(value);
-  const mins = istMinutes(value);
-  return day >= 1 && day <= 5 && mins >= 9 * 60 + 30 && mins < 14 * 60 + 45;
+function isEntryWindow(value, settings = {}) {
+  return TradeRules.isSimulationEntryWindow(value, settings);
 }
 
-function isEodSettlement(value) {
-  const day = istWeekday(value);
-  const mins = istMinutes(value);
-  return day === 0 || day === 6 || mins >= 15 * 60 + 20;
+function isEodSettlement(value, settings = {}) {
+  return TradeRules.isSimulationEodSettlement(value, settings);
 }
 
 function runBacktest(snapshots, settings) {
@@ -396,8 +397,7 @@ function runBacktest(snapshots, settings) {
     return result;
   };
   const cashAvailable = () => {
-    const freeCapital = portfolio.cash - portfolio.reservedCapital;
-    const result = Math.max(0, freeCapital);
+    const result = Math.max(0, portfolio.cash);
     if (process.env.DEBUG_CASH && !Number.isFinite(result)) {
       console.error(`DEBUG_CASH: cash=${portfolio.cash}, reserved=${portfolio.reservedCapital}, result=${result}`);
     }
@@ -416,11 +416,12 @@ function runBacktest(snapshots, settings) {
   }
 
   function closeTrade(trade, exitPrice, reason, at, mark = false) {
+    exitPrice = SimulationEngine.applyAdverseSlippage(exitPrice, trade.side, 'exit', settings);
     const reservedAmount = trade.entryPrice * trade.qty;
     portfolio.reservedCapital = Math.max(0, portfolio.reservedCapital - reservedAmount);
 
     const pnl = SimulationEngine.getPaperTradePnl(trade, exitPrice);
-    const closingCash = pnl ? pnl.pnl : 0;
+    const closingCash = reservedAmount + (pnl ? pnl.pnl : 0);
     portfolio.cash += closingCash;
     validatePortfolio();
 
@@ -453,6 +454,7 @@ function runBacktest(snapshots, settings) {
   }
 
   function partialCloseTrade(trade, exitPrice, reason, at, qty, runner = false, newTarget = null) {
+    exitPrice = SimulationEngine.applyAdverseSlippage(exitPrice, trade.side, 'exit', settings);
     const closeQty = Math.floor(Number(qty));
     const openQty = Math.floor(Number(trade.qty));
     if (!Number.isFinite(closeQty) || closeQty <= 0 || closeQty >= openQty) return false;
@@ -472,7 +474,7 @@ function runBacktest(snapshots, settings) {
       closeReason: reason,
     };
     const pnl = SimulationEngine.getPaperTradePnl(partial, exitPrice);
-    const closingCash = pnl ? pnl.pnl : 0;
+    const closingCash = releasedAmount + (pnl ? pnl.pnl : 0);
     portfolio.cash += closingCash;
     validatePortfolio();
 
@@ -542,7 +544,7 @@ function runBacktest(snapshots, settings) {
     }
 
     for (const trade of simOpenTrades().slice()) {
-      const candidate = currentBySymbol.get(trade.symbol) || lastKnownBySymbol.get(trade.symbol);
+      const candidate = currentBySymbol.get(trade.symbol);
       const price = Number(candidate?.price ?? candidate?.priceAtSnapshot ?? candidate?.quote?.price);
       if (!Number.isFinite(price) || price <= 0) continue;
       
@@ -553,18 +555,46 @@ function runBacktest(snapshots, settings) {
       const entry = Number(trade.entryPrice);
       const side = String(trade.side || 'buy').toLowerCase();
       let exit = null;
+      const favorablePct = side === 'sell' ? ((entry - price) / entry) * 100 : ((price - entry) / entry) * 100;
+      trade._maxFavorablePct = Math.max(Number(trade._maxFavorablePct) || 0, favorablePct);
+      trade._maxAdversePct = Math.max(Number(trade._maxAdversePct) || 0, -favorablePct);
       
+      const candle = SimulationEngine.getLatestCandidateCandle?.(candidate);
+      const candleAt = candle ? new Date(candle.time).getTime() : NaN;
+      const openedAt = new Date(trade.openedAt).getTime();
+      const usableCandle = candle && Number.isFinite(candleAt) && Number.isFinite(openedAt) && candleAt > openedAt;
       if (Number.isFinite(stop) && stop > 0 && Number.isFinite(entry) && entry > 0) {
-        if (side === 'buy' && price <= stop) {
-          exit = { reason: 'Simulation stop loss breach', exitPrice: stop };
-        } else if (side === 'sell' && price >= stop) {
-          exit = { reason: 'Simulation stop loss breach', exitPrice: stop };
+        const stopBreached = side === 'buy'
+          ? (usableCandle ? candle.low <= stop : price <= stop)
+          : (usableCandle ? candle.high >= stop : price >= stop);
+        if (stopBreached) {
+          const gapPrice = usableCandle ? candle.open : price;
+          const fill = side === 'buy' ? Math.min(stop, gapPrice) : Math.max(stop, gapPrice);
+          exit = { reason: 'Simulation stop loss breach', exitPrice: fill };
+        }
+      }
+
+      // Replay completed candle ranges conservatively. A same-bar stop wins over
+      // a target because tick ordering is unavailable; live simulation continues
+      // to use its observed streaming price.
+      const target = Number(trade.target);
+      if (!exit && usableCandle && Number.isFinite(target) && target > 0) {
+        const targetReached = side === 'buy' ? candle.high >= target : candle.low <= target;
+        if (targetReached) {
+          const targetCandidate = {
+            ...candidate,
+            price: target,
+            priceAtSnapshot: target,
+            quote: { ...(candidate.quote || {}), price: target },
+            indicators: { ...(candidate.indicators || {}), price: target },
+          };
+          exit = SimulationEngine.getSimulationExit(trade, target, targetCandidate, snapshot.at, settings, { isEodSettlement: false });
         }
       }
       
       // If no stop loss exit, use normal simulation exit logic
       if (!exit) {
-        exit = SimulationEngine.getSimulationExit(trade, price, candidate, snapshot.at, settings, { isEodSettlement: isEodSettlement(snapshot.at) });
+        exit = SimulationEngine.getSimulationExit(trade, price, candidate, snapshot.at, settings, { isEodSettlement: isEodSettlement(snapshot.at, settings) });
       }
       
       if (exit?.action === 'partial') {
@@ -575,7 +605,7 @@ function runBacktest(snapshots, settings) {
       }
     }
 
-    if (!isEntryWindow(snapshot.at) || isEodSettlement(snapshot.at)) continue;
+    if (!isEntryWindow(snapshot.at, settings) || isEodSettlement(snapshot.at, settings)) continue;
 
     let slots = Math.max(0, Math.min(
       settings.SIMULATION_MAX_OPEN - openTrades().length,
@@ -589,8 +619,13 @@ function runBacktest(snapshots, settings) {
       settings,
       {
         openSymbols: new Set(openTrades().map(t => t.symbol)),
+        openTrades: openTrades(),
+        closedTrades: trades.filter(t => t?.status === 'closed'),
         entryBlockReason: (symbol, setupType) => entryBlockReason(symbol, setupType, snapshot.at),
         market: snapshot.market,
+        sectorTrend: snapshot.sectorTrend,
+        indices: snapshot.market?.indices,
+        dayStats: dayStats(snapshot.at),
       }
     );
 
@@ -604,21 +639,31 @@ function runBacktest(snapshots, settings) {
         if (/daily/i.test(block)) break;
         continue;
       }
-      const price = Number(candidate.price ?? candidate.priceAtSnapshot ?? candidate.quote?.price);
-      if (!Number.isFinite(price) || price <= 0) continue;
+      const observedPrice = Number(candidate.price ?? candidate.priceAtSnapshot ?? candidate.quote?.price);
+      if (!Number.isFinite(observedPrice) || observedPrice <= 0) continue;
+      const side = candidate.side || candidate.signal || 'buy';
+      const price = SimulationEngine.applyAdverseSlippage(observedPrice, side, 'entry', settings);
       const remainingCandidates = Math.max(1, candidates.length - i);
       const remainingSlots = Math.max(1, Math.min(slots, remainingCandidates));
-      const allocation = Math.min(settings.MAX_POSITION_EXPOSURE, cashAvailable() / remainingSlots);
-      const side = candidate.side || candidate.signal || 'buy';
-      
+      const entryCash = cashAvailable();
+      if (entryCash <= 0) continue;
+      const allocation = Math.min(settings.MAX_POSITION_EXPOSURE, entryCash / remainingSlots);
       // Use shared function for position sizing
       const closedTrades = trades.filter(t => t.status === 'closed');
       const positionSizingMultiplier = TradeRules.computePositionSizeMultiplier(closedTrades);
-      const suggestion = SimulationEngine.getSuggestedQty(candidate, side, price, cashAvailable(), allocation, settings, positionSizingMultiplier);
+      const suggestion = SimulationEngine.getSuggestedQty(candidate, side, price, entryCash, allocation, settings, positionSizingMultiplier);
       if (suggestion.qty <= 0) continue;
       
       // qty is already applied inside getSuggestedQty with the multiplier
-      const adjustedQty = Math.max(1, suggestion.qty);
+      let adjustedQty = Math.max(1, suggestion.qty);
+      const equity = startingCash + realizedPnl();
+      const heat = TradeRules.computePortfolioHeat(trades, equity);
+      const maxHeatRisk = equity * (Number(settings.SIMULATION_MAX_PORTFOLIO_HEAT_PCT || 5) / 100);
+      const sectorRisk = Number(heat.bySector[String(candidate.sector || 'UNKNOWN')] || 0);
+      const maxSectorRisk = equity * (Number(settings.SIMULATION_MAX_SECTOR_HEAT_PCT || 2) / 100);
+      const riskPerShare = Number(suggestion.riskPerShare) || 0;
+      if (riskPerShare > 0) adjustedQty = Math.min(adjustedQty, Math.floor(Math.max(0, maxHeatRisk - heat.risk) / riskPerShare), Math.floor(Math.max(0, maxSectorRisk - sectorRisk) / riskPerShare));
+      if (adjustedQty <= 0) continue;
       
       if (process.env.DEBUG_QTY && (trades.length < 2 || !Number.isFinite(suggestion.qty))) {
         console.error(`DEBUG: suggestion.qty=${suggestion.qty}, cashAvail=${cashAvailable()}, allocation=${allocation}, byCash=${suggestion.cashLimit}`);
@@ -634,9 +679,12 @@ function runBacktest(snapshots, settings) {
         stop: suggestion.plan.stop,
         signal: side,
         score: Math.abs(Number(candidate.score) || 0),
+        decisionScore: SimulationEngine.getCandidateDecisionScore(candidate),
         rr: candidate.indicators?.rr,
         source: 'simulation',
         assetType: 'stock',
+        sector:candidate.sector || '',
+        costProfile:settings.SIMULATION_COST_PROFILE || 'zerodha_intraday',
         reservedCapital: round2(adjustedQty * price),
         setupType,
         setup: ['Simulation', setupType, candidate.indicators?.entryStatus, candidate.indicators?.entryTrigger]
@@ -644,11 +692,23 @@ function runBacktest(snapshots, settings) {
         entryContext: {
           selectedRank:i + 1,
           score:Number(candidate.score) || 0,
+          decisionScore:SimulationEngine.getCandidateDecisionScore(candidate),
+          scoreAudit:candidate.scoreAudit || null,
           side,
           setupType,
+          sectorAligned:!!candidate.sectorPriority?.aligned,
+          sectorPriority:candidate.sectorPriority || null,
           reason:`selected rank ${i + 1}`,
           blockReason:candidate.blockReason || '',
           decision:candidate.decision || null,
+          snapshotId:candidate.__snapshotId || snapshot.id || null,
+          snapshotAt:candidate.__snapshotAt || snapshot.at,
+          candleTime:SimulationEngine.getLatestCandidateCandle?.(candidate)?.time || null,
+          dataAgeMin:candidate.freshness?.ageMin ?? null,
+          indicatorSnapshot:SimulationEngine.buildIndicatorAuditSnapshot(candidate),
+          settingsSnapshot:SimulationEngine.buildSettingsAuditSnapshot(settings),
+          settingsFingerprint:SimulationEngine.stableAuditFingerprint(SimulationEngine.buildSettingsAuditSnapshot(settings)),
+          confirmation:SimulationEngine.getLongEntryConfirmation(candidate, candidate.previousCandidate, side, snapshot.at, settings),
           indicators:{
             entryStatus:candidate.indicators?.entryStatus || '',
             entryTrigger:candidate.indicators?.entryTrigger || '',
@@ -689,10 +749,10 @@ function runBacktest(snapshots, settings) {
     if (Number.isFinite(price)) closeTrade(trade, price, 'Backtest mark at last snapshot', lastAt.get(trade.symbol) || snapshots.at(-1)?.at, true);
   }
 
-  return summarize(trades, snapshots, settings, startingCash);
+  return summarize(trades, snapshots, settings, startingCash, portfolio);
 }
 
-function summarize(trades, snapshots, settings, startingCash = settings.PORTFOLIO_INITIAL_CAPITAL) {
+function summarize(trades, snapshots, settings, startingCash = settings.PORTFOLIO_INITIAL_CAPITAL, portfolio = null) {
   const closed = trades.filter(t => t.status === 'closed');
   const wins = closed.filter(t => t.pnl > 0).length;
   const gross = closed.reduce((sum, t) => sum + (Number(t.grossPnl) || 0), 0);
@@ -712,6 +772,12 @@ function summarize(trades, snapshots, settings, startingCash = settings.PORTFOLI
 
   const cleanBuckets = buckets => Object.fromEntries(Object.entries(buckets).map(([key, value]) => [key, finishBucket(value)]));
   const opportunityReport = buildOpportunityReport(snapshots, closed, settings);
+  const candleCoveragePct = Number(opportunityReport.dataQualitySummary?.candleCoveragePct) || 0;
+  const replayConfidence = {
+    grade:candleCoveragePct >= 99 ? 'A' : candleCoveragePct >= 95 ? 'B' : candleCoveragePct >= 80 ? 'C' : 'D',
+    candleCoveragePct,
+    note:candleCoveragePct >= 95 ? 'High candle coverage' : 'Results include material price-only replay observations',
+  };
   const risk = computeRiskStats(closed, settings.PORTFOLIO_INITIAL_CAPITAL);
   const quality = SimulationEngine.summarizeTradeQuality(closed, settings);
   if (process.env.DEBUG_QTY && closed.length > 0) {
@@ -753,6 +819,9 @@ function summarize(trades, snapshots, settings, startingCash = settings.PORTFOLI
       maxDrawdownPct: risk.maxDrawdownPct,
       maxLossStreak: risk.maxLossStreak,
       currentLossStreak: risk.currentLossStreak,
+      endingCash: round2(portfolio?.cash ?? (startingCash + net)),
+      reservedCapital: round2(portfolio?.reservedCapital || 0),
+      reconciliationDifference: round2((portfolio?.cash ?? (startingCash + net)) + (portfolio?.reservedCapital || 0) - (startingCash + net)),
     },
     byDay: cleanBuckets(byDay),
     bySetup: cleanBuckets(bySetup),
@@ -761,6 +830,8 @@ function summarize(trades, snapshots, settings, startingCash = settings.PORTFOLI
     quality,
     missed: opportunityReport.missed,
     dataQuality: opportunityReport.dataQuality,
+    dataQualitySummary: opportunityReport.dataQualitySummary,
+    replayConfidence,
     top: closed.slice().sort((a, b) => b.pnl - a.pnl).slice(0, 8).map(formatTrade),
     bottom: closed.slice().sort((a, b) => a.pnl - b.pnl).slice(0, 8).map(formatTrade),
     trades: all,
@@ -809,11 +880,26 @@ function buildOpportunityReport(snapshots, closedTrades, settings) {
   const lastAt = new Map();
   const traded = new Set(closedTrades.map(t => `${t.symbol}|${String(t.side || '').toLowerCase()}`));
   const qualityCounts = {};
+  const qualitySymbols = new Set();
+  const affectedSnapshotIds = new Set();
+  let candidateObservations = 0;
+  let affectedObservations = 0;
+  let marketSnapshots = 0;
+  let afterHoursSnapshots = 0;
+  let candleObservations = 0;
+  let missingCandleObservations = 0;
   const bySymbolSide = new Map();
   const previousCandidateBySymbol = new Map();
-  for (const snapshot of snapshots) {
+  for (const [snapshotIndex, snapshot] of snapshots.entries()) {
     const candidates = snapshot.candidates || [];
+    const duringMarket = isEntryWindow(snapshot.at, settings) || isEodSettlement(snapshot.at, settings);
+    if (duringMarket) marketSnapshots += 1;
+    else afterHoursSnapshots += 1;
     for (const candidate of candidates) {
+      candidateObservations += 1;
+      const latestCandle = SimulationEngine.getLatestCandidateCandle?.(candidate);
+      if (latestCandle) candleObservations += 1;
+      else missingCandleObservations += 1;
       const price = Number(candidate.price ?? candidate.priceAtSnapshot ?? candidate.quote?.price);
       if (Number.isFinite(price) && price > 0) {
         lastPrice.set(candidate.symbol, price);
@@ -839,8 +925,17 @@ function buildOpportunityReport(snapshots, closedTrades, settings) {
       const explanation = SimulationEngine.explainCandidateEligibility(candidate, snapshot.at, settings, {
         previousCandidate: candidate.previousCandidate,
         market: snapshot.market,
+        sectorTrend: snapshot.sectorTrend,
+        indices: snapshot.market?.indices,
       });
-      for (const issue of SimulationEngine.getDataQualityIssues(candidate, settings)) {
+      const candidateIssues = SimulationEngine.getDataQualityIssues(candidate, settings);
+      if (!latestCandle) candidateIssues.push('missing replay candle');
+      if (candidateIssues.length) {
+        affectedObservations += 1;
+        qualitySymbols.add(String(candidate.symbol || '').toUpperCase());
+        affectedSnapshotIds.add(String(snapshot.id || snapshot.at || 'unknown'));
+      }
+      for (const issue of candidateIssues) {
         qualityCounts[issue] = (qualityCounts[issue] || 0) + 1;
       }
       if (traded.has(`${candidate.symbol}|${side}`)) continue;
@@ -857,28 +952,56 @@ function buildOpportunityReport(snapshots, closedTrades, settings) {
           entry: price,
           at: snapshot.at,
           reasons: explanation.eligible ? ['eligible but not selected: rank, slot, cash, cooldown, or top-N limit'] : explanation.reasons,
+          snapshotIndex,
+          candidate:JSON.parse(JSON.stringify(candidate)),
         });
       }
     }
   }
   const opportunities = [];
   for (const item of bySymbolSide.values()) {
-    const exit = lastPrice.get(item.symbol);
-    if (!Number.isFinite(item.entry) || item.entry <= 0 || !Number.isFinite(exit) || exit <= 0) continue;
+    if (!Number.isFinite(item.entry) || item.entry <= 0) continue;
     const qty = Math.max(1, Math.floor(settings.MAX_POSITION_EXPOSURE / item.entry));
-    const pnl = SimulationEngine.getPaperTradePnl({ side:item.side, qty, entryPrice:item.entry }, exit);
+    const entry = SimulationEngine.applyAdverseSlippage(item.entry, item.side, 'entry', settings);
+    const plan = SimulationEngine.getPaperPlanForCandidate(item.candidate, item.side, entry, settings);
+    const hypothetical = { symbol:item.symbol, side:item.side, qty, entryPrice:entry, target:plan.target, stop:plan.stop, openedAt:item.at, setupType:item.setup, costProfile:settings.SIMULATION_COST_PROFILE || 'zerodha_intraday' };
+    let exit = null;
+    let exitAt = null;
+    let exitReason = 'Hypothetical market-hours mark';
+    for (let i = Number(item.snapshotIndex) + 1; i < snapshots.length; i += 1) {
+      const snap = snapshots[i];
+      const candidate = (snap.candidates || []).find(row => row.symbol === item.symbol);
+      if (!candidate) continue;
+      const price = Number(candidate.price ?? candidate.priceAtSnapshot ?? candidate.quote?.price);
+      if (!Number.isFinite(price) || price <= 0) continue;
+      if (!isEntryWindow(snap.at, settings) && !isEodSettlement(snap.at, settings) && istMinutes(snap.at) > Number(settings.SIMULATION_EOD_SETTLEMENT_MIN || 915)) continue;
+      const decision = SimulationEngine.getSimulationExit(hypothetical, price, candidate, snap.at, settings, { isEodSettlement:isEodSettlement(snap.at, settings) });
+      exit = price;
+      exitAt = snap.at;
+      if (decision) {
+        exit = Number(decision.exitPrice) || price;
+        exitReason = decision.reason;
+        break;
+      }
+    }
+    if (!Number.isFinite(exit) || exit <= 0) continue;
+    exit = SimulationEngine.applyAdverseSlippage(exit, item.side, 'exit', settings);
+    const pnl = SimulationEngine.getPaperTradePnl(hypothetical, exit);
     const movePct = item.side === 'sell'
-      ? ((item.entry - exit) / item.entry) * 100
-      : ((exit - item.entry) / item.entry) * 100;
+      ? ((entry - exit) / entry) * 100
+      : ((exit - entry) / entry) * 100;
     opportunities.push({
       ...item,
+      candidate:undefined,
+      snapshotIndex:undefined,
+      entry,
       exit,
-      exitAt:lastAt.get(item.symbol) || null,
+      exitAt,
       qty,
       movePct:round2(movePct),
       net:pnl?.pnl ?? 0,
       charges:pnl?.charges ?? 0,
-      reason:item.reasons.slice(0, 3).join(' | '),
+      reason:`${item.reasons.slice(0, 3).join(' | ')} | hypothetical: ${exitReason}`,
     });
   }
   const profitable = side => opportunities
@@ -902,6 +1025,18 @@ function buildOpportunityReport(snapshots, closedTrades, settings) {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 12)
       .map(([issue, count]) => ({ issue, count })),
+    dataQualitySummary: {
+      snapshots: snapshots.length,
+      marketSnapshots,
+      afterHoursSnapshots,
+      affectedSnapshots: affectedSnapshotIds.size,
+      candidateObservations,
+      affectedObservations,
+      affectedSymbols: qualitySymbols.size,
+      candleObservations,
+      missingCandleObservations,
+      candleCoveragePct: round1(candleObservations / Math.max(1, candidateObservations) * 100),
+    },
   };
 }
 
@@ -959,6 +1094,8 @@ function formatTrade(trade) {
     opened: trade.openedAt,
     closed: trade.closedAt,
     mark: !!trade.mark,
+    maxFavorablePct: round2(trade._maxFavorablePct),
+    maxAdversePct: round2(trade._maxAdversePct),
   };
 }
 
@@ -980,6 +1117,7 @@ function printReport(result) {
   console.log(`Costs     : ${money(result.summary.fees)}`);
   console.log(`Net P/L   : ${money(result.summary.net)} (${result.summary.returnPct}%)`);
   console.log(`Drawdown  : ${money(result.summary.maxDrawdown)} (${result.summary.maxDrawdownPct}%)`);
+  console.log(`Confidence: ${result.replayConfidence?.grade || '--'} (${result.replayConfidence?.candleCoveragePct || 0}% candle coverage)`);
   console.log(`Loss run  : ${result.summary.currentLossStreak} current / ${result.summary.maxLossStreak} max`);
   console.log('');
   printBucket('By Day', result.byDay, money);

@@ -66,6 +66,10 @@ test('dashboard defines intraday candle chart modal rendering hooks', () => {
   assert.match(source, /data-chart-range="1d"/);
   assert.match(source, /data-chart-range="2d"/);
   assert.match(source, /data-chart-range="5d"/);
+  assert.match(source, /data-chart-interval="5m"/);
+  assert.match(source, /data-chart-interval="15m"/);
+  assert.match(source, /function setIntradayCandleChartInterval\(/);
+  assert.match(source, /interval=\$\{encodeURIComponent\(interval\)\}/);
 });
 
 test('intraday candle chart renders gridlines, x-axis time labels, volume bars, and hover details', () => {

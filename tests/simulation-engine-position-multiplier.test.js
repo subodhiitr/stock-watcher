@@ -13,6 +13,7 @@ function makeEligibleCandidate(overrides = {}) {
     guard: { level: 'ok' },
     cost: { ok: true, netPct: 1.4 },
     freshness: { stale: false },
+    candles:[{ time:'2026-07-02T04:50:00.000Z', open:994, high:998, low:993, close:997, volume:1000 }],
     indicators: {
       entryStatus: 'Triggered',
       entryTrigger: 'Buy above 995',
@@ -23,6 +24,7 @@ function makeEligibleCandidate(overrides = {}) {
       ema9: 1002,
       ema20: 996,
       superTrendDirection: 'bullish',
+      volumeShock: { volumeRatio3m: 0.75, volumeRatio5m: 0.95 },
       stopPct: 0.6,
       target: 1100,
       stop: 950,
@@ -106,4 +108,35 @@ test('getSimulationEntryIntents applies context cashAvailable and positionMultip
   assert.equal(reducedSized.length, 1, 'Expected one eligible entry intent with reduced sizing');
   assert.equal(fullSized[0].qty, 10, 'cashAvailable should cap qty at 10 shares');
   assert.equal(reducedSized[0].qty, 5, 'positionMultiplier should halve the computed qty');
+});
+
+test('entry sizing reserves cash sequentially and skips zero-sized entries', () => {
+  const settings = TradeRules.withDefaults({
+    MAX_POSITION_EXPOSURE: 100000,
+    PORTFOLIO_INITIAL_CAPITAL: 1000000,
+    TRADE_RISK_PCT: 1,
+    SIMULATION_MAX_NEW_PER_CYCLE: 3,
+    SIMULATION_SECTOR_PRIORITY_ENABLED: false
+  });
+  const first = makeEligibleCandidate({ symbol: 'FIRST', price: 1000 });
+  const second = makeEligibleCandidate({ symbol: 'SECOND', price: 1000 });
+  const third = makeEligibleCandidate({ symbol: 'THIRD', price: 1000 });
+  const previousCandidateBySymbol = new Map([
+    ['FIRST', { ...first.previousCandidate, symbol: 'FIRST' }],
+    ['SECOND', { ...second.previousCandidate, symbol: 'SECOND' }],
+    ['THIRD', { ...third.previousCandidate, symbol: 'THIRD' }]
+  ]);
+  const intents = SimulationEngine.getSimulationEntryIntents(
+    [first, second, third],
+    '2026-07-02T05:00:00.000Z',
+    settings,
+    { cashAvailable: 150000, positionMultiplier: 1, openPositionCounts: new Map(), previousCandidateBySymbol }
+  );
+  assert.deepEqual(intents.map(intent => intent.qty), [100, 50]);
+  assert.equal(SimulationEngine.getSimulationEntryIntents(
+    [first],
+    '2026-07-02T05:00:00.000Z',
+    settings,
+    { cashAvailable: 0, positionMultiplier: 1, openPositionCounts: new Map(), previousCandidateBySymbol }
+  ).length, 0, 'zero available cash must not become a one-share order');
 });

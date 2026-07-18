@@ -133,7 +133,7 @@ async function fetchSharekhanIntraday(sym, client) {
   try {
     const code = await client.getScripCode(sym);
     if (!code || code <= 0) return null;
-    const raw = await client.fetchRawCandles('NC', code, '5');
+    const raw = await client.fetchRawCandles('NC', code, '5minute');
     const result = normalizeSharekhanCandles(sym, raw);
     return result;
   } catch (err) {

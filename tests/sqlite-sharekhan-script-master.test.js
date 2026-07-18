@@ -61,3 +61,17 @@ test('sharekhan client saves script codes to sqlite when fetched', async () => {
   assert.equal(code1, 676, 'EXIDEIND code should be saved to DB');
   assert.equal(code2, 1660, 'ITC code should be saved to DB');
 });
+
+test('sharekhan client resolves non-equity indices for streaming without adding them to the equity cache', async () => {
+  initDb(':memory:');
+  const client = new SharekhanClient({ apiKey: 'mock-key', customerId: 'mock-customer' });
+  client.client.getActiveScriptOfDay = async () => ({
+    data: [
+      { scripCode: 22, tradingSymbol: 'NIFTY 50', instType: 'IN' },
+      { scripCode: 26060, tradingSymbol: 'NIFTY MIDCAP 150', instType: 'IN' },
+    ],
+  });
+
+  assert.equal(await client.resolveStreamingScripCode('NIFTY MIDCAP 150'), 26060);
+  assert.equal(client.symbolCodeCache.has('NIFTY MIDCAP 150'), false);
+});

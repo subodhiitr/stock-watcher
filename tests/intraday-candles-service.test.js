@@ -2,9 +2,22 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
+  aggregateCandles,
   normalizeYahooCandles,
   createIntradayCandlesService,
 } = require('../server/intraday-candles');
+
+test('aggregateCandles combines aligned 5m bars into a 15m OHLCV candle', () => {
+  const result = aggregateCandles([
+    { time:'2026-07-08T03:45:00.000Z', open:100, high:103, low:99, close:102, volume:100 },
+    { time:'2026-07-08T03:50:00.000Z', open:102, high:105, low:101, close:104, volume:200 },
+    { time:'2026-07-08T03:55:00.000Z', open:104, high:106, low:103, close:105, volume:300 },
+  ], '15m');
+
+  assert.deepEqual(result, [{
+    time:'2026-07-08T03:45:00.000Z', open:100, high:106, low:99, close:105, volume:600,
+  }]);
+});
 
 test('normalizeYahooCandles converts Yahoo 5m chart response to OHLC candles', () => {
   const result = normalizeYahooCandles('TCS', '2d', {
@@ -91,4 +104,25 @@ test('intraday candles route fetches Yahoo 5m candles for requested range', asyn
   assert.equal(payload.candles.length, 1);
   assert.match(calls[0].path, /interval=5m/);
   assert.match(calls[0].path, /range=2d/);
+});
+
+test('intraday candles route returns requested 15m aggregation', async () => {
+  const service = createIntradayCandlesService({
+    resolveNseSymbol: symbol => symbol,
+    httpsGet: async () => ({
+      status:200,
+      body:JSON.stringify({ chart:{ result:[{
+        timestamp:[1783482300, 1783482600, 1783482900],
+        indicators:{ quote:[{ open:[100,102,104], high:[103,105,106], low:[99,101,103], close:[102,104,105], volume:[100,200,300] }] },
+      }] } }),
+    }),
+  });
+  const chunks = [];
+  const res = { writeHead(status) { this.status = status; }, end(body) { chunks.push(body); } };
+  await service.handleRoute({ method:'GET' }, res, '/intraday-candles', new URLSearchParams('symbol=TCS&range=1d&interval=15m'));
+  const payload = JSON.parse(chunks.join(''));
+
+  assert.equal(payload.interval, '15m');
+  assert.equal(payload.candles.length, 1);
+  assert.equal(payload.candles[0].volume, 600);
 });

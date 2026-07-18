@@ -34,6 +34,38 @@ function isLocalRemoteAddress(address) {
     || value === 'localhost';
 }
 
+function isPrivateIpv4(hostname) {
+  const parts = String(hostname || '').replace(/^::ffff:/i, '').split('.').map(Number);
+  if (parts.length !== 4 || parts.some(part => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+  return parts[0] === 10
+    || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31)
+    || (parts[0] === 192 && parts[1] === 168)
+    || (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127);
+}
+
+function isSamePrivateLanOrigin(remoteAddress, host, origin) {
+  const hostName = hostnameFromHostHeader(host).toLowerCase();
+  if (!isPrivateIpv4(hostName) || (!isLocalRemoteAddress(remoteAddress) && !isPrivateIpv4(remoteAddress))) return false;
+  if (!origin || origin === 'null') return false;
+  try {
+    const parsed = new URL(origin);
+    return ['http:', 'https:'].includes(parsed.protocol) && parsed.hostname.toLowerCase() === hostName;
+  } catch (_) {
+    return false;
+  }
+}
+
+function isSameHostOrigin(host, origin) {
+  const hostName = hostnameFromHostHeader(host).toLowerCase();
+  if (!hostName || !origin || origin === 'null') return false;
+  try {
+    const parsed = new URL(origin);
+    return ['http:', 'https:'].includes(parsed.protocol) && parsed.hostname.toLowerCase() === hostName;
+  } catch (_) {
+    return false;
+  }
+}
+
 function isLocalHostHeader(host) {
   const hostname = hostnameFromHostHeader(host);
   return !hostname || isLocalHostname(hostname);
@@ -71,7 +103,10 @@ function rejectUnsafeNonLocalRequest(req, res) {
   const remoteAddress = req.socket?.remoteAddress;
   const host = req.headers?.host;
   const origin = req.headers?.origin;
-  if (!isLocalRemoteAddress(remoteAddress) || !isLocalHostHeader(host) || !isAllowedOrigin(origin)) {
+  const localRequest = isLocalRemoteAddress(remoteAddress) && isLocalHostHeader(host) && isAllowedOrigin(origin);
+  const privateLanRequest = isSamePrivateLanOrigin(remoteAddress, host, origin);
+  const sameOriginRequest = isSameHostOrigin(host, origin);
+  if (!localRequest && !privateLanRequest && !sameOriginRequest) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: false, error: 'Local API rejects non-local mutation requests' }));
     return true;
@@ -129,6 +164,9 @@ module.exports = {
   isAllowedOrigin,
   isLocalHostHeader,
   isLocalRemoteAddress,
+  isPrivateIpv4,
+  isSamePrivateLanOrigin,
+  isSameHostOrigin,
   jsonBodyErrorStatus,
   readJsonBody,
   rejectUnsafeNonLocalRequest,

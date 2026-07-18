@@ -63,6 +63,53 @@ test('runSimulationDomainCycle computes exits before entries and frees symbols c
   assert.deepEqual(intents.entryIntents, [{ symbol: 'INFY', side: 'buy', price: 1610 }]);
 });
 
+test('rolling five-minute entry limit never blocks an exit intent', () => {
+  const at = '2026-07-13T05:25:00.000Z';
+  const trade = {
+    symbol: 'INFY',
+    side: 'buy',
+    qty: 1,
+    entryPrice: 100,
+    target: 101,
+    stop: 99,
+    openedAt: '2026-07-13T05:21:00.000Z',
+    setupType: 'BREAKOUT',
+  };
+  const exitCandidate = {
+    symbol: 'INFY',
+    side: 'buy',
+    price: 101.2,
+    indicators: {},
+  };
+  const settings = TradeRules.withDefaults({
+    SIMULATION_ROLLING_ENTRY_WINDOW_MIN: 5,
+    SIMULATION_ROLLING_ENTRY_MAX: 2,
+  });
+  const context = {
+    candidateBySymbol: new Map([['INFY', exitCandidate]]),
+    dayStats: {
+      rollingEntries: 2,
+      rollingOrdinaryEntries: 1,
+      rollingSectorEntries: 1,
+    },
+  };
+
+  assert.equal(
+    TradeRules.getEntryBlockReason('TCS', 'MOMENTUM_RUNNER', at, context.dayStats, settings),
+    'rolling entry limit 2/5m'
+  );
+
+  const intents = runSimulationDomainCycle(
+    { openTrades: [trade], candidates: [], at, settings, context },
+    { engine: SimulationEngine }
+  );
+
+  assert.equal(intents.exitIntents.length, 1);
+  assert.equal(intents.exitIntents[0].symbol, 'INFY');
+  assert.equal(intents.exitIntents[0].reason, 'Simulation target');
+  assert.equal(intents.entryIntents.length, 0);
+});
+
 test('runSimulationDomainCycle respects max concurrent positions per symbol setting', () => {
   // Simulate 1 open position on JKPAPER with 1 new candidate attempting entry
   const openTrades = [

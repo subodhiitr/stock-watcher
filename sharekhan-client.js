@@ -14,8 +14,12 @@ class SharekhanClient {
     this.onTokenUpdate = typeof config.onTokenUpdate === 'function' ? config.onTokenUpdate : null;
     this.lastTokenRefreshAt = null;
     this.symbolCodeCache = new Map();
+    this.streamingSymbolCodeCache = new Map();
     this.symbolCacheUpdatedAt = 0;
     this.symbolCacheTtlMs = 6 * 60 * 60 * 1000;
+    this.historicalRequestQueue = Promise.resolve();
+    this.historicalNextRequestAt = 0;
+    this.historicalRequestSpacingMs = 1500;
 
     this.client = new SharekhanApi({
       api_key: this.apiKey,
@@ -23,6 +27,7 @@ class SharekhanClient {
       access_token: this.accessToken || undefined,
       vender_key: this.vendorKey || undefined,
     });
+    if (this.accessToken) this.client.setAccessToken(this.accessToken);
   }
 
   setAccessToken(token) {
@@ -84,7 +89,7 @@ class SharekhanClient {
   async ensureSymbolCodeMap(exchange = 'NC') {
     const now = Date.now();
     // Return early if in-memory cache is fresh
-    if (this.symbolCodeCache.size && now - this.symbolCacheUpdatedAt < this.symbolCacheTtlMs) return;
+    if (this.symbolCodeCache.size && this.streamingSymbolCodeCache.size && now - this.symbolCacheUpdatedAt < this.symbolCacheTtlMs) return;
     // Fetch from master endpoint
     try {
       const result = await this.withAuthRetry(() => this.client.getActiveScriptOfDay(exchange));
@@ -93,6 +98,13 @@ class SharekhanClient {
         : (Array.isArray(payload?.data) ? payload.data
         : (Array.isArray(payload?.result) ? payload.result : []));
       const nextMap = buildScripCodeMap(list);
+      const nextStreamingMap = new Map();
+      for (const item of list) {
+        const symbol = String(item?.tradingSymbol || '').trim().toUpperCase();
+        const code = Number(item?.scripCode || 0);
+        if (symbol && Number.isFinite(code) && code > 0) nextStreamingMap.set(symbol, code);
+      }
+      if (nextStreamingMap.size) this.streamingSymbolCodeCache = nextStreamingMap;
       if (nextMap.size) {
         this.symbolCodeCache = nextMap;
         this.symbolCacheUpdatedAt = now;
@@ -136,20 +148,45 @@ class SharekhanClient {
   // Adapter method satisfying fetchSharekhanIntraday client contract
   // Returns raw candle data (array or string) — normalizeSharekhanCandles handles both
   async fetchRawCandles(exchange, scripCode, interval) {
-    try {
-      const res = await this.withAuthRetry(() =>
-        this.client.getHistoricalIntervalData(exchange, scripCode, interval)
-      );
-      const data = this.parseResponse(res);
-      if (!data) return [];
-      if (Array.isArray(data)) return data;
-      if (Array.isArray(data.data)) return data.data;
-      if (typeof data === 'string') return data;
-      return [];
-    } catch (err) {
-      console.warn(`[sharekhan-client] fetchRawCandles(${exchange}, ${scripCode}, ${interval}) failed: ${err?.message || err}`);
-      throw err;
-    }
+    const run = async () => {
+      const waitMs = Math.max(0, this.historicalNextRequestAt - Date.now());
+      if (waitMs) await new Promise(resolve => setTimeout(resolve, waitMs));
+      this.historicalNextRequestAt = Date.now() + this.historicalRequestSpacingMs;
+      try {
+        let res = await this.withAuthRetry(() =>
+          this.client.getHistoricalIntervalData(exchange, scripCode, interval)
+        );
+        if (Number(res?.status) === 429) {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          res = await this.withAuthRetry(() =>
+            this.client.getHistoricalIntervalData(exchange, scripCode, interval)
+          );
+        }
+        const data = this.parseResponse(res);
+        if (!data) return [];
+        if (Array.isArray(data)) return data;
+        if (Array.isArray(data.data)) return data.data;
+        if (typeof data === 'string') return data;
+        return [];
+      } catch (err) {
+        console.warn(`[sharekhan-client] fetchRawCandles(${exchange}, ${scripCode}, ${interval}) failed: ${err?.message || err}`);
+        throw err;
+      }
+    };
+    const queued = this.historicalRequestQueue.then(run, run);
+    this.historicalRequestQueue = queued.catch(() => {});
+    return queued;
+  }
+
+  // Index instruments are present in Sharekhan's active-script response but
+  // are intentionally excluded from the equity-only order/candle cache.
+  async resolveStreamingScripCode(symbol, exchange = 'NC') {
+    const clean = String(symbol || '').trim().toUpperCase().replace(/\.NS$/i, '');
+    if (!clean) return 0;
+    const cached = this.streamingSymbolCodeCache.get(clean);
+    if (cached) return Number(cached);
+    await this.ensureSymbolCodeMap(exchange);
+    return Number(this.streamingSymbolCodeCache.get(clean) || this.symbolCodeCache.get(clean) || 0);
   }
 
   buildOrderPayload(order = {}) {

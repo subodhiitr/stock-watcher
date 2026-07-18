@@ -48,7 +48,7 @@ test('parseTickTime returns null for invalid input', () => {
   assert.equal(parseTickTime('bad'), null);
 });
 
-const { SharekhanTicker } = require('../sharekhan-ticker');
+const { SharekhanTicker, SharekhanTickerPool } = require('../sharekhan-ticker');
 
 test('processTick builds first candle from tick (open = first ltp)', () => {
   const ticker = new SharekhanTicker({ accessToken: 'fake' });
@@ -212,6 +212,67 @@ test('invalid api key close stops reconnect loop', () => {
   assert.equal(ticker._connected, false);
   assert.equal(ticker._reconnectTimer, null);
   assert.equal(ticker._stopped, true);
+});
+
+test('token refresh resumes ticker after invalid api key close', () => {
+  const sockets = [];
+  class FakeSocket extends EventEmitter {
+    constructor() { super(); this.readyState = 0; sockets.push(this); }
+    send() {}
+    close() {}
+  }
+  const ticker = new SharekhanTicker({
+    accessToken: 'old-token',
+    webSocketFactory: () => new FakeSocket(),
+  });
+  ticker.start();
+  ticker._ws.emit('close', 1000, Buffer.from('103: Invalid Api Key'));
+
+  ticker.updateToken('new-token');
+
+  assert.equal(ticker._stopped, false);
+  assert.equal(ticker._authBlocked, false);
+  assert.equal(ticker.accessToken, 'new-token');
+  assert.equal(sockets.length, 2);
+  ticker.stop();
+});
+
+test('fatal auth cancels pending staggered pool connection', async () => {
+  const sockets = [];
+  class FakeSocket extends EventEmitter {
+    constructor() { super(); this.readyState = 0; sockets.push(this); }
+    send() {}
+    close() {}
+  }
+  const pool = new SharekhanTickerPool({
+    poolSize:2,
+    startStaggerMs:20,
+    accessToken:'bad-token',
+    webSocketFactory:() => new FakeSocket(),
+  });
+  pool.start();
+  pool._tickers[0]._ws.emit('close', 1000, Buffer.from('103: Invalid Api Key'));
+  await new Promise(resolve => setTimeout(resolve, 35));
+  assert.equal(sockets.length, 1);
+  assert.equal(pool._startTimers.length, 0);
+  pool.stop();
+});
+
+test('pool opens second connection only after first receives authentication message', () => {
+  const sockets = [];
+  class FakeSocket extends EventEmitter {
+    constructor() { super(); this.readyState = 1; sockets.push(this); }
+    send() {}
+    close() {}
+  }
+  const pool = new SharekhanTickerPool({ poolSize:2, accessToken:'token', webSocketFactory:() => new FakeSocket() });
+  pool.start();
+  assert.equal(sockets.length, 1);
+  sockets[0].emit('open');
+  assert.equal(sockets.length, 1);
+  sockets[0].emit('message', Buffer.from('{}'));
+  assert.equal(sockets.length, 2);
+  pool.stop();
 });
 
 test('idle websocket stall closes stale socket and reconnects automatically', async () => {

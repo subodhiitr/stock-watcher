@@ -54,8 +54,8 @@ const { loadSharekhanCredentials, saveSharekhanAccessToken, saveSharekhanTokens 
 const { KiteConnect } = require('kiteconnect');
 const KiteClient = require('./zerodha-kite-client');
 const SharekhanClient = require('./sharekhan-client');
-const { fetchSharekhanIntraday, buildYahooShapeFromCandles } = require('./sharekhan-intraday');
-const { SharekhanTicker } = require('./sharekhan-ticker');
+const { buildYahooShapeFromCandles } = require('./sharekhan-intraday');
+const { SharekhanTickerPool } = require('./sharekhan-ticker');
 const ConfirmationPoller = require('./zerodha-confirmation-poller');
 const {
   applyLocalCors,
@@ -139,6 +139,7 @@ const SIM_SNAPSHOT_DIR     = path.join(__dirname, 'snapshots');
 const SIM_SNAPSHOT_FILE    = path.join(SIM_SNAPSHOT_DIR, 'simulation_snapshots.json');
 const SIM_SNAPSHOT_LEGACY_FILE = path.join(__dirname, 'simulation_snapshots.json');
 const SIM_SNAPSHOT_PREFIX  = 'simulation_snapshots';
+const SIM_DECISION_JOURNAL_DIR = path.join(APP_CACHE_DIR, 'simulation_decisions');
 const SIM_SNAPSHOT_RETENTION_DAYS = 30;
 const SIM_SNAPSHOT_TTL     = SIM_SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const FRESH_NEWS_CACHE_FILE = path.join(APP_CACHE_DIR, 'fresh_stock_news.json'); // legacy combined cache
@@ -154,11 +155,17 @@ const LIVE_CACHE_STALE_AGE_MS = 5 * 60 * 1000;           // 5 min: beyond this a
 const SHAREKHAN_DAILY_CONTEXT_TTL_MS = 10 * 60 * 1000;   // 10 minutes: avoid daily Yahoo refetch on every WS tick
 const REPLAY_CACHE_MAX     = 30;
 const REPLAY_DEEP_SWEEP_TIME_IST = '15:50';
+const REPLAY_DEEP_SWEEP_STARTUP_ENABLED = process.env.REPLAY_DEEP_SWEEP_STARTUP === '1';
 const replayResultCache    = new Map();
 const replayJobs           = new Map();
 const activeReplayJobs     = new Map();
 const paperTradeStreamClients = new Set();
 const intradayLiveStreamClients = new Set();
+const marketOverviewStreamClients = new Set();
+let intradayBroadcastTimer = null;
+let intradayBroadcastReason = 'update';
+let intradayBroadcastAllSymbols = false;
+const intradayBroadcastChangedSymbols = new Set();
 let replayDeepSweepTimer   = null;
 const DEFAULT_SIMULATION_TICK_INTERVAL_SEC = 15;
 const DEFAULT_SIMULATION_STOP_TIMEOUT_SEC = 900;
@@ -182,7 +189,25 @@ let intradayLiveRefreshTimer = null;
 let intradayLiveRefreshInFlight = false;
 let intradayLiveRefreshActive = false;
 let simulationMarketCache = { fetchedAt: 0, indices: {} };
+let schedulerTickInputLogState = { signature:'', loggedAt:0 };
+const schedulerPreviousCandidateBySymbol = new Map();
+let sectorMetadataCache = { builtAt:0, bySymbol:new Map() };
+let mobileSetupSnapshotCache = { loadedAt: 0, candidates: [] };
+let mobileSetupPersistedAt = 0;
 let simulationSymbolMetaCache = { builtAt: 0, bySymbol: new Map() };
+let intradayDataSourceSettingsCache = { loadedAt: 0, value: null };
+
+function appendSimulationDecisionJournal(event, payload = {}, at = new Date().toISOString()) {
+  try {
+    if (!fs.existsSync(SIM_DECISION_JOURNAL_DIR)) fs.mkdirSync(SIM_DECISION_JOURNAL_DIR, { recursive: true });
+    const day = getIstDateKey(at);
+    const file = path.join(SIM_DECISION_JOURNAL_DIR, `simulation_decisions_${day}.jsonl`);
+    const row = { schemaVersion:1, at, event:String(event || 'decision'), ...payload };
+    fs.appendFileSync(file, `${JSON.stringify(row)}\n`, 'utf8');
+  } catch (e) {
+    console.warn('[simulation-journal] Append failed:', e.message);
+  }
+}
 
 function loadPropertiesFile(filePath) {
   try {
@@ -798,8 +823,8 @@ function loadCachedNews(symbol, date) {
 
 function writeSseEvent(res, data) {
   try {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-    return true;
+    if (!res || res.writableEnded || res.destroyed) return false;
+    return res.write(`data: ${JSON.stringify(data)}\n\n`) !== false;
   } catch (_) {
     return false;
   }
@@ -901,6 +926,7 @@ async function closeTradeFromExitIntent(trade, intent, atIso) {
         trade.broker.exitOrderId = exitOrderId;
         trade.broker.status = 'exit_placed';
         trade.broker.exitPlacedAt = atIso;
+        trade.pendingExit = { reason:intent?.reason || 'Simulation exit', requestedPrice:exitPrice, qty:Number(trade.qty), placedAt:atIso };
         trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
         trade.broker.audit.push({ at: atIso, event: 'simulation_exit_placed', exitOrderId, reason: intent?.reason });
         console.log(`[sim-exit] Zerodha exit order placed: ${exitOrderId} for ${trade.symbol}`);
@@ -911,6 +937,7 @@ async function closeTradeFromExitIntent(trade, intent, atIso) {
           trade.broker.exitOrderId = exitOrderId;
           trade.broker.status = 'exit_placed';
           trade.broker.exitPlacedAt = atIso;
+          trade.pendingExit = { reason:intent?.reason || 'Simulation exit', requestedPrice:exitPrice, qty:Number(trade.qty), placedAt:atIso };
           trade.broker.audit = Array.isArray(trade.broker.audit) ? trade.broker.audit : [];
           trade.broker.audit.push({ at: atIso, event: 'simulation_exit_placed', exitOrderId, reason: intent?.reason });
           console.log(`[sim-exit] Sharekhan exit order placed: ${exitOrderId} for ${trade.symbol}`);
@@ -927,10 +954,16 @@ async function closeTradeFromExitIntent(trade, intent, atIso) {
     }
   }
 
-  const pnl = computePaperTradePnl(trade, exitPrice);
+  if (trade.broker?.mode === 'live' && trade.broker?.status === 'exit_placed') {
+    appendSimulationDecisionJournal('exit_order_placed', { tradeId:trade.id, symbol:trade.symbol, intent, orderId:trade.broker.exitOrderId }, atIso);
+    return true;
+  }
+
+  const effectiveExitPrice = SimulationEngine.applyAdverseSlippage(exitPrice, trade.side, 'exit', loadTradeSettingsFile().overrides || {});
+  const pnl = computePaperTradePnl(trade, effectiveExitPrice);
   Object.assign(trade, {
     status: 'closed',
-    exitPrice: +exitPrice.toFixed(2),
+    exitPrice: +effectiveExitPrice.toFixed(2),
     closedAt: atIso,
     closeReason: intent?.reason || 'Simulation exit',
     pnl: pnl.pnl,
@@ -945,11 +978,56 @@ async function closeTradeFromExitIntent(trade, intent, atIso) {
   return true;
 }
 
+async function partialCloseTradeFromExitIntent(trades, trade, intent, atIso) {
+  const requestedQty = Math.max(1, Math.floor(Number(trade.qty) * Number(intent?.qtyPct || 50) / 100));
+  if (requestedQty >= Number(trade.qty)) return closeTradeFromExitIntent(trade, { ...intent, action:'close' }, atIso);
+  const requestedPrice = Number(intent?.exitPrice);
+  if (!Number.isFinite(requestedPrice) || requestedPrice <= 0) return false;
+  const isLive = trade.broker?.mode === 'live' && trade.broker?.status === 'confirmed' && trade.broker?.orderId;
+  if (isLive) {
+    try {
+      let exitOrderId = null;
+      if (trade.broker.name === 'zerodha' && kiteClientLive) {
+        exitOrderId = await kiteClientLive.placeOrder(buildZerodhaDryRunOrder({ ...trade, qty:requestedQty, exitPrice:requestedPrice }, trade, 'exit'));
+      } else if (trade.broker.name === 'sharekhan' && sharekhanClientLive) {
+        const order = buildSharekhanLiveOrder({ ...trade, qty:requestedQty, exitPrice:requestedPrice }, trade, 'exit', trade.broker.scripCode);
+        if (order) exitOrderId = await withSharekhanCredentialReload(() => sharekhanClientLive.placeOrder(order));
+      }
+      if (!exitOrderId) return false;
+      trade.broker.exitOrderId = exitOrderId;
+      trade.broker.exitPlacedAt = atIso;
+      trade.broker.status = 'exit_placed';
+      trade.pendingPartialExit = { qty:requestedQty, reason:intent.reason, requestedPrice, runner:!!intent.runner, newTarget:intent.newTarget, placedAt:atIso };
+      appendSimulationDecisionJournal('partial_exit_order_placed', { tradeId:trade.id, symbol:trade.symbol, intent, orderId:exitOrderId }, atIso);
+      return true;
+    } catch (e) {
+      console.error(`[sim-exit] Partial exit order failed for ${trade.symbol}:`, e.message);
+      return false;
+    }
+  }
+  const fill = SimulationEngine.applyAdverseSlippage(requestedPrice, trade.side, 'exit', loadTradeSettingsFile().overrides || {});
+  const partial = { ...trade, id:`${trade.id}-partial-${Date.now()}`, parentId:trade.id, status:'closed', qty:requestedQty, exitPrice:fill, closedAt:atIso, closeReason:intent.reason };
+  const pnl = computePaperTradePnl(partial, fill);
+  Object.assign(partial, { pnl:pnl.pnl, pnlPct:pnl.pnlPct, grossPnl:pnl.grossPnl, charges:pnl.charges, chargeBreakup:pnl.chargeBreakup });
+  trade.qty -= requestedQty;
+  trade.reservedCapital = +(Number(trade.entryPrice) * trade.qty).toFixed(2);
+  trade._partialTargetBooked = true;
+  trade._runnerArmed = true;
+  trade._runnerWideTrail = !!intent.runner;
+  trade.target = intent.runner && Number.isFinite(Number(intent.newTarget)) ? +Number(intent.newTarget).toFixed(2) : null;
+  trade.partialExits = [...(trade.partialExits || []), { id:partial.id, qty:requestedQty, exitPrice:fill, closedAt:atIso, reason:intent.reason, pnl:pnl.pnl }];
+  trades.unshift(partial);
+  appendSimulationDecisionJournal('partial_exit_filled', { tradeId:trade.id, partialId:partial.id, symbol:trade.symbol, qty:requestedQty, fillPrice:fill }, atIso);
+  return true;
+}
+
 async function openTradeFromEntryIntent(trades, intent, atIso) {
   const symbol = String(intent?.symbol || '').trim().toUpperCase();
   const side = String(intent?.side || 'buy').toLowerCase();
   const qty = Math.floor(Number(intent?.qty || 1));
-  const entryPrice = Number(intent?.price ?? intent?.entryPrice);
+  const observedEntryPrice = Number(intent?.price ?? intent?.entryPrice);
+  const liveEntry = brokerMode === 'zerodha_live' || brokerMode === 'sharekhan_live';
+  const entryPrice = liveEntry ? observedEntryPrice : SimulationEngine.applyAdverseSlippage(observedEntryPrice, side, 'entry', loadTradeSettingsFile().overrides || {});
   if (!symbol || !['buy', 'sell'].includes(side) || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(entryPrice) || entryPrice <= 0) return false;
   if (trades.some(trade => trade?.status === 'open' && String(trade?.symbol || '').toUpperCase() === symbol)) return false;
 
@@ -965,6 +1043,7 @@ async function openTradeFromEntryIntent(trades, intent, atIso) {
     stop: Number.isFinite(Number(intent?.stop)) ? +Number(intent.stop).toFixed(2) : null,
     signal: intent?.signal || null,
     score: Number.isFinite(Number(intent?.score)) ? Number(intent.score) : null,
+    decisionScore: Number.isFinite(Number(intent?.decisionScore)) ? Number(intent.decisionScore) : null,
     rr: Number.isFinite(Number(intent?.rr)) ? Number(intent.rr) : null,
     reservedCapital: +(entryPrice * qty).toFixed(2),
     portfolioInitial: null,
@@ -985,6 +1064,8 @@ async function openTradeFromEntryIntent(trades, intent, atIso) {
     notes: intent?.notes || '',
     openedAt: atIso,
     executionMode: brokerMode,
+    costProfile:brokerMode.startsWith('sharekhan') ? 'sharekhan_intraday' : 'zerodha_intraday',
+    sector:intent?.sector || '',
   };
 
   // Place live broker order if active
@@ -1104,6 +1185,18 @@ function getIntradayLiveUniverseSymbols() {
   return new Set([...getSimulationUniverseSymbols(), ...getSavedEtfSymbolsForSimulation()]);
 }
 
+function isEtfSimulationSymbol(symbol) {
+  const sym = String(symbol || '').trim().toUpperCase();
+  if (!sym) return false;
+  const meta = getSimulationSymbolMetaIndex().get(sym) || {};
+  return String(meta.assetType || '').toLowerCase() === 'etf'
+    || String(meta.cap || '').toLowerCase() === 'etf';
+}
+
+function getSharekhanStockUniverseSymbols() {
+  return [...getSimulationUniverseSymbols()].filter(sym => !isEtfSimulationSymbol(sym));
+}
+
 function rememberSimulationUniverse(symbols = []) {
   const universe = getSimulationUniverseSymbols();
   let changed = false;
@@ -1123,7 +1216,7 @@ function rememberSimulationUniverse(symbols = []) {
     if (sharekhanTicker && sharekhanClientLive) {
       const addedSyms = symbols
         .map(s => String(s || '').trim().toUpperCase())
-        .filter(sym => sym && universe.has(sym));
+        .filter(sym => sym && universe.has(sym) && !isEtfSimulationSymbol(sym));
       if (addedSyms.length) {
         Promise.all(addedSyms.map(sym =>
           sharekhanClientLive.getScripCode(sym).then(code => ({ sym, code })).catch(() => null)
@@ -1206,12 +1299,38 @@ function buildIntradayLiveData(symbolList = null) {
   const symbols = Array.isArray(symbolList)
     ? new Set(symbolList.map(sym => String(sym || '').trim().toUpperCase()).filter(Boolean))
     : null;
+  const overrides = loadTradeSettingsFile().overrides || {};
+  const settings = SimulationEngine.withDefaults ? SimulationEngine.withDefaults(overrides) : overrides;
   const data = {};
   for (const [sym, setup] of intradayLiveCache.entries()) {
     if (symbols && !symbols.has(sym)) continue;
-    data[sym] = setup;
+    const setupType = deriveLiveSetupType(sym, setup, settings);
+    data[sym] = { ...setup, setupType, derivedSetupType:setupType };
   }
   return data;
+}
+
+function deriveLiveSetupType(sym, setup = {}, settings = null) {
+  const existing = String(setup?.derivedSetupType || setup?.setupType || '').trim().toUpperCase();
+  if (existing && existing !== 'NO_SIGNAL') return existing;
+  // Match the browser setup cards: setup direction is derived from strategy
+  // score, not the looser quote-level watch/hold label.
+  const score = Number(setup?.score) || 0;
+  const signal = SimulationEngine.adjustedTradeSignal(score);
+  const candidate = {
+    symbol:String(sym || '').toUpperCase(),
+    price:Number(setup?.price) || 0,
+    score,
+    signal,
+    side:signal,
+    indicators:{ ...setup },
+    quote:{ price:Number(setup?.price) || 0, change:Number(setup?.dayChange) || 0 },
+  };
+  try {
+    return SimulationEngine.deriveSetupType(candidate, settings || {}, setup?.priceTime || setup?.savedAt || Date.now()) || 'NO_SIGNAL';
+  } catch (_) {
+    return 'NO_SIGNAL';
+  }
 }
 
 function buildStoredAppPriceMap(symbols = []) {
@@ -1274,9 +1393,38 @@ function loadLatestSimulationSnapshots() {
   }
 }
 
-function broadcastIntradayLive(reason = 'update', changedSymbols = null) {
+function markSseBackpressure(client) {
+  if (!client || client.backpressured || client.res?.writableEnded || client.res?.destroyed) return;
+  client.backpressured = true;
+  client.res.once('drain', () => { client.backpressured = false; });
+}
+
+function flushIntradayLiveBroadcast() {
+  intradayBroadcastTimer = null;
+  const reason = intradayBroadcastReason;
+  const changedSymbols = intradayBroadcastAllSymbols ? null : [...intradayBroadcastChangedSymbols];
+  intradayBroadcastReason = 'update';
+  intradayBroadcastAllSymbols = false;
+  intradayBroadcastChangedSymbols.clear();
+
+  const overview = { ok:true, reason, at:Date.now(), sectorTrend:buildSectorTrendFromCache(), indices:simulationMarketCache.indices || {} };
+  for (const client of [...marketOverviewStreamClients]) {
+    if (client.res?.writableEnded || client.res?.destroyed) {
+      if (client.keepAlive) clearInterval(client.keepAlive);
+      marketOverviewStreamClients.delete(client);
+      continue;
+    }
+    if (client.backpressured) continue;
+    if (!writeSseEvent(client.res, overview)) markSseBackpressure(client);
+  }
   if (!intradayLiveStreamClients.size) return;
   for (const client of [...intradayLiveStreamClients]) {
+    if (client.res?.writableEnded || client.res?.destroyed) {
+      if (client.keepAlive) clearInterval(client.keepAlive);
+      intradayLiveStreamClients.delete(client);
+      continue;
+    }
+    if (client.backpressured) continue;
     const symbolFilter = client.symbols ? [...client.symbols] : null;
     const payload = {
       ok: true,
@@ -1287,11 +1435,25 @@ function broadcastIntradayLive(reason = 'update', changedSymbols = null) {
       sectorTrend: buildSectorTrendFromCache(),
     };
     const ok = writeSseEvent(client.res, payload);
-    if (!ok) {
-      if (client.keepAlive) clearInterval(client.keepAlive);
-      intradayLiveStreamClients.delete(client);
-    }
+    if (!ok) markSseBackpressure(client);
   }
+}
+
+function broadcastIntradayLive(reason = 'update', changedSymbols = null) {
+  intradayBroadcastReason = reason || intradayBroadcastReason;
+  if (Array.isArray(changedSymbols)) {
+    for (const symbol of changedSymbols) {
+      const normalized = String(symbol || '').trim().toUpperCase();
+      if (normalized) intradayBroadcastChangedSymbols.add(normalized);
+    }
+  } else {
+    intradayBroadcastAllSymbols = true;
+  }
+  if (intradayBroadcastTimer) return;
+  // Coalesce tick bursts so a 300-symbol Sharekhan update produces one current
+  // stream payload instead of hundreds of obsolete payloads queued in memory.
+  intradayBroadcastTimer = setTimeout(flushIntradayLiveBroadcast, 250);
+  if (typeof intradayBroadcastTimer.unref === 'function') intradayBroadcastTimer.unref();
 }
 
 function triggerSimulationTickAfterScoreUpdate(reason = 'score-update', changedSymbols = []) {
@@ -1334,10 +1496,12 @@ function scheduleIntradayLiveRefresh(reason = 'interval') {
 }
 
 async function refreshIntradayLiveCache(reason = 'interval') {
-  if (isIstWeekend()) {
+  const allowOffHoursWarmup = reason === 'market-overview-client' || reason === 'universe-update';
+  if (isIstWeekend() && !allowOffHoursWarmup) {
     return { ok: true, skipped: true, reason: 'weekend-cache-only' };
   }
   if (intradayLiveRefreshInFlight) return;
+  const sources = getIntradayDataSourceSettings();
   const symbols = [...getIntradayLiveUniverseSymbols()];
   if (!symbols.length) return;
   intradayLiveRefreshInFlight = true;
@@ -1345,7 +1509,9 @@ async function refreshIntradayLiveCache(reason = 'interval') {
     const allChanged = [];
     for (let i = 0; i < symbols.length; i += CONCURRENCY) {
       const chunk = symbols.slice(i, i + CONCURRENCY);
-      const settled = await Promise.allSettled(chunk.map(sym => fetchIntradaySignal(sym)));
+      const settled = await Promise.allSettled(chunk.map(sym => fetchIntradaySignal(sym, {
+        sources,
+      })));
       const chunkChanged = [];
       for (let idx = 0; idx < settled.length; idx += 1) {
         const sym = chunk[idx];
@@ -1373,6 +1539,20 @@ async function refreshIntradayLiveCache(reason = 'interval') {
   } finally {
     intradayLiveRefreshInFlight = false;
   }
+}
+
+function getIntradayDataSourceSettings() {
+  const now = Date.now();
+  if (intradayDataSourceSettingsCache.value && now - intradayDataSourceSettingsCache.loadedAt < 1000) {
+    return intradayDataSourceSettingsCache.value;
+  }
+  const overrides = loadTradeSettingsFile().overrides || {};
+  const yahoo = overrides.INTRADAY_SOURCE_YAHOO !== false;
+  const sharekhan = overrides.INTRADAY_SOURCE_SHAREKHAN !== false;
+  // Invalid persisted state is treated as Yahoo-only so intraday data never goes dark.
+  const value = yahoo || sharekhan ? { yahoo, sharekhan } : { yahoo: true, sharekhan: false };
+  intradayDataSourceSettingsCache = { loadedAt: now, value };
+  return value;
 }
 
 function startIntradayLiveRefresh(reason = 'manual-start') {
@@ -1413,6 +1593,9 @@ function getSimulationSymbolMetaIndex() {
   for (const item of loadSavedStocksFile()) {
     if (item && typeof item === 'object') assignMeta(item.sym || item.symbol, item.name, item.sector, item.cap);
   }
+  for (const item of loadDashboardStockUniverse()) {
+    if (item && typeof item === 'object') assignMeta(item.sym || item.symbol, item.name, item.sector, item.cap, 'stock');
+  }
   for (const item of loadSavedETFsFile()) {
     if (typeof item === 'string') assignMeta(item, item, 'ETF', 'etf', 'etf');
     else if (item && typeof item === 'object') assignMeta(item.sym || item.symbol, item.name, item.sector || 'ETF', item.cap || 'etf', 'etf');
@@ -1424,13 +1607,10 @@ function getSimulationSymbolMetaIndex() {
     }
   } catch (_) {}
 
-  const snapshots = loadAllSimulationSnapshots();
-  for (let i = snapshots.length - 1; i >= 0; i -= 1) {
-    const candidates = Array.isArray(snapshots[i]?.candidates) ? snapshots[i].candidates : [];
-    for (const candidate of candidates) {
-      assignMeta(candidate?.symbol, candidate?.name, candidate?.sector, candidate?.cap);
-    }
-  }
+  // Do not scan retained replay snapshots here. Candle-rich archives expand to
+  // gigabytes and this function runs on the live startup path before Sharekhan
+  // subscriptions are built. DB/dashboard metadata covers the active universe;
+  // unknown custom symbols safely use the caller's stock defaults.
 
   simulationSymbolMetaCache = { builtAt: now, bySymbol };
   return bySymbol;
@@ -1443,18 +1623,15 @@ function getIstClockParts(value = Date.now()) {
 }
 
 function isSimulationEntryWindowTime(value = Date.now()) {
-  const { day, mins } = getIstClockParts(value);
-  return day >= 1 && day <= 5 && mins >= 9 * 60 + 30 && mins < 14 * 60 + 45;
+  return TradeRules.isSimulationEntryWindow(value, loadTradeSettingsFile().overrides || {});
 }
 
 function isSimulationEodSettlementTime(value = Date.now()) {
-  const { day, mins } = getIstClockParts(value);
-  return day === 0 || day === 6 || mins >= 15 * 60 + 15;
+  return TradeRules.isSimulationEodSettlement(value, loadTradeSettingsFile().overrides || {});
 }
 
 function shouldAutoStopSimulation(value = Date.now()) {
-  const { day, mins } = getIstClockParts(value);
-  return day >= 1 && day <= 5 && mins >= 15 * 60 + 30;
+  return TradeRules.shouldAutoStopSimulation(value, loadTradeSettingsFile().overrides || {});
 }
 
 function toIstDayKey(value) {
@@ -1472,16 +1649,22 @@ function sameIstDay(a, b) {
 
 function buildSectorTrendFromCandidates(candidates = []) {
   const changesBySector = {};
+  let anonymousIndex = 0;
   for (const candidate of candidates) {
     const sector = String(candidate?.sector || '').trim();
     if (!sector) continue;
+    if (candidate?.freshness?.stale || candidate?.stale || candidate?.fetchFailed) continue;
+    const rawPrice = candidate?.price ?? candidate?.priceAtSnapshot ?? candidate?.quote?.price ?? candidate?.indicators?.price;
+    if (rawPrice != null && !(Number.isFinite(Number(rawPrice)) && Number(rawPrice) > 0)) continue;
     const change = Number(candidate?.quote?.change ?? candidate?.change ?? candidate?.indicators?.dayChange);
     if (!Number.isFinite(change)) continue;
-    if (!changesBySector[sector]) changesBySector[sector] = [];
-    changesBySector[sector].push(change);
+    if (!changesBySector[sector]) changesBySector[sector] = new Map();
+    const symbol = String(candidate?.symbol || '').trim().toUpperCase();
+    changesBySector[sector].set(symbol || `__anonymous_${anonymousIndex++}`, change);
   }
   const sectorTrend = {};
-  for (const [sector, changes] of Object.entries(changesBySector)) {
+  for (const [sector, changeMap] of Object.entries(changesBySector)) {
+    const changes = [...changeMap.values()];
     if (!changes.length) continue;
     sectorTrend[sector] = +(changes.reduce((sum, value) => sum + value, 0) / changes.length).toFixed(3);
   }
@@ -1489,7 +1672,28 @@ function buildSectorTrendFromCandidates(candidates = []) {
 }
 
 function buildSectorTrendFromCache() {
-  return buildSectorTrendFromCandidates([...intradayLiveCache.values()]);
+  const now = Date.now();
+  if (!(sectorMetadataCache.bySymbol instanceof Map) || now - sectorMetadataCache.builtAt > 5 * 60 * 1000) {
+    const bySymbol = new Map();
+    for (const item of [...loadDashboardStockUniverse(), ...loadSavedStocksFile()]) {
+      const symbol = String(item?.sym || item?.symbol || '').toUpperCase();
+      if (symbol) bySymbol.set(symbol, item);
+    }
+    sectorMetadataCache = { builtAt:now, bySymbol };
+  }
+  const enriched = [...intradayLiveCache.entries()].map(([symbol, value]) => ({
+    ...value,
+    sector:value?.sector || sectorMetadataCache.bySymbol.get(symbol)?.sector || '',
+    quote:{ change:value?.dayChange ?? value?.quote?.change },
+  }));
+  let trend = buildSectorTrendFromCandidates(enriched);
+  if (!Object.keys(trend).length) {
+    try {
+      const persisted = kvGet('mobile_setup_cache');
+      trend = buildSectorTrendFromCandidates(Array.isArray(persisted?.candidates) ? persisted.candidates : []);
+    } catch (_) {}
+  }
+  return trend;
 }
 
 function hasUsableMarketIndices(indices) {
@@ -1508,20 +1712,71 @@ function getSharekhanConfiguredNiftyCode() {
   return Number.isFinite(code) && code > 0 ? code : 0;
 }
 
+function getSharekhanConfiguredMidcap150Code() {
+  const raw = process.env.SHAREKHAN_MIDCAP150_SCRIP_CODE ||
+    process.env.SHAREKHAN_NIFTY_MIDCAP150_SCRIP_CODE ||
+    process.env.MIDCAP150_SHAREKHAN_SCRIP_CODE ||
+    sharekhanCredentials?.midcap150ScripCode ||
+    '';
+  const code = Number(String(raw).trim());
+  return Number.isFinite(code) && code > 0 ? code : 0;
+}
+
+function getSharekhanConfiguredSmallcap100Code() {
+  const raw = process.env.SHAREKHAN_SMALLCAP100_SCRIP_CODE ||
+    process.env.SHAREKHAN_NIFTY_SMALLCAP100_SCRIP_CODE ||
+    process.env.SMALLCAP100_SHAREKHAN_SCRIP_CODE ||
+    sharekhanCredentials?.smallcap100ScripCode || '';
+  const code = Number(String(raw).trim());
+  return Number.isFinite(code) && code > 0 ? code : 0;
+}
+
+function getSharekhanConfiguredBankNiftyCode() {
+  const raw = process.env.SHAREKHAN_BANKNIFTY_SCRIP_CODE ||
+    process.env.SHAREKHAN_NIFTY_BANK_SCRIP_CODE ||
+    process.env.BANKNIFTY_SHAREKHAN_SCRIP_CODE ||
+    sharekhanCredentials?.bankNiftyScripCode || '';
+  const code = Number(String(raw).trim());
+  return Number.isFinite(code) && code > 0 ? code : 0;
+}
+
 async function getSharekhanIndexSubscriptions(client) {
   if (!client) return new Map();
   const indexMap = new Map();
-  const configured = getSharekhanConfiguredNiftyCode();
-  if (configured) {
-    indexMap.set(configured, 'nifty50');
-    return indexMap;
-  }
-  const candidates = ['NIFTY', 'NIFTY50', 'NIFTY 50'];
-  for (const symbol of candidates) {
-    const code = await client.resolveScripCode?.(symbol, 'NC').catch(() => 0);
-    if (Number(code) > 0) {
-      indexMap.set(Number(code), 'nifty50');
-      break;
+  const definitions = [
+    {
+      key:'nifty50',
+      configuredCode:getSharekhanConfiguredNiftyCode(),
+      candidates:['NIFTY', 'NIFTY50', 'NIFTY 50'],
+    },
+    {
+      key:'midcap',
+      configuredCode:getSharekhanConfiguredMidcap150Code(),
+      candidates:['NIFTY MIDCAP 150', 'NIFTYMIDCAP150', 'MIDCAP150', 'NIFTY MIDCAP150'],
+    },
+    {
+      key:'smallcap',
+      configuredCode:getSharekhanConfiguredSmallcap100Code(),
+      candidates:['NIFTYSML100FREE', 'NIFTY SMALLCAP 100', 'NIFTY SMLCAP 100', 'NIFTYSMALLCAP100', 'SMALLCAP100'],
+    },
+    {
+      key:'banknifty',
+      configuredCode:getSharekhanConfiguredBankNiftyCode(),
+      candidates:['NIFTYBANK', 'NIFTY BANK', 'BANKNIFTY', 'BANK NIFTY'],
+    },
+  ];
+  for (const definition of definitions) {
+    if (definition.configuredCode) {
+      indexMap.set(definition.configuredCode, definition.key);
+      continue;
+    }
+    for (const symbol of definition.candidates) {
+      const resolver = client.resolveStreamingScripCode || client.resolveScripCode;
+      const code = await resolver?.call(client, symbol, 'NC').catch(() => 0);
+      if (Number(code) > 0) {
+        indexMap.set(Number(code), definition.key);
+        break;
+      }
     }
   }
   return indexMap;
@@ -1535,18 +1790,70 @@ function pickTickNumber(tick, keys) {
   return null;
 }
 
+function resolveValidatedSharekhanIndexChange(indexKey, tick, price, existing = {}, peerIndices = {}) {
+  const direct = pickTickNumber(tick, ['changePercent', 'percentChange', 'pChange', 'perChange']);
+  const prevClose = pickTickNumber(tick, ['previousClose', 'prevClose', 'closePrice', 'closedPrice']);
+  const derived = Number.isFinite(prevClose) && prevClose > 0
+    ? ((price - prevClose) / prevClose) * 100
+    : null;
+  let candidate = Number.isFinite(derived) ? derived : direct;
+  let reason = '';
+  if (Number.isFinite(direct) && Number.isFinite(derived) && Math.abs(direct - derived) > 0.75) {
+    candidate = derived;
+    reason = 'direct percentage disagrees with price/previous-close change';
+  }
+  const existingPrice = Number(existing.price);
+  const existingChange = Number(existing.change);
+  if (!Number.isFinite(derived) && Number.isFinite(existingPrice) && existingPrice > 0 && Number.isFinite(existingChange)) {
+    const anchorPrevClose = existingPrice / (1 + existingChange / 100);
+    const anchoredChange = anchorPrevClose > 0 ? ((price - anchorPrevClose) / anchorPrevClose) * 100 : null;
+    if (Number.isFinite(anchoredChange)) {
+      if (!Number.isFinite(direct)) {
+        // Sharekhan index ticks commonly contain only LTP. The previous cached
+        // price/change pair gives us a stable previous-close anchor, so keep the
+        // percentage current instead of freezing it and warning on every tick.
+        candidate = anchoredChange;
+      } else if (Math.abs(direct - anchoredChange) > 0.75) {
+        candidate = anchoredChange;
+        reason = 'direct percentage disagrees with cached price/change anchor';
+      }
+    }
+  }
+  if (!Number.isFinite(candidate) && Number.isFinite(existingChange)) {
+    candidate = existingChange;
+    reason = 'tick omitted a trustworthy percentage change; retained cached change';
+  }
+  const peerChanges = Object.entries(peerIndices || {})
+    .filter(([key]) => key !== indexKey)
+    .map(([, value]) => Number(value?.change))
+    .filter(Number.isFinite);
+  const peerAverage = peerChanges.length ? peerChanges.reduce((sum, value) => sum + value, 0) / peerChanges.length : null;
+  if (Number.isFinite(candidate) && Number.isFinite(peerAverage) && Math.abs(candidate) >= 1.25 && Math.abs(peerAverage) >= 0.3 && Math.sign(candidate) !== Math.sign(peerAverage)) {
+    if (Number.isFinite(existingChange)) {
+      candidate = existingChange;
+      reason = 'index percentage conflicts with cached peer-index direction';
+    } else {
+      candidate = null;
+      reason = 'index percentage conflicts with peer-index direction';
+    }
+  }
+  if (Number.isFinite(candidate) && Math.abs(candidate) > 10) {
+    candidate = Number.isFinite(existingChange) ? existingChange : null;
+    reason = 'implausible index percentage move';
+  }
+  return { change: Number.isFinite(candidate) ? +candidate.toFixed(3) : null, reason };
+}
+
 function updateSimulationIndexFromSharekhanTick(indexKey, tick) {
   const price = pickTickNumber(tick, ['ltp', 'lastPrice', 'price']);
   if (!Number.isFinite(price) || price <= 0) return false;
   const previous = simulationMarketCache.indices || {};
   const existing = previous[indexKey] || {};
-  const directChange = pickTickNumber(tick, ['changePercent', 'percentChange', 'pChange', 'perChange', 'change']);
-  const prevClose = pickTickNumber(tick, ['previousClose', 'prevClose', 'closePrice', 'closedPrice']);
-  const change = Number.isFinite(directChange)
-    ? directChange
-    : (Number.isFinite(prevClose) && prevClose > 0
-      ? ((price - prevClose) / prevClose) * 100
-      : Number(existing.change));
+  const validated = resolveValidatedSharekhanIndexChange(indexKey, tick, price, existing, previous);
+  const change = validated.change;
+  if (validated.reason) {
+    console.warn(`[market-cache] ${indexKey} Sharekhan change corrected: ${validated.reason}`);
+  }
   simulationMarketCache = {
     fetchedAt: Date.now(),
     indices: {
@@ -1556,6 +1863,7 @@ function updateSimulationIndexFromSharekhanTick(indexKey, tick) {
         price:+price.toFixed(2),
         change:Number.isFinite(change) ? +Number(change).toFixed(3) : existing.change,
         source:'sharekhan-ws',
+        changeValidation:validated.reason || null,
         updatedAt:new Date().toISOString(),
       },
     },
@@ -1567,7 +1875,11 @@ function handleSharekhanTickerTick(tick) {
   const code = Number(tick?.scripCode);
   const indexKey = sharekhanIndexCodeMap.get(code);
   if (!indexKey) return;
-  updateSimulationIndexFromSharekhanTick(indexKey, tick);
+  if (updateSimulationIndexFromSharekhanTick(indexKey, tick)) {
+    // Index ticks do not pass through the stock-candle update path. Publish the
+    // refreshed cache explicitly so mobile/desktop index percentages move live.
+    broadcastIntradayLive(`sharekhan-${indexKey}-tick`, []);
+  }
 }
 
 async function getSimulationMarketContext() {
@@ -1609,6 +1921,25 @@ function buildServerCandidateFromIntraday(sym, setup, settings, meta = null, asO
   const score = highProfitShortTrigger && Math.abs(rawScore) < minShortScore
     ? -minShortScore
     : rawScore;
+  // Persist the latest and preceding validated bars so live and replay entry
+  // confirmation can distinguish a completed breakout candle from the open bar.
+  const compactCandidateBar = bar => bar && bar.time != null && bar.time !== ''
+    && Number.isFinite(new Date(bar.time).getTime())
+    && ['open', 'high', 'low', 'close'].every(key => Number.isFinite(Number(bar[key])) && Number(bar[key]) > 0)
+    && Number(bar.high) >= Math.max(Number(bar.open), Number(bar.close))
+    && Number(bar.low) <= Math.min(Number(bar.open), Number(bar.close))
+    ? {
+        time: new Date(bar.time).toISOString(),
+        open: Number(bar.open),
+        high: Number(bar.high),
+        low: Number(bar.low),
+        close: Number(bar.close),
+        volume: Number.isFinite(Number(bar.volume)) ? Math.max(0, Number(bar.volume)) : null,
+      }
+    : null;
+  const compactPreviousCandle = compactCandidateBar(setup?.ohlc?.previousBar);
+  const compactCandle = compactCandidateBar(setup?.ohlc?.latestBar);
+  const compactCandles = [compactPreviousCandle, compactCandle].filter(Boolean);
 
   // Compute cache age and data source for freshness tracking
   const asOfMs = asOf ? new Date(asOf).getTime() : Date.now();
@@ -1630,6 +1961,13 @@ function buildServerCandidateFromIntraday(sym, setup, settings, meta = null, asO
     dataSource,
     price,
     priceAtSnapshot: price,
+    candles: compactCandles,
+    candleCapture: {
+      interval: '5m',
+      mode: 'latest-bar-delta',
+      available: !!compactCandle,
+      reason: compactCandle ? '' : (setup.staleReason || 'latest intraday bar unavailable'),
+    },
     score,
     rawScore,
     signal: side || signal,
@@ -1679,10 +2017,28 @@ function buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol 
   const candidates = [];
   if (!symbols.length) return candidates;
   for (const sym of symbols) {
+    const meta = metaBySymbol.get(sym) || null;
+    if (String(meta?.assetType || '').toLowerCase() === 'etf' && settings?.SIMULATION_ENABLE_ETF !== true) continue;
     const setup = intradayLiveCache.get(sym);
     if (!setup || typeof setup !== 'object') continue;
-    const candidate = buildServerCandidateFromIntraday(sym, setup, settings, metaBySymbol.get(sym) || null, asOf);
+    const candidate = buildServerCandidateFromIntraday(sym, setup, settings, meta, asOf);
     if (candidate) candidates.push(candidate);
+  }
+  return candidates;
+}
+
+function attachSchedulerConfirmationHistory(candidates = []) {
+  for (const candidate of Array.isArray(candidates) ? candidates : []) {
+    const symbol = String(candidate?.symbol || '').toUpperCase();
+    if (!symbol) continue;
+    candidate.previousCandidate = candidate.previousCandidate || schedulerPreviousCandidateBySymbol.get(symbol) || null;
+    schedulerPreviousCandidateBySymbol.set(symbol, SimulationEngine.toConfirmationCandidate(candidate));
+  }
+  if (schedulerPreviousCandidateBySymbol.size > 1000) {
+    const active = new Set((Array.isArray(candidates) ? candidates : []).map(candidate => String(candidate?.symbol || '').toUpperCase()));
+    for (const symbol of schedulerPreviousCandidateBySymbol.keys()) {
+      if (!active.has(symbol)) schedulerPreviousCandidateBySymbol.delete(symbol);
+    }
   }
   return candidates;
 }
@@ -1722,6 +2078,7 @@ async function readSchedulerTickInputAsync(settings) {
   const asOf = new Date().toISOString();
   const serverCandidates = buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol, asOf);
   if (serverCandidates.length) {
+    attachSchedulerConfirmationHistory(serverCandidates);
     // Log data source distribution so stale/fallback data is clearly visible
     const bySource = serverCandidates.reduce((acc, c) => {
       const src = c.dataSource || 'unknown';
@@ -1730,10 +2087,16 @@ async function readSchedulerTickInputAsync(settings) {
     }, {});
     const staleCount = serverCandidates.filter(c => c.freshness?.stale).length;
     const srcSummary = Object.entries(bySource).map(([k, v]) => `${k}:${v}`).join(', ');
-    if (staleCount > 0) {
+    const logSignature = `${serverCandidates.length}|${srcSummary}|${staleCount}`;
+    const shouldLogQuality = logSignature !== schedulerTickInputLogState.signature
+      || Date.now() - schedulerTickInputLogState.loggedAt >= 5 * 60 * 1000;
+    if (shouldLogQuality) {
+      schedulerTickInputLogState = { signature:logSignature, loggedAt:Date.now() };
+      if (staleCount > 0) {
       console.warn(`[tick-input] ${serverCandidates.length} candidates (${srcSummary}) — STALE: ${staleCount}`);
-    } else {
+      } else {
       console.log(`[tick-input] ${serverCandidates.length} candidates (${srcSummary})`);
+      }
     }
     const market = await getSimulationMarketContext();
     return {
@@ -1763,6 +2126,7 @@ async function readSchedulerTickInputAsync(settings) {
         __snapshotSource: latest.source || 'simulation-snapshot',
       }))
     : [];
+  attachSchedulerConfirmationHistory(fallbackCandidates);
   const market = (latest?.market && typeof latest.market === 'object' && Object.keys(latest.market).length)
     ? latest.market
     : await getSimulationMarketContext();
@@ -1838,10 +2202,13 @@ async function buildServerSimulationAnalysisPayload(source = 'server-analysis') 
   const topN = Math.max(1, Math.floor(Number(settings.SIMULATION_TOP_N) || 10));
   const selectedCandidates = SimulationEngine.selectSimulationEntryCandidates(candidates, at, settings, {
     openSymbols,
+    openTrades,
+    closedTrades:trades.filter(trade => trade?.status === 'closed'),
     entryBlockReason,
     market,
     sectorTrend,
     indices: market.indices || {},
+    dayStats,
     topN,
   });
   const selectedKeys = new Set(selectedCandidates.map(candidate => `${String(candidate?.symbol || '').toUpperCase()}|${String(candidate?.side || candidate?.signal || '').toLowerCase()}`));
@@ -1919,6 +2286,7 @@ async function runSimulationSchedulerTick() {
       const trades = state.trades;
       const openTrades = trades.filter(trade =>
         trade?.status === 'open' &&
+        String(trade?.broker?.status || '').toLowerCase() !== 'exit_placed' &&
         (
           eodSettlement ||
           trade?.managedBySimulation === true ||
@@ -1940,10 +2308,7 @@ async function runSimulationSchedulerTick() {
             if (!trade) continue;
             const quote = quotes[sym] || {};
             const quotedPrice = Number(quote?.price);
-            const fallbackPrice = Number(trade?.entryPrice);
-            const price = Number.isFinite(quotedPrice) && quotedPrice > 0
-              ? quotedPrice
-              : (Number.isFinite(fallbackPrice) && fallbackPrice > 0 ? fallbackPrice : null);
+            const price = Number.isFinite(quotedPrice) && quotedPrice > 0 ? quotedPrice : null;
             if (!Number.isFinite(price) || price <= 0) continue;
             const side = String(trade?.side || 'buy').toLowerCase() === 'sell' ? 'sell' : 'buy';
             const score = Number.isFinite(Number(trade?.score))
@@ -2042,13 +2407,19 @@ async function runSimulationSchedulerTick() {
       };
 
       // Compute cash and position sizing BEFORE runtimeEngine so both paths can use them
-      const portfolioInitialCapital = Number(state.portfolio?.initialCapital) || 500000;
-      const openExposure = trades
-        .filter(t => t.status === 'open')
-        .reduce((sum, t) => sum + (Number(t.reservedCapital) || Number(t.entryPrice) * Number(t.qty) || 0), 0);
-      const serverCashAvailable = Math.max(0, portfolioInitialCapital - openExposure);
+      const portfolioMetrics = TradeRules.computePortfolioEquity(state.portfolio, trades, 500000);
+      const portfolioInitialCapital = portfolioMetrics.equity;
+      const serverCashAvailable = portfolioMetrics.cashAvailable;
       const closedTrades = trades.filter(t => t.status === 'closed');
       const serverPositionMultiplier = TradeRules.computePositionSizeMultiplier(closedTrades);
+      const portfolioHeat = TradeRules.computePortfolioHeat(trades, portfolioMetrics.equity);
+      const maxHeatRisk = portfolioMetrics.equity * (Number(settings.SIMULATION_MAX_PORTFOLIO_HEAT_PCT || 5) / 100);
+      const maxSectorRisk = portfolioMetrics.equity * (Number(settings.SIMULATION_MAX_SECTOR_HEAT_PCT || 2) / 100);
+      const sectorHeatRemaining = {};
+      for (const candidate of candidateBySymbol.values()) {
+        const sector = String(candidate?.sector || 'UNKNOWN');
+        sectorHeatRemaining[sector] = Math.max(0, maxSectorRisk - Number(portfolioHeat.bySector[sector] || 0));
+      }
 
       const runtimeEngine = tickInput?.exitBySymbol
         ? {
@@ -2056,6 +2427,7 @@ async function runSimulationSchedulerTick() {
               return tickInput?.exitBySymbol?.[String(trade?.symbol || '').toUpperCase()] || null;
             },
             getSimulationEntryIntents(candidates) {
+              let remainingCash = serverCashAvailable;
               return candidates.map(candidate => {
                 const side = candidate.side || 'buy';
                 const price = Number(candidate.price);
@@ -2064,13 +2436,15 @@ async function runSimulationSchedulerTick() {
                       candidate,
                       side,
                       price,
-                      serverCashAvailable,
+                      remainingCash,
                       Number(settingsRaw.MAX_POSITION_EXPOSURE) || null,
-                      settingsRaw,
+                      { ...settingsRaw, PORTFOLIO_INITIAL_CAPITAL: portfolioInitialCapital },
                       serverPositionMultiplier
                     )
                   : null;
-                const qty = Math.max(1, Math.floor(Number(sizing?.qty) || 1));
+                const qty = Math.max(0, Math.floor(Number(sizing?.qty) || 0));
+                if (!qty) return null;
+                remainingCash = Math.max(0, remainingCash - (price * qty));
                 return {
                   symbol: candidate.symbol,
                   side,
@@ -2081,7 +2455,9 @@ async function runSimulationSchedulerTick() {
                   stop: candidate.stop,
                   signal: candidate.signal,
                   score: candidate.score,
+                  decisionScore: SimulationEngine.getCandidateDecisionScore(candidate),
                   rr: candidate.rr,
+                  sector:candidate.sector || candidate.sectorPriority?.sector || '',
                   setupType: candidate.setupType,
                   setup: candidate.setup,
                   entryContext: {
@@ -2090,11 +2466,25 @@ async function runSimulationSchedulerTick() {
                     snapshotAt: candidate.__snapshotAt || tickInput?.snapshotAt || tickInput?.at || schedulerAtIso,
                     snapshotSource: candidate.__snapshotSource || tickInput?.snapshotSource || '',
                     snapshotAgeMin: candidate.__snapshotAgeMin ?? null,
+                    decisionScore:SimulationEngine.getCandidateDecisionScore(candidate),
+                    scoreAudit:candidate.scoreAudit || null,
+                    indicatorSnapshot:SimulationEngine.buildIndicatorAuditSnapshot(candidate),
+                    settingsSnapshot:SimulationEngine.buildSettingsAuditSnapshot(settings),
+                    settingsFingerprint:SimulationEngine.stableAuditFingerprint(SimulationEngine.buildSettingsAuditSnapshot(settings)),
+                    confirmation:SimulationEngine.getLongEntryConfirmation(
+                      candidate,
+                      candidate.previousCandidate,
+                      side,
+                      candidate.__snapshotAt || tickInput?.snapshotAt || tickInput?.at || schedulerAtIso,
+                      settings
+                    ),
+                    sectorAligned:!!candidate.sectorPriority?.aligned,
+                    sectorPriority:candidate.sectorPriority || null,
                   },
                   notes: candidate.notes,
                   assetType: candidate.assetType,
                 };
-              });
+              }).filter(Boolean);
             },
           }
         : SimulationEngine;
@@ -2108,6 +2498,8 @@ async function runSimulationSchedulerTick() {
           isEodSettlement: eodSettlement,
           context: {
             candidateBySymbol,
+            openTrades,
+            closedTrades,
             market: tickInput?.market || {},
             sectorTrend: tickInput?.sectorTrend || {},
             indices: tickInput?.market?.indices || {},
@@ -2116,6 +2508,8 @@ async function runSimulationSchedulerTick() {
             lastKnownBySymbol: new Map(),
             cashAvailable: serverCashAvailable,
             positionMultiplier: serverPositionMultiplier,
+            remainingHeatRisk: Math.max(0, maxHeatRisk - portfolioHeat.risk),
+            sectorHeatRemaining,
           },
         },
         { engine: runtimeEngine }
@@ -2127,6 +2521,22 @@ async function runSimulationSchedulerTick() {
             .filter(Boolean)
         : [];
       const effectiveExitIntents = Array.isArray(exitIntents) && exitIntents.length ? exitIntents : fallbackExitIntents;
+      appendSimulationDecisionJournal('cycle_decisions', {
+        runtimeState:runtime.state,
+        snapshotAt:tickInput?.snapshotAt || tickInput?.at || schedulerAtIso,
+        exitIntents:effectiveExitIntents.map(intent => ({ symbol:intent.symbol, action:intent.action || 'close', reason:intent.reason, exitPrice:intent.exitPrice, qtyPct:intent.qtyPct })),
+        entryIntents:(entryIntents || []).map(intent => ({
+          symbol:intent.symbol,
+          side:intent.side,
+          qty:intent.qty,
+          price:intent.price,
+          setupType:intent.setupType,
+          score:intent.score,
+          decisionScore:intent.decisionScore ?? intent.entryContext?.decisionScore ?? null,
+          scoreAudit:intent.entryContext?.scoreAudit || null,
+          settingsFingerprint:intent.entryContext?.settingsFingerprint || null,
+        })),
+      }, schedulerAtIso);
 
       const exitBySymbol = new Map();
       for (const intent of effectiveExitIntents) {
@@ -2137,8 +2547,11 @@ async function runSimulationSchedulerTick() {
         const key = String(trade?.symbol || '').toUpperCase();
         const intent = exitBySymbol.get(key);
         if (!intent) continue;
-        if (String(intent?.action || 'close').toLowerCase() !== 'close') continue;
-        changed = await closeTradeFromExitIntent(trade, intent, schedulerAtIso) || changed;
+        if (String(intent?.action || 'close').toLowerCase() === 'partial') {
+          changed = await partialCloseTradeFromExitIntent(trades, trade, intent, schedulerAtIso) || changed;
+        } else {
+          changed = await closeTradeFromExitIntent(trade, intent, schedulerAtIso) || changed;
+        }
       }
 
       const allowNewEntries = runtime.state !== 'settling' && isSimulationEntryWindowTime(schedulerAtIso);
@@ -2246,6 +2659,8 @@ function getSimulationRuntimeStatus() {
   const sharekhanLastTickAt = Number(sharekhanTicker?._lastTickAt) || 0;
   const sharekhanHealth = {
     connected: !!sharekhanTicker?._connected,
+    connections: sharekhanTicker?.connectionCount || 0,
+    connectedConnections: sharekhanTicker?.connectedCount || 0,
     subscribedSymbols: sharekhanTicker ? sharekhanTicker._subscribedCodes.size : 0,
     indexSymbols: sharekhanIndexCodeMap.size,
     lastTickAt: sharekhanLastTickAt,
@@ -2304,12 +2719,16 @@ function loadTradeSettingsFile() {
 function saveTradeSettingsFile(overrides) {
   const clean = {};
   for (const [key, value] of Object.entries(overrides || {})) {
-    const n = Number(value);
-    if (Number.isFinite(n)) clean[key] = n;
-    else if (typeof value === 'boolean') clean[key] = value;
+    if (typeof value === 'boolean') clean[key] = value;
+    else if (key === 'SIMULATION_COST_PROFILE' && ['zerodha_intraday', 'sharekhan_intraday'].includes(String(value))) clean[key] = String(value);
+    else {
+      const n = Number(value);
+      if (Number.isFinite(n)) clean[key] = n;
+    }
   }
   try { kvSet('trade_settings', { savedAt: Date.now(), overrides: clean }); }
   catch(e) { console.warn('[trade-settings] Save error:', e.message); }
+  intradayDataSourceSettingsCache = { loadedAt: 0, value: null };
   return clean;
 }
 
@@ -2333,6 +2752,134 @@ function buildDashboardBootstrap() {
       ollama:{ baseUrl:OLLAMA_BASE_URL, model:OLLAMA_MODEL || 'auto', timeoutMs:OLLAMA_TIMEOUT_MS },
     },
   };
+}
+
+function buildMobileSetupsPayload(filter = 'tradeable') {
+  const overrides = loadTradeSettingsFile().overrides || {};
+  const settings = SimulationEngine.withDefaults ? SimulationEngine.withDefaults(overrides) : overrides;
+  const etfEnabled = settings.SIMULATION_ENABLE_ETF === true;
+  const dashboardStocks = loadDashboardStockUniverse();
+  const stockSymbols = new Set(dashboardStocks.map(item => String(item.sym || '').toUpperCase()).filter(Boolean));
+  // Mobile setups are stock-only and must be evaluated over the same complete
+  // 300-stock universe regardless of favourites or the currently selected setup.
+  rememberSimulationUniverse([...stockSymbols]);
+  const isAllowedMobileSetup = (symbol, candidate = {}) => {
+    const normalized = String(symbol || candidate?.symbol || '').toUpperCase();
+    if (stockSymbols.has(normalized)) return true;
+    if (!etfEnabled) return false;
+    return String(candidate?.assetType || candidate?.cap || '').toLowerCase() === 'etf'
+      || isEtfSimulationSymbol(normalized);
+  };
+  const mobileMeta = new Map();
+  for (const item of [...dashboardStocks, ...loadSavedStocksFile()]) {
+    const symbol = String(item?.sym || item?.symbol || item || '').trim().toUpperCase();
+    if (!symbol || !stockSymbols.has(symbol)) continue;
+    mobileMeta.set(symbol, typeof item === 'object'
+      ? { name:item.name || symbol, sector:item.sector || '', cap:item.cap || '', assetType:'stock' }
+      : { name:symbol, sector:'', cap:'', assetType:'stock' });
+  }
+  let candidates = [...intradayLiveCache.entries()].filter(([symbol, setup]) => isAllowedMobileSetup(symbol, setup)).map(([symbol, setup]) => {
+    const meta = mobileMeta.get(symbol) || getSimulationSymbolMetaIndex().get(symbol) || {};
+    const assetType = isEtfSimulationSymbol(symbol) ? 'etf' : 'stock';
+    const signal = String(setup?.side || setup?.signal || '').toLowerCase();
+    const side = ['buy', 'sell'].includes(signal) ? signal : signal;
+    const price = Number(setup?.price) || 0;
+    const candidate = {
+      symbol,
+      name:meta.name || symbol,
+      sector:meta.sector || setup?.sector || '',
+      cap:meta.cap || '',
+      assetType:meta.assetType || assetType,
+      price,
+      score:Number(setup?.score) || 0,
+      rawScore:Number(setup?.score) || 0,
+      signal,
+      side,
+      setupType:'',
+      derivedSetupType:'',
+      indicators:{ ...setup, price },
+      quote:{ price, change:Number(setup?.dayChange) || 0 },
+    };
+    const setupType = deriveLiveSetupType(symbol, setup, settings);
+    candidate.setupType = setupType;
+    candidate.derivedSetupType = setupType;
+    candidate.indicators.setupType = setupType;
+    return candidate;
+  });
+  if (candidates.length && Date.now() - mobileSetupPersistedAt > 30000) {
+    try {
+      kvSet('mobile_setup_cache', { savedAt:Date.now(), candidates });
+      mobileSetupPersistedAt = Date.now();
+    } catch (_) {}
+  }
+  if (!candidates.length) {
+    const now = Date.now();
+    if (!mobileSetupSnapshotCache.candidates.length || now - mobileSetupSnapshotCache.loadedAt > 60000) {
+      const persisted = kvGet('mobile_setup_cache');
+      if (Array.isArray(persisted?.candidates) && persisted.candidates.length) {
+        mobileSetupSnapshotCache = { loadedAt:now, candidates:persisted.candidates };
+      } else {
+        const snapshots = loadLatestSimulationSnapshots();
+        const latest = [...snapshots].reverse().find(snapshot => {
+          const rows = Array.isArray(snapshot?.candidates) ? snapshot.candidates : [];
+          return rows.some(candidate => Number(candidate?.price || candidate?.quote?.price || candidate?.indicators?.price) > 0)
+            && rows.some(candidate => {
+              const change = candidate?.quote?.change ?? candidate?.indicators?.dayChange;
+              return change != null && Number.isFinite(Number(change));
+            });
+        }) || snapshots[snapshots.length - 1];
+        mobileSetupSnapshotCache = { loadedAt:now, candidates:Array.isArray(latest?.candidates) ? latest.candidates : [] };
+        if (mobileSetupSnapshotCache.candidates.length) {
+          try { kvSet('mobile_setup_cache', { savedAt:now, candidates:mobileSetupSnapshotCache.candidates }); } catch (_) {}
+        }
+      }
+    }
+    candidates = mobileSetupSnapshotCache.candidates.map(candidate => {
+      const symbol = String(candidate?.symbol || '').toUpperCase();
+      const side = candidate?.side || candidate?.signal || '';
+      const normalized = { ...candidate, symbol, side };
+      const setupType = deriveLiveSetupType(symbol, {
+        ...(candidate?.indicators || {}),
+        ...candidate,
+        side,
+        setupType:candidate?.setupType,
+        derivedSetupType:candidate?.derivedSetupType,
+      }, settings);
+      return {
+        ...normalized,
+        setupType,
+        derivedSetupType:setupType,
+        indicators:{ ...(candidate?.indicators || {}), setupType },
+      };
+    }).filter(candidate => isAllowedMobileSetup(candidate.symbol, candidate));
+  }
+  candidates.sort(SimulationEngine.compareCandidates);
+  return {
+    schemaVersion: 2,
+    ok: true,
+    source: 'intraday-live-cache',
+    filter,
+    at: new Date().toISOString(),
+    settings,
+    candidates,
+    sectorTrend: buildSectorTrendFromCandidates(candidates),
+    market: { indices: simulationMarketCache.indices || {} },
+  };
+}
+
+function buildMobileStockUniverse() {
+  const bySymbol = new Map();
+  const add = item => {
+    const symbol = String(item?.sym || item?.symbol || item || '').trim().toUpperCase();
+    if (!symbol || bySymbol.has(symbol)) return;
+    bySymbol.set(symbol, typeof item === 'object'
+      ? { symbol, name:item.name || symbol, sector:item.sector || '', cap:item.cap || '', source:item.source || 'dashboard' }
+      : { symbol, name:symbol, sector:'', cap:'', source:'simulation' });
+  };
+  loadDashboardStockUniverse().forEach(add);
+  loadSavedStocksFile().forEach(add);
+  [...getSimulationUniverseSymbols()].forEach(add);
+  return { ok:true, count:Math.min(300, bySymbol.size), totalAvailable:bySymbol.size, stocks:[...bySymbol.values()].slice(0, 300) };
 }
 
 function buildHealthPayload() {
@@ -3097,12 +3644,18 @@ function createReplayJob(day, mode, options = {}) {
     }
   };
   const finishWithInlineFallback = (reason) => {
+    // Sweep modes are intentionally worker-only. Re-running a failed sweep in
+    // the live proxy can consume gigabytes and starve health/SSE requests.
+    if (mode !== 'report') {
+      job.status = 'error';
+      const details = workerErrors.join(' | ');
+      job.error = [reason || 'Replay worker failed', details].filter(Boolean).join(' | ');
+      job.fallback = false;
+      finalizeActiveJob();
+      return;
+    }
     try {
-      const payload = mode === 'autotune'
-        ? buildReplayAutoTuneResponse(day)
-        : mode === 'deep_sweep'
-          ? buildReplayDeepSweepResponse(day)
-          : buildReplayResponse(day, { sweep:mode === 'sweep' });
+      const payload = buildReplayResponse(day, { sweep:false });
       job.result = setCachedReplay(cacheKey, payload);
       job.status = 'done';
       job.fallback = true;
@@ -3261,6 +3814,7 @@ function sanitizeSimulationSnapshot(payload) {
     .sort((a, b) => Math.abs(Number(b.score) || 0) - Math.abs(Number(a.score) || 0))
     .slice(0, 200);
   return {
+    schemaVersion: 2,
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     at: new Date().toISOString(),
     source: String(payload.source || 'intraday-refresh'),
@@ -3345,21 +3899,12 @@ async function persistServerSimulationSnapshot(source = 'intraday-live-refresh',
 }
 
 function computePaperTradePnl(trade, exitPrice) {
-  const entry = Number(trade?.entryPrice);
-  const exit = Number(exitPrice);
-  const qty = Number(trade?.qty);
-  if (!Number.isFinite(entry) || !Number.isFinite(exit) || !Number.isFinite(qty) || entry <= 0 || qty <= 0) {
-    return { pnl: null, pnlPct: null };
-  }
-  const side = String(trade.side || 'buy').toLowerCase();
-  const grossPnl = side === 'sell' ? (entry - exit) * qty : (exit - entry) * qty;
-  const charges = estimateZerodhaIntradayCharges(entry, exit, qty, side);
-  const pnl = grossPnl - charges.total;
-  const pnlPct = (pnl / (entry * qty)) * 100;
-  return { pnl:+pnl.toFixed(2), pnlPct:+pnlPct.toFixed(2), grossPnl:+grossPnl.toFixed(2), charges:charges.total, chargeBreakup:charges };
+  return SimulationEngine.getPaperTradePnl(trade, exitPrice) || { pnl:null, pnlPct:null };
 }
 
 function estimateZerodhaIntradayCharges(entryPrice, exitPrice, qty, side = 'buy') {
+  return SimulationEngine.estimateZerodhaIntradayCharges(entryPrice, exitPrice, qty, side);
+  /* legacy formula retained below for source compatibility */
   const entry = Number(entryPrice);
   const exit = Number(exitPrice);
   const quantity = Number(qty);
@@ -4147,7 +4692,8 @@ async function fetchNSECorporateActions(symbol) {
       source: 'NSE',
       exDate: toISODateOrNull(item.exDate),
       recordDate: toISODateOrNull(item.recDate),
-      publishedAt: toISODateOrNull(item.exDate || item.recDate),
+      // Ex/record dates are effective dates, not publication timestamps.
+      publishedAt: toISODateOrNull(item.an_dt || item.sort_date || item.dissemDT || item.dt),
       url: `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}`,
     })).filter(x => x.title);
   } catch(e) {
@@ -4164,7 +4710,7 @@ async function fetchNSEBoardMeetings(symbol) {
       title: stripHtml(item.bm_desc || item.bm_purpose || 'Board meeting'),
       source: 'NSE',
       eventDate: toISODateOrNull(item.bm_date),
-      publishedAt: toISODateOrNull(item.bm_date || item.bm_timestamp),
+      publishedAt: toISODateOrNull(item.bm_timestamp || item.an_dt || item.sort_date || item.dissemDT),
       url: `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}`,
     })).filter(x => x.title);
   } catch(e) {
@@ -4236,7 +4782,7 @@ async function fetchNSEAllCorporateActions() {
         source:'NSE',
         exDate:toISODateOrNull(item.exDate),
         recordDate:toISODateOrNull(item.recDate),
-        publishedAt:toISODateOrNull(item.exDate || item.recDate),
+        publishedAt:toISODateOrNull(item.an_dt || item.sort_date || item.dissemDT || item.dt),
         url:symbol ? `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(symbol)}` : '',
       };
     }).filter(x => x.symbol && x.title);
@@ -4261,30 +4807,30 @@ function dedupeNews(items) {
 function sortEvents(items) {
   const priority = { Results: 0, 'Result Filing': 1, Dividend: 2, 'Corporate Action': 3, 'Result Date': 4, 'Board Meeting': 5 };
   return dedupeNews(items).sort((a, b) => {
+    const aResult = a.type === 'Results' || a.type === 'Result Filing';
+    const bResult = b.type === 'Results' || b.type === 'Result Filing';
+    if (aResult !== bResult) return aResult ? -1 : 1;
+    const aPublished = Date.parse(a.publishedAt || a.filingDate || 0) || 0;
+    const bPublished = Date.parse(b.publishedAt || b.filingDate || 0) || 0;
+    // Disclosures and filings are the primary timeline. A future ex-date or
+    // meeting date must not rank above a result that was filed more recently.
+    if (!!aPublished !== !!bPublished) return bPublished ? 1 : -1;
+    if (aPublished !== bPublished) return bPublished - aPublished;
+    const aEffective = Date.parse(a.eventDate || a.exDate || a.recordDate || a.toDate || 0) || 0;
+    const bEffective = Date.parse(b.eventDate || b.exDate || b.recordDate || b.toDate || 0) || 0;
+    if (aEffective !== bEffective) return bEffective - aEffective;
     const ap = priority[a.type] ?? 9;
     const bp = priority[b.type] ?? 9;
-    if (ap !== bp) return ap - bp;
-    return (Date.parse(b.publishedAt || b.filingDate || b.exDate || b.eventDate || 0) || 0)
-      - (Date.parse(a.publishedAt || a.filingDate || a.exDate || a.eventDate || 0) || 0);
+    return ap - bp;
   });
 }
 
 function eventHighlights(items, max = 10) {
   const sorted = sortEvents(items);
-  const preferred = ['Results', 'Result Filing', 'Dividend', 'Corporate Action', 'Result Date', 'Board Meeting'];
-  const out = [];
-  for (const type of preferred) {
-    const found = type === 'Results'
-      ? sorted.find(item => item.type === type && !/transcript|audio recording|analyst|institutional investor|conference call|con\. call/i.test(item.title || '') && !out.includes(item))
-        || sorted.find(item => item.type === type && !out.includes(item))
-      : sorted.find(item => item.type === type && !out.includes(item));
-    if (found) out.push(found);
-  }
-  for (const item of sorted) {
-    if (out.length >= max) break;
-    if (!out.includes(item)) out.push(item);
-  }
-  return out.slice(0, max);
+  const newestResult = sorted.find(item => item.type === 'Results' || item.type === 'Result Filing');
+  return sorted
+    .filter(item => item === newestResult || (item.type !== 'Results' && item.type !== 'Result Filing'))
+    .slice(0, max);
 }
 
 async function fetchStockNews(symbol, name, assetType = 'stock') {
@@ -4318,7 +4864,7 @@ async function fetchStockNews(symbol, name, assetType = 'stock') {
   for (const r of settled) {
     if (r.status === 'fulfilled' && Array.isArray(r.value)) {
       for (const item of r.value) {
-        if (item?.source === 'NSE' && ['Results', 'Dividend', 'Corporate Action', 'Board Meeting', 'Result Date'].includes(item?.type)) events.push(item);
+        if (item?.source === 'NSE' && ['Results', 'Result Filing', 'Dividend', 'Corporate Action', 'Board Meeting', 'Result Date'].includes(item?.type)) events.push(item);
         else items.push(item);
       }
     }
@@ -4331,8 +4877,8 @@ async function fetchStockNews(symbol, name, assetType = 'stock') {
     name: company || sym,
     assetType: isETF ? 'etf' : 'stock',
     savedAt: Date.now(),
-    events: eventHighlights(events, 10),
-    news: dedupeNews(items).slice(0, 24),
+    events: eventHighlights(events, 10).map(item => ({ ...item, ...classifyNewsTradeImpact(item) })),
+    news: dedupeNews(items).slice(0, 24).map(item => ({ ...item, ...classifyNewsTradeImpact(item) })),
   };
   stockNewsCache[cacheKey] = { savedAt: Date.now(), data };
   return data;
@@ -4434,6 +4980,10 @@ function scheduleNextDeepSweep() {
 
 function startReplayDeepSweepScheduler() {
   scheduleNextDeepSweep();
+  if (!REPLAY_DEEP_SWEEP_STARTUP_ENABLED) {
+    console.log('[replay-deep-sweep] Startup catch-up disabled; set REPLAY_DEEP_SWEEP_STARTUP=1 to enable');
+    return;
+  }
   const startupTimer = setTimeout(() => {
     const now = new Date();
     const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);
@@ -5108,21 +5658,28 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
       for (let i = rawCloses.length - 1; i >= 0; i--) {
         if (Number.isFinite(Number(rawCloses[i]))) { lastBarIdx = i; break; }
       }
+      let previousBarIdx = -1;
+      for (let i = lastBarIdx - 1; i >= 0; i--) {
+        if (Number.isFinite(Number(rawCloses[i]))) { previousBarIdx = i; break; }
+      }
       const round2 = v => Number.isFinite(Number(v)) ? +Number(v).toFixed(2) : null;
-      const latestBar = lastBarIdx >= 0 ? {
-        time: Number.isFinite(Number(timestamps[lastBarIdx])) ? new Date(Number(timestamps[lastBarIdx]) * 1000).toISOString() : null,
-        open: round2(rawOpens[lastBarIdx]),
-        high: round2(rawHighs[lastBarIdx]),
-        low: round2(rawLows[lastBarIdx]),
-        close: round2(rawCloses[lastBarIdx]),
-        volume: Number.isFinite(Number(rawVolumes[lastBarIdx])) ? Number(rawVolumes[lastBarIdx]) : null,
+      const toBar = index => index >= 0 ? {
+        time: Number.isFinite(Number(timestamps[index])) ? new Date(Number(timestamps[index]) * 1000).toISOString() : null,
+        open: round2(rawOpens[index]),
+        high: round2(rawHighs[index]),
+        low: round2(rawLows[index]),
+        close: round2(rawCloses[index]),
+        volume: Number.isFinite(Number(rawVolumes[index])) ? Number(rawVolumes[index]) : null,
       } : null;
+      const latestBar = toBar(lastBarIdx);
+      const previousBar = toBar(previousBarIdx);
       const priceTimeMs = lastBarIdx >= 0 && Number.isFinite(Number(timestamps[lastBarIdx]))
         ? Number(timestamps[lastBarIdx]) * 1000
         : null;
       const priceTime = priceTimeMs ? new Date(priceTimeMs).toISOString() : null;
       const sessionVolume = compactFinite(rawVolumes).reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
       const ohlc = {
+        previousBar,
         latestBar,
         session: {
           open: round2(Number(meta.regularMarketOpen) || rawOpens.find(v => Number.isFinite(Number(v))) || price),
@@ -5185,21 +5742,28 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
   for (let i = rawCloses.length - 1; i >= 0; i--) {
     if (Number.isFinite(Number(rawCloses[i]))) { lastBarIdx = i; break; }
   }
+  let previousBarIdx = -1;
+  for (let i = lastBarIdx - 1; i >= 0; i--) {
+    if (Number.isFinite(Number(rawCloses[i]))) { previousBarIdx = i; break; }
+  }
   const volumeShock = computeVolumeShockMetrics(rawHighs, rawLows, rawCloses, rawVolumes, timestamps, lastBarIdx, vwap, prevClose);
   const round2 = v => Number.isFinite(Number(v)) ? +Number(v).toFixed(2) : null;
-  const latestBar = lastBarIdx >= 0 ? {
-    time: Number.isFinite(Number(timestamps[lastBarIdx])) ? new Date(Number(timestamps[lastBarIdx]) * 1000).toISOString() : null,
-    open: round2(rawOpens[lastBarIdx]),
-    high: round2(rawHighs[lastBarIdx]),
-    low: round2(rawLows[lastBarIdx]),
-    close: round2(rawCloses[lastBarIdx]),
-    volume: Number.isFinite(Number(rawVolumes[lastBarIdx])) ? Number(rawVolumes[lastBarIdx]) : null,
+  const toBar = index => index >= 0 ? {
+    time: Number.isFinite(Number(timestamps[index])) ? new Date(Number(timestamps[index]) * 1000).toISOString() : null,
+    open: round2(rawOpens[index]),
+    high: round2(rawHighs[index]),
+    low: round2(rawLows[index]),
+    close: round2(rawCloses[index]),
+    volume: Number.isFinite(Number(rawVolumes[index])) ? Number(rawVolumes[index]) : null,
   } : null;
+  const latestBar = toBar(lastBarIdx);
+  const previousBar = toBar(previousBarIdx);
   const priceTimeMs = lastBarIdx >= 0 && Number.isFinite(Number(timestamps[lastBarIdx]))
     ? Number(timestamps[lastBarIdx]) * 1000
     : null;
   const priceTime = priceTimeMs ? new Date(priceTimeMs).toISOString() : null;
   const ohlc = {
+    previousBar,
     latestBar,
     session: {
       open: round2(openPrice),
@@ -5443,6 +6007,7 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
 // intradayLiveCache, bypassing the 60s Yahoo poll for this symbol.
 async function pushSharekhanTickerCandles(sym, candles) {
   try {
+    if (!getIntradayDataSourceSettings().sharekhan) return;
     const skResult = buildYahooShapeFromCandles(sym, candles);
     if (!skResult) return; // no candles yet
     const now = Date.now();
@@ -5491,9 +6056,7 @@ async function pushSharekhanTickerCandles(sym, candles) {
         previousClose: Number.isFinite(previousClose) ? previousClose : null,
       });
     }
-    const closes = skResult.indicators?.quote?.[0]?.close || [];
     skResult.meta.previousClose = (Number.isFinite(previousClose) ? previousClose : null)
-      ?? (closes.length > 1 ? closes[closes.length - 2] : null)
       ?? undefined;
     const signal = buildIntradaySignal(sym, skResult, dailyContext);
     if (!signal) return;
@@ -5515,14 +6078,20 @@ async function pushSharekhanTickerCandles(sym, candles) {
   }
 }
 
-async function fetchIntradaySignal(sym) {
+async function fetchIntradaySignal(sym, options = {}) {
   const now = Date.now();
-  if (intradaySignalCache[sym] && (now - intradaySignalCache[sym].t) < INTRADAY_SIGNAL_TTL) {
+  const sources = options.sources || getIntradayDataSourceSettings();
+  const cachedSignal = intradaySignalCache[sym];
+  const cachedSource = String(cachedSignal?.v?.dataSource || '');
+  const cacheSourceAllowed = cachedSource.startsWith('sharekhan') ? sources.sharekhan : sources.yahoo;
+  if (cachedSignal && cacheSourceAllowed && (now - cachedSignal.t) < INTRADAY_SIGNAL_TTL) {
     return intradaySignalCache[sym].v;
   }
 
-  // Sharekhan WebSocket ticker updates intradaySignalCache directly via pushSharekhanTickerCandles.
-  // If it already has fresh data it was served above via the cache-hit. Fall through to Yahoo.
+  // Sharekhan WebSocket cache is primary when enabled. Historical Sharekhan
+  // support remains available in sharekhan-intraday.js for future use, but is
+  // intentionally not part of the active intraday fallback chain.
+  if (!sources.yahoo) return null;
 
   try {
     const yahooSym = resolveNseSymbol(sym);
@@ -6134,6 +6703,8 @@ async function proxyRequestHandler(req, res) {
     (req, res, pathname, searchParams) => intradayCandlesService.handleRoute(req, res, pathname, searchParams),
     (req, res, pathname, searchParams) => handleDashboardRoute(req, res, pathname, searchParams, {
       buildHealthPayload,
+      buildMobileSetupsPayload,
+      buildMobileStockUniverse,
       buildDashboardBootstrap,
       rememberSimulationUniverse,
       yahooIndices,
@@ -6706,6 +7277,35 @@ async function proxyRequestHandler(req, res) {
       send({ error: e.message }); 
     }
     if (!closed && !res.writableEnded) { res.write(`data: ${JSON.stringify({ done: true })}\n\n`); res.end(); }
+    return;
+  }
+
+  // /stream/market-overview -- lightweight indices + sector leaderboard stream
+  if (pathname === '/stream/market-overview') {
+    // Sector averages require every constituent, not only stocks that happen
+    // to be present in a filtered setup response. Warm the full dashboard
+    // universe when the mobile overview connects.
+    rememberSimulationUniverse(loadDashboardStockUniverse().map(row => row.sym));
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    const client = {
+      res,
+      keepAlive:setInterval(() => {
+        try { if (!res.writableEnded) res.write(': keep-alive\n\n'); } catch (_) {}
+      }, 15000),
+    };
+    marketOverviewStreamClients.add(client);
+    writeSseEvent(res, { ok:true, reason:'connected', at:Date.now(), sectorTrend:buildSectorTrendFromCache(), indices:simulationMarketCache.indices || {} });
+    startIntradayLiveRefresh('market-overview-client');
+    refreshIntradayLiveCache('market-overview-client').catch(() => {});
+    req.on('close', () => {
+      if (client.keepAlive) clearInterval(client.keepAlive);
+      marketOverviewStreamClients.delete(client);
+    });
     return;
   }
 
@@ -7480,6 +8080,7 @@ async function initializeZerodha() {
         saveTrades: (trades) => savePaperTradesFile(trades),
         broadcast: (reason = 'broker-update') => broadcastPaperTradeState(reason),
         computePnl: (trade, exitPrice) => computePaperTradePnl(trade, exitPrice),
+        journal: appendSimulationDecisionJournal,
       },
       () => brokerMode,
       {
@@ -7545,6 +8146,7 @@ async function initializeSharekhan() {
         saveTrades: (trades) => savePaperTradesFile(trades),
         broadcast: (reason = 'broker-update') => broadcastPaperTradeState(reason),
         computePnl: (trade, exitPrice) => computePaperTradePnl(trade, exitPrice),
+        journal: appendSimulationDecisionJournal,
       },
       () => brokerMode,
       {
@@ -7572,7 +8174,7 @@ async function initializeSharekhan() {
       return true;
     }
 
-    const universeSyms = [...getIntradayLiveUniverseSymbols()];
+    const universeSyms = getSharekhanStockUniverseSymbols();
     const symToCode = new Map();
     await Promise.all(universeSyms.map(async sym => {
       const code = await sharekhanClientLive.getScripCode(sym).catch(() => 0);
@@ -7581,7 +8183,9 @@ async function initializeSharekhan() {
     const scripToSymbol = new Map([...symToCode.entries()].map(([sym, code]) => [code, sym]));
     sharekhanIndexCodeMap = await getSharekhanIndexSubscriptions(sharekhanClientLive);
     if (sharekhanTicker) { try { sharekhanTicker.stop(); } catch (_) {} }
-    sharekhanTicker = new SharekhanTicker({
+    sharekhanTicker = new SharekhanTickerPool({
+      poolSize: 1,
+      startStaggerMs: 0,
       accessToken: sharekhanCredentials.accessToken,
       scripToSymbol,
       onCandleUpdate: (sym, candles) => { pushSharekhanTickerCandles(sym, candles).catch(() => {}); },
@@ -7589,7 +8193,14 @@ async function initializeSharekhan() {
     });
     sharekhanTicker.subscribe([...symToCode.values(), ...sharekhanIndexCodeMap.keys()]);
     sharekhanTicker.start();
-    console.log(`[sharekhan-ticker] Started, subscribed to ${symToCode.size} symbols${sharekhanIndexCodeMap.size ? ` + ${sharekhanIndexCodeMap.size} index` : ''}`);
+    for (let connectionIndex = 0; connectionIndex < sharekhanTicker.connectionCount; connectionIndex += 1) {
+      const stockCount = [...symToCode.values()]
+        .filter(code => sharekhanTicker.getConnectionIndex(code) === connectionIndex).length;
+      const indexCount = [...sharekhanIndexCodeMap.keys()]
+        .filter(code => sharekhanTicker.getConnectionIndex(code) === connectionIndex).length;
+      console.log(`[sharekhan-ticker] Connection ${connectionIndex + 1}/${sharekhanTicker.connectionCount}: subscribed to ${stockCount} stock symbols${indexCount ? ` + ${indexCount} index` : ''}`);
+    }
+    console.log(`[sharekhan-ticker] Started, subscribed to ${symToCode.size} symbols${sharekhanIndexCodeMap.size ? ` + ${sharekhanIndexCodeMap.size} ${sharekhanIndexCodeMap.size === 1 ? 'index' : 'indices'}` : ''}`);
 
     // Heartbeat: broadcast all sharekhan-ws cached signals every 60s so browser freshness stays valid
     // even for symbols that aren't actively trading (no incoming ticks)
@@ -7688,6 +8299,9 @@ module.exports = {
       kiteClientDry = client || null;
     },
     selectServerSnapshotCandidatesForTests: selectServerSnapshotCandidates,
+    resolveValidatedSharekhanIndexChangeForTests: resolveValidatedSharekhanIndexChange,
+    sortEventsForTests: sortEvents,
+    eventHighlightsForTests: eventHighlights,
     setSharekhanClientForTests(client) {
       sharekhanCredentials = client ? { accessToken: 'test-token' } : null;
       sharekhanClientLive = client || null;

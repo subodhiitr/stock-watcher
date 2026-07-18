@@ -12,8 +12,11 @@ SHAREKHAN_SECRET_KEY=your_secret_key_here
 SHAREKHAN_REQUEST_TOKEN=your_request_token_here
 SHAREKHAN_VERSION_ID=your_version_id_here
 SHAREKHAN_VENDOR_KEY=your_vendor_key_here
-# Optional: Sharekhan streaming scrip code for Nifty 50 index, if script master cannot resolve NIFTY/NIFTY50.
+# Optional: Sharekhan streaming scrip codes for indices, if the script master cannot resolve them.
 SHAREKHAN_NIFTY_SCRIP_CODE=
+SHAREKHAN_MIDCAP150_SCRIP_CODE=
+SHAREKHAN_SMALLCAP100_SCRIP_CODE=
+SHAREKHAN_BANKNIFTY_SCRIP_CODE=
 `;
 
 function parseCredentialsFile(content) {
@@ -73,6 +76,9 @@ function loadSharekhanCredentials(options = {}) {
     const versionId    = pickCredential(fileCreds, ['SHAREKHAN_VERSION_ID']);
     const vendorKey    = pickCredential(fileCreds, ['SHAREKHAN_VENDOR_KEY']);
     const niftyScripCode = pickCredential(fileCreds, ['SHAREKHAN_NIFTY_SCRIP_CODE', 'SHAREKHAN_NIFTY50_SCRIP_CODE', 'NIFTY_SHAREKHAN_SCRIP_CODE']);
+    const midcap150ScripCode = pickCredential(fileCreds, ['SHAREKHAN_MIDCAP150_SCRIP_CODE', 'SHAREKHAN_NIFTY_MIDCAP150_SCRIP_CODE', 'MIDCAP150_SHAREKHAN_SCRIP_CODE']);
+    const smallcap100ScripCode = pickCredential(fileCreds, ['SHAREKHAN_SMALLCAP100_SCRIP_CODE', 'SHAREKHAN_NIFTY_SMALLCAP100_SCRIP_CODE', 'SMALLCAP100_SHAREKHAN_SCRIP_CODE']);
+    const bankNiftyScripCode = pickCredential(fileCreds, ['SHAREKHAN_BANKNIFTY_SCRIP_CODE', 'SHAREKHAN_NIFTY_BANK_SCRIP_CODE', 'BANKNIFTY_SHAREKHAN_SCRIP_CODE']);
 
     if (!apiKey) {
       console.error('[sharekhan-credentials] API key is missing in environment or ' + CREDS_FILE);
@@ -80,7 +86,7 @@ function loadSharekhanCredentials(options = {}) {
     }
     if (!customerId) {
       console.error('[sharekhan-credentials] Customer ID is missing in environment or ' + CREDS_FILE);
-      if (!requireSession) return { apiKey, customerId, accessToken, secretKey, requestToken, versionId, vendorKey, niftyScripCode };
+      if (!requireSession) return { apiKey, customerId, accessToken, secretKey, requestToken, versionId, vendorKey, niftyScripCode, midcap150ScripCode, smallcap100ScripCode, bankNiftyScripCode };
       return null;
     }
     if (requireSession && !accessToken && !(requestToken && secretKey)) {
@@ -88,7 +94,7 @@ function loadSharekhanCredentials(options = {}) {
       return null;
     }
 
-    return { apiKey, customerId, accessToken, secretKey, requestToken, versionId, vendorKey, niftyScripCode };
+    return { apiKey, customerId, accessToken, secretKey, requestToken, versionId, vendorKey, niftyScripCode, midcap150ScripCode, smallcap100ScripCode, bankNiftyScripCode };
   } catch (err) {
     console.error('[sharekhan-credentials] Failed to load credentials:', err.message);
     return null;

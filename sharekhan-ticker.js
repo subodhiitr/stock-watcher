@@ -45,6 +45,9 @@ class SharekhanTicker {
     this.scripToSymbol = config.scripToSymbol instanceof Map ? config.scripToSymbol : new Map();
     this.onCandleUpdate = typeof config.onCandleUpdate === 'function' ? config.onCandleUpdate : null;
     this.onTick = typeof config.onTick === 'function' ? config.onTick : null;
+    this.onFatalAuth = typeof config.onFatalAuth === 'function' ? config.onFatalAuth : null;
+    this.onAuthenticated = typeof config.onAuthenticated === 'function' ? config.onAuthenticated : null;
+    this.connectionLabel = String(config.connectionLabel || '').trim();
     this._webSocketFactory = typeof config.webSocketFactory === 'function'
       ? config.webSocketFactory
       : url => new WebSocketClient(url);
@@ -64,6 +67,7 @@ class SharekhanTicker {
     this._connectTimeout = null;
     this._idleTimer = null;
     this._lastTickAt = 0;
+    this._subscriptionAcceptedLogged = false;
   }
 
   // Returns all candles including the current open bar, or null if no data yet.
@@ -115,9 +119,13 @@ class SharekhanTicker {
 
   updateToken(newToken) {
     const token = String(newToken || '').trim();
-    if (!token || token === this.accessToken) return;
+    if (!token) return;
+    const needsResume = this._stopped || this._authBlocked;
+    if (token === this.accessToken && !needsResume) return;
     this.accessToken = token;
     this._authBlocked = false;
+    this._stopped = false;
+    if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
     console.log('[sharekhan-ticker] Token updated — reconnecting');
     if (this._ws) {
       try { this._ws.removeAllListeners?.(); } catch (_) {}
@@ -125,7 +133,7 @@ class SharekhanTicker {
       this._ws = null;
     }
     this._connected = false;
-    if (!this._stopped) this._connect();
+    this._connect();
   }
 
   _connect() {
@@ -182,13 +190,21 @@ class SharekhanTicker {
         if (!isCurrent()) return;
         clearConnectTimeout();
         this._connected = true;
-        console.log('[sharekhan-ticker] Connected');
+        this._subscriptionAcceptedLogged = false;
+        console.log(`[sharekhan-ticker]${this.connectionLabel ? ` ${this.connectionLabel}` : ''} Connected`);
         this._sendJson({ action: 'subscribe', key: ['feed'], value: [''] });
         if (this._subscribedCodes.size) this._sendFeed([...this._subscribedCodes]);
         armIdleTimer();
       });
       ws.on?.('message', raw => {
         armIdleTimer();
+        if (!this._subscriptionAcceptedLogged) {
+          this._subscriptionAcceptedLogged = true;
+          console.log(`[sharekhan-ticker]${this.connectionLabel ? ` ${this.connectionLabel}` : ''} Subscription accepted (${this._subscribedCodes.size} instruments)`);
+          if (this.onAuthenticated) {
+            try { this.onAuthenticated(); } catch (_) {}
+          }
+        }
         this._onTick(Buffer.isBuffer(raw) ? raw.toString('utf8') : raw);
       });
       ws.on?.('unexpected-response', (_req, res) => {
@@ -209,6 +225,9 @@ class SharekhanTicker {
           this._authBlocked = true;
           this._ws = null;
           console.warn('[sharekhan-ticker] Stopped after auth rejection. Refresh Sharekhan token/API key to resume live ticks; Yahoo fallback remains available.');
+          if (this.onFatalAuth) {
+            try { this.onFatalAuth({ code, reason: text }); } catch (_) {}
+          }
           return;
         }
         this._scheduleReconnect();
@@ -302,4 +321,100 @@ class SharekhanTicker {
   }
 }
 
-module.exports = { SharekhanTicker, parseTickTime };
+class SharekhanTickerPool {
+  constructor(config = {}) {
+    const size = Math.max(1, Math.floor(Number(config.poolSize) || 5));
+    this._startStaggerMs = Math.max(0, Number(config.startStaggerMs) || 0);
+    this._startTimers = [];
+    this._fatalAuthHandled = false;
+    this._startedConnections = new Set();
+    this._pendingToken = '';
+    this._tickers = Array.from({ length: size }, (_, index) => new SharekhanTicker({
+      ...config,
+      connectionLabel: `Connection ${index + 1}/${size}`,
+      onFatalAuth: details => this._handleFatalAuth(index, details),
+      onAuthenticated: () => this._handleAuthenticated(index),
+    }));
+    this._codeToTicker = new Map();
+    this._nextTicker = 0;
+    this._heartbeatTimer = null;
+  }
+
+  get _connected() { return this._tickers.some(ticker => ticker._connected); }
+  get _subscribedCodes() { return new Set(this._codeToTicker.keys()); }
+  get _lastTickAt() { return Math.max(0, ...this._tickers.map(ticker => Number(ticker._lastTickAt) || 0)); }
+  get _reconnectTimer() { return this._tickers.some(ticker => !!ticker._reconnectTimer); }
+  get _authBlocked() { return this._tickers.some(ticker => !!ticker._authBlocked); }
+  get _idleTimeoutMs() { return Number(this._tickers[0]?._idleTimeoutMs) || 0; }
+  get connectionCount() { return this._tickers.length; }
+  get connectedCount() { return this._tickers.filter(ticker => ticker._connected).length; }
+  getConnectionIndex(scripCode) {
+    const index = this._codeToTicker.get(Number(scripCode));
+    return Number.isInteger(index) ? index : -1;
+  }
+
+  subscribe(scripCodes, symMap = null) {
+    const maps = this._tickers.map(() => new Map());
+    const codes = this._tickers.map(() => []);
+    for (const rawCode of scripCodes) {
+      const code = Number(rawCode);
+      if (!code || this._codeToTicker.has(code)) continue;
+      const tickerIndex = this._nextTicker++ % this._tickers.length;
+      this._codeToTicker.set(code, tickerIndex);
+      codes[tickerIndex].push(code);
+      if (symMap instanceof Map && symMap.has(code)) maps[tickerIndex].set(code, symMap.get(code));
+    }
+    this._tickers.forEach((ticker, index) => {
+      if (codes[index].length) ticker.subscribe(codes[index], maps[index]);
+    });
+  }
+
+  start() {
+    this._startTimers.forEach(timer => clearTimeout(timer));
+    this._startTimers = [];
+    this._fatalAuthHandled = false;
+    this._pendingToken = '';
+    this._startedConnections = new Set([0]);
+    this._tickers[0]?.start();
+  }
+  stop() {
+    this._startTimers.forEach(timer => clearTimeout(timer));
+    this._startTimers = [];
+    if (this._heartbeatTimer) { clearInterval(this._heartbeatTimer); this._heartbeatTimer = null; }
+    this._tickers.forEach(ticker => ticker.stop());
+  }
+  updateToken(token) {
+    this._fatalAuthHandled = false;
+    this._startTimers.forEach(timer => clearTimeout(timer));
+    this._startTimers = [];
+    this._pendingToken = String(token || '').trim();
+    this._tickers.forEach(ticker => ticker.stop());
+    this._startedConnections = new Set([0]);
+    this._tickers[0]?.updateToken(this._pendingToken);
+  }
+  getCandlesWithOpenBar(scripCode) {
+    const tickerIndex = this._codeToTicker.get(Number(scripCode));
+    return tickerIndex == null ? null : this._tickers[tickerIndex].getCandlesWithOpenBar(scripCode);
+  }
+
+  _handleAuthenticated(connectionIndex) {
+    if (this._fatalAuthHandled) return;
+    const nextIndex = connectionIndex + 1;
+    if (nextIndex >= this._tickers.length || this._startedConnections.has(nextIndex)) return;
+    this._startedConnections.add(nextIndex);
+    if (this._pendingToken) this._tickers[nextIndex].updateToken(this._pendingToken);
+    else this._tickers[nextIndex].start();
+  }
+
+  _handleFatalAuth(connectionIndex, details = {}) {
+    if (this._fatalAuthHandled) return;
+    this._fatalAuthHandled = true;
+    this._startTimers.forEach(timer => clearTimeout(timer));
+    this._startTimers = [];
+    console.warn(`[sharekhan-ticker] Connection ${connectionIndex + 1}/${this.connectionCount} reported fatal authentication failure${details.reason ? `: ${details.reason}` : ''}; stopping all pooled connections.`);
+    this._tickers.forEach(ticker => ticker.stop());
+    if (this._tickers[connectionIndex]) this._tickers[connectionIndex]._authBlocked = true;
+  }
+}
+
+module.exports = { SharekhanTicker, SharekhanTickerPool, parseTickTime };
