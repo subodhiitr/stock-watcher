@@ -19,6 +19,8 @@
     sectorTrend: {},
     sectorTrendStreamed: false,
     setupFilter: localStorage.getItem('intradayx.mobile.setupFilter') || 'tradeable',
+    serverSimulationCandidates: { loaded:false, at:'', candidates:[], error:'' },
+    serverSimulationStream: null,
     liveStream: null,
     liveStreamKey: '',
     stockQuoteStream: null,
@@ -570,7 +572,9 @@
       const sym = String(trade.symbol || '').toUpperCase();
       const quote = quotes.get(sym) || {};
       const status = String(trade.status || '').toLowerCase();
-      const price = status === 'closed' ? n(trade.exitPrice) : quote.price || n(trade.entryPrice);
+      const exitPrice = n(trade.exitPrice);
+      const livePrice = n(quote.price);
+      const price = status === 'closed' ? exitPrice : livePrice || n(trade.entryPrice);
       const target = n(trade.target);
       const pnl = tradePnl(trade, quote);
       const pnlPct = tradePnlPct(trade, quote);
@@ -589,7 +593,7 @@
             ${trade.broker?.status ? `<span class="broker-status broker-status--${trade.broker.status}">${brokerStatusLabel(trade.broker)}</span>` : ''}
           </div>
           <div class="trade-cell"><span>Entry</span><strong>${fmt(trade.entryPrice)}</strong><em>${entryTime}</em></div>
-          <div class="trade-cell"><span>${status === 'closed' ? 'Exit' : 'Price'}</span><strong>${fmt(price)}</strong><em class="${status === 'closed' ? '' : cls(priceChange)}">${status === 'closed' ? exitTime : `Change ${pct(priceChange)}`}</em>${status === 'open' ? `<em class="mobile-trade-return ${cls(pnlPct)}">P/L ${pct(pnlPct)}</em>` : `<em class="mobile-trade-return ${cls(pnl)}">P/L ${inr(pnl)}</em>`}</div>
+          <div class="trade-cell"><span>${status === 'closed' ? 'Exit' : 'Price'}</span><strong>${fmt(price)}</strong><em class="${status === 'closed' ? '' : cls(priceChange)}">${status === 'closed' ? exitTime : `Change ${pct(priceChange)}`}</em>${status === 'closed' ? `<em class="mobile-trade-live">Live ${livePrice ? fmt(livePrice) : '--'}</em>` : ''}${status === 'open' ? `<em class="mobile-trade-return ${cls(pnlPct)}">P/L ${pct(pnlPct)}</em>` : `<em class="mobile-trade-return ${cls(pnl)}">P/L ${inr(pnl)}</em>`}</div>
           <div class="trade-cell"><span>Target</span><strong>${target ? fmt(target) : '--'}</strong></div>
           <div class="trade-cell"><span>P/L</span><strong class="${cls(pnl)}">${inr(pnl)}</strong><em class="${cls(pnlPct)}">${fmt(pnlPct)}%</em></div>
           <div class="trade-actions">
@@ -671,27 +675,41 @@
       && !['avoid', 'invalid', 'chasing'].includes(String(c.guard?.level || c.guard || '').toLowerCase())
       && (!!c.selected || !!c.wouldEnter || !String(c.blockReason || '').trim());
     const runnerTypes = new Set(['VOLUME_SHOCK_BREAKOUT', 'MOMENTUM_RUNNER', 'VWAP_TREND_CONTINUATION', 'FRESH_BREAKOUT']);
-    const shortTypes = new Set(['VWAP_REJECTION', 'BREAKDOWN', 'SHORT_MOMENTUM']);
     const filters = {
+      simulation_top25: () => true,
       tradeable: isTradeable,
       gainers: c => changeOf(c) > 0,
       losers: c => changeOf(c) < 0,
       favorites: c => favorites.has(String(c.symbol || '').toUpperCase()),
       runners: c => statusOf(c) === 'triggered' && runnerTypes.has(setupOf(c)),
-      shorts: c => String(c.side || c.signal || '').toLowerCase() === 'sell' && shortTypes.has(setupOf(c)),
+      rangebound: c => setupOf(c) === 'RANGEBOUND',
+      opening_flush: c => setupOf(c) === 'OPENING_FLUSH_VWAP_RECLAIM',
+      top_gainer_pullback: c => setupOf(c) === 'TOP_GAINER_PULLBACK_RECLAIM',
+      top_gainer_continuation: c => setupOf(c) === 'TOP_GAINER_CONTINUATION',
+      vwap_continuation: c => setupOf(c) === 'VWAP_TREND_CONTINUATION',
+      breakdown: c => setupOf(c) === 'BREAKDOWN',
+      bear_flags: c => ['BEAR_FLAG_CONTINUATION', 'TOP_LOSER_BEAR_FLAG'].includes(setupOf(c)),
+      vwap_rejection: c => setupOf(c) === 'VWAP_REJECTION',
+      vwap_pullback: c => setupOf(c) === 'VWAP_PULLBACK_OR_HOLD',
       best_pullbacks: c => isTradeable(c) && setupOf(c) === 'VWAP_PULLBACK_OR_HOLD',
-      near_trigger: c => statusOf(c) === 'near trigger'
-        && !['CHASING', 'LOW_VOLUME', 'NO_SIGNAL'].includes(setupOf(c)),
     };
     const sorters = {
+      simulation_top25: (a, b) => n(a.serverRank) - n(b.serverRank),
       gainers: (a, b) => changeOf(b) - changeOf(a) || Math.abs(n(b.score)) - Math.abs(n(a.score)),
       losers: (a, b) => changeOf(a) - changeOf(b) || Math.abs(n(b.score)) - Math.abs(n(a.score)),
       favorites: (a, b) => Math.abs(n(b.score)) - Math.abs(n(a.score)),
     };
     const setupPriority = setup => ({
+      OPENING_FLUSH_VWAP_RECLAIM: 0,
+      TOP_GAINER_PULLBACK_RECLAIM: 0,
+      TOP_GAINER_CONTINUATION: 0,
+      EARLY_MOMENTUM: 0,
       MOMENTUM_RUNNER: 0,
+      RANGEBOUND: 1,
       VWAP_TREND_CONTINUATION: 1,
       BREAKDOWN: 1,
+      BEAR_FLAG_CONTINUATION: 1,
+      TOP_LOSER_BEAR_FLAG: 1,
       VWAP_PULLBACK_OR_HOLD: 2,
       VWAP_REJECTION: 2,
       FRESH_BREAKOUT: 3,
@@ -700,14 +718,20 @@
     })[setupOf(setup)] ?? 9;
     const priorityScoreSort = (a, b) => setupPriority(a) - setupPriority(b) || Math.abs(n(b.score)) - Math.abs(n(a.score));
     const activeFilter = filters[state.setupFilter] ? state.setupFilter : 'tradeable';
-    const cards = state.candidates
+    const setupCandidates = activeFilter === 'simulation_top25'
+      ? state.serverSimulationCandidates.candidates
+      : state.candidates;
+    const cards = setupCandidates
       .map(withLiveQuote)
       .filter(filters[activeFilter])
       .sort(sorters[activeFilter] || priorityScoreSort)
-      .slice(0, 24);
+      .slice(0, activeFilter === 'simulation_top25' ? 25 : 24);
     const selector = $('setup-filter-select');
     if (selector) selector.value = activeFilter;
-    setText('setup-count', `${cards.length} shown`);
+    const serverSnapshotTime = activeFilter === 'simulation_top25' && state.serverSimulationCandidates.at
+      ? formatTradeTime(state.serverSimulationCandidates.at)
+      : '';
+    setText('setup-count', `${cards.length} shown${serverSnapshotTime ? ` · ${serverSnapshotTime}` : ''}`);
     $('setup-list').innerHTML = cards.length ? cards.map((c, index) => {
       const sym = String(c.symbol || '').toUpperCase();
       const price = n(c.price || c.quote?.price);
@@ -726,7 +750,9 @@
       const volume = n(indicators.volume || indicators.dayVolume);
       const rr = n(indicators.rr || indicators.riskReward);
       const status = indicators.entryStatus || c.entryStatus || (c.selected ? 'Ready' : 'Watching');
-      const reason = c.blockReason || (Array.isArray(c.eligibilityReasons) ? c.eligibilityReasons[0] : '') || (Array.isArray(indicators.reasons) ? indicators.reasons[0] : '');
+      const reason = activeFilter === 'simulation_top25'
+        ? c.selectionReason
+        : c.blockReason || (Array.isArray(c.eligibilityReasons) ? c.eligibilityReasons[0] : '') || (Array.isArray(indicators.reasons) ? indicators.reasons[0] : '');
       const health = state.healthScores[sym];
       const healthLabel = Number.isFinite(Number(health)) ? `${health}/100` : 'Loading…';
       return `
@@ -734,7 +760,7 @@
           <div class="setup-head">
             <div>
               <strong>${sym}</strong>
-              <span>#${index + 1} priority</span>
+              <span>${activeFilter === 'simulation_top25' ? `Server #${n(c.serverRank) || index + 1}` : `#${index + 1} priority`}</span>
               <span>${resolvedSetupType(c)} · ${side.toUpperCase()} · ${Math.abs(n(c.score))}</span>
             </div>
             <button type="button" ${disabled} data-setup="${sym}">${opening ? 'Opening…' : lockedTrade ? 'Locked' : canTrade ? 'Trade' : 'Watch'}</button>
@@ -761,10 +787,10 @@
             <span>Net potential <b>${Number.isFinite(Number(c.cost?.netPct)) ? `${fmt(c.cost.netPct)}%` : '--'}</b></span>
             <span>Health <b data-health-symbol="${sym}" class="${Number(health) >= 80 ? 'positive' : Number.isFinite(Number(health)) && Number(health) < 50 ? 'negative' : ''}">${healthLabel}</b></span>
           </div>
-          ${reason ? `<p class="setup-reason">${reason}</p>` : ''}
+          ${activeFilter === 'simulation_top25' ? `<p class="setup-reason ${c.selected ? 'selected' : ''}"><b>Entry selection:</b> ${escapeHTML(reason || '--')}</p>` : reason ? `<p class="setup-reason">${escapeHTML(reason)}</p>` : ''}
         </article>
       `;
-    }).join('') : '<div class="empty">No actionable setups</div>';
+    }).join('') : `<div class="empty">${activeFilter === 'simulation_top25' && state.serverSimulationCandidates.error ? escapeHTML(state.serverSimulationCandidates.error) : 'No actionable setups'}</div>`;
     syncDirectionalActionLabels();
     if (cards.length) connectHealthStream(cards);
     updateManualSymbolOptions();
@@ -1287,14 +1313,15 @@
 
   function connectLiveStream() {
     if (!window.EventSource) return;
-    const openTradeSymbols = state.trades
-      .filter(trade => String(trade.status || '').toLowerCase() === 'open')
+    const trackedTradeSymbols = state.trades
+      .filter(trade => String(trade.status || '').toLowerCase() === 'open' || isToday(trade))
       .map(trade => String(trade.symbol || '').toUpperCase());
     const brokerPositionSymbols = (state.brokerPortfolio?.data?.portfolio?.positions?.list || [])
       .map(position => String(position.symbol || position.tradingsymbol || '').toUpperCase());
     const symbols = [...new Set([
-      ...openTradeSymbols,
+      ...trackedTradeSymbols,
       ...brokerPositionSymbols,
+      ...state.serverSimulationCandidates.candidates.map(candidate => String(candidate.symbol || '').toUpperCase()),
       ...state.candidates.map(c => String(c.symbol || '').toUpperCase()),
       ...state.allStocks.map(c => String(c.symbol || '').toUpperCase()),
     ].filter(Boolean))].slice(0, 300);
@@ -1340,6 +1367,80 @@
     stream.onerror = () => {
       // Native EventSource reconnects automatically. Drop the reference only if closed permanently.
       if (stream.readyState === EventSource.CLOSED) state.marketOverviewStream = null;
+    };
+  }
+
+  function mobileSetupsViewActive() {
+    return $('view-setups')?.classList.contains('active');
+  }
+
+  function applyServerSimulationCandidates(payload = {}) {
+    if (payload.ok === false) {
+      state.serverSimulationCandidates = {
+        ...state.serverSimulationCandidates,
+        loaded:true,
+        error:payload.error || 'Server simulation candidates unavailable',
+      };
+      return false;
+    }
+    const candidates = (Array.isArray(payload.candidates) ? payload.candidates : [])
+      .slice()
+      .sort((a, b) => n(a.serverRank) - n(b.serverRank))
+      .slice(0, 25);
+    state.serverSimulationCandidates = {
+      loaded:true,
+      at:String(payload.at || ''),
+      candidates,
+      error:'',
+    };
+    state.setupsLoaded = true;
+    state.setupsLoading = false;
+    return true;
+  }
+
+  function disconnectServerSimulationStream() {
+    if (!state.serverSimulationStream) return;
+    state.serverSimulationStream.close();
+    state.serverSimulationStream = null;
+  }
+
+  async function loadServerSimulationCandidatesFallback() {
+    try {
+      state.setupsLoading = true;
+      renderSetups();
+      const payload = await api('/simulation/analysis?source=mobile-top-25');
+      applyServerSimulationCandidates(payload);
+    } catch (error) {
+      applyServerSimulationCandidates({ ok:false, error:error.message });
+    }
+    renderSetups();
+  }
+
+  function connectServerSimulationStream() {
+    if (state.setupFilter !== 'simulation_top25' || !mobileSetupsViewActive()) {
+      disconnectServerSimulationStream();
+      return;
+    }
+    if (!window.EventSource) {
+      loadServerSimulationCandidatesFallback();
+      return;
+    }
+    if (state.serverSimulationStream) return;
+    const stream = new EventSource('/simulation/analysis/stream');
+    state.serverSimulationStream = stream;
+    stream.onmessage = event => {
+      if (state.setupFilter !== 'simulation_top25' || !mobileSetupsViewActive()) {
+        disconnectServerSimulationStream();
+        return;
+      }
+      try {
+        applyServerSimulationCandidates(JSON.parse(event.data || '{}'));
+        renderSetups();
+        connectLiveStream();
+      } catch (_) {}
+    };
+    stream.onerror = () => {
+      if (state.setupFilter !== 'simulation_top25' || !mobileSetupsViewActive()) disconnectServerSimulationStream();
     };
   }
 
@@ -2041,7 +2142,9 @@
   }
 
   function setupBySymbol(sym) {
-    const candidate = state.candidates.find(c => String(c.symbol || '').toUpperCase() === String(sym || '').toUpperCase());
+    const normalized = String(sym || '').toUpperCase();
+    const candidate = state.serverSimulationCandidates.candidates.find(c => String(c.symbol || '').toUpperCase() === normalized)
+      || state.candidates.find(c => String(c.symbol || '').toUpperCase() === normalized);
     return candidate ? withLiveQuote(candidate) : null;
   }
 
@@ -2150,7 +2253,13 @@
         const view = tab.dataset.view;
         document.querySelectorAll('.tab').forEach(item => item.classList.toggle('active', item === tab));
         document.querySelectorAll('.view').forEach(item => item.classList.toggle('active', item.id === `view-${view}`));
-        if (view === 'setups' && !state.setupsLoaded && !state.setupsLoading) loadSetups();
+        if (view === 'setups' && state.setupFilter === 'simulation_top25') {
+          renderSetups();
+          connectServerSimulationStream();
+        } else {
+          disconnectServerSimulationStream();
+          if (view === 'setups' && !state.setupsLoaded && !state.setupsLoading) loadSetups();
+        }
         if (view === 'stocks' && !state.allStocks.length && !state.allStocksLoading) loadAllStocks();
       });
     });
@@ -2162,13 +2271,20 @@
       state.setupSelectionAt = now;
       localStorage.setItem('intradayx.mobile.setupFilter', state.setupFilter);
       renderSetups();
-      loadSetups();
+      if (state.setupFilter === 'simulation_top25') connectServerSimulationStream();
+      else {
+        disconnectServerSimulationStream();
+        loadSetups();
+      }
     };
     $('setup-filter-select')?.addEventListener('input', updateSetupSelection);
     $('setup-filter-select')?.addEventListener('change', updateSetupSelection);
     $('setup-refresh-btn')?.addEventListener('click', event => {
       event.preventDefault();
-      loadSetups();
+      if (state.setupFilter === 'simulation_top25') {
+        disconnectServerSimulationStream();
+        connectServerSimulationStream();
+      } else loadSetups();
     });
     $('all-stock-filter-select')?.addEventListener('change', event => {
       state.allStockFilter = event.target.value;
@@ -2390,6 +2506,7 @@
       state.marketOverviewStream?.close();
       state.tradeStream?.close();
       state.healthStream?.close();
+      state.serverSimulationStream?.close();
     });
     refreshAll();
 

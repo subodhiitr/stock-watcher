@@ -122,6 +122,51 @@ async function handleSimulationRuntimeRoute(req, res, pathname, searchParams, de
     return true;
   }
 
+  if (pathname === '/simulation/analysis/stream') {
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Method not allowed. Use GET.' }));
+      return true;
+    }
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    res.write(': connected\n\n');
+    let closed = false;
+    let refreshRunning = false;
+    const refreshMs = Math.max(5000, Number(deps.analysisStreamRefreshMs) || 15000);
+    const sendAnalysis = async () => {
+      if (closed || refreshRunning) return;
+      refreshRunning = true;
+      try {
+        const payload = await deps.buildServerSimulationAnalysisPayload('server-analysis-stream');
+        const streamPayload = {
+          ...payload,
+          candidates:Array.isArray(payload?.candidates) ? payload.candidates.slice(0, 25) : [],
+        };
+        if (!closed) deps.writeSseEvent(res, streamPayload);
+      } catch (error) {
+        if (!closed) deps.writeSseEvent(res, { ok:false, error:error.message || 'Could not build simulation analysis' });
+      } finally {
+        refreshRunning = false;
+      }
+    };
+    const refreshTimer = setInterval(sendAnalysis, refreshMs);
+    const keepAlive = setInterval(() => {
+      try { res.write(': ping\n\n'); } catch (_) {}
+    }, 25000);
+    req.on('close', () => {
+      closed = true;
+      clearInterval(refreshTimer);
+      clearInterval(keepAlive);
+    });
+    sendAnalysis();
+    return true;
+  }
+
   if (pathname === '/simulation-snapshots') {
     if (req.method === 'GET') {
       const day = (searchParams.get('day') || searchParams.get('date') || '').trim();
@@ -131,17 +176,17 @@ async function handleSimulationRuntimeRoute(req, res, pathname, searchParams, de
         return true;
       }
       const state = deps.loadSimulationSnapshotsFile(day);
-      const snapshots = deps.saveSimulationSnapshotsFile(state, day) || state.snapshots;
+      const snapshots = Array.isArray(state.snapshots) ? state.snapshots : [];
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, retentionDays: deps.snapshotRetentionDays, date: day, count: snapshots.length, snapshots }));
+      res.end(JSON.stringify({ ok:true, retentionDays:deps.snapshotRetentionDays, date:day, storage:state.storage || 'legacy-file', count:snapshots.length, snapshots }));
       return true;
     }
     if (req.method === 'POST') {
       try {
         const payload = await deps.readJsonBody(req);
-        const { day, snapshots, snapshot } = deps.appendSimulationSnapshot(payload || {});
+        const { day, count, snapshot, storage } = deps.appendSimulationSnapshot(payload || {});
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, retentionDays: deps.snapshotRetentionDays, date: day, file: path.basename(deps.getSimulationSnapshotFile(day)), count: snapshots.length, snapshot }));
+        res.end(JSON.stringify({ ok:true, retentionDays:deps.snapshotRetentionDays, date:day, storage:storage || 'sqlite', database:path.basename(deps.snapshotDatabaseFile || 'simulation_snapshots.db'), count, snapshot }));
       } catch(e) {
         res.writeHead(deps.jsonBodyErrorStatus(e, 500), { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: e.message || 'Invalid snapshot payload' }));

@@ -39,6 +39,7 @@ const path  = require('path');
 const os    = require('os');
 const crypto = require('crypto');
 const { fork } = require('child_process');
+const { Worker } = require('worker_threads');
 const Backtest = require('./backtest_simulation');
 const SimulationEngine = require('./simulation_engine');
 const TradeRules = require('./trade_rules');
@@ -71,9 +72,16 @@ const { handleBrokerRoute } = require('./server/routes/broker');
 const { handleReplayRoute } = require('./server/routes/replay');
 const { handleSimulationRuntimeRoute } = require('./server/routes/simulation-runtime');
 const { handleTradeExecutionRoute } = require('./server/routes/trade-execution');
+const { handleSetupEfficiencyRoute } = require('./server/routes/setup-efficiency');
+const { handleExitQualityRoute } = require('./server/routes/exit-quality');
+const { handleStrategyAdvisorRoute } = require('./server/routes/strategy-advisor');
 const { createResultCalendarService } = require('./server/result-calendar');
 const { createIntradayCandlesService } = require('./server/intraday-candles');
 const { createFreshNewsService } = require('./server/fresh-news');
+const { createSetupEfficiencyService } = require('./server/setup-efficiency');
+const { createExitQualityService } = require('./server/exit-quality');
+const { createStrategyAdvisorFileService } = require('./server/strategy-advisor');
+const { createSnapshotDatabase } = require('./server/snapshot-db');
 const {
   initDb,
   saveTrade,
@@ -105,6 +113,17 @@ const {
   jsonCacheGet,
   jsonCacheSet,
 } = require('./server/db');
+const setupEfficiencyDb = require('./server/db');
+const setupEfficiencyService = createSetupEfficiencyService({
+  db:setupEfficiencyDb,
+  intervalMs:60 * 60 * 1000,
+});
+const exitQualityService = createExitQualityService({
+  db:setupEfficiencyDb,
+  intervalMs:60 * 60 * 1000,
+  resolveDayClose:resolveSimulationDayClosePrice,
+});
+let strategyAdvisorService = null;
 
 const ENV_FILE = path.join(__dirname, '.env');
 if (fs.existsSync(ENV_FILE)) {
@@ -136,9 +155,7 @@ const TRADE_SETTINGS_FILE  = process.env.TRADE_SETTINGS_FILE || path.join(__dirn
 const SIMULATION_UNIVERSE_FILE = process.env.SIMULATION_UNIVERSE_FILE || path.join(__dirname, 'simulation_universe.json');
 // Snapshot and fresh-news files (large binary archives — legitimately file-based)
 const SIM_SNAPSHOT_DIR     = path.join(__dirname, 'snapshots');
-const SIM_SNAPSHOT_FILE    = path.join(SIM_SNAPSHOT_DIR, 'simulation_snapshots.json');
-const SIM_SNAPSHOT_LEGACY_FILE = path.join(__dirname, 'simulation_snapshots.json');
-const SIM_SNAPSHOT_PREFIX  = 'simulation_snapshots';
+const SIM_SNAPSHOT_DB_FILE = process.env.SIM_SNAPSHOT_DB_FILE || path.join(SIM_SNAPSHOT_DIR, 'simulation_snapshots.db');
 const SIM_DECISION_JOURNAL_DIR = path.join(APP_CACHE_DIR, 'simulation_decisions');
 const SIM_SNAPSHOT_RETENTION_DAYS = 30;
 const SIM_SNAPSHOT_TTL     = SIM_SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
@@ -169,6 +186,9 @@ const intradayBroadcastChangedSymbols = new Set();
 let replayDeepSweepTimer   = null;
 const DEFAULT_SIMULATION_TICK_INTERVAL_SEC = 15;
 const DEFAULT_SIMULATION_STOP_TIMEOUT_SEC = 900;
+const SIMULATION_ACTIVE_TICK_MIN_INTERVAL_MS = 2000;
+const SIMULATION_IDLE_TICK_MIN_INTERVAL_MS = 5000;
+const SIMULATION_DECISION_HEARTBEAT_MS = 15 * 1000;
 let simulationTickIntervalSec = DEFAULT_SIMULATION_TICK_INTERVAL_SEC;
 let simulationStopTimeoutSec = DEFAULT_SIMULATION_STOP_TIMEOUT_SEC;
 let simulationSchedulerTimer = null;
@@ -178,6 +198,15 @@ let simulationRuntimeAutoResumeArmed = false;
 let simulationTickInFlight = false;
 let simulationImmediateTickTimer = null;
 let simulationImmediateTickPending = false;
+let simulationLastTickStartedAt = 0;
+let simulationLastTickCompletedAt = 0;
+let simulationLastCycleDecisionJournalAt = 0;
+let simulationOpenManagedTradeCount = 0;
+let simulationLastCycleDecisionSignature = '';
+let simulationLatestDecisionCycle = null;
+const simulationImmediateTickReasons = new Set();
+const simulationImmediateTickChangedSymbols = new Set();
+let simulationDecisionJournalQueue = Promise.resolve();
 let mutationLockActive = false;
 let mutationLockQueue = Promise.resolve();
 let simulationSchedulerTestInputs = null;
@@ -189,6 +218,10 @@ let intradayLiveRefreshTimer = null;
 let intradayLiveRefreshInFlight = false;
 let intradayLiveRefreshActive = false;
 let simulationMarketCache = { fetchedAt: 0, indices: {} };
+let simulationIndexPreviousCloseAnchors = { day:'', values:{} };
+const schedulerMarketHistory = [];
+let simulationMarketRefreshPromise = null;
+let simulationMarketRefreshAttemptAt = 0;
 let schedulerTickInputLogState = { signature:'', loggedAt:0 };
 const schedulerPreviousCandidateBySymbol = new Map();
 let sectorMetadataCache = { builtAt:0, bySymbol:new Map() };
@@ -199,11 +232,18 @@ let intradayDataSourceSettingsCache = { loadedAt: 0, value: null };
 
 function appendSimulationDecisionJournal(event, payload = {}, at = new Date().toISOString()) {
   try {
-    if (!fs.existsSync(SIM_DECISION_JOURNAL_DIR)) fs.mkdirSync(SIM_DECISION_JOURNAL_DIR, { recursive: true });
     const day = getIstDateKey(at);
     const file = path.join(SIM_DECISION_JOURNAL_DIR, `simulation_decisions_${day}.jsonl`);
     const row = { schemaVersion:1, at, event:String(event || 'decision'), ...payload };
-    fs.appendFileSync(file, `${JSON.stringify(row)}\n`, 'utf8');
+    const line = `${JSON.stringify(row)}\n`;
+    simulationDecisionJournalQueue = simulationDecisionJournalQueue
+      .then(async () => {
+        await fs.promises.mkdir(SIM_DECISION_JOURNAL_DIR, { recursive: true });
+        await fs.promises.appendFile(file, line, 'utf8');
+      })
+      .catch(e => {
+        console.warn('[simulation-journal] Append failed:', e.message);
+      });
   } catch (e) {
     console.warn('[simulation-journal] Append failed:', e.message);
   }
@@ -239,6 +279,14 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || openaiProps.OPENAI_MODEL || ope
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || openaiProps.OLLAMA_BASE_URL || openaiProps.ollama_base_url || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || openaiProps.OLLAMA_MODEL || openaiProps.ollama_model || '';
 const OLLAMA_TIMEOUT_MS = Number(process.env.OLLAMA_TIMEOUT_MS || openaiProps.OLLAMA_TIMEOUT_MS || openaiProps.ollama_timeout_ms || 180000);
+strategyAdvisorService = createStrategyAdvisorFileService({
+  db:setupEfficiencyDb,
+  setupEfficiencyService,
+  exitQualityService,
+  loadSnapshots:day => getSimulationSnapshotDatabase().loadDay(day),
+  loadSettings:day => Backtest.loadSettings({ day }),
+  loadSettingOverrides:() => loadTradeSettingsFile().overrides || {},
+});
 
 const VALID_BROKER_MODES = new Set(['zerodha_dry_run', 'zerodha_live', 'sharekhan_live']);
 
@@ -971,6 +1019,13 @@ async function closeTradeFromExitIntent(trade, intent, atIso) {
     grossPnl: pnl.grossPnl,
     charges: pnl.charges,
     chargeBreakup: pnl.chargeBreakup,
+    exitState: {
+      exitPrice:+effectiveExitPrice.toFixed(2),
+      closedAt:atIso,
+      reason:intent?.reason || 'Simulation exit',
+      dayClosePrice:null,
+      benchmarkStatus:'pending',
+    },
     exitOwner: 'simulation',
     managedBySimulation: true,
     managementState: trade?.managementState === 'settling_managed' ? 'settling_managed' : 'simulation_managed',
@@ -997,7 +1052,7 @@ async function partialCloseTradeFromExitIntent(trades, trade, intent, atIso) {
       trade.broker.exitOrderId = exitOrderId;
       trade.broker.exitPlacedAt = atIso;
       trade.broker.status = 'exit_placed';
-      trade.pendingPartialExit = { qty:requestedQty, reason:intent.reason, requestedPrice, runner:!!intent.runner, newTarget:intent.newTarget, placedAt:atIso };
+      trade.pendingPartialExit = { qty:requestedQty, reason:intent.reason, requestedPrice, runner:!!intent.runner, newTarget:intent.newTarget, protectRemainder:!!intent.protectRemainder, placedAt:atIso };
       appendSimulationDecisionJournal('partial_exit_order_placed', { tradeId:trade.id, symbol:trade.symbol, intent, orderId:exitOrderId }, atIso);
       return true;
     } catch (e) {
@@ -1006,7 +1061,23 @@ async function partialCloseTradeFromExitIntent(trades, trade, intent, atIso) {
     }
   }
   const fill = SimulationEngine.applyAdverseSlippage(requestedPrice, trade.side, 'exit', loadTradeSettingsFile().overrides || {});
-  const partial = { ...trade, id:`${trade.id}-partial-${Date.now()}`, parentId:trade.id, status:'closed', qty:requestedQty, exitPrice:fill, closedAt:atIso, closeReason:intent.reason };
+  const partial = {
+    ...trade,
+    id:`${trade.id}-partial-${Date.now()}`,
+    parentId:trade.id,
+    status:'closed',
+    qty:requestedQty,
+    exitPrice:fill,
+    closedAt:atIso,
+    closeReason:intent.reason,
+    exitState:{
+      exitPrice:+Number(fill).toFixed(2),
+      closedAt:atIso,
+      reason:intent.reason || 'Simulation partial exit',
+      dayClosePrice:null,
+      benchmarkStatus:'pending',
+    },
+  };
   const pnl = computePaperTradePnl(partial, fill);
   Object.assign(partial, { pnl:pnl.pnl, pnlPct:pnl.pnlPct, grossPnl:pnl.grossPnl, charges:pnl.charges, chargeBreakup:pnl.chargeBreakup });
   trade.qty -= requestedQty;
@@ -1014,7 +1085,11 @@ async function partialCloseTradeFromExitIntent(trades, trade, intent, atIso) {
   trade._partialTargetBooked = true;
   trade._runnerArmed = true;
   trade._runnerWideTrail = !!intent.runner;
-  trade.target = intent.runner && Number.isFinite(Number(intent.newTarget)) ? +Number(intent.newTarget).toFixed(2) : null;
+  if (Number.isFinite(Number(intent.newTarget))) trade.target = +Number(intent.newTarget).toFixed(2);
+  if (intent.protectRemainder) {
+    if (String(trade.side || '').toLowerCase() === 'sell') trade._shortProfitLockArmed = true;
+    else trade._longProfitLockArmed = true;
+  }
   trade.partialExits = [...(trade.partialExits || []), { id:partial.id, qty:requestedQty, exitPrice:fill, closedAt:atIso, reason:intent.reason, pnl:pnl.pnl }];
   trades.unshift(partial);
   appendSimulationDecisionJournal('partial_exit_filled', { tradeId:trade.id, partialId:partial.id, symbol:trade.symbol, qty:requestedQty, fillPrice:fill }, atIso);
@@ -1066,6 +1141,10 @@ async function openTradeFromEntryIntent(trades, intent, atIso) {
     executionMode: brokerMode,
     costProfile:brokerMode.startsWith('sharekhan') ? 'sharekhan_intraday' : 'zerodha_intraday',
     sector:intent?.sector || '',
+    _momentumRunnerFullQty:String(intent?.setupType || '').toUpperCase() === 'MOMENTUM_RUNNER'
+      ? Math.max(qty, Math.floor(Number(intent?.entryContext?.plannedFullQty) || qty))
+      : undefined,
+    _momentumRunnerInitialQty:String(intent?.setupType || '').toUpperCase() === 'MOMENTUM_RUNNER' ? qty : undefined,
   };
 
   // Place live broker order if active
@@ -1185,6 +1264,60 @@ function getIntradayLiveUniverseSymbols() {
   return new Set([...getSimulationUniverseSymbols(), ...getSavedEtfSymbolsForSimulation()]);
 }
 
+async function scaleInMomentumRunnerFromIntent(trade, intent, atIso) {
+  if (!trade || !intent || trade.status !== 'open' || trade._momentumRunnerScaledIn) return false;
+  if (trade.broker?.mode === 'live') {
+    if (!trade._momentumRunnerScaleInLiveBlocked) {
+      trade._momentumRunnerScaleInLiveBlocked = true;
+      appendSimulationDecisionJournal('scale_in_blocked_live_order_safety', {
+        tradeId:trade.id,
+        symbol:trade.symbol,
+        requestedQty:intent.qty,
+      }, atIso);
+    }
+    return false;
+  }
+  const addQty = Math.max(0, Math.floor(Number(intent.qty) || 0));
+  const observedPrice = Number(intent.price);
+  if (addQty <= 0 || !Number.isFinite(observedPrice) || observedPrice <= 0) return false;
+  const settings = loadTradeSettingsFile().overrides || {};
+  const fill = SimulationEngine.applyAdverseSlippage(observedPrice, trade.side, 'entry', settings);
+  const oldQty = Math.max(0, Math.floor(Number(trade.qty) || 0));
+  const oldEntry = Number(trade.entryPrice);
+  if (oldQty <= 0 || !Number.isFinite(oldEntry) || oldEntry <= 0) return false;
+  const newQty = oldQty + addQty;
+  const weightedEntry = ((oldEntry * oldQty) + (fill * addQty)) / newQty;
+  const stopPct = Math.max(0.1, Number(TradeRules.withDefaults(settings).SIMULATION_RUNNER_INITIAL_STOP_PCT) || 0.8);
+
+  trade.qty = newQty;
+  trade.entryPrice = +weightedEntry.toFixed(2);
+  trade.reservedCapital = +(trade.entryPrice * newQty).toFixed(2);
+  trade.stop = +(String(trade.side || 'buy').toLowerCase() === 'sell'
+    ? trade.entryPrice * (1 + stopPct / 100)
+    : trade.entryPrice * (1 - stopPct / 100)).toFixed(2);
+  trade._momentumRunnerScaledIn = true;
+  trade._momentumRunnerFullQty = Math.max(newQty, Math.floor(Number(intent.plannedFullQty) || newQty));
+  trade.scaleIns = [...(trade.scaleIns || []), {
+    qty:addQty,
+    price:+fill.toFixed(2),
+    at:atIso,
+    reason:intent.reason,
+    maxFavorablePct:intent.maxFavorablePct,
+    vwap:intent.vwap,
+    trigger:intent.trigger,
+  }];
+  appendSimulationDecisionJournal('momentum_runner_scale_in_filled', {
+    tradeId:trade.id,
+    symbol:trade.symbol,
+    qty:addQty,
+    fillPrice:+fill.toFixed(2),
+    weightedEntry:trade.entryPrice,
+    stop:trade.stop,
+    maxFavorablePct:intent.maxFavorablePct,
+  }, atIso);
+  return true;
+}
+
 function isEtfSimulationSymbol(symbol) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) return false;
@@ -1193,8 +1326,13 @@ function isEtfSimulationSymbol(symbol) {
     || String(meta.cap || '').toLowerCase() === 'etf';
 }
 
+const SHAREKHAN_EXTRA_TICKER_SYMBOLS = Object.freeze(['63MOONS']);
+
 function getSharekhanStockUniverseSymbols() {
-  return [...getSimulationUniverseSymbols()].filter(sym => !isEtfSimulationSymbol(sym));
+  return [...new Set([
+    ...getSimulationUniverseSymbols(),
+    ...SHAREKHAN_EXTRA_TICKER_SYMBOLS,
+  ])].filter(sym => !isEtfSimulationSymbol(sym));
 }
 
 function rememberSimulationUniverse(symbols = []) {
@@ -1372,25 +1510,17 @@ function loadLatestSimulationSnapshots() {
   if (Array.isArray(simulationSnapshotsForTests)) {
     return pruneSimulationSnapshots(simulationSnapshotsForTests).sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
   }
-  const latestFile = listSimulationSnapshotFiles()
-    .map(file => {
-      const name = path.basename(file);
-      const match = name.match(/(\d{4}-\d{2}-\d{2})/);
-      const dateTime = match ? new Date(`${match[1]}T23:59:59+05:30`).getTime() : 0;
-      return { file, time: dateTime || fileMtime(file) };
-    })
-    .sort((a, b) => b.time - a.time)[0]?.file;
-  if (!latestFile) return [];
   try {
-    const buf = fs.readFileSync(latestFile);
-    const text = latestFile.endsWith('.gz') ? zlib.gunzipSync(buf).toString() : buf.toString('utf8');
-    const raw = JSON.parse(text || '{}');
-    return pruneSimulationSnapshots(Array.isArray(raw.snapshots) ? raw.snapshots : [])
-      .sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
+    const store = getSimulationSnapshotDatabase();
+    const latestDay = store.latestDay();
+    if (latestDay) {
+      const snapshots = store.loadDay(latestDay);
+      if (snapshots.length) return pruneSimulationSnapshots(snapshots);
+    }
   } catch (e) {
-    console.warn('[simulation-snapshots] Latest load error:', path.basename(latestFile), e.message);
-    return [];
+    console.warn('[simulation-snapshots] Latest database load error:', e.message);
   }
+  return [];
 }
 
 function markSseBackpressure(client) {
@@ -1456,30 +1586,46 @@ function broadcastIntradayLive(reason = 'update', changedSymbols = null) {
   if (typeof intradayBroadcastTimer.unref === 'function') intradayBroadcastTimer.unref();
 }
 
+function schedulePendingSimulationTick() {
+  if (!simulationImmediateTickPending || simulationImmediateTickTimer || simulationTickInFlight) return;
+  const lastTickBoundary = simulationLastTickCompletedAt || simulationLastTickStartedAt;
+  const elapsedMs = lastTickBoundary > 0 ? Date.now() - lastTickBoundary : Number.POSITIVE_INFINITY;
+  const minimumIntervalMs = simulationOpenManagedTradeCount > 0
+    ? SIMULATION_ACTIVE_TICK_MIN_INTERVAL_MS
+    : SIMULATION_IDLE_TICK_MIN_INTERVAL_MS;
+  const delayMs = Math.max(0, minimumIntervalMs - elapsedMs);
+  simulationImmediateTickTimer = setTimeout(async () => {
+    simulationImmediateTickTimer = null;
+    if (!simulationImmediateTickPending || simulationTickInFlight) return;
+    simulationImmediateTickPending = false;
+    const reasons = [...simulationImmediateTickReasons];
+    const changedSymbols = [...simulationImmediateTickChangedSymbols];
+    simulationImmediateTickReasons.clear();
+    simulationImmediateTickChangedSymbols.clear();
+    try {
+      await runSimulationSchedulerTick();
+    } catch (e) {
+      console.warn(`[simulation-runtime] Coalesced tick after ${reasons.join(',') || 'score-update'} failed:`, e.message);
+    } finally {
+      // Updates received while the tick was in flight remain pending and get one
+      // follow-up cycle after the same minimum interval.
+      schedulePendingSimulationTick();
+    }
+  }, delayMs);
+  if (typeof simulationImmediateTickTimer.unref === 'function') simulationImmediateTickTimer.unref();
+}
+
 function triggerSimulationTickAfterScoreUpdate(reason = 'score-update', changedSymbols = []) {
   if (isIstWeekend()) return;
   const runtime = loadSimulationRuntime();
   if (runtime.state !== 'running' && runtime.state !== 'settling') return;
   simulationImmediateTickPending = true;
-  if (simulationImmediateTickTimer) return;
-  simulationImmediateTickTimer = setTimeout(async () => {
-    simulationImmediateTickTimer = null;
-    if (!simulationImmediateTickPending) return;
-    simulationImmediateTickPending = false;
-    if (simulationTickInFlight) {
-      triggerSimulationTickAfterScoreUpdate(`${reason}:in-flight`, changedSymbols);
-      return;
-    }
-    try {
-      const result = await runSimulationSchedulerTick();
-      if (result?.skipped && result.reason === 'tick-in-flight') {
-        triggerSimulationTickAfterScoreUpdate(`${reason}:retry`, changedSymbols);
-      }
-    } catch (e) {
-      console.warn(`[simulation-runtime] Immediate tick after ${reason} failed:`, e.message);
-    }
-  }, 250);
-  if (typeof simulationImmediateTickTimer.unref === 'function') simulationImmediateTickTimer.unref();
+  if (reason) simulationImmediateTickReasons.add(String(reason));
+  for (const symbol of Array.isArray(changedSymbols) ? changedSymbols : []) {
+    const normalized = String(symbol || '').trim().toUpperCase();
+    if (normalized) simulationImmediateTickChangedSymbols.add(normalized);
+  }
+  schedulePendingSimulationTick();
 }
 
 function scheduleIntradayLiveRefresh(reason = 'interval') {
@@ -1530,8 +1676,9 @@ async function refreshIntradayLiveCache(reason = 'interval') {
         triggerSimulationTickAfterScoreUpdate(reason, chunkChanged);
       }
     }
-    if (allChanged.length) {
-      persistServerSimulationSnapshot(reason, allChanged).catch(e => {
+    const marketHeartbeat = getIntradayLiveRefreshIntervalSec() === INTRADAY_LIVE_REFRESH_MARKET_SEC;
+    if (allChanged.length || marketHeartbeat) {
+      persistServerSimulationSnapshot(allChanged.length ? reason : 'market-heartbeat', allChanged).catch(e => {
         console.warn('[simulation-snapshots] Server snapshot persist failed:', e.message);
       }); // persist once after all chunks
     }
@@ -1792,7 +1939,9 @@ function pickTickNumber(tick, keys) {
 
 function resolveValidatedSharekhanIndexChange(indexKey, tick, price, existing = {}, peerIndices = {}) {
   const direct = pickTickNumber(tick, ['changePercent', 'percentChange', 'pChange', 'perChange']);
-  const prevClose = pickTickNumber(tick, ['previousClose', 'prevClose', 'closePrice', 'closedPrice']);
+  const tickPrevClose = pickTickNumber(tick, ['previousClose', 'prevClose', 'closePrice', 'closedPrice']);
+  const cachedPrevClose = Number(existing.previousClose);
+  const prevClose = Number.isFinite(tickPrevClose) && tickPrevClose > 0 ? tickPrevClose : cachedPrevClose;
   const derived = Number.isFinite(prevClose) && prevClose > 0
     ? ((price - prevClose) / prevClose) * 100
     : null;
@@ -1844,31 +1993,141 @@ function resolveValidatedSharekhanIndexChange(indexKey, tick, price, existing = 
   return { change: Number.isFinite(candidate) ? +candidate.toFixed(3) : null, reason };
 }
 
+function reanchorSharekhanIndices(freshIndices = {}, cachedIndices = {}) {
+  const merged = { ...freshIndices };
+  for (const [indexKey, fresh] of Object.entries(freshIndices || {})) {
+    const cached = cachedIndices?.[indexKey];
+    if (!cached || cached.source !== 'sharekhan-ws') continue;
+    const freshPrice = Number(fresh?.price);
+    const freshChange = Number(fresh?.change);
+    const cachedPrice = Number(cached?.price);
+    const explicitPreviousClose = Number(fresh?.previousClose);
+    const previousClose = Number.isFinite(explicitPreviousClose) && explicitPreviousClose > 0
+      ? explicitPreviousClose
+      : (Number.isFinite(freshPrice) && freshPrice > 0 && Number.isFinite(freshChange)
+        ? freshPrice / (1 + freshChange / 100)
+        : null);
+    const reanchoredChange = Number.isFinite(previousClose) && previousClose > 0
+      && Number.isFinite(cachedPrice) && cachedPrice > 0
+      ? ((cachedPrice - previousClose) / previousClose) * 100
+      : freshChange;
+    merged[indexKey] = {
+      ...fresh,
+      ...cached,
+      price:Number.isFinite(cachedPrice) && cachedPrice > 0 ? +cachedPrice.toFixed(2) : fresh.price,
+      change:Number.isFinite(reanchoredChange) ? +reanchoredChange.toFixed(3) : fresh.change,
+      previousClose:Number.isFinite(previousClose) ? +previousClose.toFixed(2) : fresh.previousClose,
+      source:'sharekhan-ws',
+      changeValidation:null,
+    };
+  }
+  return merged;
+}
+
+function applyFrozenIndexPreviousCloses(indices = {}, at = Date.now()) {
+  const day = getIstDateKey(at);
+  if (simulationIndexPreviousCloseAnchors.day !== day) {
+    simulationIndexPreviousCloseAnchors = { day, values:{} };
+  }
+  const out = {};
+  for (const [indexKey, value] of Object.entries(indices || {})) {
+    const proposed = Number(value?.previousClose);
+    const existingAnchor = Number(simulationIndexPreviousCloseAnchors.values[indexKey]);
+    if (!Number.isFinite(existingAnchor) && Number.isFinite(proposed) && proposed > 0) {
+      simulationIndexPreviousCloseAnchors.values[indexKey] = proposed;
+    }
+    const anchor = Number(simulationIndexPreviousCloseAnchors.values[indexKey]);
+    const rejected = Number.isFinite(anchor) && Number.isFinite(proposed) && proposed > 0 &&
+      Math.abs(proposed - anchor) / anchor * 100 > 0.01;
+    const price = Number(value?.price);
+    const change = Number.isFinite(anchor) && anchor > 0 && Number.isFinite(price) && price > 0
+      ? ((price - anchor) / anchor) * 100
+      : Number(value?.change);
+    out[indexKey] = {
+      ...value,
+      previousClose:Number.isFinite(anchor) && anchor > 0 ? +anchor.toFixed(2) : value?.previousClose,
+      previousCloseSessionDate:day,
+      change:Number.isFinite(change) ? +change.toFixed(3) : value?.change,
+      changeValidation:rejected
+        ? `rejected mid-session previous close ${proposed}; frozen at ${anchor}`
+        : (value?.changeValidation || null),
+    };
+  }
+  return out;
+}
+
 function updateSimulationIndexFromSharekhanTick(indexKey, tick) {
   const price = pickTickNumber(tick, ['ltp', 'lastPrice', 'price']);
   if (!Number.isFinite(price) || price <= 0) return false;
   const previous = simulationMarketCache.indices || {};
   const existing = previous[indexKey] || {};
-  const validated = resolveValidatedSharekhanIndexChange(indexKey, tick, price, existing, previous);
-  const change = validated.change;
+  const proposedPreviousClose = pickTickNumber(tick, ['previousClose', 'prevClose', 'closePrice', 'closedPrice']);
+  const frozen = applyFrozenIndexPreviousCloses({
+    [indexKey]:{
+      ...existing,
+      price,
+      previousClose:Number.isFinite(proposedPreviousClose) && proposedPreviousClose > 0
+        ? proposedPreviousClose
+        : existing.previousClose,
+    },
+  });
+  const anchored = frozen[indexKey] || existing;
+  const validated = resolveValidatedSharekhanIndexChange(
+    indexKey,
+    { ...tick, previousClose:anchored.previousClose },
+    price,
+    anchored,
+    { ...previous, [indexKey]:anchored }
+  );
+  const change = Number.isFinite(Number(anchored.change)) ? Number(anchored.change) : validated.change;
+  const anchorRejected = String(anchored.changeValidation || '').startsWith('rejected mid-session previous close');
   if (validated.reason) {
     console.warn(`[market-cache] ${indexKey} Sharekhan change corrected: ${validated.reason}`);
   }
   simulationMarketCache = {
-    fetchedAt: Date.now(),
+    // fetchedAt tracks when the previous-close anchor was refreshed, not when
+    // an LTP arrived. Advancing it on every tick prevents the Yahoo anchor from
+    // ever refreshing after a pre-market server start.
+    fetchedAt: simulationMarketCache.fetchedAt,
     indices: {
       ...previous,
       [indexKey]: {
         ...existing,
         price:+price.toFixed(2),
         change:Number.isFinite(change) ? +Number(change).toFixed(3) : existing.change,
+        previousClose:anchored.previousClose,
+        previousCloseSessionDate:anchored.previousCloseSessionDate,
         source:'sharekhan-ws',
-        changeValidation:validated.reason || null,
+        changeValidation:anchorRejected ? anchored.changeValidation : (validated.reason || null),
         updatedAt:new Date().toISOString(),
       },
     },
   };
   return true;
+}
+
+function refreshSimulationMarketContextIfStale() {
+  const now = Date.now();
+  if (hasUsableMarketIndices(simulationMarketCache.indices)
+      && now - simulationMarketCache.fetchedAt < SIMULATION_MARKET_CACHE_TTL_MS) {
+    return simulationMarketRefreshPromise || Promise.resolve({ indices:simulationMarketCache.indices });
+  }
+  if (simulationMarketRefreshPromise) return simulationMarketRefreshPromise;
+  if (now - simulationMarketRefreshAttemptAt < SIMULATION_MARKET_CACHE_TTL_MS) {
+    return Promise.resolve({ indices:simulationMarketCache.indices || {} });
+  }
+  simulationMarketRefreshAttemptAt = now;
+  simulationMarketRefreshPromise = getSimulationMarketContext()
+    .then(market => {
+      broadcastIntradayLive('index-anchor-refresh', []);
+      return market;
+    })
+    .catch(e => {
+      console.warn('[market-cache] Background anchor refresh failed:', e.message);
+      return { indices:simulationMarketCache.indices || {} };
+    })
+    .finally(() => { simulationMarketRefreshPromise = null; });
+  return simulationMarketRefreshPromise;
 }
 
 function handleSharekhanTickerTick(tick) {
@@ -1879,6 +2138,7 @@ function handleSharekhanTickerTick(tick) {
     // Index ticks do not pass through the stock-candle update path. Publish the
     // refreshed cache explicitly so mobile/desktop index percentages move live.
     broadcastIntradayLive(`sharekhan-${indexKey}-tick`, []);
+    refreshSimulationMarketContextIfStale();
   }
 }
 
@@ -1890,8 +2150,10 @@ async function getSimulationMarketContext() {
   try {
     const indices = await yahooIndices();
     if (hasUsableMarketIndices(indices)) {
-      simulationMarketCache = { fetchedAt: now, indices };
-      return { indices };
+      const reanchored = reanchorSharekhanIndices(indices, simulationMarketCache.indices);
+      const anchored = applyFrozenIndexPreviousCloses(reanchored, now);
+      simulationMarketCache = { fetchedAt: now, indices:anchored };
+      return { indices:anchored };
     }
     console.warn('[market-cache] Ignoring empty index context for simulation regime checks');
   } catch (e) { console.warn('[market-cache] Context fetch failed:', e.message); }
@@ -2027,11 +2289,12 @@ function buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol 
   return candidates;
 }
 
-function attachSchedulerConfirmationHistory(candidates = []) {
+function attachSchedulerConfirmationHistory(candidates = [], settings = {}, at = null) {
   for (const candidate of Array.isArray(candidates) ? candidates : []) {
     const symbol = String(candidate?.symbol || '').toUpperCase();
     if (!symbol) continue;
     candidate.previousCandidate = candidate.previousCandidate || schedulerPreviousCandidateBySymbol.get(symbol) || null;
+    SimulationEngine.applyFrozenEntryTrigger(candidate, candidate.previousCandidate, at || candidate.__snapshotAt, settings);
     schedulerPreviousCandidateBySymbol.set(symbol, SimulationEngine.toConfirmationCandidate(candidate));
   }
   if (schedulerPreviousCandidateBySymbol.size > 1000) {
@@ -2078,7 +2341,7 @@ async function readSchedulerTickInputAsync(settings) {
   const asOf = new Date().toISOString();
   const serverCandidates = buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol, asOf);
   if (serverCandidates.length) {
-    attachSchedulerConfirmationHistory(serverCandidates);
+    attachSchedulerConfirmationHistory(serverCandidates, settings, asOf);
     // Log data source distribution so stale/fallback data is clearly visible
     const bySource = serverCandidates.reduce((acc, c) => {
       const src = c.dataSource || 'unknown';
@@ -2126,7 +2389,7 @@ async function readSchedulerTickInputAsync(settings) {
         __snapshotSource: latest.source || 'simulation-snapshot',
       }))
     : [];
-  attachSchedulerConfirmationHistory(fallbackCandidates);
+  attachSchedulerConfirmationHistory(fallbackCandidates, settings, latest?.at);
   const market = (latest?.market && typeof latest.market === 'object' && Object.keys(latest.market).length)
     ? latest.market
     : await getSimulationMarketContext();
@@ -2207,6 +2470,7 @@ async function buildServerSimulationAnalysisPayload(source = 'server-analysis') 
     entryBlockReason,
     market,
     sectorTrend,
+    marketHistory:schedulerMarketHistory,
     indices: market.indices || {},
     dayStats,
     topN,
@@ -2222,19 +2486,39 @@ async function buildServerSimulationAnalysisPayload(source = 'server-analysis') 
     const explanation = SimulationEngine.explainCandidateEligibility(candidate, at, settings, {
       market,
       sectorTrend,
+      marketHistory:schedulerMarketHistory,
       indices: market.indices || {},
     });
-    let block = entryBlockReason(symbol, setupType, at);
+    let block = entryBlockReason(symbol, setupType, at, candidate);
     if (/profit re-entry cooldown/i.test(String(block || '')) && SimulationEngine.isCandidateContinuationReentryAllowed(candidate, settings)) {
       block = '';
     }
     const selected = selectedKeys.has(`${symbol}|${side}`);
+    const decisionScore = SimulationEngine.getCandidateDecisionScore(candidate);
+    const trigger = candidate?.indicators?.entryTrigger || candidate?.indicators?.entryStatus || '';
+    const selectionDetails = [
+      String(setupType || '').replace(/_/g, ' '),
+      Number.isFinite(Number(decisionScore)) ? `decision score ${Number(decisionScore).toFixed(2)}` : '',
+      trigger,
+      candidate?.sectorPriority?.aligned ? 'sector aligned' : '',
+    ].filter(Boolean);
+    const rejectionReasons = [
+      candidate?.entryBlockReason,
+      block,
+      ...(Array.isArray(candidate?.eligibilityAudit?.reasons) ? candidate.eligibilityAudit.reasons : []),
+      ...(Array.isArray(explanation?.reasons) ? explanation.reasons : []),
+    ].map(value => String(value || '').trim()).filter(Boolean);
+    const selectionReason = selected
+      ? `Selected: ${selectionDetails.join(' | ')}`
+      : `Not selected: ${rejectionReasons[0] || `rank ${index + 1} outside selected top ${topN} or available capacity`}`;
     return {
       ...candidate,
       setupType,
       derivedSetupType: setupType,
+      serverRank: index + 1,
       selected,
       selectionRank: selected ? index + 1 : null,
+      selectionReason,
       wouldEnter: selected,
       blockReason: block || '',
       eligibilityReasons: Array.isArray(explanation?.reasons) ? explanation.reasons : [],
@@ -2248,6 +2532,7 @@ async function buildServerSimulationAnalysisPayload(source = 'server-analysis') 
     at,
     simulationState: runtime.state || 'off',
     settings,
+    settingsFingerprint:SimulationEngine.stableAuditFingerprint(SimulationEngine.buildSettingsAuditSnapshot(settings)),
     dayStats,
     market,
     sectorTrend,
@@ -2260,9 +2545,113 @@ async function buildServerSimulationAnalysisPayload(source = 'server-analysis') 
   };
 }
 
+async function prepareManualTradeEntryPayload(payload = {}, trades = []) {
+  const symbol = String(payload.symbol || '').trim().toUpperCase();
+  const side = String(payload.side || 'buy').toLowerCase();
+  const settings = SimulationEngine.withDefaults(loadTradeSettingsFile().overrides || {});
+  const tickInput = await readSchedulerTickInputAsync(settings);
+  const at = String(tickInput?.at || new Date().toISOString());
+  const candidates = Array.isArray(tickInput?.candidates) ? tickInput.candidates : [];
+  const candidate = candidates.find(row => String(row?.symbol || '').toUpperCase() === symbol);
+  if (!candidate) return { ok:false, error:`${symbol} has no current simulation candidate` };
+  const candidateSide = String(candidate.side || candidate.signal || '').toLowerCase();
+  if (candidateSide !== side) {
+    return { ok:false, error:`${symbol} current validated side is ${candidateSide || 'watch'}, not ${side}` };
+  }
+  const livePrice = SimulationEngine.getCandidatePrice(candidate);
+  const requestedPrice = Number(payload.entryPrice);
+  const deviationPct = Number.isFinite(livePrice) && livePrice > 0
+    ? Math.abs(requestedPrice - livePrice) / livePrice * 100
+    : Infinity;
+  const maxDeviationPct = Math.max(0, Number(settings.SIMULATION_MANUAL_ENTRY_MAX_LIVE_DEVIATION_PCT) || 0.25);
+  if (!Number.isFinite(deviationPct) || deviationPct > maxDeviationPct) {
+    return { ok:false, error:`manual price differs from live price by ${Number.isFinite(deviationPct) ? deviationPct.toFixed(3) : '--'}% (max ${maxDeviationPct}%)` };
+  }
+
+  const market = tickInput?.market || {};
+  const sectorTrend = tickInput?.sectorTrend || buildSectorTrendFromCandidates(candidates);
+  const dayStats = TradeRules.buildDayStats(trades, at, settings, { sameDay:sameIstDay });
+  const openTrades = trades.filter(trade => trade?.status === 'open');
+  SimulationEngine.selectSimulationEntryCandidates(candidates, at, settings, {
+    openSymbols:new Set(),
+    openTrades:[],
+    closedTrades:trades.filter(trade => trade?.status === 'closed'),
+    market,
+    sectorTrend,
+    indices:market.indices || {},
+    dayStats:{ ...dayStats, rollingEntries:0, rollingOrdinaryEntries:0, rollingSectorEntries:0 },
+    topN:Math.max(candidates.length, 1),
+    entryBlockReason:() => '',
+  });
+  const setupType = candidate.derivedSetupType || candidate.setupType ||
+    SimulationEngine.deriveSetupType(candidate, settings, at, { market, sectorTrend });
+  const explanation = candidate.eligibilityAudit?.eligible === false
+    ? candidate.eligibilityAudit
+    : SimulationEngine.explainCandidateEligibility(candidate, at, settings, {
+        previousCandidate:candidate.previousCandidate,
+        market,
+        sectorTrend,
+        indices:market.indices || {},
+      });
+  if (!explanation?.eligible) {
+    return { ok:false, error:`manual entry rejected: ${(explanation?.reasons || ['entry quality validation failed']).join(' | ')}` };
+  }
+  const block = TradeRules.getEntryBlockReason(symbol, setupType, at, dayStats, settings);
+  if (block) return { ok:false, error:`manual entry rejected: ${block}` };
+
+  const plan = SimulationEngine.getPaperPlanForCandidate(candidate, side, livePrice, settings);
+  const settingsSnapshot = SimulationEngine.buildSettingsAuditSnapshot(settings);
+  const confirmation = SimulationEngine.getEntryConfirmation(
+    candidate,
+    candidate.previousCandidate,
+    side,
+    candidate.__snapshotAt || tickInput?.snapshotAt || at,
+    settings
+  );
+  const entryContext = {
+    ...(payload.entryContext && typeof payload.entryContext === 'object' ? payload.entryContext : {}),
+    manualValidated:true,
+    snapshotId:candidate.__snapshotId || tickInput?.snapshotId || '',
+    snapshotAt:candidate.__snapshotAt || tickInput?.snapshotAt || at,
+    snapshotSource:candidate.__snapshotSource || tickInput?.snapshotSource || '',
+    candidateScore:Number.isFinite(Number(candidate.score)) ? Number(candidate.score) : null,
+    decisionScore:SimulationEngine.getCandidateDecisionScore(candidate),
+    scoreAudit:candidate.scoreAudit || null,
+    indicatorSnapshot:SimulationEngine.buildIndicatorAuditSnapshot(candidate),
+    settingsSnapshot,
+    settingsFingerprint:SimulationEngine.stableAuditFingerprint(settingsSnapshot),
+    confirmation,
+    candidateSetupType:setupType,
+    sectorAligned:!!candidate.sectorPriority?.aligned,
+    sectorPriority:candidate.sectorPriority || null,
+    validatedLivePrice:+Number(livePrice).toFixed(2),
+    requestedPrice:+requestedPrice.toFixed(2),
+    priceDeviationPct:+deviationPct.toFixed(3),
+  };
+  return {
+    ok:true,
+    payload:{
+      ...payload,
+      symbol,
+      side,
+      signal:candidate.signal || side,
+      score:Number.isFinite(Number(candidate.score)) ? Number(candidate.score) : null,
+      decisionScore:SimulationEngine.getCandidateDecisionScore(candidate),
+      rr:Number.isFinite(Number(candidate.rr)) ? Number(candidate.rr) : null,
+      sector:candidate.sector || candidate.sectorPriority?.sector || '',
+      setupType,
+      setup:candidate.setup || candidate.indicators?.setup || null,
+      target:Number.isFinite(Number(payload.target)) ? Number(payload.target) : plan.target,
+      stop:Number.isFinite(Number(payload.stop)) ? Number(payload.stop) : plan.stop,
+      entryContext,
+    },
+  };
+}
+
 async function runSimulationSchedulerTick() {
   if (simulationTickInFlight) return { ok: false, skipped: true, reason: 'tick-in-flight' };
   simulationTickInFlight = true;
+  simulationLastTickStartedAt = Date.now();
   try {
     return await runWithMutationLock(async () => {
       const runtime = loadSimulationRuntime();
@@ -2276,6 +2665,12 @@ async function runSimulationSchedulerTick() {
       const inputAtIso = String(tickInput?.at || new Date().toISOString());
       const useInputClock = !!(simulationSchedulerTestInputs && typeof simulationSchedulerTestInputs === 'object');
       const schedulerAtIso = useInputClock ? inputAtIso : new Date().toISOString();
+      schedulerMarketHistory.push({
+        at:schedulerAtIso,
+        market:tickInput?.market || {},
+        sectorTrend:tickInput?.sectorTrend || {},
+      });
+      while (schedulerMarketHistory.length > 120) schedulerMarketHistory.shift();
       const state = loadPaperStateFile({ asOf: schedulerAtIso });
       const autoStopAfterMarket = runtime.state === 'running' && shouldAutoStopSimulation(schedulerAtIso);
       const eodSettlement = isSimulationEodSettlementTime(schedulerAtIso);
@@ -2293,6 +2688,15 @@ async function runSimulationSchedulerTick() {
           String(trade?.source || '').toLowerCase() === 'simulation'
         )
       );
+      simulationOpenManagedTradeCount = openTrades.length;
+      const milestoneStateBefore = new Map(openTrades.map(trade => [
+        String(trade?.id || ''),
+        JSON.stringify({
+          floorPct:trade?.gainMilestoneFloorPct ?? trade?._gainMilestoneFloorPct ?? null,
+          armedAt:trade?._gainMilestoneArmedAt || null,
+          history:Array.isArray(trade?.gainMilestones) ? trade.gainMilestones : [],
+        }),
+      ]));
       const candidateBySymbol = new Map((Array.isArray(tickInput?.candidates) ? tickInput.candidates : [])
         .map(candidate => [String(candidate?.symbol || '').toUpperCase(), candidate]));
       {
@@ -2310,11 +2714,17 @@ async function runSimulationSchedulerTick() {
             const quotedPrice = Number(quote?.price);
             const price = Number.isFinite(quotedPrice) && quotedPrice > 0 ? quotedPrice : null;
             if (!Number.isFinite(price) || price <= 0) continue;
+            const storedManagement = trade?.managementCandidate && typeof trade.managementCandidate === 'object'
+              ? trade.managementCandidate
+              : {};
             const side = String(trade?.side || 'buy').toLowerCase() === 'sell' ? 'sell' : 'buy';
-            const score = Number.isFinite(Number(trade?.score))
-              ? Number(trade.score)
-              : (side === 'sell' ? -55 : 55);
+            const score = Number.isFinite(Number(storedManagement?.score))
+              ? Number(storedManagement.score)
+              : (Number.isFinite(Number(trade?.score))
+                ? Number(trade.score)
+                : (side === 'sell' ? -55 : 55));
             candidateBySymbol.set(sym, {
+              ...storedManagement,
               symbol: sym,
               side,
               signal: side,
@@ -2327,6 +2737,8 @@ async function runSimulationSchedulerTick() {
               },
               freshness: { stale: false, reason: eodSettlement ? 'eod-fallback-quote' : 'runtime-fallback-quote' },
               indicators: {
+                ...(storedManagement.indicators || {}),
+                price,
                 entryStatus: 'Triggered',
                 target: Number.isFinite(Number(trade?.target)) ? Number(trade.target) : null,
                 stop: Number.isFinite(Number(trade?.stop)) ? Number(trade.stop) : null,
@@ -2340,6 +2752,11 @@ async function runSimulationSchedulerTick() {
         if (!sym) continue;
         const candidate = candidateBySymbol.get(sym);
         if (!candidate) continue;
+        const managementCandidate = SimulationEngine.buildManagementCandidateSnapshot(candidate);
+        if (managementCandidate && JSON.stringify(trade.managementCandidate || null) !== JSON.stringify(managementCandidate)) {
+          trade.managementCandidate = managementCandidate;
+          changed = true;
+        }
         const side = String(trade?.side || candidate?.side || candidate?.signal || 'buy').toLowerCase() === 'sell' ? 'sell' : 'buy';
         const candidatePrice = Number(candidate?.price ?? candidate?.priceAtSnapshot ?? candidate?.quote?.price ?? candidate?.indicators?.price);
         const basePrice = Number.isFinite(candidatePrice) && candidatePrice > 0 ? candidatePrice : Number(trade?.entryPrice);
@@ -2431,7 +2848,14 @@ async function runSimulationSchedulerTick() {
               return candidates.map(candidate => {
                 const side = candidate.side || 'buy';
                 const price = Number(candidate.price);
-                const sizing = Number.isFinite(price) && price > 0
+                const setupType = candidate.derivedSetupType || candidate.setupType || null;
+                const runnerInitialMultiplier = setupType === 'MOMENTUM_RUNNER'
+                  ? Math.max(0.1, Math.min(1, Number(settings.SIMULATION_RUNNER_INITIAL_POSITION_MULTIPLIER) || 0.5))
+                  : 1;
+                const setupPositionMultiplier = setupType === 'RANGEBOUND'
+                  ? Math.max(0.1, Math.min(1, Number(settings.SIMULATION_RANGEBOUND_POSITION_MULTIPLIER) || 0.5))
+                  : runnerInitialMultiplier;
+                const fullSizing = setupType === 'MOMENTUM_RUNNER' && Number.isFinite(price) && price > 0
                   ? SimulationEngine.getSuggestedQty(
                       candidate,
                       side,
@@ -2440,6 +2864,17 @@ async function runSimulationSchedulerTick() {
                       Number(settingsRaw.MAX_POSITION_EXPOSURE) || null,
                       { ...settingsRaw, PORTFOLIO_INITIAL_CAPITAL: portfolioInitialCapital },
                       serverPositionMultiplier
+                    )
+                  : null;
+                const sizing = Number.isFinite(price) && price > 0
+                  ? SimulationEngine.getSuggestedQty(
+                      candidate,
+                      side,
+                      price,
+                      remainingCash,
+                      Number(settingsRaw.MAX_POSITION_EXPOSURE) || null,
+                      { ...settingsRaw, PORTFOLIO_INITIAL_CAPITAL: portfolioInitialCapital },
+                      serverPositionMultiplier * setupPositionMultiplier
                     )
                   : null;
                 const qty = Math.max(0, Math.floor(Number(sizing?.qty) || 0));
@@ -2458,10 +2893,14 @@ async function runSimulationSchedulerTick() {
                   decisionScore: SimulationEngine.getCandidateDecisionScore(candidate),
                   rr: candidate.rr,
                   sector:candidate.sector || candidate.sectorPriority?.sector || '',
-                  setupType: candidate.setupType,
+                  setupType,
                   setup: candidate.setup,
                   entryContext: {
                     ...(candidate.entryContext && typeof candidate.entryContext === 'object' ? candidate.entryContext : {}),
+                    plannedFullQty:setupType === 'MOMENTUM_RUNNER'
+                      ? Math.max(qty, Math.floor(Number(fullSizing?.qty) || 0))
+                      : undefined,
+                    initialPositionMultiplier:setupType === 'MOMENTUM_RUNNER' ? runnerInitialMultiplier : undefined,
                     snapshotId: candidate.__snapshotId || tickInput?.snapshotId || '',
                     snapshotAt: candidate.__snapshotAt || tickInput?.snapshotAt || tickInput?.at || schedulerAtIso,
                     snapshotSource: candidate.__snapshotSource || tickInput?.snapshotSource || '',
@@ -2471,7 +2910,7 @@ async function runSimulationSchedulerTick() {
                     indicatorSnapshot:SimulationEngine.buildIndicatorAuditSnapshot(candidate),
                     settingsSnapshot:SimulationEngine.buildSettingsAuditSnapshot(settings),
                     settingsFingerprint:SimulationEngine.stableAuditFingerprint(SimulationEngine.buildSettingsAuditSnapshot(settings)),
-                    confirmation:SimulationEngine.getLongEntryConfirmation(
+                    confirmation:SimulationEngine.getEntryConfirmation(
                       candidate,
                       candidate.previousCandidate,
                       side,
@@ -2489,7 +2928,7 @@ async function runSimulationSchedulerTick() {
           }
         : SimulationEngine;
 
-      const { exitIntents, entryIntents } = runSimulationDomainCycle(
+      const { exitIntents, scaleInIntents, entryIntents } = runSimulationDomainCycle(
         {
           openTrades,
           candidates: Array.isArray(tickInput?.candidates) ? tickInput.candidates : [],
@@ -2502,11 +2941,14 @@ async function runSimulationSchedulerTick() {
             closedTrades,
             market: tickInput?.market || {},
             sectorTrend: tickInput?.sectorTrend || {},
+            marketHistory:schedulerMarketHistory,
             indices: tickInput?.market?.indices || {},
             dayStats,
             entryBlockReason,
             lastKnownBySymbol: new Map(),
             cashAvailable: serverCashAvailable,
+            portfolioEquity: portfolioMetrics.equity,
+            openExposure: portfolioMetrics.openExposure,
             positionMultiplier: serverPositionMultiplier,
             remainingHeatRisk: Math.max(0, maxHeatRisk - portfolioHeat.risk),
             sectorHeatRemaining,
@@ -2514,6 +2956,12 @@ async function runSimulationSchedulerTick() {
         },
         { engine: runtimeEngine }
       );
+      const milestoneChanged = openTrades.some(trade => milestoneStateBefore.get(String(trade?.id || '')) !== JSON.stringify({
+          floorPct:trade?.gainMilestoneFloorPct ?? trade?._gainMilestoneFloorPct ?? null,
+          armedAt:trade?._gainMilestoneArmedAt || null,
+          history:Array.isArray(trade?.gainMilestones) ? trade.gainMilestones : [],
+        }));
+      if (milestoneChanged) changed = true;
 
       const fallbackExitIntents = (!Array.isArray(exitIntents) || exitIntents.length === 0) && tickInput?.exitBySymbol
         ? openTrades
@@ -2521,10 +2969,70 @@ async function runSimulationSchedulerTick() {
             .filter(Boolean)
         : [];
       const effectiveExitIntents = Array.isArray(exitIntents) && exitIntents.length ? exitIntents : fallbackExitIntents;
-      appendSimulationDecisionJournal('cycle_decisions', {
+      const hasDecisionIntent = effectiveExitIntents.length > 0
+        || (scaleInIntents || []).length > 0
+        || (entryIntents || []).length > 0;
+      const decisionSignature = JSON.stringify({
+        exits:effectiveExitIntents.map(intent => [
+          String(intent?.symbol || '').toUpperCase(),
+          String(intent?.action || 'close').toLowerCase(),
+          String(intent?.reason || ''),
+        ]),
+        scaleIns:(scaleInIntents || []).map(intent => [
+          String(intent?.symbol || '').toUpperCase(),
+          String(intent?.reason || ''),
+        ]),
+        entries:(entryIntents || []).map(intent => [
+          String(intent?.symbol || '').toUpperCase(),
+          String(intent?.side || '').toLowerCase(),
+          String(intent?.setupType || ''),
+        ]),
+      });
+      const decisionChanged = decisionSignature !== simulationLastCycleDecisionSignature;
+      simulationLastCycleDecisionSignature = decisionSignature;
+      const journalNow = Date.now();
+      const shouldJournalCycle = decisionChanged
+        || milestoneChanged
+        || simulationSchedulerTestInputs != null
+        || journalNow - simulationLastCycleDecisionJournalAt >= SIMULATION_DECISION_HEARTBEAT_MS;
+      const decisionCycle = {
+        journalReason:decisionChanged
+          ? (hasDecisionIntent ? 'decision-change' : 'decision-cleared')
+          : (milestoneChanged ? 'milestone' : 'heartbeat'),
         runtimeState:runtime.state,
         snapshotAt:tickInput?.snapshotAt || tickInput?.at || schedulerAtIso,
+        portfolioCapacity:{
+          cashAvailable:serverCashAvailable,
+          equity:portfolioMetrics.equity,
+          openExposure:portfolioMetrics.openExposure,
+          remainingHeatRisk:Math.max(0, maxHeatRisk - portfolioHeat.risk),
+          openPositions:openTrades.length,
+          maxOpen:Number(settings.SIMULATION_MAX_OPEN),
+          maxActive:Number(settings.SIMULATION_MAX_ACTIVE_OPEN),
+          maxNewPerCycle:Number(settings.SIMULATION_MAX_NEW_PER_CYCLE),
+        },
+        rankedCandidates:(Array.isArray(tickInput?.candidates) ? tickInput.candidates : [])
+          .map(candidate => ({
+            symbol:candidate?.symbol,
+            side:candidate?.side || candidate?.signal,
+            score:candidate?.score,
+            decisionScore:candidate?.decisionScore ?? candidate?.entryContext?.decisionScore ?? null,
+            setupType:candidate?.derivedSetupType || candidate?.setupType || null,
+            selectionRank:candidate?.selectionRank ?? null,
+            topGainerRank:candidate?.topGainerRank ?? null,
+            topLoserRank:candidate?.topLoserRank ?? null,
+            selected:(entryIntents || []).some(intent => intent.symbol === candidate?.symbol),
+            rejectionReasons:candidate?.eligibilityAudit?.reasons || (candidate?.entryBlockReason ? [candidate.entryBlockReason] : []),
+          }))
+          .sort((a, b) => (a.selectionRank ?? Number.MAX_SAFE_INTEGER) - (b.selectionRank ?? Number.MAX_SAFE_INTEGER) || Math.abs(Number(b.decisionScore ?? b.score) || 0) - Math.abs(Number(a.decisionScore ?? a.score) || 0)),
         exitIntents:effectiveExitIntents.map(intent => ({ symbol:intent.symbol, action:intent.action || 'close', reason:intent.reason, exitPrice:intent.exitPrice, qtyPct:intent.qtyPct })),
+        scaleInIntents:(scaleInIntents || []).map(intent => ({
+          symbol:intent.symbol,
+          qty:intent.qty,
+          price:intent.price,
+          reason:intent.reason,
+          maxFavorablePct:intent.maxFavorablePct,
+        })),
         entryIntents:(entryIntents || []).map(intent => ({
           symbol:intent.symbol,
           side:intent.side,
@@ -2536,7 +3044,12 @@ async function runSimulationSchedulerTick() {
           scoreAudit:intent.entryContext?.scoreAudit || null,
           settingsFingerprint:intent.entryContext?.settingsFingerprint || null,
         })),
-      }, schedulerAtIso);
+      };
+      simulationLatestDecisionCycle = { ...decisionCycle, recordedAt:schedulerAtIso };
+      if (shouldJournalCycle) {
+        simulationLastCycleDecisionJournalAt = journalNow;
+        appendSimulationDecisionJournal('cycle_decisions', decisionCycle, schedulerAtIso);
+      }
 
       const exitBySymbol = new Map();
       for (const intent of effectiveExitIntents) {
@@ -2556,7 +3069,44 @@ async function runSimulationSchedulerTick() {
 
       const allowNewEntries = runtime.state !== 'settling' && isSimulationEntryWindowTime(schedulerAtIso);
       if (allowNewEntries) {
+        for (const intent of scaleInIntents || []) {
+          const trade = trades.find(row => row?.status === 'open' && row?.id === intent?.trade?.id);
+          if (!trade) continue;
+          const currentMetrics = TradeRules.computePortfolioEquity(state.portfolio, trades, 500000);
+          const intentExposure = Number(intent?.price) * Number(intent?.qty);
+          const grossLimit = currentMetrics.equity * (Math.max(0, Number(settings.SIMULATION_MAX_GROSS_EXPOSURE_PCT) || 80) / 100);
+          if (!Number.isFinite(intentExposure) || intentExposure <= 0 ||
+              intentExposure > currentMetrics.cashAvailable + 0.01 ||
+              currentMetrics.openExposure + intentExposure > grossLimit + 0.01) {
+            appendSimulationDecisionJournal('scale_in_blocked_atomic_limit', {
+              tradeId:trade.id,
+              symbol:trade.symbol,
+              requestedExposure:intentExposure,
+            }, schedulerAtIso);
+            continue;
+          }
+          changed = await scaleInMomentumRunnerFromIntent(trade, intent, schedulerAtIso) || changed;
+        }
         for (const intent of entryIntents || []) {
+          const currentOpen = trades.filter(trade => trade?.status === 'open');
+          const currentSimulationOpen = currentOpen.filter(trade => String(trade?.source || '').toLowerCase() === 'simulation');
+          const currentShorts = currentSimulationOpen.filter(trade => String(trade?.side || '').toLowerCase() === 'sell');
+          const maxOpen = Math.max(0, Math.floor(Number(settings.SIMULATION_MAX_OPEN) || 0));
+          const maxActive = Math.max(0, Math.floor(Number(settings.SIMULATION_MAX_ACTIVE_OPEN) || 0));
+          const maxShorts = Math.max(0, Math.floor(Number(settings.SIMULATION_MAX_CONCURRENT_SHORTS) || 4));
+          const currentMetrics = TradeRules.computePortfolioEquity(state.portfolio, trades, 500000);
+          const intentExposure = Number(intent?.price ?? intent?.entryPrice) * Number(intent?.qty);
+          const grossLimit = currentMetrics.equity * (Math.max(0, Number(settings.SIMULATION_MAX_GROSS_EXPOSURE_PCT) || 80) / 100);
+          let atomicBlock = '';
+          if (maxOpen > 0 && currentOpen.length >= maxOpen) atomicBlock = `atomic max-open limit ${currentOpen.length}/${maxOpen}`;
+          else if (maxActive > 0 && currentSimulationOpen.length >= maxActive) atomicBlock = `atomic active-position limit ${currentSimulationOpen.length}/${maxActive}`;
+          else if (String(intent?.side || '').toLowerCase() === 'sell' && maxShorts > 0 && currentShorts.length >= maxShorts) atomicBlock = `atomic concurrent-short limit ${currentShorts.length}/${maxShorts}`;
+          else if (!Number.isFinite(intentExposure) || intentExposure <= 0) atomicBlock = 'atomic exposure validation failed';
+          else if (currentMetrics.openExposure + intentExposure > grossLimit + 0.01) atomicBlock = `atomic gross-exposure limit ${Math.round(currentMetrics.openExposure + intentExposure)}/${Math.round(grossLimit)}`;
+          if (atomicBlock) {
+            appendSimulationDecisionJournal('entry_blocked_atomic_limit', { symbol:intent?.symbol, side:intent?.side, reason:atomicBlock }, schedulerAtIso);
+            continue;
+          }
           changed = await openTradeFromEntryIntent(trades, intent, schedulerAtIso) || changed;
         }
       }
@@ -2615,6 +3165,8 @@ async function runSimulationSchedulerTick() {
     return { ok: false, error: error?.message || String(error) };
   } finally {
     simulationTickInFlight = false;
+    simulationLastTickCompletedAt = Date.now();
+    schedulePendingSimulationTick();
   }
 }
 
@@ -2627,7 +3179,7 @@ function startSimulationScheduler(reason = 'manual-start') {
     })
     .catch(() => {});
   simulationSchedulerTimer = setInterval(() => {
-    runSimulationSchedulerTick().catch(() => {});
+    triggerSimulationTickAfterScoreUpdate('scheduler-interval', []);
   }, Math.max(1, simulationTickIntervalSec) * 1000);
   console.log(`[simulation-runtime] Scheduler started (${reason}) at ${simulationTickIntervalSec}s cadence`);
 }
@@ -2642,13 +3194,18 @@ function stopSimulationScheduler(reason = 'manual-stop') {
     simulationImmediateTickTimer = null;
   }
   simulationImmediateTickPending = false;
+  simulationImmediateTickReasons.clear();
+  simulationImmediateTickChangedSymbols.clear();
+  simulationOpenManagedTradeCount = 0;
+  simulationLastCycleDecisionSignature = '';
   simulationSettlingStartedAt = 0;
   console.log(`[simulation-runtime] Scheduler stopped (${reason})`);
 }
 
 function getSimulationRuntimeStatus() {
   const runtime = loadSimulationRuntime();
-  const settings = loadTradeSettingsFile().overrides || {};
+  const settings = SimulationEngine.withDefaults(loadTradeSettingsFile().overrides || {});
+  const settingsAudit = SimulationEngine.buildSettingsAuditSnapshot(settings);
   const asOf = new Date().toISOString();
   const now = Date.now();
   const symbolMetaBySymbol = getSimulationSymbolMetaIndex();
@@ -2680,8 +3237,21 @@ function getSimulationRuntimeStatus() {
     lastError: runtime.lastError || '',
     lockActive: mutationLockActive || simulationTickInFlight,
     schedulerActive: !!simulationSchedulerTimer,
+    schedulerDiagnostics: {
+      tickInFlight:simulationTickInFlight,
+      immediateTickPending:simulationImmediateTickPending,
+      queuedSymbolCount:simulationImmediateTickChangedSymbols.size,
+      openManagedTradeCount:simulationOpenManagedTradeCount,
+      activeMinIntervalMs:SIMULATION_ACTIVE_TICK_MIN_INTERVAL_MS,
+      idleMinIntervalMs:SIMULATION_IDLE_TICK_MIN_INTERVAL_MS,
+      lastTickStartedAt:simulationLastTickStartedAt || null,
+      lastTickCompletedAt:simulationLastTickCompletedAt || null,
+      lastCycleDecisionJournalAt:simulationLastCycleDecisionJournalAt || null,
+    },
     sharekhanHealth,
     dataQuality,
+    settings,
+    settingsFingerprint:SimulationEngine.stableAuditFingerprint(settingsAudit),
     ...counts,
   };
 }
@@ -2945,71 +3515,99 @@ function writeFileAtomicSync(file, data, options) {
   throw lastError;
 }
 
-function getSimulationSnapshotFile(dateKey = getIstDateKey()) {
-  return path.join(SIM_SNAPSHOT_DIR, `${SIM_SNAPSHOT_PREFIX}_${dateKey}.json.gz`);
-}
+let simulationSnapshotDatabase = null;
 
-function isSimulationSnapshotFileName(name) {
-  return /^simulation_snapshots_\d{4}-\d{2}-\d{2}\.json(?:\.gz)?$/.test(String(name || ''));
-}
-
-function listSimulationSnapshotFiles() {
-  try {
-    const dated = fs.existsSync(SIM_SNAPSHOT_DIR) ? fs.readdirSync(SIM_SNAPSHOT_DIR)
-      .filter(isSimulationSnapshotFileName)
-      .map(name => path.join(SIM_SNAPSHOT_DIR, name)) : [];
-    if (fs.existsSync(SIM_SNAPSHOT_FILE)) dated.push(SIM_SNAPSHOT_FILE);
-    if (fs.existsSync(SIM_SNAPSHOT_LEGACY_FILE)) dated.push(SIM_SNAPSHOT_LEGACY_FILE);
-    return dated;
-  } catch (e) {
-    console.warn('[simulation-snapshots] List error:', e.message);
-    return [SIM_SNAPSHOT_FILE, SIM_SNAPSHOT_LEGACY_FILE].filter(file => fs.existsSync(file));
+function getSimulationSnapshotDatabase() {
+  if (!simulationSnapshotDatabase) {
+    simulationSnapshotDatabase = createSnapshotDatabase({ dbPath:SIM_SNAPSHOT_DB_FILE });
   }
+  return simulationSnapshotDatabase;
 }
 
 function loadSimulationSnapshotsFile(dateKey = null) {
-  // Try compressed (.json.gz) first, fall back to uncompressed (.json)
-  const gzFile = dateKey ? getSimulationSnapshotFile(dateKey) : null;
-  const legacyFile = dateKey
-    ? path.join(SIM_SNAPSHOT_DIR, `${SIM_SNAPSHOT_PREFIX}_${dateKey}.json`)
-    : SIM_SNAPSHOT_FILE;
-  const file = (gzFile && fs.existsSync(gzFile)) ? gzFile
-    : (fs.existsSync(legacyFile) ? legacyFile : null);
   try {
-    if (!file) {
-      return { savedAt: Date.now(), retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: dateKey || null, snapshots: [] };
+    const store = getSimulationSnapshotDatabase();
+    const selectedDay = dateKey || store.latestDay();
+    if (selectedDay) {
+      const snapshots = store.loadDay(selectedDay);
+      if (snapshots.length) {
+        return {
+          savedAt:Date.now(),
+          retentionDays:SIM_SNAPSHOT_RETENTION_DAYS,
+          date:selectedDay,
+          snapshots,
+          storage:'sqlite',
+        };
+      }
     }
-    const buf = fs.readFileSync(file);
-    const text = file.endsWith('.gz') ? zlib.gunzipSync(buf).toString() : buf.toString('utf8');
-    const raw = JSON.parse(text || '{}');
-    return {
-      savedAt: Number(raw.savedAt) || Date.now(),
-      retentionDays: SIM_SNAPSHOT_RETENTION_DAYS,
-      date: raw.date || dateKey || null,
-      snapshots: Array.isArray(raw.snapshots) ? raw.snapshots : [],
-    };
   } catch (e) {
-    console.warn('[simulation-snapshots] Load error:', e.message);
-    return { savedAt: Date.now(), retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: dateKey || null, snapshots: [] };
+    console.warn('[simulation-snapshots] Database load error:', e.message);
   }
+  return { savedAt:Date.now(), retentionDays:SIM_SNAPSHOT_RETENTION_DAYS, date:dateKey || null, snapshots:[], storage:'sqlite' };
+}
+
+const simulationDayCloseCache = new Map();
+
+async function resolveSimulationDayClosePrice(symbol, tradeDay) {
+  const normalized = String(symbol || '').trim().toUpperCase();
+  const day = String(tradeDay || '');
+  if (!normalized || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const today = getIstDateKey();
+  const cached = simulationDayCloseCache.get(day);
+  const cacheFresh = cached && (day !== today || Date.now() - cached.loadedAt < 60000);
+  let dayState = cacheFresh ? cached : null;
+  if (!dayState) {
+    const snapshots = loadSimulationSnapshotsFile(day).snapshots
+      .filter(snapshot => getIstDateKey(snapshot?.at || snapshot?.savedAt) === day)
+      .sort((a, b) => new Date(a?.at || 0) - new Date(b?.at || 0));
+    const bySymbol = new Map();
+    for (const snapshot of snapshots) {
+      const rows = [
+        ...(Array.isArray(snapshot?.candidates) ? snapshot.candidates : []),
+        ...(Array.isArray(snapshot?.openSimulationTrades) ? snapshot.openSimulationTrades : []),
+      ];
+      for (const row of rows) {
+        const rowSymbol = String(row?.symbol || row?.sym || '').toUpperCase();
+        const price = Number(
+          row?.priceAtSnapshot
+          ?? row?.price
+          ?? row?.indicators?.price
+          ?? row?.quote?.regularMarketPrice
+          ?? row?.ohlc?.close
+        );
+        if (rowSymbol && price > 0) bySymbol.set(rowSymbol, { price, source:'simulation-closing-snapshot', at:snapshot.at || '' });
+      }
+    }
+    dayState = { loadedAt:Date.now(), latestAt:snapshots.at(-1)?.at || '', bySymbol };
+    simulationDayCloseCache.set(day, dayState);
+  }
+  if (!dayState.latestAt) return null;
+  const latestAt = dayState.latestAt;
+  if (day === getIstDateKey()) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone:'Asia/Kolkata',
+      hour:'2-digit',
+      minute:'2-digit',
+      hourCycle:'h23',
+    }).formatToParts(new Date(latestAt));
+    const hour = Number(parts.find(part => part.type === 'hour')?.value);
+    const minute = Number(parts.find(part => part.type === 'minute')?.value);
+    if (!Number.isFinite(hour) || hour * 60 + minute < 15 * 60 + 29) return null;
+  }
+  return dayState.bySymbol.get(normalized) || null;
 }
 
 function loadAllSimulationSnapshots() {
   if (Array.isArray(simulationSnapshotsForTests)) {
     return pruneSimulationSnapshots(simulationSnapshotsForTests).sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
   }
-  const all = [];
-  for (const file of listSimulationSnapshotFiles()) {
-    try {
-      const buf = fs.readFileSync(file);
-      const text = file.endsWith('.gz') ? zlib.gunzipSync(buf).toString() : buf.toString('utf8');
-      const raw = JSON.parse(text || '{}');
-      if (Array.isArray(raw.snapshots)) all.push(...raw.snapshots);
-    } catch (e) {
-      console.warn('[simulation-snapshots] Load file error:', path.basename(file), e.message);
-    }
+  try {
+    return pruneSimulationSnapshots(getSimulationSnapshotDatabase().loadAll())
+      .sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
+  } catch (e) {
+    console.warn('[simulation-snapshots] Database load-all error:', e.message);
+    return [];
   }
-  return pruneSimulationSnapshots(all).sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
 }
 
 function pruneSimulationSnapshots(snapshots) {
@@ -3018,39 +3616,6 @@ function pruneSimulationSnapshots(snapshots) {
     const t = new Date(s?.at || s?.savedAt || 0).getTime();
     return Number.isFinite(t) && t >= cutoff;
   });
-}
-
-function pruneSimulationSnapshotFiles() {
-  const cutoff = Date.now() - SIM_SNAPSHOT_TTL;
-  for (const file of listSimulationSnapshotFiles()) {
-    const name = path.basename(file);
-    if (!isSimulationSnapshotFileName(name)) continue;
-    const match = name.match(/(\d{4}-\d{2}-\d{2})/);
-    const t = match ? new Date(`${match[1]}T23:59:59+05:30`).getTime() : NaN;
-    if (Number.isFinite(t) && t < cutoff) {
-      try { fs.unlinkSync(file); } catch (e) { console.warn('[simulation-snapshots] Prune file error:', name, e.message); }
-    }
-  }
-}
-
-function saveSimulationSnapshotsFile(state, dateKey = getIstDateKey()) {
-  try {
-    const snapshots = pruneSimulationSnapshots(state?.snapshots || []);
-    if (!fs.existsSync(SIM_SNAPSHOT_DIR)) fs.mkdirSync(SIM_SNAPSHOT_DIR, { recursive: true });
-    const file = getSimulationSnapshotFile(dateKey);
-    const payload = JSON.stringify({ savedAt: Date.now(), retentionDays: SIM_SNAPSHOT_RETENTION_DAYS, date: dateKey, snapshots });
-    writeFileAtomicSync(file, zlib.gzipSync(payload));
-    // Remove legacy uncompressed file for the same day if it exists
-    const legacyFile = file.replace(/\.gz$/, '');
-    if (legacyFile !== file && fs.existsSync(legacyFile)) {
-      try { fs.unlinkSync(legacyFile); } catch (_) {}
-    }
-    pruneSimulationSnapshotFiles();
-    return snapshots;
-  } catch (e) {
-    console.warn('[simulation-snapshots] Save error:', e.message);
-    return null;
-  }
 }
 
 function setupStatsFromBacktest(result) {
@@ -3102,6 +3667,9 @@ function compactReplayResult(result) {
     setupStats:setupStatsFromBacktest(result),
     quality:result?.quality || null,
     dataQuality:result?.dataQuality || [],
+    dataQualitySummary:result?.dataQualitySummary || null,
+    replayConfidence:result?.replayConfidence || null,
+    replayReliability:result?.replayReliability || null,
     top:result?.top || [],
     bottom:result?.bottom || [],
   };
@@ -3426,20 +3994,40 @@ function fileMtime(file) {
 }
 
 function replaySnapshotVersion(day, mode) {
-  const files = mode === 'autotune' ? listSimulationSnapshotFiles() : [getSimulationSnapshotFile(day)];
-  const versionParts = files.map(file => `${path.basename(file)}:${fileMtime(file)}`);
+  const versionParts = [];
+  try {
+    const selectedDay = mode === 'autotune' ? null : day;
+    versionParts.push(`snapshot-db:${getSimulationSnapshotDatabase().version(selectedDay)}`);
+  } catch (e) {
+    versionParts.push(`snapshot-db-error:${e.message}`);
+  }
   const paperVersion = proxyDbReady ? String(getTradesUpdatedAt()) : String(fileMtime(PAPER_TRADES_FILE));
   versionParts.push(`paper:${paperVersion}`);
+  if (mode === 'report' && day) {
+    versionParts.push(`decisions:${fileMtime(path.join(SIM_DECISION_JOURNAL_DIR, `simulation_decisions_${day}.jsonl`))}`);
+  }
   return stableHash(versionParts);
 }
 
-const REPLAY_CACHE_SCHEMA_VERSION = 'v5';
+let replayEngineVersionCache = '';
+
+function replayEngineVersion() {
+  if (replayEngineVersionCache) return replayEngineVersionCache;
+  const files = [REPLAY_WORKER_FILE, path.join(__dirname, 'backtest_simulation.js'), path.join(__dirname, 'simulation_engine.js'), path.join(__dirname, 'trade_rules.js')];
+  const hash = crypto.createHash('sha256');
+  for (const file of files) hash.update(fs.readFileSync(file));
+  replayEngineVersionCache = hash.digest('hex').slice(0, 16);
+  return replayEngineVersionCache;
+}
+
+const REPLAY_CACHE_SCHEMA_VERSION = 'v6';
 
 function replayCacheKey(day, mode, settings) {
   return [
     day || getIstDateKey(),
     mode || 'report',
     REPLAY_CACHE_SCHEMA_VERSION,
+    replayEngineVersion(),
     replaySnapshotVersion(day, mode),
     stableHash(settings),
   ].join('|');
@@ -3450,6 +4038,7 @@ function replayActiveJobKey(day, mode, settings) {
     day || getIstDateKey(),
     mode || 'report',
     REPLAY_CACHE_SCHEMA_VERSION,
+    replayEngineVersion(),
     stableHash(settings),
   ].join('|');
 }
@@ -3525,12 +4114,22 @@ function loadActualTradesForDay(day) {
 }
 
 function buildReplayResponse(day, options = {}) {
-  const settings = Backtest.loadSettings({ day });
   const mode = options.sweep ? 'sweep' : 'report';
+  const snapshots = readReplaySnapshotsForDay(day);
+  const settings = Backtest.loadSettings({ day, snapshots });
+  if (mode === 'report') {
+    const exact = Backtest.loadRecordedDecisionCyclesFromSnapshots(snapshots);
+    const recorded = exact.size ? exact : Backtest.alignRecordedDecisionCycles(
+      snapshots,
+      Backtest.loadRecordedDecisionCycles(day),
+      settings.REPLAY_RECORDED_MAX_ALIGNMENT_MIN || 6
+    );
+    if (recorded.size) settings.__recordedDecisionCycles = recorded;
+    settings.REPLAY_RECORDED_SOURCE = exact.size ? 'snapshot-keyed' : 'journal-aligned';
+  }
   const cacheKey = replayCacheKey(day, mode, settings);
   const cached = getCachedReplay(cacheKey);
   if (cached) return { ...cached, cached:true };
-  const snapshots = readReplaySnapshotsForDay(day);
   const result = compactReplayResult(Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings));
   const response = {
     ok:true,
@@ -3546,13 +4145,13 @@ function buildReplayResponse(day, options = {}) {
 }
 
 function buildReplayAutoTuneResponse(day) {
-  const settings = Backtest.loadSettings({ day });
-  const cacheKey = replayCacheKey(day, 'autotune', settings);
-  const cached = getCachedReplay(cacheKey);
-  if (cached) return { ...cached, cached:true };
   const all = loadAllSimulationSnapshots();
   const days = [...new Set(all.map(s => getIstDateKey(s.at)).filter(Boolean))].sort().slice(-5);
   const recent = all.filter(s => days.includes(getIstDateKey(s.at)));
+  const settings = Backtest.loadSettings({ day, snapshots:recent });
+  const cacheKey = replayCacheKey(day, 'autotune', settings);
+  const cached = getCachedReplay(cacheKey);
+  if (cached) return { ...cached, cached:true };
   return setCachedReplay(cacheKey, {
     ok:true,
     date:day,
@@ -3563,7 +4162,8 @@ function buildReplayAutoTuneResponse(day) {
 }
 
 function buildReplayDeepSweepResponse(day, options = {}) {
-  const settings = Backtest.loadSettings({ day });
+  const snapshots = readReplaySnapshotsForDay(day);
+  const settings = Backtest.loadSettings({ day, snapshots });
   const cacheKey = replayCacheKey(day, 'deep_sweep', settings);
   const cached = getCachedReplay(cacheKey);
   if (cached) return { ...cached, cached:true };
@@ -3578,7 +4178,6 @@ function buildReplayDeepSweepResponse(day, options = {}) {
       message:'Post-market deep sweep cache not ready yet.',
     };
   }
-  const snapshots = readReplaySnapshotsForDay(day);
   const result = compactReplayResult(Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings));
   const response = {
     ok:true,
@@ -3598,7 +4197,18 @@ function replayModeFromParams(params) {
 }
 
 function getReplayCacheForMode(day, mode) {
-  const settings = Backtest.loadSettings({ day });
+  const snapshots = mode === 'autotune' ? loadAllSimulationSnapshots() : readReplaySnapshotsForDay(day);
+  const settings = Backtest.loadSettings({ day, snapshots });
+  if (mode === 'report') {
+    const exact = Backtest.loadRecordedDecisionCyclesFromSnapshots(snapshots);
+    const recorded = exact.size ? exact : Backtest.alignRecordedDecisionCycles(
+      snapshots,
+      Backtest.loadRecordedDecisionCycles(day),
+      settings.REPLAY_RECORDED_MAX_ALIGNMENT_MIN || 6
+    );
+    if (recorded.size) settings.__recordedDecisionCycles = recorded;
+    settings.REPLAY_RECORDED_SOURCE = exact.size ? 'snapshot-keyed' : 'journal-aligned';
+  }
   const cacheKey = replayCacheKey(day, mode, settings);
   const activeKey = replayActiveJobKey(day, mode, settings);
   return { settings, cacheKey, activeKey, cached:getCachedReplay(cacheKey) };
@@ -3821,20 +4431,28 @@ function sanitizeSimulationSnapshot(payload) {
   const candidates = raw
     .sort((a, b) => Math.abs(Number(b.score) || 0) - Math.abs(Number(a.score) || 0))
     .slice(0, 200);
+  const at = new Date().toISOString();
+  const decisionCycle = payload.decisionCycle && typeof payload.decisionCycle === 'object'
+    ? { ...payload.decisionCycle, sourceSnapshotAt:payload.decisionCycle.snapshotAt || null, snapshotAt:at }
+    : null;
   return {
     schemaVersion: 2,
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    at: new Date().toISOString(),
+    at,
     source: String(payload.source || 'intraday-refresh'),
     dataSource: String(payload.dataSource || ''),
     currentView: String(payload.currentView || ''),
     simulationState: String(payload.simulationState || ''),
     caps: payload.caps && typeof payload.caps === 'object' ? payload.caps : {},
+    settingsFingerprint:String(payload.settingsFingerprint || ''),
     dayStats: payload.dayStats && typeof payload.dayStats === 'object' ? payload.dayStats : {},
+    portfolio:payload.portfolio && typeof payload.portfolio === 'object' ? payload.portfolio : {},
     market: payload.market && typeof payload.market === 'object' ? payload.market : {},
     sectorTrend: payload.sectorTrend && typeof payload.sectorTrend === 'object' ? payload.sectorTrend : {},
     openSimulationTrades: Array.isArray(payload.openSimulationTrades) ? payload.openSimulationTrades.slice(0, 20) : [],
     outcomeSummary: payload.outcomeSummary && typeof payload.outcomeSummary === 'object' ? payload.outcomeSummary : {},
+    rankedCandidates:Array.isArray(payload.rankedCandidates) ? payload.rankedCandidates.slice(0, 1000) : [],
+    decisionCycle,
     candidates,
     candidateCount: Number.isFinite(Number(payload.candidateCount)) ? Number(payload.candidateCount) : candidates.length,
   };
@@ -3843,14 +4461,57 @@ function sanitizeSimulationSnapshot(payload) {
 function appendSimulationSnapshot(payload) {
   const snapshot = sanitizeSimulationSnapshot(payload || {});
   const day = getIstDateKey(snapshot.at || Date.now());
-  const state = loadSimulationSnapshotsFile(day);
-  state.snapshots.push(snapshot);
-  const snapshots = saveSimulationSnapshotsFile(state, day);
-  if (!Array.isArray(snapshots)) throw new Error('Failed to persist snapshot file');
-  const verifyState = loadSimulationSnapshotsFile(day);
-  const persisted = Array.isArray(verifyState.snapshots) && verifyState.snapshots.some(s => s && s.id === snapshot.id);
-  if (!persisted) throw new Error('Snapshot write verification failed');
-  return { day, snapshots, snapshot };
+  const store = getSimulationSnapshotDatabase();
+  const result = store.appendSnapshot(day, snapshot, SIM_SNAPSHOT_BUCKET_MS);
+  store.prune(SIM_SNAPSHOT_RETENTION_DAYS);
+  if (!result.changed) throw new Error('Snapshot database write was not applied');
+  return { day, count:result.count, snapshot, storage:'sqlite' };
+}
+
+const SIM_SNAPSHOT_BUCKET_MS = 2 * 60 * 1000;
+let simulationSnapshotWriterBusy = false;
+let simulationSnapshotPendingWrite = null;
+
+function startQueuedSimulationSnapshotWrite() {
+  if (simulationSnapshotWriterBusy || !simulationSnapshotPendingWrite) return;
+  const pending = simulationSnapshotPendingWrite;
+  simulationSnapshotPendingWrite = null;
+  simulationSnapshotWriterBusy = true;
+  const worker = new Worker(path.join(__dirname, 'server', 'snapshot-writer-worker.js'), {
+    workerData: {
+      dbFile:SIM_SNAPSHOT_DB_FILE,
+      date:pending.day,
+      snapshot:pending.snapshot,
+      retentionDays:SIM_SNAPSHOT_RETENTION_DAYS,
+      bucketMs:SIM_SNAPSHOT_BUCKET_MS,
+    },
+  });
+  let settled = false;
+  const finish = result => {
+    if (settled) return;
+    settled = true;
+    simulationSnapshotWriterBusy = false;
+    if (result?.ok) {
+      console.log(`[simulation-snapshots] Database write complete: ${result.count} snapshots, ${result.bytes} compressed bytes, ${result.durationMs}ms`);
+    } else {
+      console.warn('[simulation-snapshots] Background write failed:', result?.error || 'worker exited');
+    }
+    startQueuedSimulationSnapshotWrite();
+  };
+  worker.once('message', finish);
+  worker.once('error', error => finish({ ok:false, error:error.message }));
+  worker.once('exit', code => {
+    if (code !== 0) finish({ ok:false, error:`worker exited with code ${code}` });
+  });
+}
+
+function queueSimulationSnapshotWrite(payload) {
+  const snapshot = sanitizeSimulationSnapshot(payload || {});
+  const day = getIstDateKey(snapshot.at || Date.now());
+  // Snapshot history is point-in-time evidence. If a write is already running,
+  // retain only the newest pending point instead of allowing an unbounded queue.
+  simulationSnapshotPendingWrite = { day, snapshot };
+  startQueuedSimulationSnapshotWrite();
 }
 
 async function persistServerSimulationSnapshot(source = 'intraday-live-refresh', changedSymbols = []) {
@@ -3859,19 +4520,49 @@ async function persistServerSimulationSnapshot(source = 'intraday-live-refresh',
     const overrideSettings = loadTradeSettingsFile().overrides || {};
      const settings = SimulationEngine.withDefaults ? SimulationEngine.withDefaults(overrideSettings) : overrideSettings;
     const symbolMetaBySymbol = getSimulationSymbolMetaIndex();
-    const candidates = selectServerSnapshotCandidates(
-      buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol),
-      100,
-      50
-    );
+    const allCandidates = buildSchedulerCandidatesFromIntradayCache(settings, symbolMetaBySymbol);
+    const sectorTrend = buildSectorTrendFromCandidates(allCandidates);
+    const sectorStats = SimulationEngine.buildSectorPriorityStats(allCandidates);
+    for (const candidate of allCandidates) {
+      SimulationEngine.applySectorPriority(candidate, sectorStats, { sectorTrend }, settings);
+    }
+    const candidates = selectServerSnapshotCandidates(allCandidates);
+    const selectedKeys = new Set(candidates.map(candidate => `${String(candidate?.symbol || '').toUpperCase()}|${String(candidate?.side || candidate?.signal || '').toLowerCase()}`));
+    const rankedCandidates = allCandidates
+      .slice()
+      .sort((left, right) => Math.abs(Number(right?.score) || 0) - Math.abs(Number(left?.score) || 0))
+      .map((candidate, index) => ({
+        symbol:String(candidate?.symbol || '').toUpperCase(),
+        side:String(candidate?.side || candidate?.signal || '').toLowerCase(),
+        assetType:String(candidate?.assetType || 'stock').toLowerCase(),
+        setupType:candidate?.derivedSetupType || candidate?.setupType || candidate?.indicators?.setupType || null,
+        score:Number(candidate?.score) || 0,
+        rank:index + 1,
+        selected:selectedKeys.has(`${String(candidate?.symbol || '').toUpperCase()}|${String(candidate?.side || candidate?.signal || '').toLowerCase()}`),
+        blockReason:candidate?.blockReason || candidate?.entryBlockReason || candidate?.indicators?.blockReason || '',
+      }));
+    const managementCandidateBySymbol = new Map(allCandidates.map(candidate => [
+      String(candidate?.symbol || '').toUpperCase(),
+      candidate,
+    ]));
     const market = await getSimulationMarketContext();
-    const sectorTrend = buildSectorTrendFromCandidates(candidates);
-    const trades = loadPaperStateFile().trades || [];
+    const paperState = loadPaperStateFile();
+    const trades = paperState.trades || [];
+    const snapshotAt = new Date().toISOString();
+    const dayStats = TradeRules.buildDayStats(trades, snapshotAt, settings, { sameDay:sameIstDay });
+    const portfolioMetrics = TradeRules.computePortfolioEquity(paperState.portfolio, trades, 500000);
+    const allTimeRealizedPnl = Number.isFinite(Number(paperState.portfolio?.realizedPnl))
+      ? Number(paperState.portfolio.realizedPnl)
+      : portfolioMetrics.realized;
+    const snapshotEquity = portfolioMetrics.capital + allTimeRealizedPnl;
+    const snapshotCashAvailable = Math.max(0, snapshotEquity - portfolioMetrics.openExposure);
     const openSimulationTrades = trades
       .filter(trade => trade?.status === 'open' && String(trade?.source || '').toLowerCase() === 'simulation')
       .slice(0, 20)
       .map(trade => {
-        const setup = intradayLiveCache.get(String(trade?.symbol || '').toUpperCase()) || {};
+        const symbol = String(trade?.symbol || '').toUpperCase();
+        const setup = intradayLiveCache.get(symbol) || {};
+        const managementCandidate = managementCandidateBySymbol.get(symbol) || trade?.managementCandidate || null;
         return {
           symbol: trade.symbol,
           side: trade.side,
@@ -3883,15 +4574,25 @@ async function persistServerSimulationSnapshot(source = 'intraday-live-refresh',
           target: trade.target,
           stop: trade.stop,
           openedAt: trade.openedAt,
+          managementCandidate:SimulationEngine.buildManagementCandidateSnapshot(managementCandidate),
         };
       });
-    appendSimulationSnapshot({
+    queueSimulationSnapshotWrite({
       source: `server-${source || 'intraday-live-refresh'}`,
       dataSource: 'server',
       currentView: 'server',
       simulationState: runtime.state,
       caps: settings,
-      dayStats: {},
+      settingsFingerprint:SimulationEngine.stableAuditFingerprint(SimulationEngine.buildSettingsAuditSnapshot(settings)),
+      dayStats,
+      portfolio:{
+        at:snapshotAt,
+        capital:portfolioMetrics.capital,
+        equity:snapshotEquity,
+        cashAvailable:snapshotCashAvailable,
+        openExposure:portfolioMetrics.openExposure,
+        realizedPnl:allTimeRealizedPnl,
+      },
       market,
       sectorTrend,
       openSimulationTrades,
@@ -3899,6 +4600,8 @@ async function persistServerSimulationSnapshot(source = 'intraday-live-refresh',
         changedSymbols: Array.isArray(changedSymbols) ? changedSymbols.slice(0, 100) : [],
       },
       candidates,
+      rankedCandidates,
+      decisionCycle:simulationLatestDecisionCycle,
       candidateCount: candidates.length,
     });
   } catch (e) {
@@ -5777,7 +6480,12 @@ function computeVolumeShockMetrics(rawHighs, rawLows, rawCloses, rawVolumes, tim
   const volume5 = sumVol(last5);
   const avgPrev3 = prev9.length ? sumVol(prev9) / Math.max(1, prev9.length / 3) : null;
   const avgPrev5 = prev20.length ? sumVol(prev20) / Math.max(1, prev20.length / 5) : null;
-  const recentHigh = bars.slice(0, -1).slice(-20).reduce((max, b) => Math.max(max, b.high), -Infinity);
+  const priorImpulseBars = bars.slice(0, -1).slice(-20);
+  const recentHighBar = priorImpulseBars.reduce(
+    (best, bar) => !best || Number(bar.high) > Number(best.high) ? bar : best,
+    null
+  );
+  const recentHigh = Number(recentHighBar?.high);
   const breakout = Number.isFinite(recentHigh) && last.close > recentHigh;
   const change3m = pctFrom(3);
   const change5m = pctFrom(5);
@@ -5799,10 +6507,90 @@ function computeVolumeShockMetrics(rawHighs, rawLows, rawCloses, rawVolumes, tim
     volumeRatio3m: Number.isFinite(volumeRatio3m) ? +volumeRatio3m.toFixed(2) : null,
     volumeRatio5m: Number.isFinite(volumeRatio5m) ? +volumeRatio5m.toFixed(2) : null,
     recentHigh: Number.isFinite(recentHigh) ? +recentHigh.toFixed(2) : null,
+    recentHighAt: recentHighBar?.time || null,
     breakout,
     vwapExtensionPct: Number.isFinite(vwapExtensionPct) ? +vwapExtensionPct.toFixed(2) : null,
     dayChangePct: Number.isFinite(dayChangePct) ? +dayChangePct.toFixed(2) : null,
     detectedAt: last.time,
+  };
+}
+
+function computeRangeboundMetrics(rawHighs, rawLows, rawCloses, timestamps, lastBarIdx, livePrice, options = {}) {
+  const windowMin = Math.max(5, Number(options.windowMin) || 45);
+  const barsNeeded = Math.max(3, Math.ceil(windowMin / 5));
+  const minRangePct = Math.max(0, Number(options.minRangePct) || 0.75);
+  const maxLowerDistancePct = Math.max(0, Number(options.maxLowerDistancePct) || 0.15);
+  const minTouches = Math.max(1, Math.floor(Number(options.minTouches) || 2));
+  const minMidpointCrosses = Math.max(1, Math.floor(Number(options.minMidpointCrosses) || 2));
+  const touchFraction = 0.2;
+  const bars = [];
+  for (let i = lastBarIdx; i >= 0 && bars.length < barsNeeded; i--) {
+    const high = Number(rawHighs[i]);
+    const low = Number(rawLows[i]);
+    const close = Number(rawCloses[i]);
+    const timeMs = Number(timestamps?.[i]) * 1000;
+    if (![high, low, close].every(value => Number.isFinite(value) && value > 0) ||
+        high < Math.max(low, close) || !Number.isFinite(timeMs)) continue;
+    bars.push({ high, low, close, timeMs });
+  }
+  bars.reverse();
+  if (bars.length < barsNeeded) {
+    return {
+      detected:false,
+      atLower:false,
+      windowMin:bars.length * 5,
+      bars:bars.length,
+      lower:null,
+      upper:null,
+      rangePct:null,
+      lowerDistancePct:null,
+      lowerTouches:0,
+      upperTouches:0,
+      midpointCrosses:0,
+    };
+  }
+  const actualWindowMin = (bars.at(-1).timeMs - bars[0].timeMs) / 60000 + 5;
+  const lower = Math.min(...bars.map(bar => bar.low));
+  const upper = Math.max(...bars.map(bar => bar.high));
+  const width = upper - lower;
+  const rangePct = lower > 0 ? width / lower * 100 : null;
+  const lowerCeiling = lower + width * touchFraction;
+  const upperFloor = upper - width * touchFraction;
+  const lowerTouches = bars.filter(bar => bar.low <= lowerCeiling).length;
+  const upperTouches = bars.filter(bar => bar.high >= upperFloor).length;
+  const midpoint = lower + width / 2;
+  let midpointCrosses = 0;
+  let priorSide = 0;
+  for (const bar of bars) {
+    const side = bar.close > midpoint ? 1 : (bar.close < midpoint ? -1 : 0);
+    if (!side) continue;
+    if (priorSide && side !== priorSide) midpointCrosses += 1;
+    priorSide = side;
+  }
+  const price = Number(livePrice);
+  const lowerDistancePct = Number.isFinite(price) && price > 0 && lower > 0
+    ? (price - lower) / lower * 100
+    : null;
+  const contiguousWindow = actualWindowMin >= windowMin && actualWindowMin <= windowMin + 10;
+  const detected = contiguousWindow &&
+    Number.isFinite(rangePct) && rangePct >= minRangePct &&
+    lowerTouches >= minTouches && upperTouches >= minTouches &&
+    midpointCrosses >= minMidpointCrosses;
+  const atLower = detected && Number.isFinite(lowerDistancePct) &&
+    lowerDistancePct >= -0.1 && lowerDistancePct <= maxLowerDistancePct;
+  return {
+    detected,
+    atLower,
+    windowMin:+actualWindowMin.toFixed(1),
+    bars:bars.length,
+    lower:+lower.toFixed(2),
+    upper:+upper.toFixed(2),
+    midpoint:+midpoint.toFixed(2),
+    rangePct:Number.isFinite(rangePct) ? +rangePct.toFixed(3) : null,
+    lowerDistancePct:Number.isFinite(lowerDistancePct) ? +lowerDistancePct.toFixed(3) : null,
+    lowerTouches,
+    upperTouches,
+    midpointCrosses,
   };
 }
 
@@ -5890,8 +6678,10 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     const openPrice = Number(meta.regularMarketOpen) || closes[0];
     const lastClose = closes[closes.length - 1];
     const prevBarClose = closes.length > 1 ? closes[closes.length - 2] : lastClose;
+    const ema5 = ema(closes, 5);
     const ema9 = ema(closes, 9);
     const ema20 = ema(closes, 20);
+    const rsi7 = rsi(closes, 7);
     const rsi14 = rsi(closes, 14);
     const vwap = computeVWAP(highs, lows, closes, volumes);
     const atr14 = atr(highs, lows, closes, 14) || (price * 0.006);
@@ -5945,6 +6735,21 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     },
     previousClose: round2(prevClose),
   };
+  const rangebound = computeRangeboundMetrics(
+    rawHighs,
+    rawLows,
+    rawCloses,
+    timestamps,
+    lastBarIdx,
+    price,
+    {
+      windowMin:TradeRules.DEFAULT_SETTINGS.SIMULATION_RANGEBOUND_WINDOW_MIN,
+      minRangePct:TradeRules.DEFAULT_SETTINGS.SIMULATION_RANGEBOUND_MIN_RANGE_PCT,
+      maxLowerDistancePct:TradeRules.DEFAULT_SETTINGS.SIMULATION_RANGEBOUND_MAX_LOWER_DISTANCE_PCT,
+      minTouches:TradeRules.DEFAULT_SETTINGS.SIMULATION_RANGEBOUND_MIN_TOUCHES_PER_SIDE,
+      minMidpointCrosses:TradeRules.DEFAULT_SETTINGS.SIMULATION_RANGEBOUND_MIN_MIDPOINT_CROSSES,
+    }
+  );
   const expectedVolumeFraction = expectedIntradayVolumeFraction(latestBar?.time);
   const relVolumeTimeAdjusted = dailyContext.avgVolume20 && expectedVolumeFraction
     ? dayVolume / Math.max(1, dailyContext.avgVolume20 * expectedVolumeFraction)
@@ -5956,6 +6761,34 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     else gapQuality = price <= openPrice ? 'gap-down weak' : 'gap-down recovering';
   }
 
+  // Lower-weight warm-up evidence for the period before EMA20, RSI14 and
+  // SuperTrend are all ready. The simulation engine still owns entry safety:
+  // completed-candle confirmation, post-confirmation volume, trigger/VWAP hold
+  // and the global 0.60%/0.80% extension limits remain mandatory.
+  const lastThreeCloses = closes.slice(-3);
+  const lastThreeLows = lows.slice(-3);
+  const higherCloses = lastThreeCloses.length === 3 &&
+    lastThreeCloses[0] < lastThreeCloses[1] && lastThreeCloses[1] < lastThreeCloses[2];
+  const higherLows = lastThreeLows.length === 3 &&
+    lastThreeLows[0] < lastThreeLows[1] && lastThreeLows[1] < lastThreeLows[2];
+  const earlyEmaBullish = ema5 != null && (ema9 != null ? ema5 > ema9 : price > ema5);
+  const earlyRsiHealthy = rsi7 == null || (rsi7 >= 52 && rsi7 <= 78);
+  const earlyFreshVolume = volumeSpike || !!volumeShock?.isShock ||
+    Number(volumeShock?.volumeRatio3m) >= 1 || Number(volumeShock?.volumeRatio5m) >= 1;
+  const earlyTrigger = openingHigh;
+  const earlyTriggerExtensionPct = Number.isFinite(earlyTrigger) && earlyTrigger > 0
+    ? ((price - earlyTrigger) / earlyTrigger) * 100
+    : null;
+  const earlyVwapExtensionPct = Number.isFinite(vwap) && vwap > 0
+    ? ((price - vwap) / vwap) * 100
+    : null;
+  const earlyWarmup = ema20 == null || rsi14 == null || !st?.direction;
+  const earlyMomentumActive = earlyWarmup &&
+    Number.isFinite(earlyTriggerExtensionPct) && earlyTriggerExtensionPct >= 0 && earlyTriggerExtensionPct <= 0.6 &&
+    Number.isFinite(earlyVwapExtensionPct) && earlyVwapExtensionPct >= 0 && earlyVwapExtensionPct <= 0.8 &&
+    price > vwap && price > openingHigh && earlyEmaBullish && higherCloses && higherLows &&
+    earlyRsiHealthy && earlyFreshVolume;
+
   let score = 0;
   const reasons = [];
   if (vwap != null) {
@@ -5966,14 +6799,23 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     if (ema9 > ema20) { score += 16; reasons.push('EMA 9 above EMA 20'); }
     else { score -= 16; reasons.push('EMA 9 below EMA 20'); }
   }
+  if (earlyMomentumActive && ema20 == null) {
+    score += 8;
+    reasons.push(ema9 != null ? 'Early EMA 5 above EMA 9' : 'Early price above EMA 5');
+  }
   if (st?.direction === 'bullish') { score += 14; reasons.push('SuperTrend bullish'); }
   else if (st?.direction === 'bearish') { score -= 14; reasons.push('SuperTrend bearish'); }
+  else if (earlyMomentumActive) { score += 7; reasons.push('Early higher-close trend'); }
   if (rsi14 != null) {
     if (rsi14 >= 55 && rsi14 <= 75) { score += 10; reasons.push('RSI bullish'); }
     else if (rsi14 >= 25 && rsi14 <= 45) { score -= 10; reasons.push('RSI weak'); }
     else if (rsi14 > 82) { score -= 15; reasons.push('RSI extremely stretched'); }
     else if (rsi14 > 75) { score -= 8; reasons.push('RSI stretched'); }
     else if (rsi14 < 20) { score += 5; reasons.push('RSI oversold bounce zone'); }
+  }
+  if (earlyMomentumActive && rsi14 == null && rsi7 != null) {
+    score += 5;
+    reasons.push('Early RSI 7 bullish');
   }
   if (openingHigh != null && price > openingHigh) { score += 8; reasons.push('Opening range breakout'); }
   if (openingLow != null && price < openingLow) { score -= 8; reasons.push('Opening range breakdown'); }
@@ -6035,22 +6877,44 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     reasons.push(gapExhaustion.reason);
   }
 
-  const signal = score >= 35 ? 'buy' : score <= -35 ? 'sell' : Math.abs(score) >= 18 ? 'watch' : 'hold';
+  if (rangebound.detected) {
+    score = Math.max(score, TradeRules.DEFAULT_SETTINGS.SIMULATION_RANGEBOUND_MIN_SCORE);
+    reasons.unshift(`Rangebound ${rangebound.lower.toFixed(2)}-${rangebound.upper.toFixed(2)} (${rangebound.rangePct.toFixed(2)}%)`);
+  }
+  const signal = rangebound.detected
+    ? 'buy'
+    : (score >= 35 ? 'buy' : score <= -35 ? 'sell' : Math.abs(score) >= 18 ? 'watch' : 'hold');
   const rawTradeRisk = Math.max(atr14 * 1.25, price * (MIN_INTRADAY_REWARD_PCT / 100));
   const tradeRisk = Math.min(rawTradeRisk, price * (MAX_INTRADAY_REWARD_PCT / 100));
   const rawStopRisk = Math.max(atr14 * 0.8, price * (MIN_INTRADAY_STOP_PCT / 100));
   const stopRisk = Math.min(rawStopRisk, price * (MAX_INTRADAY_STOP_PCT / 100));
-  const bullish = score >= 0;
-  const target = price + (bullish ? tradeRisk : -tradeRisk);
-  const stop = price - (bullish ? stopRisk : -stopRisk);
+  const bullish = signal !== 'sell';
+  let target = price + (bullish ? tradeRisk : -tradeRisk);
+  let stop = price - (bullish ? stopRisk : -stopRisk);
+  if (rangebound.detected) {
+    target = rangebound.upper;
+    stop = rangebound.lower * (1 - 0.25 / 100);
+  }
   const reward = Math.abs(target - price);
   const risk = Math.abs(price - stop);
   let entryTrigger = 'Wait for clear VWAP/pivot confirmation';
   let invalidation = stop ? `Invalid below ${stop.toFixed(2)}` : 'Invalid on setup failure';
   let entryPrice = null;
   let entryStatus = 'Wait';
-  if (signal === 'buy') {
-    const trigger = Math.max(openingHigh || 0, dailyContext.prevDayHigh || 0, dailyContext.pivot || 0);
+  if (rangebound.detected) {
+    entryPrice = rangebound.lower;
+    entryTrigger = `Buy near lower range ${rangebound.lower.toFixed(2)}; upper range ${rangebound.upper.toFixed(2)}`;
+    invalidation = `Invalid below ${stop.toFixed(2)} or on range breakdown`;
+    entryStatus = rangebound.atLower
+      ? 'Triggered'
+      : (Number(rangebound.lowerDistancePct) <=
+        TradeRules.DEFAULT_SETTINGS.SIMULATION_RANGEBOUND_MAX_LOWER_DISTANCE_PCT + 0.2
+          ? 'Near trigger'
+          : 'Wait');
+  } else if (signal === 'buy') {
+    const trigger = earlyMomentumActive
+      ? openingHigh
+      : Math.max(openingHigh || 0, dailyContext.prevDayHigh || 0, dailyContext.pivot || 0);
     entryPrice = trigger || price;
     entryTrigger = `Buy above ${trigger ? trigger.toFixed(2) : price.toFixed(2)} with VWAP hold`;
     invalidation = `Invalid below ${stop.toFixed(2)} or VWAP loss`;
@@ -6098,8 +6962,10 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     vwapBandPosition: vwapBands?.position || null,
     superTrend: st?.value == null ? null : +st.value.toFixed(2),
     superTrendDirection: st?.direction || null,
+    ema5: ema5 == null ? null : +ema5.toFixed(2),
     ema9: ema9 == null ? null : +ema9.toFixed(2),
     ema20: ema20 == null ? null : +ema20.toFixed(2),
+    rsi7: rsi7 == null ? null : +rsi7.toFixed(1),
     rsi: rsi14 == null ? null : +rsi14.toFixed(1),
     atr: atr14 == null ? null : +atr14.toFixed(2),
     openingHigh: openingHigh == null ? null : +openingHigh.toFixed(2),
@@ -6110,6 +6976,19 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     relVolumeTimeAdjusted: relVolumeTimeAdjusted == null ? null : +relVolumeTimeAdjusted.toFixed(2),
     expectedVolumeFraction: expectedVolumeFraction == null ? null : +expectedVolumeFraction.toFixed(3),
     volumeShock,
+    rangebound,
+    earlyMomentum: {
+      active: earlyMomentumActive,
+      warmup: earlyWarmup,
+      trigger: earlyTrigger == null ? null : +earlyTrigger.toFixed(2),
+      triggerExtensionPct: earlyTriggerExtensionPct == null ? null : +earlyTriggerExtensionPct.toFixed(2),
+      vwapExtensionPct: earlyVwapExtensionPct == null ? null : +earlyVwapExtensionPct.toFixed(2),
+      emaBullish: earlyEmaBullish,
+      higherCloses,
+      higherLows,
+      rsiHealthy: earlyRsiHealthy,
+      freshVolume: earlyFreshVolume,
+    },
     gapPct,
     gapQuality,
     prevDayHigh: dailyContext.prevDayHigh ?? null,
@@ -6236,9 +7115,10 @@ async function pushSharekhanTickerCandles(sym, candles) {
     intradaySignalCache[sym] = { v: signal, t: now };
     const nextValue = normalizeIntradayLiveSignal(sym, signal);
     const prev = intradayLiveCache.get(sym);
+    const lastBroadcastAt = Number(prev?._lastBroadcastAt) || 0;
+    nextValue._lastBroadcastAt = lastBroadcastAt;
     intradayLiveCache.set(sym, nextValue);
     // Broadcast if data changed OR if >30s since last broadcast (keeps fetchedAt fresh in browser)
-    const lastBroadcastAt = nextValue._lastBroadcastAt || 0;
     if (hasIntradaySignalMaterialChange(prev, nextValue) || now - lastBroadcastAt > 30000) {
       nextValue._lastBroadcastAt = now;
       broadcastIntradayLive('sharekhan-ws-tick', [sym]);
@@ -6849,7 +7729,7 @@ async function yahooIndices() {
     if (r.status === 'fulfilled' && r.value?.data) {
       const q   = chartToQuote(r.value.sym, r.value.data);
       const key = INDEX_MAP[r.value.sym];
-      if (q && key) out[key] = { price: q.price, change: q.change };
+      if (q && key) out[key] = { price: q.price, change: q.change, previousClose:q.prevClose };
     }
   }
   return out;
@@ -8010,6 +8890,7 @@ async function proxyRequestHandler(req, res) {
     validBrokerModes:VALID_BROKER_MODES,
     hasLiveTradeConfirmation,
     buildZerodhaDryRunOrder,
+    prepareManualTradeEntryPayload,
     normalizeTradeOwnership,
     getTradeOwnershipContext,
     loadTradeSettingsFile,
@@ -8100,12 +8981,22 @@ async function proxyRequestHandler(req, res) {
     broadcastPaperTradeState,
     getSimulationRuntimeStatus,
     buildServerSimulationAnalysisPayload,
+    writeSseEvent,
+    analysisStreamRefreshMs:DEFAULT_SIMULATION_TICK_INTERVAL_SEC * 1000,
     snapshotRetentionDays:SIM_SNAPSHOT_RETENTION_DAYS,
+    snapshotDatabaseFile:SIM_SNAPSHOT_DB_FILE,
     loadSimulationSnapshotsFile,
     loadAllSimulationSnapshots,
-    saveSimulationSnapshotsFile,
     appendSimulationSnapshot,
-    getSimulationSnapshotFile,
+  })) return;
+  if (await handleSetupEfficiencyRoute(req, res, pathname, searchParams, {
+    setupEfficiencyService,
+  })) return;
+  if (await handleExitQualityRoute(req, res, pathname, searchParams, {
+    exitQualityService,
+  })) return;
+  if (await handleStrategyAdvisorRoute(req, res, pathname, searchParams, {
+    strategyAdvisorService,
   })) return;
   if (await handleReplayRoute(req, res, pathname, searchParams, {
     readJsonBody,
@@ -8179,6 +9070,8 @@ async function initializeProxy() {
     initDb();
     proxyDbReady = true;
     console.log('[db] SQLite initialized');
+    setupEfficiencyService.start();
+    exitQualityService.start();
 
     // ── One-time migrations from JSON → DB ───────────────────────────────────
     if (!kvGet('broker_mode') && fs.existsSync(BROKER_PREFS_FILE)) {
@@ -8249,11 +9142,14 @@ async function initializeProxy() {
   } catch (e) {
     console.warn('[db] SQLite initialization failed:', e.message);
   }
-  await initializeSimulationRuntime();
   await Promise.all([warmNSESession(), refreshYahooCrumb()]);
   
   // Initialize Zerodha integration
   await Promise.all([initializeZerodha(), initializeSharekhan()]);
+  // Broker feeds must be ready before auto-resuming the full-universe refresh.
+  // Otherwise startup fills the cache with stale defaults and immediately
+  // saturates the simulation scheduler.
+  await initializeSimulationRuntime();
   
   freshNewsService.startCron();
   resultCalendarService.startCron();
@@ -8569,7 +9465,15 @@ module.exports = {
       const effective = SimulationEngine.withDefaults ? SimulationEngine.withDefaults(settings || {}) : (settings || {});
       return buildServerCandidateFromIntraday(sym, setup, effective, meta, asOf);
     },
+    reanchorSharekhanIndicesForTests: reanchorSharekhanIndices,
+    applyFrozenIndexPreviousClosesForTests(indices, at) {
+      return applyFrozenIndexPreviousCloses(indices, at);
+    },
+    resetFrozenIndexPreviousClosesForTests() {
+      simulationIndexPreviousCloseAnchors = { day:'', values:{} };
+    },
     buildDailyTradeContextForTests: buildDailyTradeContext,
+    buildIntradaySignalForTests: buildIntradaySignal,
     pickChartPreviousCloseForTests: pickChartPreviousClose,
     getSimulationRuntimeSnapshot() {
       const runtime = loadSimulationRuntime();

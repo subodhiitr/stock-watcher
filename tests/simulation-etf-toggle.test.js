@@ -38,14 +38,15 @@ function baseEtfCandidate(overrides = {}) {
 test('ETF candidates are excluded by default from simulation', () => {
   const settings = TradeRules.withDefaults({});
   const candidate = baseEtfCandidate();
+  const at = '2026-07-29T05:00:00.000Z';
 
   assert.equal(settings.SIMULATION_ENABLE_ETF, false);
-  assert.equal(SimulationEngine.isReplayCandidateEligible(candidate, Date.now(), settings), false);
+  assert.equal(SimulationEngine.isReplayCandidateEligible(candidate, at, settings), false);
   assert.match(
-    SimulationEngine.explainCandidateEligibility(candidate, Date.now(), settings).reasons.join('|'),
+    SimulationEngine.explainCandidateEligibility(candidate, at, settings).reasons.join('|'),
     /ETF simulation disabled/
   );
-  assert.equal(SimulationEngine.selectSimulationEntryCandidates([candidate], Date.now(), settings, { openPositionCounts: new Map() }).length, 0);
+  assert.equal(SimulationEngine.selectSimulationEntryCandidates([candidate], at, settings, { openPositionCounts: new Map() }).length, 0);
 });
 
 test('ETF buy candidates are allowed when SIMULATION_ENABLE_ETF is enabled', () => {
@@ -56,10 +57,11 @@ test('ETF buy candidates are allowed when SIMULATION_ENABLE_ETF is enabled', () 
   const candidate = baseEtfCandidate({
     previousCandidate: baseEtfCandidate(),
   });
+  const at = '2026-07-29T05:00:00.000Z';
 
-  assert.equal(SimulationEngine.isReplayCandidateEligible(candidate, Date.now(), settings), true);
-  assert.equal(SimulationEngine.selectSimulationEntryCandidates([candidate], Date.now(), settings, { openPositionCounts: new Map() }).length, 1);
-  assert.equal(SimulationEngine.getSimulationEntryIntents([candidate], Date.now(), settings, { openPositionCounts: new Map() })[0].assetType, 'etf');
+  assert.equal(SimulationEngine.isReplayCandidateEligible(candidate, at, settings), true);
+  assert.equal(SimulationEngine.selectSimulationEntryCandidates([candidate], at, settings, { openPositionCounts: new Map() }).length, 1);
+  assert.equal(SimulationEngine.getSimulationEntryIntents([candidate], at, settings, { openPositionCounts: new Map() })[0].assetType, 'etf');
 });
 
 test('ETF short candidates stay disabled even when ETF simulation is enabled', () => {

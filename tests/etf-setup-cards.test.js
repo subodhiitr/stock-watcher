@@ -14,7 +14,7 @@ test('ETF tab renders its own setup cards without enabling browser snapshots', (
   assert.match(html, /id="etf-setup-card-row"/);
   assert.match(source, /selectETFSetupCard\('entries','etf_tradeable'\)/);
   assert.match(source, /selectETFSetupCard\('momentum','etf_triggered'\)/);
-  assert.match(source, /selectETFSetupCard\('neartrigger','etf_neartrigger'\)/);
+  assert.doesNotMatch(source, /selectETFSetupCard\('neartrigger','etf_neartrigger'\)/);
   assert.match(source, /selectETFSetupCard\('risk','etf_risk'\)/);
   assert.match(source, /renderETFSetupCards\(rows\)/);
   assert.doesNotMatch(source, /saveSimulationSnapshot\('intraday-refresh'\)/);
@@ -26,18 +26,20 @@ test('setup cards include short-term picks for stocks and ETFs', () => {
   assert.match(source, /function isShortTermPick\(/);
   assert.match(source, /function hasConsistentShortTermTrend\(/);
   assert.match(source, /shortterm: countRowsForStockFilters\(rows, 'setup_shortterm'\)/);
-  assert.match(source, /'Short-term Picks'/);
+  assert.match(source, /'Short-term Quality'/);
   assert.match(source, /setup_shortterm/);
   assert.match(source, /shortterm: countRowsForETFFilters\(rows, 'shortterm'\)/);
   assert.match(source, /selectETFSetupCard\('shortterm','etf_shortterm'\)/);
-  const start = source.indexOf('function isShortTermPick(');
-  const end = source.indexOf('function getHealthScore(', start);
+  const start = source.indexOf('function getShortTermPickInfo(');
+  const end = source.indexOf('function hasConsistentShortTermTrend(', start);
   const fnSource = source.slice(start, end);
-  assert.doesNotMatch(fnSource, /if \(!t \|\| getIntradayFreshness\(t\)\.stale\) return false/);
+  assert.match(fnSource, /intraday trade data unavailable/);
   assert.match(fnSource, /oneMonthReturn/);
   assert.match(fnSource, /oneYearReturn/);
   assert.match(fnSource, /threeYearReturn/);
-  assert.match(fnSource, /oneMonth > 2 && oneYear > 15 && threeYear > 0/);
+  assert.match(fnSource, /oneMonth < 0\.02/);
+  assert.match(fnSource, /oneYear < 0\.15/);
+  assert.match(fnSource, /threeYear <= 0/);
 });
 
 test('ETF short-term setup card can be cleared and ETF status shows filtered total', () => {

@@ -30,6 +30,7 @@ test('external proxy reconnects event streams for up to five minutes', () => {
   assert.match(body, /isReconnectableEventStream/);
   assert.match(body, /'\/stream\/intraday-live'/);
   assert.match(body, /'\/stream\/market-overview'/);
+  assert.match(body, /'\/simulation\/analysis\/stream'/);
   assert.match(body, /'\/trade-execution\/stream'/);
   assert.match(body, /const connectEventStream = \(\) =>/);
   assert.match(body, /setTimeout\(connectEventStream, delay\)/);

@@ -87,7 +87,7 @@ test('server snapshot selection defaults to 200 total candidates including ETFs'
   assert.equal(selectedEtfs.length, 50);
 });
 
-test('sanitizeSimulationSnapshot keeps 200 persisted candidates', () => {
+test('sanitizeSimulationSnapshot keeps 200 candidates plus replay metadata', () => {
   const source = fs.readFileSync(PROXY_PATH, 'utf8');
   const sanitize = vm.runInNewContext(`(${extractFunctionSource(source, 'sanitizeSimulationSnapshot')})`);
   const candidates = Array.from({ length: 260 }, (_, index) => ({
@@ -95,10 +95,21 @@ test('sanitizeSimulationSnapshot keeps 200 persisted candidates', () => {
     score: 500 - index,
   }));
 
-  const snapshot = sanitize({ candidates, candidateCount: candidates.length });
+  const decisionCycle = { snapshotAt:'2026-07-31T04:00:00.000Z', entryIntents:[], rankedCandidates:[] };
+  const snapshot = sanitize({
+    candidates,
+    candidateCount: candidates.length,
+    rankedCandidates:candidates,
+    portfolio:{ capital:500000, cashAvailable:450000 },
+    decisionCycle,
+  });
 
   assert.equal(snapshot.candidates.length, 200);
   assert.equal(snapshot.candidateCount, 260);
+  assert.equal(snapshot.rankedCandidates.length, 260);
+  assert.equal(snapshot.portfolio.cashAvailable, 450000);
+  assert.equal(snapshot.decisionCycle.sourceSnapshotAt, decisionCycle.snapshotAt);
+  assert.equal(snapshot.decisionCycle.snapshotAt, snapshot.at);
 });
 
 test('simulation snapshots GET route does not load all retained snapshot files by default', () => {

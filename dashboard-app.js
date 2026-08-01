@@ -26,6 +26,12 @@ const SIMULATION_START_ENDPOINT = `${PROXY}/simulation/start`;
 const SIMULATION_STOP_ENDPOINT = `${PROXY}/simulation/stop`;
 const SIMULATION_STATUS_ENDPOINT = `${PROXY}/simulation/status`;
 const SIMULATION_ANALYSIS_ENDPOINT = `${PROXY}/simulation/analysis`;
+const SIMULATION_ANALYSIS_STREAM_ENDPOINT = `${SIMULATION_ANALYSIS_ENDPOINT}/stream`;
+const SETUP_EFFICIENCY_ENDPOINT = `${PROXY}/setup-efficiency`;
+const SETUP_EFFICIENCY_STREAM_ENDPOINT = `${SETUP_EFFICIENCY_ENDPOINT}/stream`;
+const EXIT_QUALITY_ENDPOINT = `${PROXY}/exit-quality`;
+const EXIT_QUALITY_STREAM_ENDPOINT = `${EXIT_QUALITY_ENDPOINT}/stream`;
+const STRATEGY_ADVISOR_ENDPOINT = `${PROXY}/strategy-advisor`;
 const FRESH_STOCK_NEWS_ENDPOINT = `${PROXY}/fresh-stock-news`;
 const RESULT_CALENDAR_ENDPOINT = `${PROXY}/result-calendar`;
 const SIM_SNAPSHOT_ENDPOINT = `${PROXY}/simulation-snapshots`;
@@ -840,6 +846,8 @@ let paperTradesStreamReconnectTimer = null;
 let paperTradesStreamReconnectAttempt = 0;
 let tradeSettingsSyncRetryTimer = null;
 let tradeSettingsSyncInFlight = false;
+let serverSimulationCandidateSnapshot = { loading:false, loaded:false, at:'', candidates:[], error:'' };
+let serverSimulationCandidateStream = null;
 let intradayLiveStream = null;
 let intradayLiveStreamReconnectTimer = null;
 let intradayLiveStreamReconnectAttempt = 0;
@@ -847,7 +855,7 @@ let intradayLiveStreamKey = '';
 let marketOverviewStream = null;
 let marketOverviewStreamReconnectTimer = null;
 let marketOverviewStreamReconnectAttempt = 0;
-let portfolioTransactionDate = getTradeDateISO();
+let portfolioTransactionDate = getRecentPortfolioTradingDays(5)[0] || getTradeDateISO();
 let etfSort        = { col:'change', dir:-1 };
 let etfSearch      = '';
 let targetFilter   = 'all';
@@ -1078,9 +1086,10 @@ function selectSource(src) {
     const extra = document.getElementById('extra-'+s);
     if (extra) extra.style.display = s===src ? 'block' : 'none';
   });
-  document.getElementById('connect-err-yahoo').textContent='';
-  document.getElementById('connect-err-nse').textContent='';
-  document.getElementById('connect-err-ai').textContent='';
+  ['connect-err-yahoo', 'connect-err-nse', 'connect-err-ai'].forEach(id => {
+    const errorElement = document.getElementById(id);
+    if (errorElement) errorElement.textContent = '';
+  });
   const psy = document.getElementById('proxy-status-yahoo'); if(psy) psy.style.display='none';
   const psn = document.getElementById('proxy-status-nse'); if(psn) psn.style.display='none';
 }
@@ -2514,6 +2523,30 @@ function formatPortfolioTransactionDate(dateKey) {
   return d.toLocaleDateString('en-IN', { year:'numeric', month:'short', day:'2-digit' });
 }
 
+function getRecentPortfolioTradingDays(count = 5, value = Date.now()) {
+  const limit = Math.max(1, Math.floor(Number(count) || 5));
+  const currentKey = getTradeDateISO(value);
+  const cursor = new Date(`${currentKey}T12:00:00.000Z`);
+  if (Number.isNaN(cursor.getTime())) return [];
+  const days = [];
+  while (days.length < limit) {
+    const weekday = cursor.getUTCDay();
+    if (weekday !== 0 && weekday !== 6) days.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  return days;
+}
+
+function formatPortfolioDayOption(dateKey) {
+  const normalized = normalizeReplayDay(dateKey);
+  const d = new Date(`${normalized}T12:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return { weekday:'--', date:normalized };
+  return {
+    weekday:d.toLocaleDateString('en-IN', { weekday:'short' }),
+    date:d.toLocaleDateString('en-IN', { day:'2-digit', month:'short' }),
+  };
+}
+
 async function setPortfolioTransactionDate(value) {
   portfolioTransactionDate = normalizeReplayDay(value || getTradeDateISO());
   await loadPortfolioTransactionsForDate(portfolioTransactionDate);
@@ -2796,7 +2829,9 @@ function renderOpenTradeRows(openTrades, newKeys, mode = 'all') {
     const isOpen = isOpenTrade(trade);
     const eventType = getTradeEventType(trade);
     const transactionTime = getTradeTransactionTime(trade);
-    const current = isOpen ? getCurrentTradePrice(trade.symbol) : Number(trade.exitPrice);
+    const exitPrice = isOpen ? null : Number(trade.exitPrice);
+    const livePrice = getCurrentTradePrice(trade.symbol);
+    const current = isOpen ? livePrice : exitPrice;
     const pnl = isOpen
       ? getPaperTradePnl(trade, current)
       : {
@@ -2892,7 +2927,8 @@ function renderOpenTradeRows(openTrades, newKeys, mode = 'all') {
       <td>${escapeHTML(String(trade.side || '--').toUpperCase())}</td>
       <td>${escapeHTML(qtyDisplay)}</td>
       <td>${moneyINR(trade.entryPrice)}</td>
-      <td>${moneyINR(current)}</td>
+      <td>${moneyINR(exitPrice)}</td>
+      <td data-browser-live-price="${escapeHTML(String(trade.symbol || '').toUpperCase())}">${moneyINR(livePrice)}</td>
       <td>${statusHTML}</td>
       <td>${escapeHTML(exitRoute)}</td>
       <td>${moneyINR(trade.target)}</td>
@@ -2901,7 +2937,7 @@ function renderOpenTradeRows(openTrades, newKeys, mode = 'all') {
       <td class="portfolio-journal-cell" title="${reasonTitle}">${reasonDisplay}</td>
       <td>${action}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="14" style="color:var(--muted);text-align:center;padding:16px">No trades</td></tr>`;
+  }).join('') : `<tr><td colspan="15" style="color:var(--muted);text-align:center;padding:16px">No trades</td></tr>`;
 }
 
 function getTradeEventType(trade) {
@@ -2987,7 +3023,7 @@ function renderOpenTradesModal() {
     <div class="portfolio-section-title">${openTradesModalMode === 'new' ? 'New Trade Events' : 'All Open Trades'}</div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table open-trades-table">
-        <thead><tr><th${openTradesModalMode === 'new' ? ` onclick="setOpenTradesModalSort('event')" style="cursor:pointer"` : ''}>Event ${openTradesModalMode === 'new' ? openTradesSortIndicator('event') : ''}</th><th${openTradesModalMode === 'new' ? ` onclick="setOpenTradesModalSort('time')" style="cursor:pointer"` : ''}>Txn Time ${openTradesModalMode === 'new' ? openTradesSortIndicator('time') : ''}</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Live</th><th>Status</th><th>Exit Route</th><th>Target</th><th>SL</th><th>Net P&L</th><th>${openTradesModalMode === 'new' ? 'Reason' : 'Entry Why'}</th><th>Action</th></tr></thead>
+        <thead><tr><th${openTradesModalMode === 'new' ? ` onclick="setOpenTradesModalSort('event')" style="cursor:pointer"` : ''}>Event ${openTradesModalMode === 'new' ? openTradesSortIndicator('event') : ''}</th><th${openTradesModalMode === 'new' ? ` onclick="setOpenTradesModalSort('time')" style="cursor:pointer"` : ''}>Txn Time ${openTradesModalMode === 'new' ? openTradesSortIndicator('time') : ''}</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Live</th><th>Status</th><th>Exit Route</th><th>Target</th><th>SL</th><th>Net P&L</th><th>${openTradesModalMode === 'new' ? 'Reason' : 'Entry Why'}</th><th>Action</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -3457,9 +3493,21 @@ function renderPortfolioModal() {
   const openCount = paperTrades.filter(isOpenTrade).length;
   const closedCount = paperTrades.filter(isClosedTrade).length;
   const selectedDateTrades = paperTrades.filter(t => isTradeOnPortfolioDate(t, portfolioTransactionDate)).filter(t => isOpenTrade(t) || isClosedTrade(t));
+  const recentTradingDays = getRecentPortfolioTradingDays(5);
+  const todayKey = getTradeDateISO();
+  const transactionDateOptions = recentTradingDays.map(day => {
+    const label = formatPortfolioDayOption(day);
+    const active = day === portfolioTransactionDate;
+    return `<button type="button" class="portfolio-date-option${active ? ' active' : ''}" aria-pressed="${active ? 'true' : 'false'}" onclick="setPortfolioTransactionDate('${escapeHTML(day)}')">
+      <span>${escapeHTML(day === todayKey ? 'Today' : label.weekday)}</span>
+      <strong>${escapeHTML(label.date)}</strong>
+    </button>`;
+  }).join('');
   const transactionRows = selectedDateTrades.length ? selectedDateTrades.map(trade => {
     const isOpen = isOpenTrade(trade);
-    const current = isOpen ? getCurrentTradePrice(trade.symbol) : Number(trade.exitPrice);
+    const exitPrice = isOpen ? null : Number(trade.exitPrice);
+    const livePrice = getCurrentTradePrice(trade.symbol);
+    const current = isOpen ? livePrice : exitPrice;
     const livePnl = getPaperTradePnl(trade, current);
     const pnlObj = isOpen ? livePnl : { pnl:Number(trade.pnl), pnlPct:Number(trade.pnlPct), grossPnl:Number(trade.grossPnl), charges:Number(trade.charges), chargeBreakup:trade.chargeBreakup };
     const pnl = Number.isFinite(pnlObj?.pnl) ? pnlObj.pnl : computeClosedPaperPnl(trade);
@@ -3478,7 +3526,8 @@ function renderPortfolioModal() {
       <td>${escapeHTML(String(trade.side || '--').toUpperCase())}</td>
       <td>${Number(trade.qty || 0).toLocaleString('en-IN')}</td>
       <td>${moneyINR(trade.entryPrice)}</td>
-      <td>${moneyINR(current)}</td>
+      <td>${moneyINR(exitPrice)}</td>
+      <td data-browser-live-price="${escapeHTML(String(trade.symbol || '').toUpperCase())}">${moneyINR(livePrice)}</td>
       <td>${moneyINR(paperTradeExposure(trade))}</td>
       <td>${escapeHTML(formatTradeDateTime(trade.openedAt))}</td>
       <td>${escapeHTML(isOpen ? '--' : formatTradeDateTime(trade.closedAt))}</td>
@@ -3488,7 +3537,7 @@ function renderPortfolioModal() {
       <td class="portfolio-journal-cell" title="${escapeHTML(formatEntryJournal(trade))}">${escapeHTML(formatEntryJournal(trade))}</td>
       <td class="portfolio-journal-cell" style="${isBrokerFailed ? 'color:var(--red)' : ''}" title="${escapeHTML(isBrokerFailed ? (trade.broker?.error || `Broker order ${trade.broker?.status}`) : trade.closeReason || '--')}">${escapeHTML(isBrokerFailed ? (trade.broker?.error || `Broker order ${trade.broker?.status}`) : trade.closeReason || '--')}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="16" style="color:var(--muted);text-align:center;padding:16px">No transactions for ${escapeHTML(formatPortfolioTransactionDate(portfolioTransactionDate))}</td></tr>`;
+  }).join('') : `<tr><td colspan="17" style="color:var(--muted);text-align:center;padding:16px">No transactions for ${escapeHTML(formatPortfolioTransactionDate(portfolioTransactionDate))}</td></tr>`;
   const dayRows = Object.entries(summary.dayPnl).length ? Object.entries(summary.dayPnl)
     .sort(([a], [b]) => b.localeCompare(a))
     .map(([day, pnl]) => {
@@ -3533,16 +3582,15 @@ function renderPortfolioModal() {
       <div class="portfolio-card"><div class="label">Stop guard</div><div class="value ${safety.stops >= safety.stopLimit ? 'down' : ''}">${safety.stops} / ${safety.stopLimit}</div></div>
       <div class="portfolio-card"><div class="label">Fresh-entry status</div><div class="value ${safety.blocked ? 'down' : ''}">${escapeHTML(safety.blocked ? safety.reasons.join(' | ') : 'Allowed')}</div></div>
     </div>
-    <div class="portfolio-section-title">
+    <div class="portfolio-section-title portfolio-transaction-heading">
       <span>Transactions for ${escapeHTML(formatPortfolioTransactionDate(portfolioTransactionDate))} (${selectedDateTrades.length})</span>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
-        Date
-        <input id="portfolioTransactionDateInput" type="date" value="${escapeHTML(portfolioTransactionDate)}" onchange="setPortfolioTransactionDate(this.value)" style="padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text)" />
-      </label>
+      <div class="portfolio-date-panel" role="group" aria-label="Select one of the latest five trading days">
+        ${transactionDateOptions}
+      </div>
     </div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table">
-        <thead><tr><th>Status</th><th>Mode</th><th>Broker</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit/Live</th><th>Capital</th><th>Entry Time</th><th>Exit Time</th><th>Total Cost</th><th>Gross P&L</th><th>Net P&L</th><th>Entry Why</th><th>Exit Reason</th></tr></thead>
+        <thead><tr><th>Status</th><th>Mode</th><th>Broker</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Live</th><th>Capital</th><th>Entry Time</th><th>Exit Time</th><th>Total Cost</th><th>Gross P&L</th><th>Net P&L</th><th>Entry Why</th><th>Exit Reason</th></tr></thead>
         <tbody>${transactionRows}</tbody>
       </table>
     </div>
@@ -3784,6 +3832,7 @@ async function submitManualTrade() {
       target,
       stop,
       source: 'manual',
+      validateSimulationEntry: true,
       brokerMode: brokerModeVal,
       reservedCapital: +(qty * entryPrice).toFixed(2),
       portfolioInitial: getPortfolioCapital(),
@@ -3900,7 +3949,11 @@ function getBrowserLiveQuoteSymbols() {
     const symbol = String(value || '').trim().toUpperCase();
     if (symbol) symbols.push(symbol);
   };
-  paperTrades.filter(isOpenTrade).forEach(trade => remember(trade.symbol));
+  paperTrades
+    .filter(trade => isOpenTrade(trade)
+      || isTradeOnPortfolioDate(trade, portfolioTransactionDate)
+      || newSimulationTradeKeys.has(simulationTradeKey(trade)))
+    .forEach(trade => remember(trade.symbol));
   const rememberPortfolio = payload => {
     const portfolio = payload?.portfolio || payload;
     for (const group of ['positions', 'holdings']) {
@@ -3991,6 +4044,216 @@ async function toggleSimulationEtfOverride() {
   const current = loadTradeSettingOverrides();
   const enabledNow = !!(current?.SIMULATION_ENABLE_ETF ?? SIMULATION_ENABLE_ETF);
   const next = { ...current, SIMULATION_ENABLE_ETF: !enabledNow };
+  await saveTradeSettingOverrides(next);
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+}
+
+let activeSetupSettingsType = null;
+
+function getSimulationSetupDefinition(setupType) {
+  return ((TradeRules && TradeRules.SIMULATION_SETUP_DEFINITIONS) || [])
+    .find(definition => definition.type === setupType) || null;
+}
+
+function getSimulationSetupConfigurationKeys(definition, defaults = {}) {
+  if (!definition) return [];
+  const prefixes = definition.settingPrefixes || [];
+  const excludedPrefixes = definition.excludePrefixes || [];
+  return Object.keys(defaults).filter(key => (
+    key !== definition.key
+    && prefixes.some(prefix => key.startsWith(prefix))
+    && !excludedPrefixes.some(prefix => key.startsWith(prefix))
+  ));
+}
+
+function formatSetupSettingLabel(key, definition) {
+  const prefix = [...(definition?.settingPrefixes || [])]
+    .sort((a, b) => b.length - a.length)
+    .find(candidate => key.startsWith(candidate));
+  const clean = String(prefix ? key.slice(prefix.length) : key)
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, letter => letter.toUpperCase())
+    .replace(/\bPct\b/g, '%')
+    .replace(/\bVwap\b/g, 'VWAP')
+    .replace(/\bRsi\b/g, 'RSI')
+    .replace(/\bRs\b/g, 'RS')
+    .replace(/\bAtr\b/g, 'ATR');
+  if (isSetupClockSetting(key)) return clean.replace(/ Min$/, ' Time');
+  if (/_MIN$/.test(key)) return clean.replace(/ Min$/, ' (Minutes)');
+  return clean;
+}
+
+function isSetupClockSetting(key) {
+  return /(?:ENTRY_)?(?:START|END|CUTOFF)_MIN$/.test(key) || /STRICT_START_MIN$/.test(key);
+}
+
+function formatSetupClockValue(value) {
+  const minutes = Number(value);
+  if (!Number.isFinite(minutes)) return '';
+  const hour = Math.floor(minutes / 60);
+  const minute = Math.round(minutes % 60);
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+async function saveSetupSettingOverride(settingKey, value) {
+  const definition = getSimulationSetupDefinition(activeSetupSettingsType);
+  const defaults = (TradeRules && TradeRules.DEFAULT_SETTINGS) || {};
+  const allowedKeys = definition
+    ? [definition.key, ...getSimulationSetupConfigurationKeys(definition, defaults)]
+    : [];
+  if (!allowedKeys.includes(settingKey)) return;
+  const current = loadTradeSettingOverrides();
+  await saveTradeSettingOverrides({ ...current, [settingKey]: value });
+  renderSettingsModal();
+  renderSetupSettingsModal();
+}
+
+async function setSetupNumberSettingOverride(settingKey, valueStr) {
+  if (String(valueStr).trim() === '') return;
+  const value = Number(valueStr);
+  if (!Number.isFinite(value)) return;
+  await saveSetupSettingOverride(settingKey, value);
+}
+
+async function setSetupBooleanSettingOverride(settingKey, enabled) {
+  await saveSetupSettingOverride(settingKey, !!enabled);
+}
+
+async function setSetupTimeSettingOverride(settingKey, valueStr) {
+  const match = String(valueStr || '').match(/^(\d{2}):(\d{2})$/);
+  if (!match) return;
+  const minutes = Number(match[1]) * 60 + Number(match[2]);
+  await saveSetupSettingOverride(settingKey, minutes);
+}
+
+async function resetSetupSettingOverride(settingKey) {
+  const current = { ...loadTradeSettingOverrides() };
+  delete current[settingKey];
+  await saveTradeSettingOverrides(current);
+  renderSettingsModal();
+  renderSetupSettingsModal();
+}
+
+async function resetActiveSetupSettings() {
+  const definition = getSimulationSetupDefinition(activeSetupSettingsType);
+  const defaults = (TradeRules && TradeRules.DEFAULT_SETTINGS) || {};
+  if (!definition) return;
+  const current = { ...loadTradeSettingOverrides() };
+  [definition.key, ...getSimulationSetupConfigurationKeys(definition, defaults)]
+    .forEach(key => { delete current[key]; });
+  await saveTradeSettingOverrides(current);
+  renderSettingsModal();
+  renderSetupSettingsModal();
+}
+
+function renderSetupSettingsModal() {
+  const body = document.getElementById('setup-settings-modal-body');
+  const title = document.getElementById('setup-settings-title');
+  if (!body) return;
+  const definition = getSimulationSetupDefinition(activeSetupSettingsType);
+  if (!definition) {
+    body.innerHTML = '<div class="settings-empty-state">Setup configuration is unavailable.</div>';
+    return;
+  }
+  const defaults = (TradeRules && TradeRules.DEFAULT_SETTINGS) || {};
+  const descriptions = (TradeRules && TradeRules.SETTING_DESCRIPTIONS) || {};
+  const overrides = loadTradeSettingOverrides();
+  const effective = (TradeRules && TradeRules.withDefaults)
+    ? TradeRules.withDefaults(getSimulationEngineSettings())
+    : { ...defaults, ...getSimulationEngineSettings() };
+  const keys = getSimulationSetupConfigurationKeys(definition, defaults);
+  const setupKeys = [definition.key, ...keys];
+  const overrideCount = setupKeys.filter(key => Object.prototype.hasOwnProperty.call(overrides, key)).length;
+  const enabled = effective[definition.key] !== false;
+  if (title) title.textContent = definition.label;
+  const fields = keys.map(key => {
+    const value = effective[key];
+    const defaultValue = defaults[key];
+    const overridden = Object.prototype.hasOwnProperty.call(overrides, key);
+    const label = formatSetupSettingLabel(key, definition);
+    const defaultDisplay = isSetupClockSetting(key)
+      ? formatSetupClockValue(defaultValue)
+      : formatSettingValue(defaultValue, key);
+    let control = '';
+    if (typeof defaultValue === 'boolean') {
+      control = `<label class="settings-switch">
+        <input type="checkbox" role="switch" aria-label="${escapeHTML(label)}" ${value !== false ? 'checked' : ''} onchange="setSetupBooleanSettingOverride('${escapeHTML(key)}', this.checked)">
+        <span class="settings-switch-track" aria-hidden="true"></span>
+      </label>`;
+    } else if (isSetupClockSetting(key)) {
+      control = `<input class="setup-setting-input time" type="time" value="${escapeHTML(formatSetupClockValue(value))}" onchange="setSetupTimeSettingOverride('${escapeHTML(key)}', this.value)">`;
+    } else {
+      control = `<input class="setup-setting-input" type="number" step="any" value="${Number.isFinite(Number(value)) ? escapeHTML(String(value)) : ''}" placeholder="${defaultValue == null ? 'Not set' : ''}" onchange="setSetupNumberSettingOverride('${escapeHTML(key)}', this.value)">`;
+    }
+    return `
+      <div class="setup-setting-field">
+        <div class="setup-setting-copy">
+          <span class="setup-setting-label">${escapeHTML(label)}${overridden ? '<span class="settings-override">custom</span>' : ''}</span>
+          <span class="setup-setting-description">${escapeHTML(descriptions[key] || `Controls ${label.toLowerCase()} for this setup.`)}</span>
+          <span class="setup-setting-default">Default: ${escapeHTML(defaultDisplay)}</span>
+        </div>
+        <div class="setup-setting-control">${control}${overridden ? `<button class="btn setup-setting-reset" type="button" onclick="resetSetupSettingOverride('${escapeHTML(key)}')">Reset</button>` : ''}</div>
+      </div>
+    `;
+  }).join('');
+  body.innerHTML = `
+    <div class="setup-settings-hero">
+      <div><span class="settings-side-badge ${definition.side}">${escapeHTML(definition.side)}</span><p>${escapeHTML(definition.description)}</p></div>
+      <label class="setup-enabled-control">
+        <span><strong>${enabled ? 'Enabled' : 'Disabled'}</strong><small>Allow new simulation entries</small></span>
+        <span class="settings-switch">
+          <input type="checkbox" role="switch" aria-label="${escapeHTML(`${definition.label} enabled`)}" ${enabled ? 'checked' : ''} onchange="setSimulationSetupEnabled('${escapeHTML(definition.key)}', this.checked)">
+          <span class="settings-switch-track" aria-hidden="true"></span>
+        </span>
+      </label>
+    </div>
+    <div class="setup-settings-toolbar">
+      <div><strong>Setup parameters</strong><span>${keys.length ? `${keys.length} setup-specific controls` : 'Uses shared simulation controls'}</span></div>
+      ${overrideCount ? '<button class="btn" type="button" onclick="resetActiveSetupSettings()">Use setup defaults</button>' : ''}
+    </div>
+    <div class="setup-settings-fields">
+      ${fields || '<div class="settings-empty-state"><strong>No specialist parameters</strong><span>This setup uses the shared risk, quality and market-regime controls available in the main settings panel.</span></div>'}
+    </div>
+  `;
+}
+
+function openSetupSettingsModal(setupType) {
+  if (!getSimulationSetupDefinition(setupType)) return;
+  activeSetupSettingsType = setupType;
+  const modal = document.getElementById('setup-settings-modal');
+  if (modal) modal.style.display = 'flex';
+  renderSetupSettingsModal();
+}
+
+function closeSetupSettingsModal(e) {
+  if (e) e.stopPropagation();
+  const modal = document.getElementById('setup-settings-modal');
+  if (modal) modal.style.display = 'none';
+  activeSetupSettingsType = null;
+}
+
+async function setSimulationSetupEnabled(settingKey, enabled) {
+  const definitions = (TradeRules && TradeRules.SIMULATION_SETUP_DEFINITIONS) || [];
+  if (!definitions.some(definition => definition.key === settingKey)) return;
+  const current = loadTradeSettingOverrides();
+  await saveTradeSettingOverrides({ ...current, [settingKey]: !!enabled });
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+  if (document.getElementById('setup-settings-modal')?.style.display === 'flex') renderSetupSettingsModal();
+}
+
+async function setAllSimulationSetupsEnabled(enabled) {
+  const definitions = (TradeRules && TradeRules.SIMULATION_SETUP_DEFINITIONS) || [];
+  const next = { ...loadTradeSettingOverrides() };
+  definitions.forEach(definition => { next[definition.key] = !!enabled; });
+  await saveTradeSettingOverrides(next);
+  if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
+}
+
+async function resetSimulationSetupOverrides() {
+  const definitions = (TradeRules && TradeRules.SIMULATION_SETUP_DEFINITIONS) || [];
+  const next = { ...loadTradeSettingOverrides() };
+  definitions.forEach(definition => { delete next[definition.key]; });
   await saveTradeSettingOverrides(next);
   if (document.getElementById('settings-modal')?.style.display === 'flex') renderSettingsModal();
 }
@@ -4235,31 +4498,208 @@ function renderSettingsModal() {
       <td class="settings-value">${escapeHTML(formatSettingValue(def, key))}</td>
     </tr>`;
     }).join('');
+    const setupDefinitions = (TradeRules && TradeRules.SIMULATION_SETUP_DEFINITIONS) || [];
+    const enabledSetupCount = setupDefinitions.filter(definition => effective[definition.key] !== false).length;
+    const setupOverridesCount = setupDefinitions.filter(definition => Object.prototype.hasOwnProperty.call(overrides, definition.key)).length;
+    const renderSetupGroup = (side, title, subtitle) => {
+      const definitions = setupDefinitions.filter(definition => definition.side === side);
+      const enabledCount = definitions.filter(definition => effective[definition.key] !== false).length;
+      return `
+        <div class="settings-setup-group">
+          <div class="settings-setup-group-head">
+            <div><h4>${escapeHTML(title)}</h4><p>${escapeHTML(subtitle)}</p></div>
+            <span class="settings-side-badge ${side}">${enabledCount}/${definitions.length} on</span>
+          </div>
+          <div class="settings-setup-list">
+            ${definitions.map(definition => {
+              const enabled = effective[definition.key] !== false;
+              const setupKeys = [definition.key, ...getSimulationSetupConfigurationKeys(definition, defaults)];
+              const overridden = setupKeys.some(key => Object.prototype.hasOwnProperty.call(overrides, key));
+              return `
+                <div class="settings-setup-row ${enabled ? 'enabled' : 'disabled'}" role="button" tabindex="0" aria-label="Configure ${escapeHTML(definition.label)}" onclick="openSetupSettingsModal('${escapeHTML(definition.type)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSetupSettingsModal('${escapeHTML(definition.type)}')}">
+                  <span class="settings-setup-copy">
+                    <span class="settings-setup-name">${escapeHTML(definition.label)}${overridden ? '<span class="settings-override">custom</span>' : ''}</span>
+                    <span class="settings-setup-description">${escapeHTML(definition.description)}</span>
+                  </span>
+                  <span class="settings-setup-actions">
+                    <span class="settings-configure-cue">Configure <span aria-hidden="true">›</span></span>
+                    <label class="settings-switch" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
+                      <input type="checkbox" role="switch" aria-label="${escapeHTML(`${definition.label} simulation setup`)}" ${enabled ? 'checked' : ''} onchange="setSimulationSetupEnabled('${escapeHTML(definition.key)}', this.checked)">
+                      <span class="settings-switch-track" aria-hidden="true"></span>
+                    </label>
+                  </span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    };
     body.innerHTML = `
-    <div class="settings-summary">
-      <div class="settings-card"><div class="label">Intraday data source</div><div class="value up">${escapeHTML(intradaySourceSummary)}</div><div style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap"><label><input type="checkbox" ${intradaySharekhanEnabled ? 'checked' : ''} onchange="setIntradayDataSource('sharekhan', this.checked)"> Sharekhan</label><label><input type="checkbox" ${intradayYahooEnabled ? 'checked' : ''} onchange="setIntradayDataSource('yahoo', this.checked)"> Yahoo</label></div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Sharekhan uses WebSocket live candles. When both sources are selected, Yahoo is the fallback.</div></div>
-      <div class="settings-card"><div class="label">Portfolio capital</div><div class="value">${moneyINR(effective.PORTFOLIO_INITIAL_CAPITAL)}</div><div style="margin-top:8px"><input id="portfolio-initial-capital-input" type="number" step="1000" min="1" value="${Math.round(Number(portfolioState?.initialCapital) || PORTFOLIO_FALLBACK_INITIAL_CAPITAL)}" onchange="setPortfolioInitialCapital(this.value)" style="width:110px; padding:4px"><span style="margin-left:8px; font-size:11px">Initial capital</span></div></div>
-      <div class="settings-card"><div class="label">Per position cap</div><div class="value ${Number.isFinite(positionCapOverride) ? 'up' : ''}">${moneyINR(positionCapValue)}</div><div style="margin-top:8px"><input type="number" step="1000" min="10000" max="10000000" value="${Math.round(positionCapValue)}" onchange="setPositionCapOverride(this.value)" style="width:100px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(positionCapOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(positionCapOverride) ? ` <button class="btn" type="button" onclick="clearPositionCapOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
-      <div class="settings-card"><div class="label">Minimum net profit</div><div class="value ${Number.isFinite(minNetProfitOverride) ? 'up' : ''}">${minNetProfitValue.toFixed(2)}%</div><div style="margin-top:8px"><input type="number" step="0.1" min="0" max="10" value="${minNetProfitValue.toFixed(2)}" onchange="setMinNetProfitOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(minNetProfitOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(minNetProfitOverride) ? ` <button class="btn" type="button" onclick="clearMinNetProfitOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Minimum net profit % required after brokerage charges.</div></div>
-      <div class="settings-card"><div class="label">Max open trades</div><div class="value ${Number.isFinite(maxOpenTradesOverride) ? 'up' : ''}">${maxOpenTradesValue}</div><div style="margin-top:8px"><input type="number" step="1" min="1" max="100" value="${maxOpenTradesValue}" onchange="setMaxOpenTradesOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(maxOpenTradesOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(maxOpenTradesOverride) ? ` <button class="btn" type="button" onclick="clearMaxOpenTradesOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
-      <div class="settings-card"><div class="label">Daily max trades</div><div class="value ${Number.isFinite(dailyMaxTradesOverride) ? 'up' : ''}">${dailyMaxTradesValue}</div><div style="margin-top:8px"><input type="number" step="1" min="1" max="200" value="${dailyMaxTradesValue}" onchange="setDailyMaxTradesOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(dailyMaxTradesOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(dailyMaxTradesOverride) ? ` <button class="btn" type="button" onclick="clearDailyMaxTradesOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
-      <div class="settings-card"><div class="label">Long minimum score</div><div class="value ${Number.isFinite(longMinScoreOverride) ? 'up' : ''}">${longMinScoreValue}</div><div style="margin-top:8px"><input type="number" step="1" min="0" max="100" value="${longMinScoreValue}" onchange="setMinimumScoreOverride('long', this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(longMinScoreOverride) ? 'Override active' : 'Default 60'}</span>${Number.isFinite(longMinScoreOverride) ? ` <button class="btn" type="button" onclick="clearMinimumScoreOverride('long')" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
-      <div class="settings-card"><div class="label">Short minimum score</div><div class="value ${Number.isFinite(shortMinScoreOverride) ? 'up' : ''}">${shortMinScoreValue}</div><div style="margin-top:8px"><input type="number" step="1" min="0" max="100" value="${shortMinScoreValue}" onchange="setMinimumScoreOverride('short', this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(shortMinScoreOverride) ? 'Override active' : 'Default 60'}</span>${Number.isFinite(shortMinScoreOverride) ? ` <button class="btn" type="button" onclick="clearMinimumScoreOverride('short')" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div></div>
-      <div class="settings-card"><div class="label">Fresh-breakout minimum score</div><div class="value ${Number.isFinite(freshMinScoreOverride) ? 'up' : ''}">${freshMinScoreValue}</div><div style="margin-top:8px"><input type="number" step="1" min="0" max="100" value="${freshMinScoreValue}" onchange="setMinimumScoreOverride('fresh', this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(freshMinScoreOverride) ? 'Override active' : 'Default 60'}</span>${Number.isFinite(freshMinScoreOverride) ? ` <button class="btn" type="button" onclick="clearMinimumScoreOverride('fresh')" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Momentum runners continue to use their independent runner score thresholds.</div></div>
-      <div class="settings-card"><div class="label">${liveBroker === 'sharekhan' ? 'Sharekhan token' : 'Zerodha token'}</div><div class="value ${brokerRefreshState.ok === false ? 'down' : (brokerRefreshState.ok ? 'up' : '')}">${autoRenewConfigured ? 'Auto-renew ready' : 'Refresh token missing'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="refreshZerodhaTokenFromSettings()" ${brokerRefreshState.busy || !autoRenewConfigured ? 'disabled' : ''}>${brokerRefreshState.busy ? 'Refreshing...' : 'Refresh token now'}</button><span style="margin-left:8px; font-size:11px">Last refresh: ${escapeHTML(lastRefreshAt)}</span></div><div style="margin-top:6px; font-size:11px; color:${brokerRefreshState.ok === false ? 'var(--red)' : 'var(--muted)'}">${escapeHTML(refreshHint)}</div></div>
-      <div class="settings-card"><div class="label">Stop guard override</div><div class="value ${stopGuardOverride ? 'up' : ''}">${stopGuardOverride ? 'Enabled' : 'Disabled'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="toggleSimulationStopGuardOverride()">${stopGuardOverride ? 'Disable override' : 'Enable override'}</button></div></div>
-      <div class="settings-card"><div class="label">Auto-exit manual trades</div><div class="value ${manualAutoExitEnabled ? 'up' : ''}">${manualAutoExitEnabled ? 'Enabled' : 'Disabled'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="toggleManualTradeAutoExitOverride()">${manualAutoExitEnabled ? 'Disable auto exits' : 'Enable auto exits'}</button></div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Uses same simulation exit rules (target, SL, trailing, time-stop, EOD).</div></div>
-      <div class="settings-card"><div class="label">ETF simulation</div><div class="value ${etfSimulationEnabled ? 'up' : ''}">${etfSimulationEnabled ? 'Enabled' : 'Disabled'}</div><div style="margin-top:8px"><button class="btn" type="button" onclick="toggleSimulationEtfOverride()">${etfSimulationEnabled ? 'Disable ETF sim' : 'Enable ETF sim'}</button></div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Allows long ETF simulation entries. ETF shorts remain disabled.</div></div>
-      <div class="settings-card"><div class="label">Nifty regime threshold</div><div class="value ${Number.isFinite(niftyRegimeOverride) ? 'up' : ''}">${niftyRegimeValue.toFixed(3)}</div><div style="margin-top:8px"><input type="number" step="0.001" min="-1" max="1" value="${niftyRegimeValue.toFixed(3)}" onchange="setNiftyRegimeOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(niftyRegimeOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(niftyRegimeOverride) ? ` <button class="btn" type="button" onclick="clearNiftyRegimeOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Blocks longs below -threshold, blocks shorts above +threshold.</div></div>
-      <div class="settings-card"><div class="label">Sector regime threshold</div><div class="value ${Number.isFinite(sectorRegimeOverride) ? 'up' : ''}">${sectorRegimeValue.toFixed(3)}</div><div style="margin-top:8px"><input type="number" step="0.001" min="-1" max="1" value="${sectorRegimeValue.toFixed(3)}" onchange="setSectorRegimeOverride(this.value)" style="width:80px; padding:4px"><span style="margin-left:8px; font-size:11px">${Number.isFinite(sectorRegimeOverride) ? 'Override active' : 'Using default'}</span>${Number.isFinite(sectorRegimeOverride) ? ` <button class="btn" type="button" onclick="clearSectorRegimeOverride()" style="margin-left:8px; font-size:12px">Reset</button>` : ''}</div><div style="margin-top:6px;font-size:11px;color:var(--muted)">Uses sector average move with the same long/short threshold logic.</div></div>
+    <div class="settings-panel-intro">
+      <div>
+        <span class="settings-eyebrow">Simulation control center</span>
+        <h2>Choose what the simulator can trade</h2>
+        <p>Changes save automatically and apply to new entries. Open positions continue to follow their existing exit rules.</p>
+      </div>
+      <div class="settings-enabled-summary"><strong>${enabledSetupCount}</strong><span>of ${setupDefinitions.length}<br>setups enabled</span></div>
     </div>
-    <div class="portfolio-section-title">Effective Trade Rule Settings</div>
-    <div class="settings-table-wrap">
+    <section class="settings-section settings-setups-section" aria-labelledby="settings-setups-title">
+      <div class="settings-section-head">
+        <div><h3 id="settings-setups-title">Simulation setups</h3><p>Enable only the playbooks you want the server to consider.</p></div>
+        <div class="settings-section-actions">
+          <button class="btn" type="button" onclick="setAllSimulationSetupsEnabled(true)">Enable all</button>
+          <button class="btn" type="button" onclick="setAllSimulationSetupsEnabled(false)">Disable all</button>
+          ${setupOverridesCount ? '<button class="btn" type="button" onclick="resetSimulationSetupOverrides()">Use defaults</button>' : ''}
+        </div>
+      </div>
+      <div class="settings-setup-grid">
+        ${renderSetupGroup('long', 'Long setups', 'Momentum, breakouts and bullish reversals')}
+        ${renderSetupGroup('short', 'Short setups', 'Breakdowns, rejections and bearish continuations')}
+      </div>
+    </section>
+    <section class="settings-section" aria-labelledby="settings-core-title">
+      <div class="settings-section-head"><div><h3 id="settings-core-title">Risk, data & automation</h3><p>Frequently used portfolio limits, quality thresholds and live controls.</p></div></div>
+      <div class="settings-summary">
+        <div class="settings-card">
+          <div class="label">Intraday data source</div>
+          <div class="value up">${escapeHTML(intradaySourceSummary)}</div>
+          <div class="settings-source-controls">
+            <label><input type="checkbox" aria-label="Use Sharekhan intraday data" ${intradaySharekhanEnabled ? 'checked' : ''} onchange="setIntradayDataSource('sharekhan', this.checked)"> Sharekhan</label>
+            <label><input type="checkbox" aria-label="Use Yahoo intraday data" ${intradayYahooEnabled ? 'checked' : ''} onchange="setIntradayDataSource('yahoo', this.checked)"> Yahoo</label>
+          </div>
+          <div class="settings-card-help">Sharekhan uses live WebSocket candles. Yahoo acts as fallback when both are selected.</div>
+        </div>
+        <div class="settings-card">
+          <div class="label">Portfolio capital</div>
+          <div class="value">${moneyINR(effective.PORTFOLIO_INITIAL_CAPITAL)}</div>
+          <div class="settings-card-controls">
+            <input class="settings-card-input" id="portfolio-initial-capital-input" aria-label="Portfolio initial capital" type="number" step="1000" min="1" value="${Math.round(Number(portfolioState?.initialCapital) || PORTFOLIO_FALLBACK_INITIAL_CAPITAL)}" onchange="setPortfolioInitialCapital(this.value)">
+            <span class="settings-card-status">Initial capital</span>
+          </div>
+        </div>
+        <div class="settings-card">
+          <div class="label">Per position cap</div>
+          <div class="value ${Number.isFinite(positionCapOverride) ? 'up' : ''}">${moneyINR(positionCapValue)}</div>
+          <div class="settings-card-controls">
+            <input class="settings-card-input" aria-label="Per position capital cap" type="number" step="1000" min="10000" max="10000000" value="${Math.round(positionCapValue)}" onchange="setPositionCapOverride(this.value)">
+            <span class="settings-card-status ${Number.isFinite(positionCapOverride) ? 'active' : ''}">${Number.isFinite(positionCapOverride) ? 'Override active' : 'Using default'}</span>
+            ${Number.isFinite(positionCapOverride) ? '<button class="btn settings-card-reset" type="button" onclick="clearPositionCapOverride()">Reset</button>' : ''}
+          </div>
+        </div>
+        <div class="settings-card">
+          <div class="label">Minimum net profit</div>
+          <div class="value ${Number.isFinite(minNetProfitOverride) ? 'up' : ''}">${minNetProfitValue.toFixed(2)}%</div>
+          <div class="settings-card-controls">
+            <input class="settings-card-input" aria-label="Minimum net profit percent" type="number" step="0.1" min="0" max="10" value="${minNetProfitValue.toFixed(2)}" onchange="setMinNetProfitOverride(this.value)">
+            <span class="settings-card-status ${Number.isFinite(minNetProfitOverride) ? 'active' : ''}">${Number.isFinite(minNetProfitOverride) ? 'Override active' : 'Using default'}</span>
+            ${Number.isFinite(minNetProfitOverride) ? '<button class="btn settings-card-reset" type="button" onclick="clearMinNetProfitOverride()">Reset</button>' : ''}
+          </div>
+          <div class="settings-card-help">Required net return after modeled brokerage charges.</div>
+        </div>
+        <div class="settings-card">
+          <div class="label">Max open trades</div>
+          <div class="value ${Number.isFinite(maxOpenTradesOverride) ? 'up' : ''}">${maxOpenTradesValue}</div>
+          <div class="settings-card-controls">
+            <input class="settings-card-input" aria-label="Maximum open trades" type="number" step="1" min="1" max="100" value="${maxOpenTradesValue}" onchange="setMaxOpenTradesOverride(this.value)">
+            <span class="settings-card-status ${Number.isFinite(maxOpenTradesOverride) ? 'active' : ''}">${Number.isFinite(maxOpenTradesOverride) ? 'Override active' : 'Using default'}</span>
+            ${Number.isFinite(maxOpenTradesOverride) ? '<button class="btn settings-card-reset" type="button" onclick="clearMaxOpenTradesOverride()">Reset</button>' : ''}
+          </div>
+        </div>
+        <div class="settings-card">
+          <div class="label">Daily max trades</div>
+          <div class="value ${Number.isFinite(dailyMaxTradesOverride) ? 'up' : ''}">${dailyMaxTradesValue}</div>
+          <div class="settings-card-controls">
+            <input class="settings-card-input" aria-label="Daily maximum trades" type="number" step="1" min="1" max="200" value="${dailyMaxTradesValue}" onchange="setDailyMaxTradesOverride(this.value)">
+            <span class="settings-card-status ${Number.isFinite(dailyMaxTradesOverride) ? 'active' : ''}">${Number.isFinite(dailyMaxTradesOverride) ? 'Override active' : 'Using default'}</span>
+            ${Number.isFinite(dailyMaxTradesOverride) ? '<button class="btn settings-card-reset" type="button" onclick="clearDailyMaxTradesOverride()">Reset</button>' : ''}
+          </div>
+        </div>
+        <div class="settings-card">
+          <div class="label">Long minimum score</div>
+          <div class="value ${Number.isFinite(longMinScoreOverride) ? 'up' : ''}">${longMinScoreValue}</div>
+          <div class="settings-card-controls">
+            <input class="settings-card-input" aria-label="Long minimum score" type="number" step="1" min="0" max="100" value="${longMinScoreValue}" onchange="setMinimumScoreOverride('long', this.value)">
+            <span class="settings-card-status ${Number.isFinite(longMinScoreOverride) ? 'active' : ''}">${Number.isFinite(longMinScoreOverride) ? 'Override active' : 'Default 60'}</span>
+            ${Number.isFinite(longMinScoreOverride) ? `<button class="btn settings-card-reset" type="button" onclick="clearMinimumScoreOverride('long')">Reset</button>` : ''}
+          </div>
+        </div>
+        <div class="settings-card">
+          <div class="label">Short minimum score</div>
+          <div class="value ${Number.isFinite(shortMinScoreOverride) ? 'up' : ''}">${shortMinScoreValue}</div>
+          <div class="settings-card-controls">
+            <input class="settings-card-input" aria-label="Short minimum score" type="number" step="1" min="0" max="100" value="${shortMinScoreValue}" onchange="setMinimumScoreOverride('short', this.value)">
+            <span class="settings-card-status ${Number.isFinite(shortMinScoreOverride) ? 'active' : ''}">${Number.isFinite(shortMinScoreOverride) ? 'Override active' : 'Default 60'}</span>
+            ${Number.isFinite(shortMinScoreOverride) ? `<button class="btn settings-card-reset" type="button" onclick="clearMinimumScoreOverride('short')">Reset</button>` : ''}
+          </div>
+        </div>
+        <div class="settings-card">
+          <div class="label">Fresh-breakout minimum score</div>
+          <div class="value ${Number.isFinite(freshMinScoreOverride) ? 'up' : ''}">${freshMinScoreValue}</div>
+          <div class="settings-card-controls">
+            <input class="settings-card-input" aria-label="Fresh-breakout minimum score" type="number" step="1" min="0" max="100" value="${freshMinScoreValue}" onchange="setMinimumScoreOverride('fresh', this.value)">
+            <span class="settings-card-status ${Number.isFinite(freshMinScoreOverride) ? 'active' : ''}">${Number.isFinite(freshMinScoreOverride) ? 'Override active' : 'Default 60'}</span>
+            ${Number.isFinite(freshMinScoreOverride) ? `<button class="btn settings-card-reset" type="button" onclick="clearMinimumScoreOverride('fresh')">Reset</button>` : ''}
+          </div>
+          <div class="settings-card-help">Momentum runners retain their independent score thresholds.</div>
+        </div>
+        <div class="settings-card">
+          <div class="label">${liveBroker === 'sharekhan' ? 'Sharekhan token' : 'Zerodha token'}</div>
+          <div class="value ${brokerRefreshState.ok === false ? 'down' : (brokerRefreshState.ok ? 'up' : '')}">${autoRenewConfigured ? 'Auto-renew ready' : 'Refresh token missing'}</div>
+          <div class="settings-card-actions">
+            <button class="btn" type="button" onclick="refreshZerodhaTokenFromSettings()" ${brokerRefreshState.busy || !autoRenewConfigured ? 'disabled' : ''}>${brokerRefreshState.busy ? 'Refreshing...' : 'Refresh token now'}</button>
+            <span class="settings-card-meta">Last refresh: ${escapeHTML(lastRefreshAt)}</span>
+          </div>
+          <div class="settings-card-help ${brokerRefreshState.ok === false ? 'error' : ''}">${escapeHTML(refreshHint)}</div>
+        </div>
+        <div class="settings-card">
+          <div class="label">Stop guard override</div>
+          <div class="value ${stopGuardOverride ? 'up' : ''}">${stopGuardOverride ? 'Enabled' : 'Disabled'}</div>
+          <div class="settings-card-actions"><button class="btn" type="button" onclick="toggleSimulationStopGuardOverride()">${stopGuardOverride ? 'Disable override' : 'Enable override'}</button></div>
+        </div>
+        <div class="settings-card">
+          <div class="label">Auto-exit manual trades</div>
+          <div class="value ${manualAutoExitEnabled ? 'up' : ''}">${manualAutoExitEnabled ? 'Enabled' : 'Disabled'}</div>
+          <div class="settings-card-actions"><button class="btn" type="button" onclick="toggleManualTradeAutoExitOverride()">${manualAutoExitEnabled ? 'Disable auto exits' : 'Enable auto exits'}</button></div>
+          <div class="settings-card-help">Uses the same target, stop, trailing, time-stop and EOD rules.</div>
+        </div>
+        <div class="settings-card">
+          <div class="label">ETF simulation</div>
+          <div class="value ${etfSimulationEnabled ? 'up' : ''}">${etfSimulationEnabled ? 'Enabled' : 'Disabled'}</div>
+          <div class="settings-card-actions"><button class="btn" type="button" onclick="toggleSimulationEtfOverride()">${etfSimulationEnabled ? 'Disable ETF sim' : 'Enable ETF sim'}</button></div>
+          <div class="settings-card-help">Allows long ETF simulation entries. ETF shorts remain disabled.</div>
+        </div>
+        <div class="settings-card">
+          <div class="label">Nifty regime threshold</div>
+          <div class="value ${Number.isFinite(niftyRegimeOverride) ? 'up' : ''}">${niftyRegimeValue.toFixed(3)}</div>
+          <div class="settings-card-controls">
+            <input class="settings-card-input" aria-label="Nifty regime threshold" type="number" step="0.001" min="-1" max="1" value="${niftyRegimeValue.toFixed(3)}" onchange="setNiftyRegimeOverride(this.value)">
+            <span class="settings-card-status ${Number.isFinite(niftyRegimeOverride) ? 'active' : ''}">${Number.isFinite(niftyRegimeOverride) ? 'Override active' : 'Using default'}</span>
+            ${Number.isFinite(niftyRegimeOverride) ? '<button class="btn settings-card-reset" type="button" onclick="clearNiftyRegimeOverride()">Reset</button>' : ''}
+          </div>
+          <div class="settings-card-help">Blocks longs below −threshold and shorts above +threshold.</div>
+        </div>
+        <div class="settings-card">
+          <div class="label">Sector regime threshold</div>
+          <div class="value ${Number.isFinite(sectorRegimeOverride) ? 'up' : ''}">${sectorRegimeValue.toFixed(3)}</div>
+          <div class="settings-card-controls">
+            <input class="settings-card-input" aria-label="Sector regime threshold" type="number" step="0.001" min="-1" max="1" value="${sectorRegimeValue.toFixed(3)}" onchange="setSectorRegimeOverride(this.value)">
+            <span class="settings-card-status ${Number.isFinite(sectorRegimeOverride) ? 'active' : ''}">${Number.isFinite(sectorRegimeOverride) ? 'Override active' : 'Using default'}</span>
+            ${Number.isFinite(sectorRegimeOverride) ? '<button class="btn settings-card-reset" type="button" onclick="clearSectorRegimeOverride()">Reset</button>' : ''}
+          </div>
+          <div class="settings-card-help">Uses the sector average with the same long/short regime logic.</div>
+        </div>
+      </div>
+    </section>
+    <details class="settings-advanced">
+      <summary><span>Advanced trade rules</span><small>Inspect all effective and default values</small></summary>
+      <div class="settings-table-wrap">
       <table class="settings-table">
         <thead><tr><th>Setting</th><th>Description</th><th>Current value</th><th>Default</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-    </div>
+      </div>
+    </details>
   `;
   } catch (e) {
     body.innerHTML = `
@@ -4288,8 +4728,766 @@ function openSettingsModal() {
 
 function closeSettingsModal(e) {
   if (e) e.stopPropagation();
+  closeSetupSettingsModal();
   const modal = document.getElementById('settings-modal');
   if (modal) modal.style.display = 'none';
+}
+
+let setupEfficiencyPeriod = 'all';
+let setupEfficiencyPayload = null;
+let setupEfficiencyStream = null;
+let setupEfficiencyBusy = false;
+let selectedEfficiencySetupType = null;
+let setupEfficiencyDate = '';
+
+function setupEfficiencyGradeClass(grade) {
+  const value = String(grade || '').toLowerCase();
+  if (value === 'strong' || value === 'efficient') return 'good';
+  if (value === 'review') return 'bad';
+  if (value === 'watch') return 'warn';
+  return 'neutral';
+}
+
+function setupEfficiencyEnabled(setupType) {
+  const definition = getSimulationSetupDefinition(setupType);
+  if (!definition) return true;
+  const settings = (TradeRules && TradeRules.withDefaults)
+    ? TradeRules.withDefaults(getSimulationEngineSettings())
+    : getSimulationEngineSettings();
+  return settings[definition.key] !== false;
+}
+
+function setupEfficiencyMetric(label, value, tone = '') {
+  return `<div class="efficiency-metric"><span>${escapeHTML(label)}</span><strong class="${tone}">${escapeHTML(value)}</strong></div>`;
+}
+
+function renderSetupEfficiencyPanel() {
+  const body = document.getElementById('setup-efficiency-modal-body');
+  const footer = document.getElementById('setup-efficiency-footer-status');
+  if (!body) return;
+  if (!setupEfficiencyPayload) {
+    body.innerHTML = '<div class="efficiency-loading"><div class="mini-spinner"></div><span>Loading historical setup performance…</span></div>';
+    return;
+  }
+  const payload = setupEfficiencyPayload;
+  const rows = Array.isArray(payload.setups) ? payload.setups : [];
+  const summary = payload.summary || {};
+  const reconciliation = payload.reconciliation || {};
+  const overall = payload.overall || {};
+  const isDateView = Boolean(payload.date);
+  const selected = rows.find(row => row.setupType === selectedEfficiencySetupType) || null;
+  if (footer) {
+    footer.textContent = isDateView
+      ? `On-demand results for positions closed on ${payload.date} · last reconciled ${reconciliation.lastCompletedAt ? toIST(reconciliation.lastCompletedAt) : 'now'}`
+      : reconciliation.status === 'running'
+      ? 'Reconciliation is running in the background…'
+      : reconciliation.error
+        ? `Last reconciliation error: ${reconciliation.error}`
+        : `Last reconciled ${reconciliation.lastCompletedAt ? toIST(reconciliation.lastCompletedAt) : 'not yet'} · every 60 minutes`;
+  }
+  const periodButtons = [
+    ['10d', '10 days'],
+    ['30d', '30 days'],
+    ['90d', '90 days'],
+    ['all', 'All time'],
+  ].map(([period, label]) => (
+    `<button class="btn efficiency-period-btn ${!isDateView && setupEfficiencyPeriod === period ? 'active' : ''}" type="button" onclick="setSetupEfficiencyPeriod('${period}')">${label}</button>`
+  )).join('');
+  const dateControls = `
+    <div class="efficiency-date-request">
+      <label for="setup-efficiency-date">Specific close date</label>
+      <input id="setup-efficiency-date" class="settings-input" type="date" value="${escapeHTML(setupEfficiencyDate || getTradeDateISO())}" max="${getTradeDateISO()}">
+      <button class="btn ${isDateView ? 'active' : ''}" type="button" onclick="analyzeSetupEfficiencyDate()" ${setupEfficiencyBusy ? 'disabled' : ''}>${setupEfficiencyBusy ? 'Analyzing...' : 'Analyze date'}</button>
+      ${isDateView ? '<button class="btn" type="button" onclick="clearSetupEfficiencyDate()">Return to rolling view</button>' : ''}
+    </div>
+  `;
+  const detail = selected ? `
+    <section class="efficiency-detail" aria-label="${escapeHTML(`${selected.label} efficiency details`)}">
+      <div class="efficiency-detail-head">
+        <div>
+          <span class="settings-side-badge ${escapeHTML(selected.side)}">${escapeHTML(selected.side || '--')}</span>
+          <h3>${escapeHTML(selected.label)}</h3>
+          <p>${escapeHTML(selected.recommendation || '')}</p>
+        </div>
+        <div class="efficiency-detail-actions">
+          <button class="btn" type="button" onclick="openSetupSettingsModal('${escapeHTML(selected.setupType)}')">Configure setup</button>
+          <button class="btn" type="button" onclick="selectEfficiencySetup(null)">Close details</button>
+        </div>
+      </div>
+      <div class="efficiency-detail-grid">
+        ${setupEfficiencyMetric('Efficiency score', `${Number(selected.efficiencyScore || 0).toFixed(1)} / 100`, setupEfficiencyGradeClass(selected.grade))}
+        ${setupEfficiencyMetric('Confidence', `${Number(selected.confidencePct || 0).toFixed(1)}%`)}
+        ${setupEfficiencyMetric('Payoff ratio', Number(selected.payoffRatio || 0).toFixed(2))}
+        ${setupEfficiencyMetric('Cost drag', `${Number(selected.costDragPct || 0).toFixed(1)}%`)}
+        ${setupEfficiencyMetric('Target / Stop', `${Number(selected.targetHitPct || 0).toFixed(1)}% / ${Number(selected.stopHitPct || 0).toFixed(1)}%`)}
+        ${setupEfficiencyMetric('Consistency', `${Number(selected.consistencyPct || 0).toFixed(1)}% profitable days`)}
+        ${setupEfficiencyMetric('Return / hold hour', `${Number(selected.returnPerHoldHour || 0).toFixed(3)}%`)}
+        ${setupEfficiencyMetric('Max losing streak', String(selected.maxLosingStreak || 0))}
+      </div>
+      <div class="efficiency-score-note">
+        Score weights: expectancy 30%, profit factor 20%, drawdown 15%, payoff 10%, recent trend 10%, daily consistency 10%, and cost efficiency 5%. Sample size and trading-day coverage adjust confidence.
+      </div>
+    </section>
+  ` : '';
+  const tableRows = rows.map((row, index) => {
+    const enabled = setupEfficiencyEnabled(row.setupType);
+    const trend = Number(row.recentTrendPct || 0);
+    const gradeClass = setupEfficiencyGradeClass(row.grade);
+    return `
+      <tr class="${selectedEfficiencySetupType === row.setupType ? 'selected' : ''}" onclick="selectEfficiencySetup('${escapeHTML(row.setupType)}')">
+        <td class="efficiency-rank">${row.trades ? index + 1 : '—'}</td>
+        <td><button class="efficiency-setup-link" type="button" onclick="event.stopPropagation();selectEfficiencySetup('${escapeHTML(row.setupType)}')">${escapeHTML(row.label)}</button><span class="efficiency-side">${escapeHTML(row.side || '')}</span></td>
+        <td><span class="efficiency-enabled ${enabled ? 'on' : 'off'}">${enabled ? 'Enabled' : 'Disabled'}</span></td>
+        <td><span class="efficiency-grade ${gradeClass}">${escapeHTML(row.grade)}</span><small>${Number(row.efficiencyScore || 0).toFixed(1)}</small></td>
+        <td>${row.trades}<small>${row.tradingDays} days</small></td>
+        <td>${Number(row.winRate || 0).toFixed(1)}%</td>
+        <td class="${Number(row.avgNetPct) >= 0 ? 'up' : 'down'}">${Number(row.avgNetPct || 0).toFixed(3)}%</td>
+        <td>${Number(row.profitFactor || 0).toFixed(2)}</td>
+        <td class="${Number(row.netPnl) >= 0 ? 'up' : 'down'}">${moneyINR(row.netPnl || 0)}</td>
+        <td class="down">${moneyINR(-(Math.abs(Number(row.maxDrawdown || 0))))}</td>
+        <td>${Number(row.avgHoldMin || 0).toFixed(1)}m</td>
+        <td class="${trend >= 0 ? 'up' : 'down'}">${trend >= 0 ? '+' : ''}${trend.toFixed(3)}%</td>
+        <td class="efficiency-recommendation">${escapeHTML(row.recommendation || '')}</td>
+      </tr>
+    `;
+  }).join('');
+  body.innerHTML = `
+    <div class="efficiency-toolbar">
+      <div class="efficiency-filter-stack">
+        <div class="efficiency-periods">${periodButtons}</div>
+        ${dateControls}
+      </div>
+      <div class="efficiency-refresh-area">
+        <span class="efficiency-reconcile-status ${reconciliation.status === 'error' ? 'down' : ''}">${isDateView ? `Closed on ${escapeHTML(payload.date)}` : (reconciliation.status === 'running' ? 'Reconciling…' : `Updated ${reconciliation.lastCompletedAt ? toIST(reconciliation.lastCompletedAt) : '—'}`)}</span>
+        <button class="btn" type="button" onclick="reconcileSetupEfficiency()" ${setupEfficiencyBusy || reconciliation.status === 'running' ? 'disabled' : ''}>${setupEfficiencyBusy ? 'Reconciling…' : 'Reconcile now'}</button>
+      </div>
+    </div>
+    <div class="efficiency-summary">
+      ${setupEfficiencyMetric(isDateView ? `Closed on ${payload.date}` : 'Closed positions', String(summary.closedPositions || 0))}
+      ${setupEfficiencyMetric('Efficient setups', String(summary.efficientSetups || 0), 'good')}
+      ${setupEfficiencyMetric('Profitable setups', String(summary.profitableSetups || 0), 'good')}
+      ${setupEfficiencyMetric('Overall expectancy', `${Number(overall.avgNetPct || 0).toFixed(3)}%`, Number(overall.avgNetPct) >= 0 ? 'up' : 'down')}
+      ${setupEfficiencyMetric('Best setup', String(summary.bestSetup || '--'))}
+      ${setupEfficiencyMetric('Review setups', String(summary.reviewSetups || 0), summary.reviewSetups ? 'warn' : '')}
+    </div>
+    ${detail}
+    <div class="efficiency-table-wrap">
+      <table class="efficiency-table">
+        <thead><tr><th>Rank</th><th>Setup</th><th>Status</th><th>Grade</th><th>Sample</th><th>Win rate</th><th>Expectancy</th><th>Profit factor</th><th>Net P&amp;L</th><th>Max drawdown</th><th>Avg hold</th><th>Recent trend</th><th>Recommendation</th></tr></thead>
+        <tbody>${tableRows || '<tr><td colspan="13" class="settings-empty-state">No reconciled simulation transactions yet.</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function applySetupEfficiencyPayload(payload) {
+  if (!payload || payload.ok === false) return;
+  setupEfficiencyPayload = payload;
+  if (['10d', '30d', '90d', 'all'].includes(payload.period)) setupEfficiencyPeriod = payload.period;
+  setupEfficiencyDate = payload.date || '';
+  renderSetupEfficiencyPanel();
+}
+
+async function loadSetupEfficiency() {
+  try {
+    const response = await fetch(`${SETUP_EFFICIENCY_ENDPOINT}?period=${encodeURIComponent(setupEfficiencyPeriod)}`, {
+      signal:AbortSignal.timeout(10000),
+      cache:'no-store',
+    });
+    const payload = await response.json();
+    if (!response.ok || payload.ok === false) throw new Error(payload.error || `HTTP ${response.status}`);
+    applySetupEfficiencyPayload(payload);
+  } catch (error) {
+    const body = document.getElementById('setup-efficiency-modal-body');
+    if (body) body.innerHTML = `<div class="settings-empty-state"><strong>Could not load setup efficiency</strong><span>${escapeHTML(error.message || 'Unknown error')}</span></div>`;
+  }
+}
+
+function stopSetupEfficiencyStream() {
+  if (!setupEfficiencyStream) return;
+  try { setupEfficiencyStream.close(); } catch (_) {}
+  setupEfficiencyStream = null;
+}
+
+function startSetupEfficiencyStream() {
+  stopSetupEfficiencyStream();
+  if (setupEfficiencyDate) return;
+  if (document.getElementById('setup-efficiency-modal')?.style.display !== 'flex') return;
+  const stream = new EventSource(`${SETUP_EFFICIENCY_STREAM_ENDPOINT}?period=${encodeURIComponent(setupEfficiencyPeriod)}`);
+  setupEfficiencyStream = stream;
+  stream.addEventListener('setup-efficiency', event => {
+    try { applySetupEfficiencyPayload(JSON.parse(event.data)); } catch (_) {}
+  });
+  stream.onerror = () => {
+    if (setupEfficiencyStream === stream && document.getElementById('setup-efficiency-modal')?.style.display !== 'flex') stopSetupEfficiencyStream();
+  };
+}
+
+function openSetupEfficiencyPanel() {
+  const modal = document.getElementById('setup-efficiency-modal');
+  if (modal) modal.style.display = 'flex';
+  renderSetupEfficiencyPanel();
+  loadSetupEfficiency();
+  startSetupEfficiencyStream();
+}
+
+function closeSetupEfficiencyPanel(e) {
+  if (e) e.stopPropagation();
+  stopSetupEfficiencyStream();
+  const modal = document.getElementById('setup-efficiency-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function selectEfficiencySetup(setupType) {
+  selectedEfficiencySetupType = setupType || null;
+  renderSetupEfficiencyPanel();
+}
+
+function setSetupEfficiencyPeriod(period) {
+  if (!['10d', '30d', '90d', 'all'].includes(period) || (period === setupEfficiencyPeriod && !setupEfficiencyDate)) return;
+  setupEfficiencyPeriod = period;
+  setupEfficiencyDate = '';
+  selectedEfficiencySetupType = null;
+  setupEfficiencyPayload = null;
+  renderSetupEfficiencyPanel();
+  loadSetupEfficiency();
+  startSetupEfficiencyStream();
+}
+
+async function analyzeSetupEfficiencyDate() {
+  if (setupEfficiencyBusy) return;
+  const input = document.getElementById('setup-efficiency-date');
+  const requestedDate = String(input?.value || '');
+  if (!requestedDate) {
+    input?.focus();
+    return;
+  }
+  setupEfficiencyBusy = true;
+  setupEfficiencyDate = requestedDate;
+  selectedEfficiencySetupType = null;
+  stopSetupEfficiencyStream();
+  renderSetupEfficiencyPanel();
+  try {
+    const response = await fetch(`${SETUP_EFFICIENCY_ENDPOINT}/analyze-date?date=${encodeURIComponent(requestedDate)}`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:'{}',
+      signal:AbortSignal.timeout(30000),
+    });
+    const result = await response.json();
+    if (!response.ok || result.ok === false) throw new Error(result.error || `HTTP ${response.status}`);
+    applySetupEfficiencyPayload(result.payload);
+  } catch (error) {
+    setupEfficiencyDate = '';
+    const footer = document.getElementById('setup-efficiency-footer-status');
+    if (footer) footer.textContent = `Date analysis failed: ${error.message || 'Unknown error'}`;
+  } finally {
+    setupEfficiencyBusy = false;
+    renderSetupEfficiencyPanel();
+  }
+}
+
+function clearSetupEfficiencyDate() {
+  setupEfficiencyDate = '';
+  selectedEfficiencySetupType = null;
+  setupEfficiencyPayload = null;
+  renderSetupEfficiencyPanel();
+  loadSetupEfficiency();
+  startSetupEfficiencyStream();
+}
+
+async function reconcileSetupEfficiency() {
+  if (setupEfficiencyBusy) return;
+  setupEfficiencyBusy = true;
+  renderSetupEfficiencyPanel();
+  try {
+    const query = setupEfficiencyDate
+      ? `date=${encodeURIComponent(setupEfficiencyDate)}`
+      : `period=${encodeURIComponent(setupEfficiencyPeriod)}`;
+    const response = await fetch(`${SETUP_EFFICIENCY_ENDPOINT}/reconcile?${query}`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:'{}',
+      signal:AbortSignal.timeout(30000),
+    });
+    const result = await response.json();
+    if (!response.ok || result.ok === false) throw new Error(result.error || `HTTP ${response.status}`);
+    applySetupEfficiencyPayload(result.payload);
+  } catch (error) {
+    const footer = document.getElementById('setup-efficiency-footer-status');
+    if (footer) footer.textContent = `Reconciliation failed: ${error.message || 'Unknown error'}`;
+  } finally {
+    setupEfficiencyBusy = false;
+    renderSetupEfficiencyPanel();
+  }
+}
+
+let exitQualityPeriod = 'all';
+let exitQualityDate = '';
+let exitQualityPayload = null;
+let exitQualityStream = null;
+let exitQualityBusy = false;
+let selectedExitQualityCategory = null;
+
+function exitQualityTone(grade) {
+  const value = String(grade || '').toLowerCase();
+  if (value === 'excellent' || value === 'good') return 'good';
+  if (value === 'poor') return 'bad';
+  if (value === 'watch') return 'warn';
+  return 'neutral';
+}
+
+function renderExitQualityPanel() {
+  const body = document.getElementById('exit-quality-modal-body');
+  const footer = document.getElementById('exit-quality-footer-status');
+  if (!body) return;
+  if (!exitQualityPayload) {
+    body.innerHTML = '<div class="efficiency-loading"><div class="mini-spinner"></div><span>Loading historical exit quality…</span></div>';
+    return;
+  }
+  const payload = exitQualityPayload;
+  const rows = Array.isArray(payload.categories) ? payload.categories : [];
+  const summary = payload.summary || {};
+  const overall = payload.overall || {};
+  const reconciliation = payload.reconciliation || {};
+  const isDateView = Boolean(payload.date);
+  const selected = rows.find(row => row.exitCategory === selectedExitQualityCategory) || null;
+  if (footer) {
+    footer.textContent = isDateView
+      ? `On-demand exit results for ${payload.date} · day close is the last available closing snapshot`
+      : `Last reconciled ${reconciliation.lastCompletedAt ? toIST(reconciliation.lastCompletedAt) : 'not yet'} · every 60 minutes`;
+  }
+  const periods = [
+    ['10d', '10 days'],
+    ['30d', '30 days'],
+    ['90d', '90 days'],
+    ['all', 'All time'],
+  ].map(([period, label]) => (
+    `<button class="btn efficiency-period-btn ${!isDateView && exitQualityPeriod === period ? 'active' : ''}" type="button" onclick="setExitQualityPeriod('${period}')">${label}</button>`
+  )).join('');
+  const detail = selected ? `
+    <section class="efficiency-detail exit-quality-detail">
+      <div class="efficiency-detail-head">
+        <div><h3>${escapeHTML(selected.exitCategory)}</h3><p>${escapeHTML(selected.recommendation || '')}</p></div>
+        <button class="btn" type="button" onclick="selectExitQualityCategory(null)">Close details</button>
+      </div>
+      <div class="efficiency-detail-grid">
+        ${setupEfficiencyMetric('Quality score', `${Number(selected.qualityScore || 0).toFixed(1)} / 100`, exitQualityTone(selected.grade))}
+        ${setupEfficiencyMetric('Benchmark coverage', `${Number(selected.benchmarkCoveragePct || 0).toFixed(1)}%`)}
+        ${setupEfficiencyMetric('Perfect exits', `${Number(selected.perfectExitPct || 0).toFixed(1)}%`)}
+        ${setupEfficiencyMetric('Beat day close', `${Number(selected.beatClosePct || 0).toFixed(1)}%`)}
+        ${setupEfficiencyMetric('Opportunity loss', moneyINR(selected.opportunityLoss || 0), Number(selected.opportunityLoss) > 0 ? 'warn' : 'good')}
+        ${setupEfficiencyMetric('Value protected', moneyINR(selected.valueProtected || 0), 'good')}
+        ${setupEfficiencyMetric('Average opportunity', `${Number(selected.avgOpportunityPct || 0).toFixed(3)}%`, Number(selected.avgOpportunityPct) > 0 ? 'warn' : 'good')}
+        ${setupEfficiencyMetric('Net P&L', moneyINR(selected.netPnl || 0), Number(selected.netPnl) >= 0 ? 'good' : 'bad')}
+      </div>
+      <div class="efficiency-score-note">Opportunity is side-adjusted: long = day close − exit price; short = exit price − day close. Positive values were left on the table. A perfect exit is within 0.10% of, or better than, the day close.</div>
+    </section>
+  ` : '';
+  const tableRows = rows.map((row, index) => {
+    const active = Number(row.exits) > 0;
+    return `
+      <tr class="${selectedExitQualityCategory === row.exitCategory ? 'selected' : ''}" onclick="selectExitQualityCategory('${escapeHTML(row.exitCategory)}')">
+        <td class="efficiency-rank">${active ? index + 1 : '—'}</td>
+        <td><button class="efficiency-setup-link" type="button" onclick="event.stopPropagation();selectExitQualityCategory('${escapeHTML(row.exitCategory)}')">${escapeHTML(row.exitCategory)}</button></td>
+        <td><span class="efficiency-grade ${exitQualityTone(row.grade)}">${escapeHTML(row.grade)}</span><small>${Number(row.qualityScore || 0).toFixed(1)}</small></td>
+        <td>${row.exits}<small>${row.positions} positions</small></td>
+        <td>${Number(row.benchmarkCoveragePct || 0).toFixed(1)}%<small>${row.benchmarkedExits} exits</small></td>
+        <td>${Number(row.winRate || 0).toFixed(1)}%</td>
+        <td class="${Number(row.avgNetPct) >= 0 ? 'up' : 'down'}">${Number(row.avgNetPct || 0).toFixed(3)}%</td>
+        <td class="${Number(row.netPnl) >= 0 ? 'up' : 'down'}">${moneyINR(row.netPnl || 0)}</td>
+        <td class="${Number(row.avgOpportunityPct) > 0 ? 'down' : 'up'}">${Number(row.avgOpportunityPct || 0).toFixed(3)}%</td>
+        <td class="${Number(row.opportunityLoss) > 0 ? 'down' : ''}">${moneyINR(row.opportunityLoss || 0)}</td>
+        <td>${Number(row.beatClosePct || 0).toFixed(1)}%</td>
+        <td>${Number(row.perfectExitPct || 0).toFixed(1)}%</td>
+        <td class="up">${moneyINR(row.valueProtected || 0)}</td>
+        <td class="efficiency-recommendation">${escapeHTML(row.recommendation || '')}</td>
+      </tr>
+    `;
+  }).join('');
+  body.innerHTML = `
+    <div class="efficiency-toolbar">
+      <div class="efficiency-filter-stack">
+        <div class="efficiency-periods">${periods}</div>
+        <div class="efficiency-date-request">
+          <label for="exit-quality-date">Specific close date</label>
+          <input id="exit-quality-date" class="settings-input" type="date" value="${escapeHTML(exitQualityDate || getTradeDateISO())}" max="${getTradeDateISO()}">
+          <button class="btn ${isDateView ? 'active' : ''}" type="button" onclick="analyzeExitQualityDate()" ${exitQualityBusy ? 'disabled' : ''}>${exitQualityBusy ? 'Analyzing...' : 'Analyze date'}</button>
+          ${isDateView ? '<button class="btn" type="button" onclick="clearExitQualityDate()">Return to rolling view</button>' : ''}
+        </div>
+      </div>
+      <div class="efficiency-refresh-area">
+        <span class="efficiency-reconcile-status">${isDateView ? `Closed on ${escapeHTML(payload.date)}` : `Updated ${reconciliation.lastCompletedAt ? toIST(reconciliation.lastCompletedAt) : '—'}`}</span>
+        <button class="btn" type="button" onclick="reconcileExitQuality()" ${exitQualityBusy || reconciliation.status === 'running' ? 'disabled' : ''}>${exitQualityBusy ? 'Reconciling…' : 'Reconcile now'}</button>
+      </div>
+    </div>
+    <div class="efficiency-summary">
+      ${setupEfficiencyMetric(isDateView ? `Exits on ${payload.date}` : 'Closed exits', String(summary.exits || 0))}
+      ${setupEfficiencyMetric('Close coverage', `${Number(summary.benchmarkCoveragePct || 0).toFixed(1)}%`)}
+      ${setupEfficiencyMetric('Opportunity loss', moneyINR(summary.opportunityLoss || 0), Number(summary.opportunityLoss) > 0 ? 'warn' : 'good')}
+      ${setupEfficiencyMetric('Value protected', moneyINR(summary.valueProtected || 0), 'good')}
+      ${setupEfficiencyMetric('Perfect exits', `${Number(summary.perfectExitPct || 0).toFixed(1)}%`)}
+      ${setupEfficiencyMetric('Best category', String(summary.bestCategory || '--'))}
+    </div>
+    ${detail}
+    <div class="exit-quality-explainer">Net P&amp;L measures realized outcome. Opportunity loss separately measures what happened between the actual exit and that trading day’s close.</div>
+    <div class="efficiency-table-wrap">
+      <table class="efficiency-table exit-quality-table">
+        <thead><tr><th>Rank</th><th>Exit category</th><th>Grade</th><th>Sample</th><th>Close coverage</th><th>Win rate</th><th>Avg net</th><th>Net P&amp;L</th><th>Avg opportunity</th><th>Opportunity loss</th><th>Beat close</th><th>Perfect exit</th><th>Value protected</th><th>Recommendation</th></tr></thead>
+        <tbody>${tableRows || '<tr><td colspan="14" class="settings-empty-state">No reconciled simulation exits yet.</td></tr>'}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function applyExitQualityPayload(payload) {
+  if (!payload || payload.ok === false) return;
+  exitQualityPayload = payload;
+  if (['10d', '30d', '90d', 'all'].includes(payload.period)) exitQualityPeriod = payload.period;
+  exitQualityDate = payload.date || '';
+  renderExitQualityPanel();
+}
+
+async function loadExitQuality() {
+  try {
+    const response = await fetch(`${EXIT_QUALITY_ENDPOINT}?period=${encodeURIComponent(exitQualityPeriod)}`, {
+      signal:AbortSignal.timeout(10000),
+      cache:'no-store',
+    });
+    const payload = await response.json();
+    if (!response.ok || payload.ok === false) throw new Error(payload.error || `HTTP ${response.status}`);
+    applyExitQualityPayload(payload);
+  } catch (error) {
+    const body = document.getElementById('exit-quality-modal-body');
+    if (body) body.innerHTML = `<div class="settings-empty-state"><strong>Could not load exit quality</strong><span>${escapeHTML(error.message || 'Unknown error')}</span></div>`;
+  }
+}
+
+function stopExitQualityStream() {
+  if (!exitQualityStream) return;
+  try { exitQualityStream.close(); } catch (_) {}
+  exitQualityStream = null;
+}
+
+function startExitQualityStream() {
+  stopExitQualityStream();
+  if (exitQualityDate || document.getElementById('exit-quality-modal')?.style.display !== 'flex') return;
+  const stream = new EventSource(`${EXIT_QUALITY_STREAM_ENDPOINT}?period=${encodeURIComponent(exitQualityPeriod)}`);
+  exitQualityStream = stream;
+  stream.addEventListener('exit-quality', event => {
+    try { applyExitQualityPayload(JSON.parse(event.data)); } catch (_) {}
+  });
+  stream.onerror = () => {
+    if (exitQualityStream === stream && document.getElementById('exit-quality-modal')?.style.display !== 'flex') stopExitQualityStream();
+  };
+}
+
+function openExitQualityPanel() {
+  const modal = document.getElementById('exit-quality-modal');
+  if (modal) modal.style.display = 'flex';
+  renderExitQualityPanel();
+  loadExitQuality();
+  startExitQualityStream();
+}
+
+function closeExitQualityPanel(event) {
+  event?.stopPropagation();
+  stopExitQualityStream();
+  const modal = document.getElementById('exit-quality-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function selectExitQualityCategory(category) {
+  selectedExitQualityCategory = category || null;
+  renderExitQualityPanel();
+}
+
+function setExitQualityPeriod(period) {
+  if (!['10d', '30d', '90d', 'all'].includes(period) || (period === exitQualityPeriod && !exitQualityDate)) return;
+  exitQualityPeriod = period;
+  exitQualityDate = '';
+  selectedExitQualityCategory = null;
+  exitQualityPayload = null;
+  renderExitQualityPanel();
+  loadExitQuality();
+  startExitQualityStream();
+}
+
+async function analyzeExitQualityDate() {
+  if (exitQualityBusy) return;
+  const input = document.getElementById('exit-quality-date');
+  const requestedDate = String(input?.value || '');
+  if (!requestedDate) {
+    input?.focus();
+    return;
+  }
+  exitQualityBusy = true;
+  exitQualityDate = requestedDate;
+  selectedExitQualityCategory = null;
+  stopExitQualityStream();
+  renderExitQualityPanel();
+  try {
+    const response = await fetch(`${EXIT_QUALITY_ENDPOINT}/analyze-date?date=${encodeURIComponent(requestedDate)}`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:'{}',
+      signal:AbortSignal.timeout(30000),
+    });
+    const result = await response.json();
+    if (!response.ok || result.ok === false) throw new Error(result.error || `HTTP ${response.status}`);
+    applyExitQualityPayload(result.payload);
+  } catch (error) {
+    exitQualityDate = '';
+    const footer = document.getElementById('exit-quality-footer-status');
+    if (footer) footer.textContent = `Date analysis failed: ${error.message || 'Unknown error'}`;
+  } finally {
+    exitQualityBusy = false;
+    renderExitQualityPanel();
+  }
+}
+
+function clearExitQualityDate() {
+  exitQualityDate = '';
+  selectedExitQualityCategory = null;
+  exitQualityPayload = null;
+  renderExitQualityPanel();
+  loadExitQuality();
+  startExitQualityStream();
+}
+
+async function reconcileExitQuality() {
+  if (exitQualityBusy) return;
+  exitQualityBusy = true;
+  renderExitQualityPanel();
+  try {
+    const query = exitQualityDate ? `date=${encodeURIComponent(exitQualityDate)}` : `period=${encodeURIComponent(exitQualityPeriod)}`;
+    const response = await fetch(`${EXIT_QUALITY_ENDPOINT}/reconcile?${query}`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:'{}',
+      signal:AbortSignal.timeout(30000),
+    });
+    const result = await response.json();
+    if (!response.ok || result.ok === false) throw new Error(result.error || `HTTP ${response.status}`);
+    applyExitQualityPayload(result.payload);
+  } catch (error) {
+    const footer = document.getElementById('exit-quality-footer-status');
+    if (footer) footer.textContent = `Reconciliation failed: ${error.message || 'Unknown error'}`;
+  } finally {
+    exitQualityBusy = false;
+    renderExitQualityPanel();
+  }
+}
+
+let strategyAdvisorDate = '';
+let strategyAdvisorRun = null;
+let strategyAdvisorPayload = null;
+let strategyAdvisorBusy = false;
+let strategyAdvisorStream = null;
+
+function strategyAdvisorToday() {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone:'Asia/Kolkata',
+      year:'numeric',
+      month:'2-digit',
+      day:'2-digit',
+    }).format(new Date());
+  } catch (_) {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+function advisorValidationLabel(validation) {
+  const status = String(validation?.status || 'agent-reviewed');
+  if (status === 'analytics-reviewed') return 'Analytics reviewed';
+  if (status === 'hypothesis') return 'Hypothesis';
+  return 'Agent reviewed';
+}
+
+function renderStrategyAdvisorPanel() {
+  const body = document.getElementById('strategy-advisor-modal-body');
+  const footer = document.getElementById('strategy-advisor-footer-status');
+  if (!body) return;
+  const run = strategyAdvisorRun;
+  const preparation = strategyAdvisorPayload?.state || null;
+  const active = preparation && ['queued', 'running'].includes(preparation.status);
+  const recommendations = Array.isArray(run?.recommendations) ? run.recommendations : [];
+  if (footer) {
+    footer.textContent = active
+      ? `${preparation.phase || 'Preparing evidence'} · ${Number(preparation.progress) || 0}%`
+      : run?.status === 'done'
+        ? `Codex result file · ${run.agent?.toolCalls || 0} evidence checks · Replay off`
+        : 'Prepare evidence here, then invoke $strategy-advisor in a Codex task';
+  }
+  const cards = recommendations.map(recommendation => {
+    const validation = recommendation.validation || {};
+    const validationStatus = String(validation.status || 'agent-reviewed');
+    const changes = (recommendation.proposedChanges || []).map(change => `
+      <div class="advisor-change">
+        <span>${escapeHTML(change.key)}</span>
+        <span>${escapeHTML(String(change.current))}</span>
+        <strong>→ ${escapeHTML(String(change.recommended))}</strong>
+      </div>
+    `).join('');
+    const configure = recommendation.setupType
+      ? `<button class="btn" type="button" onclick="configureAdvisorSetup('${escapeHTML(recommendation.setupType)}')">Review setup config</button>`
+      : '';
+    return `
+      <article class="advisor-card ${escapeHTML(validationStatus)}">
+        <div class="advisor-card-head">
+          <div><span class="settings-eyebrow">${escapeHTML(recommendation.label || recommendation.type)}</span><h4>${escapeHTML(recommendation.title || '')}</h4></div>
+          <span class="advisor-confidence">${escapeHTML(recommendation.confidence || 'low')} · ${escapeHTML(advisorValidationLabel(validation))}</span>
+        </div>
+        <p>${escapeHTML(recommendation.rationale || '')}</p>
+        <ul class="advisor-evidence">${(recommendation.evidence || []).map(value => `<li>${escapeHTML(value)}</li>`).join('')}</ul>
+        ${changes}
+        <p class="advisor-risk"><strong>Risk:</strong> ${escapeHTML(recommendation.risk || '')}</p>
+        ${configure}
+      </article>
+    `;
+  }).join('');
+  const content = !run
+    ? strategyAdvisorPayload?.evidence
+      ? `<div class="advisor-empty"><strong>Evidence file is ready</strong><span>Invoke <code>$strategy-advisor</code> in a Codex task for ${escapeHTML(strategyAdvisorDate)}. The saved result will appear here automatically.</span><small>${escapeHTML(strategyAdvisorPayload.evidence.path || '')}</small></div>`
+      : '<div class="advisor-empty"><strong>No analysis result</strong><span>Choose a trading date and prepare its evidence file for Codex.</span></div>'
+    : run.status === 'error'
+      ? `<div class="advisor-empty"><strong>Advisor failed</strong><span>${escapeHTML(run.error || 'Unknown error')}</span></div>`
+      : active
+        ? `<div class="advisor-empty"><div class="mini-spinner"></div><strong>${escapeHTML(run.phase || 'Agent working')}</strong><span>The panel will update automatically as the agent requests evidence.</span></div>`
+        : `
+          <section class="advisor-thesis">
+            <h4>Daily thesis</h4>
+            <p>${escapeHTML(run.thesis || 'The agent did not find enough evidence for a strong thesis.')}</p>
+            <div class="advisor-run-meta">
+              <span class="advisor-chip">${run.summary?.setupTrades || 0} setup trades</span>
+              <span class="advisor-chip">${run.summary?.exits || 0} exits</span>
+              <span class="advisor-chip">${run.summary?.usableSnapshots || 0}/${run.summary?.snapshots || 0} usable snapshots</span>
+              <span class="advisor-chip">Replay off</span>
+            </div>
+            ${(run.caveats || []).length ? `<ul class="advisor-evidence">${run.caveats.map(value => `<li>${escapeHTML(value)}</li>`).join('')}</ul>` : ''}
+          </section>
+          <div class="advisor-grid">${cards || '<div class="advisor-empty"><strong>No defensible changes found</strong><span>The agent intentionally returned no settings recommendation for this date.</span></div>'}</div>
+        `;
+  body.innerHTML = `
+    <div class="advisor-toolbar">
+      <div class="advisor-date-control">
+        <label for="strategy-advisor-date">Trading date</label>
+        <input id="strategy-advisor-date" class="settings-input" type="date" value="${escapeHTML(strategyAdvisorDate || strategyAdvisorToday())}" max="${strategyAdvisorToday()}">
+        <button class="btn" type="button" onclick="runStrategyAdvisor()" ${strategyAdvisorBusy || active ? 'disabled' : ''}>${active ? 'Preparing…' : 'Prepare evidence'}</button>
+      </div>
+      <div class="advisor-progress">
+        <span>${active ? `${escapeHTML(preparation.phase || preparation.status)} · ${Number(preparation.progress) || 0}%` : strategyAdvisorPayload?.evidence ? 'Evidence ready for Codex' : run ? 'Saved Codex result' : 'Select a date to begin'}</span>
+        <div class="advisor-progress-track"><div class="advisor-progress-fill" style="width:${Math.max(0, Math.min(100, Number(active ? preparation?.progress : (strategyAdvisorPayload?.evidence || run) ? 100 : 0) || 0))}%"></div></div>
+      </div>
+    </div>
+    ${content}
+  `;
+}
+
+function stopStrategyAdvisorStream() {
+  if (!strategyAdvisorStream) return;
+  try { strategyAdvisorStream.close(); } catch (_) {}
+  strategyAdvisorStream = null;
+}
+
+function updateStrategyAdvisorPayload(payload) {
+  if (!payload || payload.ok === false) return;
+  strategyAdvisorPayload = payload;
+  strategyAdvisorRun = payload.result || null;
+  strategyAdvisorBusy = ['queued', 'running'].includes(payload.state?.status);
+  renderStrategyAdvisorPanel();
+}
+
+function startStrategyAdvisorStream(date) {
+  stopStrategyAdvisorStream();
+  if (!date || typeof EventSource === 'undefined') return;
+  const stream = new EventSource(`${STRATEGY_ADVISOR_ENDPOINT}/stream?date=${encodeURIComponent(date)}`);
+  strategyAdvisorStream = stream;
+  stream.addEventListener('strategy-advisor', event => {
+    try {
+      updateStrategyAdvisorPayload(JSON.parse(event.data));
+    } catch (_) {}
+  });
+  stream.onerror = () => {
+    if (document.getElementById('strategy-advisor-modal')?.style.display !== 'flex') stopStrategyAdvisorStream();
+  };
+}
+
+async function loadStrategyAdvisorHistory() {
+  try {
+    const response = await fetch(`${STRATEGY_ADVISOR_ENDPOINT}?date=${encodeURIComponent(strategyAdvisorDate)}`, {
+      cache:'no-store',
+      signal:AbortSignal.timeout(10000),
+    });
+    const payload = await response.json();
+    if (!response.ok || payload.ok === false) throw new Error(payload.error || `HTTP ${response.status}`);
+    updateStrategyAdvisorPayload(payload);
+    startStrategyAdvisorStream(strategyAdvisorDate);
+  } catch (error) {
+    const footer = document.getElementById('strategy-advisor-footer-status');
+    if (footer) footer.textContent = `Could not load advisor history: ${error.message || 'Unknown error'}`;
+  }
+}
+
+function openStrategyAdvisorPanel() {
+  strategyAdvisorDate = strategyAdvisorDate || strategyAdvisorToday();
+  const modal = document.getElementById('strategy-advisor-modal');
+  if (modal) modal.style.display = 'flex';
+  renderStrategyAdvisorPanel();
+  loadStrategyAdvisorHistory();
+  startStrategyAdvisorStream(strategyAdvisorDate);
+}
+
+function closeStrategyAdvisorPanel(event) {
+  event?.stopPropagation();
+  stopStrategyAdvisorStream();
+  const modal = document.getElementById('strategy-advisor-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function runStrategyAdvisor() {
+  if (strategyAdvisorBusy) return;
+  const input = document.getElementById('strategy-advisor-date');
+  const date = String(input?.value || '');
+  if (!date) {
+    input?.focus();
+    return;
+  }
+  strategyAdvisorDate = date;
+  strategyAdvisorBusy = true;
+  strategyAdvisorPayload = {
+    ok:true,
+    date,
+    state:{ date, status:'queued', phase:'requesting evidence', progress:0 },
+    evidence:strategyAdvisorPayload?.evidence || null,
+    result:strategyAdvisorPayload?.result || null,
+  };
+  strategyAdvisorRun = strategyAdvisorPayload.result;
+  renderStrategyAdvisorPanel();
+  try {
+    const response = await fetch(`${STRATEGY_ADVISOR_ENDPOINT}/prepare?date=${encodeURIComponent(date)}`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:'{}',
+      signal:AbortSignal.timeout(15000),
+    });
+    const payload = await response.json();
+    if (!response.ok || payload.ok === false) throw new Error(payload.error || `HTTP ${response.status}`);
+    strategyAdvisorPayload.state = payload.state;
+    renderStrategyAdvisorPanel();
+    startStrategyAdvisorStream(date);
+  } catch (error) {
+    strategyAdvisorBusy = false;
+    strategyAdvisorPayload.state = { date, status:'error', phase:'failed', progress:100, error:error.message || 'Unknown error' };
+    strategyAdvisorRun = null;
+    renderStrategyAdvisorPanel();
+  }
+}
+
+function configureAdvisorSetup(setupType) {
+  closeStrategyAdvisorPanel();
+  openSetupSettingsModal(setupType);
 }
 
 async function refreshZerodhaTokenFromSettings() {
@@ -4610,17 +5808,19 @@ function renderBrokerPortfolioModal() {
   const closedRows = todayClosedTrades.length
     ? todayClosedTrades.map(trade => {
       const pnl = Number.isFinite(Number(trade.pnl)) ? Number(trade.pnl) : Number(computeClosedPaperPnl(trade) || 0);
+      const livePrice = getCurrentTradePrice(trade.symbol);
       return `<tr>
         <td>${escapeHTML(trade.symbol || '--')}</td>
         <td>${escapeHTML(String(trade.side || '--').toUpperCase())}</td>
         <td>${Number(trade.qty || 0).toLocaleString('en-IN')}</td>
         <td>${moneyINR(trade.entryPrice)}</td>
         <td>${moneyINR(trade.exitPrice)}</td>
+        <td data-browser-live-price="${escapeHTML(String(trade.symbol || '').toUpperCase())}">${moneyINR(livePrice)}</td>
         <td>${escapeHTML(formatTradeDateTime(trade.closedAt || trade.openedAt))}</td>
         <td class="portfolio-pnl ${portfolioValueClass(pnl)}">${moneyINR(pnl)}</td>
       </tr>`;
     }).join('')
-    : `<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:16px">No ${brokerLabel} trades closed today in app ledger</td></tr>`;
+    : `<tr><td colspan="8" style="color:var(--muted);text-align:center;padding:16px">No ${brokerLabel} trades closed today in app ledger</td></tr>`;
 
   body.innerHTML = `
     <div class="portfolio-grid">
@@ -4650,7 +5850,7 @@ function renderBrokerPortfolioModal() {
     <div class="portfolio-section-title">Closed Today (${todayClosedTrades.length})</div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table" style="min-width:760px">
-        <thead><tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Closed</th><th>Net P&L</th></tr></thead>
+        <thead><tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Live</th><th>Closed</th><th>Net P&L</th></tr></thead>
         <tbody>${closedRows}</tbody>
       </table>
     </div>
@@ -5118,6 +6318,11 @@ function getSimulationOpenTrades() {
 }
 
 function getSimulationEngineSettings() {
+  if (simulationRuntimeStatus?.settings && typeof simulationRuntimeStatus.settings === 'object') {
+    return TradeRules.withDefaults
+      ? TradeRules.withDefaults(simulationRuntimeStatus.settings)
+      : { ...simulationRuntimeStatus.settings };
+  }
   const settings = {
     PORTFOLIO_INITIAL_CAPITAL:getPortfolioCapital(),
     MAX_POSITION_EXPOSURE,
@@ -5396,7 +6601,7 @@ function getSimulationExit(trade, price) {
     buildSimulationEngineCandidate(trade?.symbol, intradayData[trade?.symbol], adjustedTradeScore(trade?.symbol), trade?.side),
     Date.now(),
     getSimulationEngineSettings(),
-    { isEodSettlement:isSimulationEodSettlementTime() }
+    { isEodSettlement:isSimulationEodSettlementTime(), market:{ indices:indexData || {} } }
   );
 }
 
@@ -5770,16 +6975,29 @@ async function saveSimulationSnapshot(source = 'intraday-refresh') {
     throw new Error(err.error || `simulation-analysis HTTP ${analysisRes.status}`);
   }
   const analysis = await analysisRes.json();
+  applySimulationRuntimeStatus({
+    state:analysis.simulationState || simulationState,
+    settings:analysis.settings || {},
+    settingsFingerprint:analysis.settingsFingerprint || '',
+  });
   const payload = {
     source: analysis.source || `ui-${source}`,
     dataSource: analysis.dataSource || 'server',
     currentView,
     simulationState: analysis.simulationState || simulationState,
     caps: analysis.settings || {},
+    settingsFingerprint:analysis.settingsFingerprint || '',
     dayStats: analysis.dayStats || {},
     market: analysis.market || {},
     sectorTrend: analysis.sectorTrend || {},
     openSimulationTrades: getSimulationOpenTrades().map(t => ({
+      ...(() => {
+        const candidate = (Array.isArray(analysis.candidates) ? analysis.candidates : [])
+          .find(row => String(row?.symbol || '').toUpperCase() === String(t.symbol || '').toUpperCase());
+        return {
+          managementCandidate:SimulationEngine.buildManagementCandidateSnapshot?.(candidate) || t.managementCandidate || null,
+        };
+      })(),
       symbol: t.symbol,
       side: t.side,
       qty: t.qty,
@@ -6168,7 +7386,7 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
       const candidate = currentBySymbol.get(trade.symbol) || lastKnownBySymbol.get(trade.symbol);
       const price = Number(candidate?.price ?? candidate?.priceAtSnapshot ?? candidate?.quote?.price);
       if (!Number.isFinite(price) || price <= 0) continue;
-      const exit = SimulationEngine.getSimulationExit(trade, price, candidate, snapshot.at, settings, { isEodSettlement:isReplayEod(snapshot.at) });
+      const exit = SimulationEngine.getSimulationExit(trade, price, candidate, snapshot.at, settings, { isEodSettlement:isReplayEod(snapshot.at), market:snapshot.market || {} });
       if (exit?.action === 'partial') {
         partialCloseTrade(trade, exit.exitPrice, exit.reason, snapshot.at, Math.max(1, Math.floor(Number(trade.qty || 0) * Number(exit.qtyPct || 50) / 100)), exit.runner, exit.newTarget);
       } else if (exit) {
@@ -6271,7 +7489,7 @@ function runSnapshotsReplay(snapshots, settingsOverride = null) {
           indicatorSnapshot:SimulationEngine.buildIndicatorAuditSnapshot(candidate),
           settingsSnapshot:SimulationEngine.buildSettingsAuditSnapshot(settings),
           settingsFingerprint:SimulationEngine.stableAuditFingerprint(SimulationEngine.buildSettingsAuditSnapshot(settings)),
-          confirmation:SimulationEngine.getLongEntryConfirmation(candidate, candidate.previousCandidate, side, snapshot.at, settings),
+          confirmation:SimulationEngine.getEntryConfirmation(candidate, candidate.previousCandidate, side, snapshot.at, settings),
           sectorAligned:!!candidate.sectorPriority?.aligned,
           sectorPriority:candidate.sectorPriority || null,
         },
@@ -7049,7 +8267,7 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
           indicatorSnapshot:SimulationEngine.buildIndicatorAuditSnapshot(candidates[i]),
           settingsSnapshot:SimulationEngine.buildSettingsAuditSnapshot(getSimulationEngineSettings()),
           settingsFingerprint:SimulationEngine.stableAuditFingerprint(SimulationEngine.buildSettingsAuditSnapshot(getSimulationEngineSettings())),
-          confirmation:SimulationEngine.getLongEntryConfirmation(
+          confirmation:SimulationEngine.getEntryConfirmation(
             candidates[i],
             candidates[i].previousCandidate,
             tradeSide,
@@ -7530,7 +8748,49 @@ function getTradeConfidence(row, t, score, guard) {
   return { label:'Low', level:'low', reason:reasons.join(', ') || 'Low-confidence setup' };
 }
 
+function renderRangeboundTradeInfo(t) {
+  const range = t?.rangebound || t?.indicators?.rangebound;
+  if (!range?.detected) return '';
+  const lower = Number(range.lower);
+  const upper = Number(range.upper);
+  const widthPct = Number(range.rangePct);
+  if (!Number.isFinite(lower) || !Number.isFinite(upper) || upper <= lower) return '';
+  const price = Number(t?.price);
+  const lowerDistancePct = Number.isFinite(Number(range.lowerDistancePct))
+    ? Number(range.lowerDistancePct)
+    : (Number.isFinite(price) && lower > 0 ? ((price - lower) / lower) * 100 : null);
+  const positionPct = Number.isFinite(price)
+    ? Math.max(0, Math.min(100, ((price - lower) / (upper - lower)) * 100))
+    : null;
+  const lowerTouches = Math.max(0, Number(range.lowerTouches) || 0);
+  const upperTouches = Math.max(0, Number(range.upperTouches) || 0);
+  const midpointCrosses = Math.max(0, Number(range.midpointCrosses) || 0);
+  const title = `45m range ${lower.toFixed(2)}-${upper.toFixed(2)} | ${Number.isFinite(widthPct) ? widthPct.toFixed(2) : '--'}% wide | lower/upper touches ${lowerTouches}/${upperTouches} | midpoint crosses ${midpointCrosses}`;
+  return `<div class="rangebound-trade-info" title="${escapeHTML(title)}">
+    <span class="rangebound-trade-head">Range ₹${lower.toFixed(2)}–₹${upper.toFixed(2)} <b>${Number.isFinite(widthPct) ? widthPct.toFixed(2) + '%' : ''}</b></span>
+    <span>From low ${Number.isFinite(lowerDistancePct) ? (lowerDistancePct >= 0 ? '+' : '') + lowerDistancePct.toFixed(2) + '%' : '--'} · Position ${Number.isFinite(positionPct) ? positionPct.toFixed(0) + '%' : '--'}</span>
+    <span>Touches L${lowerTouches}/U${upperTouches} · Crosses ${midpointCrosses}</span>
+  </div>`;
+}
+
 function renderTradeCell(row) {
+  const serverCandidate = activeSetupCard === 'simulation_top25'
+    ? serverSimulationCandidateSnapshot.candidates.find(candidate => String(candidate?.symbol || '').toUpperCase() === row.sym)
+    : null;
+  if (serverCandidate) {
+    const side = String(serverCandidate.side || serverCandidate.signal || '--').toUpperCase();
+    const setupType = String(serverCandidate.derivedSetupType || serverCandidate.setupType || 'NO_SIGNAL').replace(/_/g, ' ');
+    const decisionScore = Number(serverCandidate.decisionScore ?? serverCandidate.entryContext?.decisionScore ?? serverCandidate.score);
+    const reason = serverCandidate.selectionReason
+      || (serverCandidate.selected
+        ? `Selected: ${setupType}`
+        : `Not selected: ${(serverCandidate.blockReason || serverCandidate.eligibilityReasons?.[0] || 'outside entry capacity')}`);
+    return `<div class="trade-cell simulation-candidate-cell" title="${escapeHTML(reason)}">
+      <span class="trade-badge-row"><span class="signal-badge ${side === 'SELL' ? 'sell' : 'buy'}">${escapeHTML(side)}</span><span class="simulation-rank-badge">Server #${Number(serverCandidate.serverRank) || '--'}</span></span>
+      <span class="trade-score">Decision ${Number.isFinite(decisionScore) ? decisionScore.toFixed(2) : '--'} · ${escapeHTML(setupType)}</span>
+      <span class="simulation-selection-reason ${serverCandidate.selected ? 'selected' : ''}">${escapeHTML(reason)}</span>
+    </div>`;
+  }
   const t = intradayData[row.sym];
   if (!t) return '<span style="color:var(--muted);font-size:12px">--</span>';
   const labels = { buy:'BUY', watch:'WATCH', hold:'HOLD', sell:'SELL' };
@@ -7543,6 +8803,8 @@ function renderTradeCell(row) {
     <span class="trade-badge-row"><span class="risk-guard ${guard.level}" title="${escapeHTML(guard.reason)}">${guard.label}</span><span class="signal-badge ${signal}">${labels[signal] || signal}</span><span class="confidence-badge ${confidence.level}" title="${escapeHTML(confidence.reason)}">${confidence.label}</span></span>
     <span class="trade-score">Score ${score}</span>
     ${renderTradeContext(row, t)}
+    ${renderShortTermQualityBadge(row)}
+    ${renderRangeboundTradeInfo(t)}
     ${renderPaperTradeControls(row, t)}
     <span class="indicator-mini">${escapeHTML(t.entryTrigger || '')}</span>
     <span class="indicator-mini">${escapeHTML((t.reasons || []).slice(0,2).join(', ') || '5m setup')}</span>
@@ -7597,35 +8859,176 @@ function healthHTML(data){
   return `<div class="health-cell"><div class="health-bar-wrap"><span class="health-label">52W</span><div class="health-bar"><div class="health-fill" style="width:${rPct}%;background:${rCol}"></div></div></div><div class="health-bar-wrap"><span class="health-label">Mom</span><div class="health-bar"><div class="health-fill" style="width:${mPct}%;background:${mCol}"></div></div></div></div>`;
 }
 
-function hasConsistentShortTermTrend(sym) {
-  const pts = sparklineData[sym];
-  if (!Array.isArray(pts) || pts.length < 2) return true;
-  let upSteps = 0;
-  for (let i = 1; i < pts.length; i += 1) {
-    if (Number(pts[i]) >= Number(pts[i - 1])) upSteps += 1;
+function computeShortTermTrendMetrics(points) {
+  const values = (Array.isArray(points) ? points : []).map(Number).filter(Number.isFinite);
+  if (values.length < 2) {
+    return { sampleSize:values.length, oneMonthReturnPct:null, fiveDayReturnPct:null, upRatio:null, slope:null, r2:null, maxDrawdownPct:null };
   }
-  return Number(pts.at(-1)) > Number(pts[0]) && (upSteps / Math.max(1, pts.length - 1)) >= 0.6;
+  let upSteps = 0;
+  for (let i = 1; i < values.length; i += 1) {
+    if (values[i] >= values[i - 1]) upSteps += 1;
+  }
+  const meanX = (values.length - 1) / 2;
+  const meanY = values.reduce((sum, value) => sum + value, 0) / values.length;
+  let covariance = 0;
+  let varianceX = 0;
+  let totalYVariance = 0;
+  for (let i = 0; i < values.length; i += 1) {
+    covariance += (i - meanX) * (values[i] - meanY);
+    varianceX += (i - meanX) ** 2;
+    totalYVariance += (values[i] - meanY) ** 2;
+  }
+  const slope = varianceX > 0 ? covariance / varianceX : 0;
+  let residualVariance = 0;
+  for (let i = 0; i < values.length; i += 1) {
+    const fitted = meanY + slope * (i - meanX);
+    residualVariance += (values[i] - fitted) ** 2;
+  }
+  const r2 = totalYVariance > 0 ? Math.max(0, Math.min(1, 1 - residualVariance / totalYVariance)) : 0;
+  let peak = 100 + values[0];
+  let maxDrawdownPct = 0;
+  for (const value of values) {
+    const indexedPrice = 100 + value;
+    peak = Math.max(peak, indexedPrice);
+    if (peak > 0) maxDrawdownPct = Math.max(maxDrawdownPct, ((peak - indexedPrice) / peak) * 100);
+  }
+  const fiveDayStart = values[Math.max(0, values.length - 6)];
+  const last = values.at(-1);
+  return {
+    sampleSize:values.length,
+    oneMonthReturnPct:+((((100 + last) / (100 + values[0])) - 1) * 100).toFixed(2),
+    fiveDayReturnPct:+((((100 + last) / (100 + fiveDayStart)) - 1) * 100).toFixed(2),
+    upRatio:+(upSteps / (values.length - 1)).toFixed(3),
+    slope:+slope.toFixed(3),
+    r2:+r2.toFixed(3),
+    maxDrawdownPct:+maxDrawdownPct.toFixed(2),
+  };
 }
 
-function isShortTermPick(row) {
-  if (!row?.sym) return false;
+function getShortTermPickInfo(row) {
+  const blocks = [];
+  const reasons = [];
+  if (!row?.sym) return { eligible:false, score:0, blocks:['missing symbol'], reasons:[], metrics:null };
+  const isETF = isETFAsset(row);
   const t = intradayData[row.sym];
-  if (!hasConsistentShortTermTrend(row.sym)) return false;
-  if (t && !getIntradayFreshness(t).stale) {
-    const signal = adjustedTradeSignal(adjustedTradeScore(row));
-    if (!['buy', 'watch'].includes(signal)) return false;
+  const metrics = computeShortTermTrendMetrics(sparklineData[row.sym]);
+  const minOneMonthReturnPct = isETF ? 2 : 1.5;
+  if (metrics.sampleSize < 10) blocks.push(`daily history ${metrics.sampleSize}/10`);
+  if (metrics.oneMonthReturnPct == null || metrics.oneMonthReturnPct < minOneMonthReturnPct) {
+    blocks.push(`1M return ${metrics.oneMonthReturnPct ?? '--'}% < ${minOneMonthReturnPct}%`);
   }
-  if (isETFAsset(row)) {
+  if (metrics.fiveDayReturnPct == null || metrics.fiveDayReturnPct <= 0) blocks.push('5D momentum is not positive');
+  if (metrics.upRatio == null || metrics.upRatio < 0.6) blocks.push(`up-step consistency ${metrics.upRatio == null ? '--' : Math.round(metrics.upRatio * 100) + '%'} < 60%`);
+  if (metrics.r2 == null || metrics.r2 < 0.25 || metrics.slope == null || metrics.slope <= 0) blocks.push('one-month trend is too choppy');
+  if (metrics.maxDrawdownPct == null || metrics.maxDrawdownPct > 6) blocks.push(`1M drawdown ${metrics.maxDrawdownPct ?? '--'}% > 6%`);
+
+  if (!t) {
+    blocks.push('intraday trade data unavailable');
+  } else {
+    const nowIst = new Date(Date.now() + 5.5 * 3600 * 1000);
+    const nowMinutes = nowIst.getUTCHours() * 60 + nowIst.getUTCMinutes();
+    const marketOpen = nowIst.getUTCDay() >= 1 && nowIst.getUTCDay() <= 5 && nowMinutes >= 9 * 60 + 15 && nowMinutes < 15 * 60 + 30;
+    const freshness = getIntradayFreshness(t);
+    if (marketOpen && freshness.stale) blocks.push(freshness.reason || 'intraday signal is stale');
+    if (t.fetchFailed) blocks.push('intraday fetch failed');
+    const tradeScore = adjustedTradeScore(row);
+    const signal = adjustedTradeSignal(tradeScore);
+    if (tradeScore < 18 || !['buy', 'watch'].includes(signal)) blocks.push('positive Buy/Watch signal required');
+    const guard = getRiskGuard(row, t, tradeScore);
+    if (!['ok', 'small'].includes(guard.level)) blocks.push(guard.reason || `risk guard ${guard.level}`);
+    const price = Number(t.price);
+    const vwap = Number(t.vwap);
+    if (!Number.isFinite(price) || !Number.isFinite(vwap) || price < vwap) blocks.push('price must hold above VWAP');
+    const liquidity = getLiquidityInfo(t);
+    if (!['ok', 'fair'].includes(liquidity.level)) blocks.push(liquidity.level === 'thin' ? 'thin liquidity' : 'liquidity unavailable');
+    const cost = getTradeCostContext(row, t, 'buy');
+    const minNetPct = isETF ? 0.3 : 0.5;
+    if (!cost || Number(cost.netPct) < minNetPct) blocks.push(`net potential ${cost?.netPct ?? '--'}% < ${minNetPct}%`);
+  }
+
+  const eventFlag = getEventFlag(row.sym);
+  if (eventFlag?.danger) blocks.push(`${eventFlag.label || 'event'} risk within one day`);
+  const news = getHighImpactNewsForSymbol(row.sym);
+  if (news && String(news.newsSentiment || '').toLowerCase() === 'negative') blocks.push('high-impact negative news');
+
+  const daily = Number(row.data?.change);
+  const sectorAvg = Number(sectorTrendCache[row.sector]);
+  const sectorRelativePct = Number.isFinite(daily) && Number.isFinite(sectorAvg) ? daily - sectorAvg : null;
+  const health = isETF ? null : getHealthScore(row.sym);
+  if (isETF) {
     const oneMonth = Number(row.etfData?.oneMonthReturn);
     const oneYear = Number(row.etfData?.oneYearReturn);
     const threeYear = Number(row.etfData?.threeYearReturn);
-    const hasReturn = Number.isFinite(oneMonth) && Number.isFinite(oneYear) && Number.isFinite(threeYear) &&
-      oneMonth > 2 && oneYear > 15 && threeYear > 0;
-    return hasReturn && (!t || getETFTradeSafety(row, t).ok);
+    const premium = Number(row.etfData?.premium);
+    if (!Number.isFinite(oneMonth) || oneMonth < 0.02) blocks.push('ETF 1M return below 2%');
+    if (!Number.isFinite(oneYear) || oneYear < 0.15) blocks.push('ETF 1Y return below 15%');
+    if (!Number.isFinite(threeYear) || threeYear <= 0) blocks.push('ETF 3Y return is not positive');
+    if (Number.isFinite(premium) && Math.abs(premium) > 2.5) blocks.push('ETF premium/discount exceeds 2.5%');
+    if (t) {
+      const safety = getETFTradeSafety(row, t);
+      if (!safety.ok) blocks.push(safety.reason || 'ETF safety check failed');
+    }
+  } else {
+    if (!Number.isFinite(health) || health < 60) blocks.push(`health ${Number.isFinite(health) ? health : '--'} < 60`);
+    if (!Number.isFinite(daily) || daily <= 0) blocks.push('daily return is not positive');
+    if (sectorRelativePct != null && sectorRelativePct < 0) blocks.push(`sector relative strength ${sectorRelativePct.toFixed(2)}% < 0%`);
   }
-  const health = getHealthScore(row.sym);
-  const daily = Number(row.data?.change);
-  return Number.isFinite(health) && health >= 50 && Number.isFinite(daily) && daily > 0;
+
+  let score = 0;
+  if (metrics.oneMonthReturnPct != null) score += Math.min(18, Math.max(0, metrics.oneMonthReturnPct * 3));
+  if (metrics.upRatio != null) score += Math.min(12, Math.max(0, ((metrics.upRatio - 0.5) / 0.3) * 12));
+  if (metrics.r2 != null) score += Math.min(10, Math.max(0, metrics.r2 * 10));
+  if (metrics.maxDrawdownPct != null) score += Math.min(12, Math.max(0, 12 - metrics.maxDrawdownPct * 1.5));
+  if (t) {
+    const tradeScore = adjustedTradeScore(row);
+    score += tradeScore >= 35 ? 10 : (tradeScore >= 18 ? 6 : 0);
+    const guard = getRiskGuard(row, t, tradeScore);
+    score += guard.level === 'ok' ? 8 : (guard.level === 'small' ? 4 : 0);
+    if (Number(t.price) >= Number(t.vwap)) score += 5;
+    const liquidity = getLiquidityInfo(t);
+    score += liquidity.level === 'ok' ? 8 : (liquidity.level === 'fair' ? 4 : 0);
+    const cost = getTradeCostContext(row, t, 'buy');
+    if (Number(cost?.netPct) >= (isETF ? 0.6 : 0.75)) score += 7;
+    else if (Number(cost?.netPct) >= (isETF ? 0.3 : 0.5)) score += 4;
+  }
+  if (isETF) {
+    const oneYear = Number(row.etfData?.oneYearReturn);
+    const threeYear = Number(row.etfData?.threeYearReturn);
+    if (Number.isFinite(oneYear)) score += Math.min(6, Math.max(0, oneYear * 20));
+    if (Number.isFinite(threeYear) && threeYear > 0) score += 4;
+  } else {
+    if (Number.isFinite(health)) score += Math.min(10, Math.max(0, health / 10));
+    if (sectorRelativePct != null) score += sectorRelativePct >= 0.5 ? 8 : (sectorRelativePct >= 0 ? 4 : 0);
+  }
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  if (score < 65) blocks.push(`quality score ${score} < 65`);
+  reasons.push(
+    `1M ${metrics.oneMonthReturnPct ?? '--'}%`,
+    `5D ${metrics.fiveDayReturnPct ?? '--'}%`,
+    `consistency ${metrics.upRatio == null ? '--' : Math.round(metrics.upRatio * 100) + '%'}`,
+    `R² ${metrics.r2 ?? '--'}`,
+    `drawdown ${metrics.maxDrawdownPct ?? '--'}%`
+  );
+  if (!isETF && Number.isFinite(health)) reasons.push(`health ${health}`);
+  if (sectorRelativePct != null) reasons.push(`sector RS ${sectorRelativePct >= 0 ? '+' : ''}${sectorRelativePct.toFixed(2)}%`);
+  return { eligible:blocks.length === 0, score, blocks:[...new Set(blocks)], reasons, metrics, health, sectorRelativePct };
+}
+
+function hasConsistentShortTermTrend(sym) {
+  const metrics = computeShortTermTrendMetrics(sparklineData[sym]);
+  return metrics.sampleSize >= 10 && metrics.oneMonthReturnPct > 0 && metrics.fiveDayReturnPct > 0 &&
+    metrics.upRatio >= 0.6 && metrics.slope > 0 && metrics.r2 >= 0.25 && metrics.maxDrawdownPct <= 6;
+}
+
+function isShortTermPick(row) {
+  return getShortTermPickInfo(row).eligible;
+}
+
+function renderShortTermQualityBadge(row) {
+  const info = getShortTermPickInfo(row);
+  if (!info.eligible) return '';
+  const title = [...info.reasons, ...info.blocks].join(' | ');
+  return `<span class="short-term-quality-badge" title="${escapeHTML(title)}">STQ ${info.score}</span>`;
 }
 
 function getHealthScore(sym){
@@ -7633,17 +9036,41 @@ function getHealthScore(sym){
   return computeHealthScore(asset);
 }
 
-const SETUP_FILTER_KEYS = new Set(['setup_pullback', 'setup_runner', 'setup_short', 'setup_shortterm']);
+const SETUP_FILTER_KEYS = new Set([
+  'setup_simulation_top25',
+  'setup_rangebound',
+  'setup_opening_flush',
+  'setup_top_gainer_pullback',
+  'setup_top_gainer_continuation',
+  'setup_vwap_continuation',
+  'setup_breakdown',
+  'setup_bear_flag',
+  'setup_vwap_rejection',
+  'setup_vwap_pullback',
+  'setup_pullback',
+  'setup_runner',
+  'setup_short',
+  'setup_shortterm',
+]);
 const SETUP_CARD_FILTERS = {
+  simulation_top25: ['setup_simulation_top25'],
+  rangebound: ['setup_rangebound'],
+  opening_flush: ['setup_opening_flush'],
+  top_gainer_pullback: ['setup_top_gainer_pullback'],
+  top_gainer_continuation: ['setup_top_gainer_continuation'],
+  vwap_continuation: ['setup_vwap_continuation'],
+  breakdown: ['setup_breakdown'],
+  bear_flags: ['setup_bear_flag'],
+  vwap_rejection: ['setup_vwap_rejection'],
+  vwap_pullback: ['setup_vwap_pullback'],
   pullbacks: ['tradeable', 'setup_pullback'],
   runners: ['triggered', 'setup_runner'],
-  shorts: ['sell', 'setup_short'],
-  neartrigger: ['neartrigger', 'hideavoid'],
   shortterm: ['setup_shortterm'],
 };
 
 function selectSetupCard(kind, ...filterModes) {
   if (activeSetupCard === kind) {
+    if (kind === 'simulation_top25') disconnectServerSimulationTop25Stream();
     // Second click — deselect and reset
     activeSetupCard = null;
     stockFilters.clear();
@@ -7655,6 +9082,7 @@ function selectSetupCard(kind, ...filterModes) {
   }
   // Preserve non-card filters while dropping previous card's preset filters.
   const prevCard = activeSetupCard;
+  if (prevCard === 'simulation_top25') disconnectServerSimulationTop25Stream();
   const prevPreset = new Set(SETUP_CARD_FILTERS[prevCard] || []);
   const preserved = new Set([...stockFilters].filter(f => !prevPreset.has(f) && !SETUP_FILTER_KEYS.has(f) && !filterModes.includes(f)));
   activeSetupCard = kind;
@@ -7672,10 +9100,109 @@ function selectSetupCard(kind, ...filterModes) {
   return true;
 }
 
+function applyServerSimulationTop25Payload(payload = {}) {
+  if (payload.ok === false) {
+    serverSimulationCandidateSnapshot = {
+      ...serverSimulationCandidateSnapshot,
+      loading:false,
+      loaded:true,
+      error:payload.error || 'Server simulation candidates unavailable',
+    };
+    return false;
+  }
+  const candidates = (Array.isArray(payload.candidates) ? payload.candidates : [])
+    .slice()
+    .sort((a, b) => (Number(a.serverRank) || Number.MAX_SAFE_INTEGER) - (Number(b.serverRank) || Number.MAX_SAFE_INTEGER))
+    .slice(0, 25);
+  serverSimulationCandidateSnapshot = {
+    loading:false,
+    loaded:true,
+    at:String(payload.at || ''),
+    candidates,
+    error:'',
+  };
+  return true;
+}
+
+async function loadServerSimulationTop25({ force = false } = {}) {
+  if (serverSimulationCandidateSnapshot.loading) return serverSimulationCandidateSnapshot;
+  if (!force && serverSimulationCandidateSnapshot.loaded) return serverSimulationCandidateSnapshot;
+  serverSimulationCandidateSnapshot = { ...serverSimulationCandidateSnapshot, loading:true, error:'' };
+  renderSetupCards(getAllStockRows());
+  try {
+    const response = await fetch(`${SIMULATION_ANALYSIS_ENDPOINT}?source=${encodeURIComponent('dashboard-top-25-card')}`, {
+      signal:AbortSignal.timeout(90000),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) throw new Error(payload.error || `simulation-analysis HTTP ${response.status}`);
+    applyServerSimulationTop25Payload(payload);
+  } catch (error) {
+    serverSimulationCandidateSnapshot = {
+      ...serverSimulationCandidateSnapshot,
+      loading:false,
+      loaded:true,
+      error:error.message || 'Server simulation candidates unavailable',
+    };
+  }
+  renderTable();
+  return serverSimulationCandidateSnapshot;
+}
+
+function disconnectServerSimulationTop25Stream() {
+  if (!serverSimulationCandidateStream) return;
+  try { serverSimulationCandidateStream.close(); } catch (_) {}
+  serverSimulationCandidateStream = null;
+}
+
+function connectServerSimulationTop25Stream() {
+  if (activeSetupCard !== 'simulation_top25' || currentView !== 'stocks') {
+    disconnectServerSimulationTop25Stream();
+    return;
+  }
+  if (!window.EventSource) {
+    loadServerSimulationTop25({ force:true }).catch(error => console.warn('server simulation Top 25 refresh failed', error.message));
+    return;
+  }
+  if (serverSimulationCandidateStream) return;
+  serverSimulationCandidateSnapshot = { ...serverSimulationCandidateSnapshot, loading:true, error:'' };
+  renderSetupCards(getServerSimulationTop25Rows());
+  const stream = new EventSource(SIMULATION_ANALYSIS_STREAM_ENDPOINT);
+  serverSimulationCandidateStream = stream;
+  stream.onmessage = event => {
+    if (activeSetupCard !== 'simulation_top25' || currentView !== 'stocks') {
+      disconnectServerSimulationTop25Stream();
+      return;
+    }
+    try {
+      const payload = JSON.parse(event.data || '{}');
+      applyServerSimulationTop25Payload(payload);
+      renderTable();
+    } catch (error) {
+      console.warn('server simulation Top 25 SSE parse failed', error.message);
+    }
+  };
+  stream.onerror = () => {
+    if (activeSetupCard !== 'simulation_top25' || currentView !== 'stocks') disconnectServerSimulationTop25Stream();
+  };
+}
+
+async function selectServerSimulationTop25Card() {
+  if (activeSetupCard !== 'simulation_top25') {
+    stockFilters.clear();
+    activeSectors = new Set();
+    targetFilter = 'all';
+    document.querySelectorAll('#controls-bar .filter-btn').forEach(button => button.classList.remove('active'));
+  }
+  const selected = selectSetupCard('simulation_top25', 'setup_simulation_top25');
+  if (!selected) return;
+  connectServerSimulationTop25Stream();
+}
+
 function setFilter(mode, el) {
   stockPageReset();
   if (mode === 'all') {
     // "All" clears every active filter
+    disconnectServerSimulationTop25Stream();
     stockFilters.clear();
     activeSetupCard = null;
     document.querySelectorAll('#controls-bar .filter-btn').forEach(b => b.classList.remove('active'));
@@ -7847,15 +9374,13 @@ function renderETFSetupCards(rows) {
   const counts = {
     entries: countRowsForETFFilters(rows, 'tradeable'),
     momentum: countRowsForETFFilters(rows, 'triggered'),
-    neartrigger: countRowsForETFFilters(rows, 'neartrigger'),
     shortterm: countRowsForETFFilters(rows, 'shortterm'),
     risk: countRowsForETFFilters(rows, 'risk'),
   };
   const cards = [
     ['entries', 'Best ETF Entries', counts.entries, 'Tradable ETF setups', "selectETFSetupCard('entries','etf_tradeable')"],
     ['momentum', 'ETF Momentum', counts.momentum, 'Triggered ETF momentum', "selectETFSetupCard('momentum','etf_triggered')"],
-    ['neartrigger', 'Near Trigger', counts.neartrigger, 'ETF near-entry setups', "selectETFSetupCard('neartrigger','etf_neartrigger')"],
-    ['shortterm', 'Short-term Picks', counts.shortterm, 'Consistency + momentum returns', "selectETFSetupCard('shortterm','etf_shortterm')"],
+    ['shortterm', 'Short-term Quality', counts.shortterm, 'Score 65+ · trend, risk and timing', "selectETFSetupCard('shortterm','etf_shortterm')"],
     ['risk', 'Avoid / Risk', counts.risk, 'ETF safety or risk blocks', "selectETFSetupCard('risk','etf_risk')"],
   ];
   target.innerHTML = cards.map(([kind, label, value, hint, action]) => `
@@ -7884,6 +9409,7 @@ const DASHBOARD_ROUTE = window.__DASHBOARD_ROUTE__ || {};
 let currentView = DASHBOARD_ROUTE.view === 'etfs' ? 'etfs' : 'stocks';
 async function setView(view, el){
   currentView = view;
+  if (view !== 'stocks') disconnectServerSimulationTop25Stream();
   document.querySelectorAll('#main-tabs .tab-btn').forEach(b=>b.classList.remove('active'));
   if(el) el.classList.add('active');
   const sc = document.getElementById('stock-content'); if(sc) sc.style.display = view==='stocks' ? 'block' : 'none';
@@ -7901,7 +9427,10 @@ async function setView(view, el){
       fetchETFSummary(syms).catch(e=>console.warn('ETF summary failed',e));
       fetchSparklines(syms).catch(e=>console.warn('fetchSparklines failed', e.message));
     }, 100);
-  } else renderTable();
+  } else {
+    renderTable();
+    if (activeSetupCard === 'simulation_top25') connectServerSimulationTop25Stream();
+  }
 }
 
 function clearSectors(){
@@ -7943,6 +9472,29 @@ function getAllStockRows() {
     .map((s,i)=>({...s,rank:i+1,data:getBrowserStockData(s.sym)}));
 }
 
+function getServerSimulationTop25Rows() {
+  return serverSimulationCandidateSnapshot.candidates.map((candidate, index) => {
+    const symbol = String(candidate?.symbol || '').trim().toUpperCase();
+    const asset = getAssetBySymbol(symbol) || {};
+    const liveData = getBrowserStockData(symbol) || {};
+    const candidatePrice = Number(candidate?.price ?? candidate?.indicators?.price);
+    const candidateChange = Number(candidate?.dayChange ?? candidate?.indicators?.dayChange);
+    return {
+      ...asset,
+      sym:symbol,
+      name:asset.name || candidate?.name || symbol,
+      sector:asset.sector || candidate?.sector || 'Server candidate',
+      cap:asset.cap || candidate?.assetType || 'custom',
+      rank:Number(candidate.serverRank) || index + 1,
+      data:{
+        ...liveData,
+        ...((Number.isFinite(candidatePrice) && candidatePrice > 0 && !Number(liveData.price)) ? { price:candidatePrice } : {}),
+        ...((Number.isFinite(candidateChange) && !Number.isFinite(Number(liveData.change))) ? { change:candidateChange } : {}),
+      },
+    };
+  }).filter(row => row.sym);
+}
+
 function hasEventRiskForSymbol(sym) {
   const symbol = String(sym || '').toUpperCase();
   if (Array.isArray(freshNewsSummary.symbols)) return freshNewsSummary.symbols.includes(symbol);
@@ -7980,10 +9532,20 @@ function getStockFilterFns() {
     triggered:r => intradayData[r.sym]?.entryStatus === 'Triggered' && hasFreshIntraday(r),
     neartrigger:r => intradayData[r.sym]?.entryStatus === 'Near trigger' && hasFreshIntraday(r),
     newsrisk: r => hasEventRiskForSymbol(r.sym),
+    setup_rangebound: r => setupType(r) === 'RANGEBOUND',
+    setup_opening_flush: r => setupType(r) === 'OPENING_FLUSH_VWAP_RECLAIM',
+    setup_top_gainer_pullback: r => setupType(r) === 'TOP_GAINER_PULLBACK_RECLAIM',
+    setup_top_gainer_continuation: r => setupType(r) === 'TOP_GAINER_CONTINUATION',
+    setup_vwap_continuation: r => setupType(r) === 'VWAP_TREND_CONTINUATION',
+    setup_breakdown: r => setupType(r) === 'BREAKDOWN',
+    setup_bear_flag: r => ['BEAR_FLAG_CONTINUATION', 'TOP_LOSER_BEAR_FLAG'].includes(setupType(r)),
+    setup_vwap_rejection: r => setupType(r) === 'VWAP_REJECTION',
+    setup_vwap_pullback: r => setupType(r) === 'VWAP_PULLBACK_OR_HOLD',
     setup_pullback: r => setupType(r) === 'VWAP_PULLBACK_OR_HOLD',
     setup_runner: r => ['VOLUME_SHOCK_BREAKOUT', 'MOMENTUM_RUNNER', 'VWAP_TREND_CONTINUATION', 'FRESH_BREAKOUT'].includes(setupType(r)),
     setup_short: r => ['VWAP_REJECTION', 'BREAKDOWN', 'SHORT_MOMENTUM'].includes(setupType(r)),
     setup_shortterm: r => isShortTermPick(r),
+    setup_simulation_top25: r => serverSimulationCandidateSnapshot.candidates.some(candidate => String(candidate?.symbol || '').toUpperCase() === r.sym),
   };
 }
 
@@ -7995,8 +9557,22 @@ function getStockFilterGroups() {
     ['gainers', 'losers'],       // movement - OR within group
     ['tradeable', 'hideavoid', 'risk'],
     ['triggered', 'neartrigger'],
-    ['setup_pullback', 'setup_runner', 'setup_short'],
+    [
+      'setup_rangebound',
+      'setup_opening_flush',
+      'setup_top_gainer_pullback',
+      'setup_top_gainer_continuation',
+      'setup_vwap_continuation',
+      'setup_breakdown',
+      'setup_bear_flag',
+      'setup_vwap_rejection',
+      'setup_vwap_pullback',
+      'setup_pullback',
+      'setup_runner',
+      'setup_short',
+    ],
     ['setup_shortterm'],
+    ['setup_simulation_top25'],
     ['favorite'],                // standalone
     ['opentrade'],               // standalone
     ['newsrisk'],                // standalone
@@ -8433,18 +10009,44 @@ function renderSetupCards(rows = getAllStockRows()) {
   if (!target) return;
   // Counts run through the exact same grouped filter engine as table clicks.
   const counts = {
+    simulationTop25: serverSimulationCandidateSnapshot.candidates.length,
+    rangebound: countRowsForStockFilters(rows, 'setup_rangebound'),
+    openingFlush: countRowsForStockFilters(rows, 'setup_opening_flush'),
+    topGainerPullback: countRowsForStockFilters(rows, 'setup_top_gainer_pullback'),
+    topGainerContinuation: countRowsForStockFilters(rows, 'setup_top_gainer_continuation'),
+    vwapContinuation: countRowsForStockFilters(rows, 'setup_vwap_continuation'),
+    breakdown: countRowsForStockFilters(rows, 'setup_breakdown'),
+    bearFlags: countRowsForStockFilters(rows, 'setup_bear_flag'),
+    vwapRejection: countRowsForStockFilters(rows, 'setup_vwap_rejection'),
+    vwapPullback: countRowsForStockFilters(rows, 'setup_vwap_pullback'),
     pullbacks: countRowsForStockFilters(rows, 'tradeable', 'setup_pullback'),
     runners:   countRowsForStockFilters(rows, 'triggered', 'setup_runner'),
-    shorts:    countRowsForStockFilters(rows, 'sell', 'setup_short'),
-    neartrigger: countRowsForStockFilters(rows, 'neartrigger', 'hideavoid'),
     shortterm: countRowsForStockFilters(rows, 'setup_shortterm'),
   };
   const cards = [
+    [
+      'simulation_top25',
+      'Server Simulation Top 25',
+      serverSimulationCandidateSnapshot.loading ? '…' : counts.simulationTop25,
+      serverSimulationCandidateSnapshot.error
+        ? serverSimulationCandidateSnapshot.error
+        : serverSimulationCandidateSnapshot.at
+          ? `Point-in-time server rank · ${toIST(serverSimulationCandidateSnapshot.at)}`
+          : 'Point-in-time server rank and entry selection reason',
+      'selectServerSimulationTop25Card()',
+    ],
+    ['rangebound', 'Rangebound', counts.rangebound, '45m oscillation; buy near lower range', "selectSetupCard('rangebound','setup_rangebound')"],
+    ['opening_flush', 'Opening Flush Reclaim', counts.openingFlush, 'Opening selloff followed by VWAP reclaim', "selectSetupCard('opening_flush','setup_opening_flush')"],
+    ['top_gainer_pullback', 'Top-Gainer Pullback', counts.topGainerPullback, 'Top gainer pulls back and reclaims VWAP', "selectSetupCard('top_gainer_pullback','setup_top_gainer_pullback')"],
+    ['top_gainer_continuation', 'Top-Gainer Continuation', counts.topGainerContinuation, 'Top gainer holds trend with fresh volume', "selectSetupCard('top_gainer_continuation','setup_top_gainer_continuation')"],
+    ['vwap_continuation', 'VWAP Trend Continuation', counts.vwapContinuation, 'Bullish trend continuation above VWAP', "selectSetupCard('vwap_continuation','setup_vwap_continuation')"],
+    ['breakdown', 'Breakdown Shorts', counts.breakdown, 'Confirmed downside level breakdown', "selectSetupCard('breakdown','setup_breakdown')"],
+    ['bear_flags', 'Bear-Flag Shorts', counts.bearFlags, 'Bear flag and top-loser continuation', "selectSetupCard('bear_flags','setup_bear_flag')"],
+    ['vwap_rejection', 'VWAP Rejection', counts.vwapRejection, 'Failed VWAP retest with bearish confirmation', "selectSetupCard('vwap_rejection','setup_vwap_rejection')"],
+    ['vwap_pullback', 'VWAP Pullback / Hold', counts.vwapPullback, 'Price pulls back to VWAP and holds', "selectSetupCard('vwap_pullback','setup_vwap_pullback')"],
     ['pullbacks', 'Best Pullbacks',    counts.pullbacks, 'Tradable VWAP pullback/hold',   "selectSetupCard('pullbacks','tradeable','setup_pullback')"],
     ['runners',   'Momentum Runners',  counts.runners,   'Triggered breakout/momentum',    "selectSetupCard('runners','triggered','setup_runner')"],
-    ['shorts',    'Short Setups',      counts.shorts,    'Sell-side breakdown/rejection',  "selectSetupCard('shorts','sell','setup_short')"],
-    ['neartrigger', 'Near Trigger',    counts.neartrigger, 'Fresh near-entry on both sides', "selectSetupCard('neartrigger','neartrigger','hideavoid')"],
-    ['shortterm', 'Short-term Picks',   counts.shortterm, 'Consistency + health + returns',  "selectSetupCard('shortterm','setup_shortterm')"],
+    ['shortterm', 'Short-term Quality', counts.shortterm, 'Score 65+ · trend, risk and timing', "selectSetupCard('shortterm','setup_shortterm')"],
   ];
   target.innerHTML = cards.map(([kind, label, value, hint, action]) => `
     <button class="setup-card ${escapeHTML(kind)}${activeSetupCard === kind ? ' active' : ''}" type="button" onclick="${action}">
@@ -8558,17 +10160,18 @@ function updateSectorTilesPartial(newSectorTrend) {
 
 function renderTableNow(){
   const search=getStockSearchValue();
-  let rows=getAllStockRows();
+  const serverTop25Active = activeSetupCard === 'simulation_top25';
+  let rows=serverTop25Active ? getServerSimulationTop25Rows() : getAllStockRows();
   const totalRows = rows.length;
 
   // ── Sector filter (from heatmap click) ──────────────────
-  if(activeSectors.size) rows = rows.filter(r => activeSectors.has(r.sector));
+  if(!serverTop25Active && activeSectors.size) rows = rows.filter(r => activeSectors.has(r.sector));
 
   // ── Search ───────────────────────────────────────────────
-  if(search) rows=rows.filter(r=>r.sym.toLowerCase().includes(search)||r.name.toLowerCase().includes(search)||r.sector.toLowerCase().includes(search));
+  if(!serverTop25Active && search) rows=rows.filter(r=>r.sym.toLowerCase().includes(search)||r.name.toLowerCase().includes(search)||r.sector.toLowerCase().includes(search));
 
   // ── Target filters (price target delta filters)
-  if(targetFilter && targetFilter!=='all'){
+  if(!serverTop25Active && targetFilter && targetFilter!=='all'){
     rows = rows.filter(r => {
       const pct = getTargetDeltaPct(r);
       if(pct == null) return false;
@@ -8604,10 +10207,15 @@ function renderTableNow(){
     if(pillEl) pillEl.style.display='none';
   }
   // When a setup card is active, always sort by score (highest first for runners/pullbacks, lowest first for shorts)
-  const sortOverride = activeSetupCard === 'pullbacks'
+  const shortSetupCards = new Set(['breakdown', 'bear_flags', 'vwap_rejection']);
+  const sortOverride = activeSetupCard === 'simulation_top25'
+    ? { col: 'serverrank', dir: 1 }
+    : activeSetupCard === 'shortterm'
+    ? { col: 'shortterm', dir: -1 }
+    : activeSetupCard === 'pullbacks'
     ? { col: 'trade', dir: -1 }
     : activeSetupCard
-      ? { col: 'trade', dir: activeSetupCard === 'shorts' ? 1 : -1 }
+      ? { col: 'trade', dir: shortSetupCards.has(activeSetupCard) ? 1 : -1 }
       : null;
   const{col,dir} = sortOverride || currentSort;
   rows.sort((a,b)=>{
@@ -8616,6 +10224,8 @@ function renderTableNow(){
     else if(col==='price'){av=a.data?.price||0;bv=b.data?.price||0;}
     else if(col==='target'){ av=getTargetDeltaPct(a) ?? -999; bv=getTargetDeltaPct(b) ?? -999; }
     else if(col==='trade'){av=adjustedTradeScore(a);bv=adjustedTradeScore(b);}
+    else if(col==='shortterm'){av=getShortTermPickInfo(a).score;bv=getShortTermPickInfo(b).score;}
+    else if(col==='serverrank'){av=a.rank;bv=b.rank;}
     else if(col==='sttarget'){av=getTradeCostContext(a, intradayData[a.sym])?.netPct ?? -999;bv=getTradeCostContext(b, intradayData[b.sym])?.netPct ?? -999;}
     else if(col==='change'){av=a.data?.change||0;bv=b.data?.change||0;}
     else if(col==='volume'){av=a.data?.volume||0;bv=b.data?.volume||0;}
@@ -9610,7 +11220,7 @@ function renderETFSection(){
     });
   }
 
-  const {col,dir} = etfSort;
+  const {col,dir} = activeETFSetupCard === 'shortterm' ? { col:'shortterm', dir:-1 } : etfSort;
   rows.sort((a,b)=>{
     let av,bv;
     if(col==='symbol'){av=a.sym; bv=b.sym;}
@@ -9624,6 +11234,7 @@ function renderETFSection(){
     else if(col==='1y'){av=a.etfData?.oneYearReturn??-999; bv=b.etfData?.oneYearReturn??-999;}
     else if(col==='3y'){av=a.etfData?.threeYearReturn??-999; bv=b.etfData?.threeYearReturn??-999;}
     else if(col==='trade'){av=adjustedTradeScore(a); bv=adjustedTradeScore(b);}
+    else if(col==='shortterm'){av=getShortTermPickInfo(a).score; bv=getShortTermPickInfo(b).score;}
     else if(col==='sttarget'){av=getTradeCostContext(a, intradayData[a.sym])?.netPct ?? -999; bv=getTradeCostContext(b, intradayData[b.sym])?.netPct ?? -999;}
     else {av=a.rank; bv=b.rank;}
     return typeof av==='string' ? dir*av.localeCompare(bv) : dir*(av-bv);

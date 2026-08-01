@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NSE Midcap Dashboard</title>
-<link rel="stylesheet" href="dashboard.css?v=20260625-45">
+<link rel="stylesheet" href="dashboard.css?v=20260731-55">
 </head>
 <body>
 
@@ -98,6 +98,7 @@
       </div>
       <div class="source-connect-slot">
         <button class="btn primary" onclick="connectYahoo()">Check Proxy &amp; Connect</button>
+        <button class="btn" type="button" onclick="openSettingsModal()">Simulation Settings</button>
       </div>
     </div>
 
@@ -163,6 +164,9 @@
         <div id="broker-positions-panel" class="zerodha-positions-dropdown" style="display:none"></div>
       </div>
       <button class="tab-btn replay-tab" type="button" onclick="runReplayToday()">Replay</button>
+      <button class="tab-btn efficiency-tab" type="button" onclick="openSetupEfficiencyPanel()">Setup Efficiency</button>
+      <button class="tab-btn exit-quality-tab" type="button" onclick="openExitQualityPanel()">Exit Quality</button>
+      <button class="tab-btn strategy-advisor-tab" type="button" onclick="openStrategyAdvisorPanel()">Strategy Advisor</button>
       <button class="tab-btn settings-tab" type="button" onclick="openSettingsModal()">Settings</button>
     </div>
     <div id="stock-content">
@@ -352,11 +356,11 @@
     </div>
   </div>
 
-  <div id="portfolio-modal" class="modal-overlay" style="display:none;" onclick="closePortfolioModal(event)">
-    <div class="modal-card portfolio" onclick="event.stopPropagation()">
+  <div id="portfolio-modal" class="modal-overlay portfolio-panel-overlay" style="display:none;" onclick="closePortfolioModal(event)">
+    <div class="modal-card portfolio portfolio-side-panel" role="dialog" aria-modal="true" aria-labelledby="portfolio-modal-title" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <h3>Portfolio</h3>
-        <button class="btn" style="padding:6px 10px;font-size:12px;" onclick="closePortfolioModal(event)">x</button>
+        <h3 id="portfolio-modal-title">Portfolio</h3>
+        <button class="modal-close-btn" type="button" aria-label="Close portfolio" onclick="closePortfolioModal(event)">✕</button>
       </div>
       <div id="portfolio-modal-body">
         <!-- populated dynamically -->
@@ -468,17 +472,98 @@
     </div>
   </div>
 
-  <div id="settings-modal" class="modal-overlay" style="display:none;" onclick="closeSettingsModal(event)">
-    <div class="modal-card settings" onclick="event.stopPropagation()">
+  <div id="settings-modal" class="modal-overlay settings-panel-overlay" style="display:none;" onclick="closeSettingsModal(event)">
+    <div class="modal-card settings settings-side-panel" role="dialog" aria-modal="true" aria-labelledby="settings-panel-title" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <h3>Trade Settings</h3>
-        <button class="btn" style="padding:6px 10px;font-size:12px;" onclick="closeSettingsModal(event)">x</button>
+        <div>
+          <h3 id="settings-panel-title">Settings</h3>
+          <p>Simulation, risk, data and broker controls</p>
+        </div>
+        <button class="modal-close-btn" type="button" onclick="closeSettingsModal(event)" aria-label="Close settings">✕</button>
       </div>
       <div id="settings-modal-body">
         <!-- populated dynamically -->
       </div>
       <div class="modal-actions">
-        <button class="btn" onclick="closeSettingsModal(event)">Close</button>
+        <span>Changes are saved automatically</span>
+        <button class="btn" onclick="closeSettingsModal(event)">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="setup-settings-modal" class="modal-overlay setup-settings-overlay" style="display:none;" onclick="closeSetupSettingsModal(event)">
+    <div class="modal-card setup-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="setup-settings-title" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <span class="settings-eyebrow">Simulation setup</span>
+          <h3 id="setup-settings-title">Setup configuration</h3>
+        </div>
+        <button class="modal-close-btn" type="button" onclick="closeSetupSettingsModal(event)" aria-label="Close setup configuration">✕</button>
+      </div>
+      <div id="setup-settings-modal-body">
+        <!-- populated dynamically -->
+      </div>
+      <div class="modal-actions">
+        <span>Changes are saved automatically</span>
+        <button class="btn" type="button" onclick="closeSetupSettingsModal(event)">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="setup-efficiency-modal" class="modal-overlay setup-efficiency-overlay" style="display:none;" onclick="closeSetupEfficiencyPanel(event)">
+    <div class="modal-card setup-efficiency-panel" role="dialog" aria-modal="true" aria-labelledby="setup-efficiency-title" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <span class="settings-eyebrow">Historical simulation analytics</span>
+          <h3 id="setup-efficiency-title">Setup Efficiency</h3>
+          <p>Risk-adjusted performance by simulation setup</p>
+        </div>
+        <button class="modal-close-btn" type="button" onclick="closeSetupEfficiencyPanel(event)" aria-label="Close setup efficiency">✕</button>
+      </div>
+      <div id="setup-efficiency-modal-body">
+        <!-- populated dynamically -->
+      </div>
+      <div class="modal-actions">
+        <span id="setup-efficiency-footer-status">Reconciles in the background every 60 minutes</span>
+        <button class="btn" type="button" onclick="closeSetupEfficiencyPanel(event)">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="exit-quality-modal" class="modal-overlay exit-quality-overlay" style="display:none;" onclick="closeExitQualityPanel(event)">
+    <div class="modal-card exit-quality-panel" role="dialog" aria-modal="true" aria-labelledby="exit-quality-title" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <span class="settings-eyebrow">Historical simulation analytics</span>
+          <h3 id="exit-quality-title">Exit Quality</h3>
+          <p>Realized returns and day-close opportunity by exit category</p>
+        </div>
+        <button class="modal-close-btn" type="button" onclick="closeExitQualityPanel(event)" aria-label="Close exit quality">✕</button>
+      </div>
+      <div id="exit-quality-modal-body">
+        <!-- populated dynamically -->
+      </div>
+      <div class="modal-actions">
+        <span id="exit-quality-footer-status">Reconciles in the background every 60 minutes</span>
+        <button class="btn" type="button" onclick="closeExitQualityPanel(event)">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="strategy-advisor-modal" class="modal-overlay strategy-advisor-overlay" style="display:none;" onclick="closeStrategyAdvisorPanel(event)">
+    <div class="modal-card strategy-advisor-panel" role="dialog" aria-modal="true" aria-labelledby="strategy-advisor-title" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <span class="settings-eyebrow">AI simulation research</span>
+          <h3 id="strategy-advisor-title">Strategy Advisor</h3>
+          <p>Agentic review of setup efficiency, exit quality, and daily snapshots</p>
+        </div>
+        <button class="modal-close-btn" type="button" onclick="closeStrategyAdvisorPanel(event)" aria-label="Close strategy advisor">✕</button>
+      </div>
+      <div id="strategy-advisor-modal-body"></div>
+      <div class="modal-actions">
+        <span id="strategy-advisor-footer-status">Recommendations never change live settings automatically</span>
+        <button class="btn" type="button" onclick="closeStrategyAdvisorPanel(event)">Done</button>
       </div>
     </div>
   </div>
@@ -538,8 +623,8 @@
 
 <button id="scroll-top-fab" type="button" title="Scroll to top" aria-label="Scroll to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
-<script defer src="trade_rules.js?v=20260620-25"></script>
+<script defer src="trade_rules.js?v=20260730-26"></script>
 <script defer src="simulation_engine.js?v=20260620-25"></script>
-  <script defer src="dashboard-app.js?v=20260718-51"></script>
+  <script defer src="dashboard-app.js?v=20260731-65"></script>
 </body>
 </html>

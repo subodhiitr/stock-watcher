@@ -39,6 +39,7 @@ function forwardToProxy(proxyBase: string, request: http.IncomingMessage, respon
   const reconnectableEventStreams = new Set([
     '/stream/intraday-live',
     '/stream/market-overview',
+    '/simulation/analysis/stream',
     '/trade-execution/stream',
     '/paper-trades/stream',
   ])

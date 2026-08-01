@@ -55,6 +55,7 @@ function buildReplaySettings(overrides = {}) {
     SIMULATION_MAX_NEW_PER_CYCLE: 1,
     SIMULATION_AUTO_SHORTS: false,
     SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED: false,
+    SIMULATION_LONG_HARD_MIN_DECISION_SCORE_ENABLED: false,
     SIMULATION_MARKET_REGIME_NIFTY_PCT: 999,
     SIMULATION_MARKET_REGIME_RS_PCT: 999,
     SIMULATION_MARKET_REGIME_SECTOR_PCT: 999,
@@ -89,20 +90,31 @@ test('runBacktest does not use a stale prior candidate to manufacture an EOD exi
   assert.equal(result.trades[0].closed, snapshots[0].at, 'final mark must retain the last real quote timestamp');
 });
 
-test('runBacktest uses a later candle low for conservative long stop fills', () => {
+test('runBacktest waits for grace and two completed stop-breach candles', () => {
   const snapshots = buildStretchedGapSnapshot();
   snapshots.push({
     at: '2026-07-03T04:50:30.000Z',
     market: {},
     candidates: [{
       ...snapshots[0].candidates[0],
-      price: 100,
-      priceAtSnapshot: 100,
-      candles: [{ time: '2026-07-03T04:50:00.000Z', open: 100, high: 100.4, low: 98.8, close: 100, volume: 1000 }],
+      price: 99.2,
+      priceAtSnapshot: 99.2,
+      candles: [{ time: '2026-07-03T04:45:00.000Z', open: 100, high: 100.1, low: 98.8, close: 99.2, volume: 1000 }],
+    }],
+  });
+  snapshots.push({
+    at: '2026-07-03T04:55:30.000Z',
+    market: {},
+    candidates: [{
+      ...snapshots[0].candidates[0],
+      price: 99.1,
+      priceAtSnapshot: 99.1,
+      candles: [{ time: '2026-07-03T04:50:00.000Z', open: 99.2, high: 99.3, low: 99, close: 99.1, volume: 1000 }],
     }],
   });
   const result = Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), buildReplaySettings());
 
-  assert.equal(result.trades[0].reason, 'Simulation stop loss breach');
-  assert.equal(result.trades[0].exit, 99.24, 'configured adverse slippage should apply to the stop fill');
+  assert.equal(result.trades[0].reason, 'Simulation confirmed stop');
+  assert.equal(result.trades[0].closed, snapshots[2].at);
+  assert.equal(result.trades[0].exit, 98.94, 'configured adverse slippage should apply to the confirmed stop fill');
 });

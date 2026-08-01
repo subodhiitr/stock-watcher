@@ -52,15 +52,15 @@ async function dashboardResponse(options: { view?: 'stocks' | 'etfs'; action?: '
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
 <title>NSE Midcap Dashboard</title>
-<link rel="preload" href="/dashboard.css?v=20260628-30" as="style">
-<link rel="stylesheet" href="/dashboard.css?v=20260628-30">
+<link rel="preload" href="/dashboard.css?v=20260730-54" as="style">
+<link rel="stylesheet" href="/dashboard.css?v=20260730-54">
 </head>
 <body>
 ${body}
 <script>window.__DASHBOARD_ROUTE__=${bootScript};</script>
 <script defer src="/trade_rules.js?v=20260628-25"></script>
 <script defer src="/simulation_engine.js?v=20260628-25"></script>
-<script defer src="/dashboard-app.js?v=20260718-51"></script>
+<script defer src="/dashboard-app.js?v=20260730-64"></script>
 </body>
 </html>`
 
@@ -173,14 +173,22 @@ function mobileResponse() {
     <label class="setup-selector-card" for="setup-filter-select">
       <span>Show stocks</span>
       <select id="setup-filter-select">
+        <option value="simulation_top25">Server Simulation Top 25</option>
         <option value="tradeable">Tradeable</option>
         <option value="gainers">Top Gainers</option>
         <option value="losers">Top Losers</option>
         <option value="favorites">Favourites</option>
+        <option value="rangebound">Rangebound</option>
+        <option value="opening_flush">Opening Flush VWAP Reclaim</option>
+        <option value="top_gainer_pullback">Top-Gainer Pullback Reclaim</option>
+        <option value="top_gainer_continuation">Top-Gainer Continuation</option>
+        <option value="vwap_continuation">VWAP Trend Continuation</option>
+        <option value="breakdown">Breakdown Shorts</option>
+        <option value="bear_flags">Bear-Flag Shorts</option>
+        <option value="vwap_rejection">VWAP Rejection</option>
+        <option value="vwap_pullback">VWAP Pullback / Hold</option>
         <option value="runners">Momentum Runners</option>
-        <option value="shorts">Shorts</option>
         <option value="best_pullbacks">Best Pullbacks</option>
-        <option value="near_trigger">Near Trigger</option>
       </select>
       <button class="setup-refresh-btn" id="setup-refresh-btn" type="button" aria-label="Refresh selected setups" title="Refresh selected setups">&#8635;</button>
     </label>
@@ -333,7 +341,7 @@ function mobileResponse() {
     <div class="transaction-list" id="portfolio-transactions"></div>
   </section>
 </div>
-<script defer src="/mobile-app.js?v=20260718-49"></script>
+<script defer src="/mobile-app.js?v=20260730-52"></script>
 </body>
 </html>`
 

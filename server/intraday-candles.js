@@ -15,15 +15,37 @@ function normalizeInterval(value) {
 }
 
 function istDateKey(iso) {
-  const timeMs = Date.parse(iso || 0);
+  const timeMs = iso instanceof Date
+    ? iso.getTime()
+    : (typeof iso === 'number' ? iso : Date.parse(iso || 0));
   if (!Number.isFinite(timeMs)) return '';
   return new Date(timeMs + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
-function limitCandlesToRange(candles, range = '1d') {
+function isIstMarketHours(value = Date.now()) {
+  const timeMs = value instanceof Date ? value.getTime() : Number(value);
+  if (!Number.isFinite(timeMs)) return false;
+  const ist = new Date(timeMs + 5.5 * 60 * 60 * 1000);
+  const weekday = ist.getUTCDay();
+  if (weekday === 0 || weekday === 6) return false;
+  const minute = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+  return minute >= 9 * 60 + 15 && minute <= 15 * 60 + 30;
+}
+
+function hasCurrentIstSession(candles, value = Date.now()) {
+  const today = istDateKey(value);
+  return !!today && (Array.isArray(candles) ? candles : [])
+    .some(candle => istDateKey(candle?.time) === today);
+}
+
+function limitCandlesToRange(candles, range = '1d', value = Date.now()) {
   const safeRange = normalizeRange(range);
   const dayLimit = Number.parseInt(safeRange, 10) || 1;
   const rows = Array.isArray(candles) ? candles : [];
+  if (safeRange === '1d') {
+    const today = istDateKey(value);
+    return today ? rows.filter(candle => istDateKey(candle?.time) === today) : [];
+  }
   const dayKeys = [...new Set(rows.map(candle => istDateKey(candle?.time)).filter(Boolean))].sort().slice(-dayLimit);
   if (!dayKeys.length) return [];
   const allowed = new Set(dayKeys);
@@ -102,6 +124,7 @@ function createIntradayCandlesService(deps = {}) {
   const yahooHeaders = deps.yahooHeaders || {};
   const resolveNseSymbol = deps.resolveNseSymbol || (symbol => symbol);
   const fetchSharekhanCandles = deps.fetchSharekhanCandles;
+  const now = typeof deps.now === 'function' ? deps.now : () => Date.now();
 
   async function fetchYahooCandles(sym, safeRange) {
     const yahooSym = `${resolveNseSymbol(sym)}.NS`;
@@ -131,14 +154,17 @@ function createIntradayCandlesService(deps = {}) {
     if (!sym) throw new Error('No symbol');
     const safeRange = normalizeRange(range);
     const safeInterval = normalizeInterval(interval);
+    const requestTime = now();
     let sharekhanError = null;
     if (typeof fetchSharekhanCandles === 'function') {
       try {
         const sharekhanResult = await fetchSharekhanCandles(sym);
         if (sharekhanResult) {
           const normalized = normalizeYahooCandles(sym, safeRange, { chart:{ result:[sharekhanResult] } });
-          const rangedCandles = limitCandlesToRange(normalized.candles, safeRange);
-          if (rangedCandles.length) {
+          const staleDuringMarket = isIstMarketHours(requestTime) &&
+            !hasCurrentIstSession(normalized.candles, requestTime);
+          const rangedCandles = limitCandlesToRange(normalized.candles, safeRange, requestTime);
+          if (rangedCandles.length && !staleDuringMarket) {
             return {
               ...normalized,
               source:'sharekhan-historical',
@@ -146,19 +172,25 @@ function createIntradayCandlesService(deps = {}) {
               candles:aggregateCandles(rangedCandles, safeInterval),
             };
           }
+          if (staleDuringMarket) {
+            sharekhanError = 'Sharekhan historical data does not contain the current IST session';
+          } else if (safeRange === '1d' && !rangedCandles.length) {
+            sharekhanError = 'Sharekhan historical data does not contain candles for today';
+          }
         }
       } catch (error) {
         sharekhanError = error?.message || String(error);
       }
     }
     const normalized = await fetchYahooCandles(sym, safeRange);
+    const rangedCandles = limitCandlesToRange(normalized.candles, safeRange, requestTime);
     return {
       ...normalized,
       source:'yahoo',
       fallbackFrom:typeof fetchSharekhanCandles === 'function' ? 'sharekhan-historical' : null,
       fallbackReason:sharekhanError,
       interval:safeInterval,
-      candles:aggregateCandles(normalized.candles, safeInterval),
+      candles:aggregateCandles(rangedCandles, safeInterval),
     };
   }
 
@@ -189,6 +221,8 @@ function createIntradayCandlesService(deps = {}) {
 
 module.exports = {
   aggregateCandles,
+  hasCurrentIstSession,
+  isIstMarketHours,
   limitCandlesToRange,
   normalizeYahooCandles,
   createIntradayCandlesService,

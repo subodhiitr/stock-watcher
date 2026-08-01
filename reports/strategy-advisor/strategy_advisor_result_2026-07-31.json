@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-07-31",
+  "status": "done",
+  "phase": "complete",
+  "progress": 100,
+  "createdAt": 1785525826742,
+  "updatedAt": 1785529000000,
+  "thesis": "July 31 exit quality was favorable against the day-close benchmark: ₹3,675.35 of value protected exceeded ₹1,553.63 of opportunity loss across 19 exits. Across the seven most recent transaction dates ending July 31, however, 109 exits protected ₹18,479.00 while leaving ₹21,957.02, a net close disadvantage of ₹3,478.02. The weakness is concentrated in confirmed zero-progress exits. Fifteen such exits produced no winners, lost ₹2,851.61, protected ₹592.00, and left ₹4,286.56. Requiring a second consecutive completed candle beyond VWAP before a zero-progress exit is the narrowest supported improvement. Trailing, VWAP, target, stop, and EOD controls should remain unchanged because they collectively protected materially more than they surrendered.",
+  "caveats": [
+    "The seven dates used are 2026-07-22, 2026-07-24, 2026-07-27, 2026-07-28, 2026-07-29, 2026-07-30, and 2026-07-31; dates without transactions were excluded.",
+    "Day close is a benchmark, not a feasible path-aware exit. Opportunity after the actual exit does not prove that a trade could have remained open without larger adverse excursion.",
+    "Requiring two confirmation bars can deepen losses and occupy capital longer when deterioration is genuine.",
+    "The July 31 Rangebound KAJARIACER zero-progress exit is a material contradiction: it protected approximately ₹586 versus day close.",
+    "The current 60-minute runner no-progress override was applied after the reviewed transactions and has no prospective evidence yet.",
+    "No replay, backtest, parameter sweep, autotuning, or targeted trial was run."
+  ],
+  "summary": {
+    "recommendations": 2,
+    "replayTested": 0,
+    "hypotheses": 0,
+    "sessionsReviewed": 7,
+    "setupTrades": 91,
+    "exits": 109,
+    "snapshots": 1489,
+    "usableSnapshots": 1434,
+    "grossPnl": -1993.47,
+    "charges": 6130.59,
+    "netPnl": -8124.06,
+    "opportunityLoss": 21957.02,
+    "valueProtected": 18479,
+    "netCloseAdvantage": -3478.02
+  },
+  "agent": {
+    "provider": "codex-session",
+    "model": "Codex",
+    "toolCalls": 0,
+    "replayUsed": false,
+    "sweepUsed": false
+  },
+  "recommendations": [
+    {
+      "id": "confirm-zero-progress-with-two-bars",
+      "type": "setting-change",
+      "setupType": "",
+      "label": "Zero-progress confirmation",
+      "title": "Require two consecutive completed candles before a zero-progress exit",
+      "rationale": "Zero-progress exits are the clearest recurring source of premature-exit opportunity. The rule currently acts after one completed candle beyond VWAP. Requiring a second consecutive candle would demand persistence before closing an unproductive trade while leaving stop, target, trailing, VWAP-loss, and time-stop thresholds unchanged.",
+      "evidence": [
+        "Selected day: five Time / No progress exits lost ₹841.02, protected ₹592.70, and left ₹390.20; the selected day alone is mixed",
+        "Seven-session exact zero-progress sample: 15 exits, 0 winners, ₹2,851.61 net loss, ₹4,286.56 opportunity loss, and ₹592.00 value protected",
+        "Only 2 of 15 zero-progress exits beat the day close",
+        "Four of five dates containing zero-progress exits support additional confirmation: July 24, 27, 28, and 29 had opportunity loss greater than value protected; July 31 contradicted",
+        "By setup, runner, early-momentum, fresh-breakout, and breakdown zero-progress exits left more than they protected; one Rangebound exit, KAJARIACER, protected approximately ₹586 and is the principal contradiction",
+        "SIMULATION_NO_PROGRESS_CONFIRM_BARS is 1, equals its default of 1, is not overridden, source is default, and is described as the number of consecutive completed candles beyond VWAP required to confirm a no-progress exit"
+      ],
+      "proposedChanges": [
+        {
+          "key": "SIMULATION_NO_PROGRESS_CONFIRM_BARS",
+          "current": 1,
+          "recommended": 2
+        }
+      ],
+      "confidence": "medium",
+      "risk": "A second confirmation candle can deepen genuine failed-breakout losses and delay capacity release. The exact two-bar outcome cannot be reconstructed from day-close benchmarks, and KAJARIACER demonstrates that the current one-bar exit can materially protect value.",
+      "crossDateReview": {
+        "datesRequested": 7,
+        "datesAvailable": 7,
+        "datesUsed": 7,
+        "relevantDates": 5,
+        "supportingDates": 4,
+        "contradictingDates": 1,
+        "affectedTransactions": 15,
+        "totalExits": 109
+      },
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "Fifteen directly affected exits across five dates meet the medium-confidence rubric, with favorable aggregate evidence and support on four of five relevant dates. This is cross-date corroboration, not replay validation."
+      }
+    },
+    {
+      "id": "preserve-working-exit-controls",
+      "type": "setting-change",
+      "setupType": "",
+      "label": "Controls to preserve",
+      "title": "Keep trailing, VWAP, target, stop, EOD, and fade-confirmation controls unchanged",
+      "rationale": "The broad exit framework is not uniformly too early. These categories collectively protected ₹5,407.99 more than they left against the close, and changing shared fade or protective controls would weaken mechanisms that frequently reduced downside or retained gains. Momentum/signal exits deserve observation, but their three-date result is mixed and the shared fade setting also governs beneficial VWAP-loss confirmation.",
+      "evidence": [
+        "Trailing: 24 exits, 23 winners, ₹4,702.90 net profit, ₹3,308 protected versus ₹1,644.11 opportunity loss",
+        "VWAP: 16 exits, ₹2,425 protected versus ₹1,419.20 opportunity loss, and 68.8% beat the close",
+        "Target: 6 exits, 6 winners, ₹3,189.46 net profit, and ₹2,138 protected versus ₹2,024.66 opportunity loss",
+        "Stop: 15 exits and ₹7,433 protected versus ₹5,043.38 opportunity loss",
+        "EOD: 12 exits, ₹205.83 net profit, ₹544 protected versus ₹308.66 opportunity loss, and 75% beat the close",
+        "Combined trailing, VWAP, target, stop, and EOD: 73 exits, ₹15,848 protected versus ₹10,440.01 opportunity loss; five of seven dates favored preservation",
+        "SIMULATION_EXIT_FADE_CONFIRM_BARS is 3, equals its default, is not overridden, source is default, and confirms both VWAP-loss and momentum-fade exits; changing it would affect a working VWAP category"
+      ],
+      "proposedChanges": [],
+      "confidence": "medium",
+      "risk": "July 22 and July 27 had substantial opportunity loss within otherwise protective categories, so preservation does not mean every exit was well timed. Continue monitoring category-level performance instead of applying a broad loosening.",
+      "crossDateReview": {
+        "datesRequested": 7,
+        "datesAvailable": 7,
+        "datesUsed": 7,
+        "relevantDates": 7,
+        "supportingDates": 5,
+        "contradictingDates": 2,
+        "affectedTransactions": 73,
+        "totalExits": 109
+      },
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "The aggregate and five of seven dates support preservation, but two large contradictory sessions keep confidence at medium. No replay was run."
+      }
+    }
+  ]
+}

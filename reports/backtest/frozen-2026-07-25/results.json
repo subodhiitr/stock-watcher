@@ -1,0 +1,1536 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-25T13:39:50.634Z",
+  "strategy": {
+    "id": "frozen-2026-07-25",
+    "sourceCommit": "f434c9e757db635c9b94971031a8dc9235f972b1",
+    "settingsSha256": "877e65a790b38e0cb67c2591fd201e2924fb6ac14e1feef34e6f1c5d294dd9f9",
+    "capital": 1000000,
+    "costProfile": "zerodha_intraday",
+    "slippagePct": 0.06,
+    "partialExits": true
+  },
+  "readiness": {
+    "gatePassed": false,
+    "requiredSessions": 20,
+    "completeSessions": 6,
+    "reason": "Only 6 complete recorded sessions exist, below the required 20. Results are diagnostic and cannot establish profit readiness."
+  },
+  "split": {
+    "training": [
+      "2026-07-13",
+      "2026-07-15",
+      "2026-07-16",
+      "2026-07-17"
+    ],
+    "oos": [
+      "2026-07-20",
+      "2026-07-21"
+    ]
+  },
+  "coverage": [
+    {
+      "day": "2026-06-25",
+      "rows": 205,
+      "first": "2026-06-25T10:00:00.000Z",
+      "last": "2026-06-25T10:01:00.000Z",
+      "marketMinuteCoveragePct": 0.8,
+      "maxGapMin": 240,
+      "entryIntentRows": 42,
+      "complete": false
+    },
+    {
+      "day": "2026-07-13",
+      "rows": 57736,
+      "first": "2026-07-13T03:43:32.594Z",
+      "last": "2026-07-13T10:00:00.260Z",
+      "marketMinuteCoveragePct": 95.2,
+      "maxGapMin": 12.8,
+      "entryIntentRows": 0,
+      "complete": true
+    },
+    {
+      "day": "2026-07-14",
+      "rows": 41095,
+      "first": "2026-07-14T04:56:56.271Z",
+      "last": "2026-07-14T10:00:00.192Z",
+      "marketMinuteCoveragePct": 73.9,
+      "maxGapMin": 19,
+      "entryIntentRows": 15,
+      "complete": false
+    },
+    {
+      "day": "2026-07-15",
+      "rows": 66193,
+      "first": "2026-07-15T03:38:47.103Z",
+      "last": "2026-07-15T10:00:01.770Z",
+      "marketMinuteCoveragePct": 100,
+      "maxGapMin": 0.3,
+      "entryIntentRows": 15,
+      "complete": true
+    },
+    {
+      "day": "2026-07-16",
+      "rows": 64326,
+      "first": "2026-07-16T02:54:42.609Z",
+      "last": "2026-07-16T10:00:00.207Z",
+      "marketMinuteCoveragePct": 100,
+      "maxGapMin": 0.3,
+      "entryIntentRows": 864,
+      "complete": true
+    },
+    {
+      "day": "2026-07-17",
+      "rows": 67836,
+      "first": "2026-07-17T03:42:20.726Z",
+      "last": "2026-07-17T10:00:00.186Z",
+      "marketMinuteCoveragePct": 100,
+      "maxGapMin": 0.3,
+      "entryIntentRows": 4162,
+      "complete": true
+    },
+    {
+      "day": "2026-07-20",
+      "rows": 58267,
+      "first": "2026-07-20T03:21:08.432Z",
+      "last": "2026-07-20T10:00:00.317Z",
+      "marketMinuteCoveragePct": 100,
+      "maxGapMin": 0.3,
+      "entryIntentRows": 11,
+      "complete": true
+    },
+    {
+      "day": "2026-07-21",
+      "rows": 49113,
+      "first": "2026-07-21T03:53:02.915Z",
+      "last": "2026-07-21T09:59:59.994Z",
+      "marketMinuteCoveragePct": 97.6,
+      "maxGapMin": 0.6,
+      "entryIntentRows": 16,
+      "complete": true
+    },
+    {
+      "day": "2026-07-22",
+      "rows": 35042,
+      "first": "2026-07-22T03:41:22.812Z",
+      "last": "2026-07-22T10:00:14.106Z",
+      "marketMinuteCoveragePct": 73.9,
+      "maxGapMin": 17.5,
+      "entryIntentRows": 14,
+      "complete": false
+    },
+    {
+      "day": "2026-07-24",
+      "rows": 29571,
+      "first": "2026-07-24T03:47:27.716Z",
+      "last": "2026-07-24T10:16:25.021Z",
+      "marketMinuteCoveragePct": 70.5,
+      "maxGapMin": 42,
+      "entryIntentRows": 9,
+      "complete": false
+    }
+  ],
+  "variants": [
+    {
+      "id": "baseline",
+      "label": "Frozen baseline",
+      "diagnostic": false,
+      "overrides": {},
+      "training": {
+        "sessions": 4,
+        "trades": 5,
+        "wins": 3,
+        "losses": 2,
+        "winRate": 60,
+        "gross": 454.84,
+        "fees": 262.86,
+        "net": 191.98,
+        "profitFactor": 1.21,
+        "maxDrawdown": 873.1,
+        "maxDrawdownPct": 0.087,
+        "profitableDays": 1,
+        "profitableDayPct": 25,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": -873.1,
+          "2026-07-16": 1065.08,
+          "2026-07-17": 0
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 5,
+            "wins": 3,
+            "losses": 2,
+            "winRate": 60,
+            "gross": 454.84,
+            "fees": 262.86,
+            "net": 191.98
+          }
+        },
+        "byTimeWindow": {
+          "10:30-11:59": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -820.52,
+            "fees": 52.58,
+            "net": -873.1
+          },
+          "09:15-10:29": {
+            "trades": 4,
+            "wins": 3,
+            "losses": 1,
+            "winRate": 75,
+            "gross": 1275.36,
+            "fees": 210.28,
+            "net": 1065.08
+          }
+        }
+      },
+      "oos": {
+        "sessions": 2,
+        "trades": 11,
+        "wins": 4,
+        "losses": 7,
+        "winRate": 36.4,
+        "gross": -1657.65,
+        "fees": 635.44,
+        "net": -2293.09,
+        "profitFactor": 0.15,
+        "maxDrawdown": 2293.09,
+        "maxDrawdownPct": 0.229,
+        "profitableDays": 0,
+        "profitableDayPct": 0,
+        "daily": {
+          "2026-07-20": -1063.24,
+          "2026-07-21": -1229.85
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 10,
+            "wins": 4,
+            "losses": 6,
+            "winRate": 40,
+            "gross": -1270.05,
+            "fees": 553.14,
+            "net": -1823.19
+          },
+          "TOP_GAINER_CONTINUATION": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -387.6,
+            "fees": 82.3,
+            "net": -469.9
+          }
+        },
+        "byTimeWindow": {
+          "09:15-10:29": {
+            "trades": 3,
+            "wins": 2,
+            "losses": 1,
+            "winRate": 66.7,
+            "gross": 120.55,
+            "fees": 159.21,
+            "net": -38.66
+          },
+          "10:30-11:59": {
+            "trades": 8,
+            "wins": 2,
+            "losses": 6,
+            "winRate": 25,
+            "gross": -1778.2,
+            "fees": 476.23,
+            "net": -2254.43
+          }
+        }
+      },
+      "all": {
+        "sessions": 6,
+        "trades": 16,
+        "wins": 7,
+        "losses": 9,
+        "winRate": 43.8,
+        "gross": -1202.81,
+        "fees": 898.3,
+        "net": -2101.11,
+        "profitFactor": 0.42,
+        "maxDrawdown": 2320.33,
+        "maxDrawdownPct": 0.232,
+        "profitableDays": 1,
+        "profitableDayPct": 16.7,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": -873.1,
+          "2026-07-16": 1065.08,
+          "2026-07-17": 0,
+          "2026-07-20": -1063.24,
+          "2026-07-21": -1229.85
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 15,
+            "wins": 7,
+            "losses": 8,
+            "winRate": 46.7,
+            "gross": -815.21,
+            "fees": 816,
+            "net": -1631.21
+          },
+          "TOP_GAINER_CONTINUATION": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -387.6,
+            "fees": 82.3,
+            "net": -469.9
+          }
+        },
+        "byTimeWindow": {
+          "10:30-11:59": {
+            "trades": 9,
+            "wins": 2,
+            "losses": 7,
+            "winRate": 22.2,
+            "gross": -2598.72,
+            "fees": 528.81,
+            "net": -3127.53
+          },
+          "09:15-10:29": {
+            "trades": 7,
+            "wins": 5,
+            "losses": 2,
+            "winRate": 71.4,
+            "gross": 1395.91,
+            "fees": 369.49,
+            "net": 1026.42
+          }
+        }
+      }
+    },
+    {
+      "id": "fresh_confirmation_5m",
+      "label": "Momentum confirmation age <= 5m",
+      "diagnostic": false,
+      "overrides": {
+        "SIMULATION_MOMENTUM_RUNNER_MAX_CONFIRMATION_AGE_MIN": 5
+      },
+      "training": {
+        "sessions": 4,
+        "trades": 5,
+        "wins": 3,
+        "losses": 2,
+        "winRate": 60,
+        "gross": 454.84,
+        "fees": 262.86,
+        "net": 191.98,
+        "profitFactor": 1.21,
+        "maxDrawdown": 873.1,
+        "maxDrawdownPct": 0.087,
+        "profitableDays": 1,
+        "profitableDayPct": 25,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": -873.1,
+          "2026-07-16": 1065.08,
+          "2026-07-17": 0
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 5,
+            "wins": 3,
+            "losses": 2,
+            "winRate": 60,
+            "gross": 454.84,
+            "fees": 262.86,
+            "net": 191.98
+          }
+        },
+        "byTimeWindow": {
+          "10:30-11:59": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -820.52,
+            "fees": 52.58,
+            "net": -873.1
+          },
+          "09:15-10:29": {
+            "trades": 4,
+            "wins": 3,
+            "losses": 1,
+            "winRate": 75,
+            "gross": 1275.36,
+            "fees": 210.28,
+            "net": 1065.08
+          }
+        }
+      },
+      "oos": {
+        "sessions": 2,
+        "trades": 11,
+        "wins": 4,
+        "losses": 7,
+        "winRate": 36.4,
+        "gross": -1657.65,
+        "fees": 635.44,
+        "net": -2293.09,
+        "profitFactor": 0.15,
+        "maxDrawdown": 2293.09,
+        "maxDrawdownPct": 0.229,
+        "profitableDays": 0,
+        "profitableDayPct": 0,
+        "daily": {
+          "2026-07-20": -1063.24,
+          "2026-07-21": -1229.85
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 10,
+            "wins": 4,
+            "losses": 6,
+            "winRate": 40,
+            "gross": -1270.05,
+            "fees": 553.14,
+            "net": -1823.19
+          },
+          "TOP_GAINER_CONTINUATION": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -387.6,
+            "fees": 82.3,
+            "net": -469.9
+          }
+        },
+        "byTimeWindow": {
+          "09:15-10:29": {
+            "trades": 3,
+            "wins": 2,
+            "losses": 1,
+            "winRate": 66.7,
+            "gross": 120.55,
+            "fees": 159.21,
+            "net": -38.66
+          },
+          "10:30-11:59": {
+            "trades": 8,
+            "wins": 2,
+            "losses": 6,
+            "winRate": 25,
+            "gross": -1778.2,
+            "fees": 476.23,
+            "net": -2254.43
+          }
+        }
+      },
+      "all": {
+        "sessions": 6,
+        "trades": 16,
+        "wins": 7,
+        "losses": 9,
+        "winRate": 43.8,
+        "gross": -1202.81,
+        "fees": 898.3,
+        "net": -2101.11,
+        "profitFactor": 0.42,
+        "maxDrawdown": 2320.33,
+        "maxDrawdownPct": 0.232,
+        "profitableDays": 1,
+        "profitableDayPct": 16.7,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": -873.1,
+          "2026-07-16": 1065.08,
+          "2026-07-17": 0,
+          "2026-07-20": -1063.24,
+          "2026-07-21": -1229.85
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 15,
+            "wins": 7,
+            "losses": 8,
+            "winRate": 46.7,
+            "gross": -815.21,
+            "fees": 816,
+            "net": -1631.21
+          },
+          "TOP_GAINER_CONTINUATION": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -387.6,
+            "fees": 82.3,
+            "net": -469.9
+          }
+        },
+        "byTimeWindow": {
+          "10:30-11:59": {
+            "trades": 9,
+            "wins": 2,
+            "losses": 7,
+            "winRate": 22.2,
+            "gross": -2598.72,
+            "fees": 528.81,
+            "net": -3127.53
+          },
+          "09:15-10:29": {
+            "trades": 7,
+            "wins": 5,
+            "losses": 2,
+            "winRate": 71.4,
+            "gross": 1395.91,
+            "fees": 369.49,
+            "net": 1026.42
+          }
+        }
+      }
+    },
+    {
+      "id": "late_cutoff_1345",
+      "label": "No new entries after 13:45 IST",
+      "diagnostic": false,
+      "overrides": {
+        "SIMULATION_ENTRY_END_MIN": 825
+      },
+      "training": {
+        "sessions": 4,
+        "trades": 5,
+        "wins": 3,
+        "losses": 2,
+        "winRate": 60,
+        "gross": 454.84,
+        "fees": 262.86,
+        "net": 191.98,
+        "profitFactor": 1.21,
+        "maxDrawdown": 873.1,
+        "maxDrawdownPct": 0.087,
+        "profitableDays": 1,
+        "profitableDayPct": 25,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": -873.1,
+          "2026-07-16": 1065.08,
+          "2026-07-17": 0
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 5,
+            "wins": 3,
+            "losses": 2,
+            "winRate": 60,
+            "gross": 454.84,
+            "fees": 262.86,
+            "net": 191.98
+          }
+        },
+        "byTimeWindow": {
+          "10:30-11:59": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -820.52,
+            "fees": 52.58,
+            "net": -873.1
+          },
+          "09:15-10:29": {
+            "trades": 4,
+            "wins": 3,
+            "losses": 1,
+            "winRate": 75,
+            "gross": 1275.36,
+            "fees": 210.28,
+            "net": 1065.08
+          }
+        }
+      },
+      "oos": {
+        "sessions": 2,
+        "trades": 11,
+        "wins": 4,
+        "losses": 7,
+        "winRate": 36.4,
+        "gross": -1657.65,
+        "fees": 635.44,
+        "net": -2293.09,
+        "profitFactor": 0.15,
+        "maxDrawdown": 2293.09,
+        "maxDrawdownPct": 0.229,
+        "profitableDays": 0,
+        "profitableDayPct": 0,
+        "daily": {
+          "2026-07-20": -1063.24,
+          "2026-07-21": -1229.85
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 10,
+            "wins": 4,
+            "losses": 6,
+            "winRate": 40,
+            "gross": -1270.05,
+            "fees": 553.14,
+            "net": -1823.19
+          },
+          "TOP_GAINER_CONTINUATION": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -387.6,
+            "fees": 82.3,
+            "net": -469.9
+          }
+        },
+        "byTimeWindow": {
+          "09:15-10:29": {
+            "trades": 3,
+            "wins": 2,
+            "losses": 1,
+            "winRate": 66.7,
+            "gross": 120.55,
+            "fees": 159.21,
+            "net": -38.66
+          },
+          "10:30-11:59": {
+            "trades": 8,
+            "wins": 2,
+            "losses": 6,
+            "winRate": 25,
+            "gross": -1778.2,
+            "fees": 476.23,
+            "net": -2254.43
+          }
+        }
+      },
+      "all": {
+        "sessions": 6,
+        "trades": 16,
+        "wins": 7,
+        "losses": 9,
+        "winRate": 43.8,
+        "gross": -1202.81,
+        "fees": 898.3,
+        "net": -2101.11,
+        "profitFactor": 0.42,
+        "maxDrawdown": 2320.33,
+        "maxDrawdownPct": 0.232,
+        "profitableDays": 1,
+        "profitableDayPct": 16.7,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": -873.1,
+          "2026-07-16": 1065.08,
+          "2026-07-17": 0,
+          "2026-07-20": -1063.24,
+          "2026-07-21": -1229.85
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 15,
+            "wins": 7,
+            "losses": 8,
+            "winRate": 46.7,
+            "gross": -815.21,
+            "fees": 816,
+            "net": -1631.21
+          },
+          "TOP_GAINER_CONTINUATION": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -387.6,
+            "fees": 82.3,
+            "net": -469.9
+          }
+        },
+        "byTimeWindow": {
+          "10:30-11:59": {
+            "trades": 9,
+            "wins": 2,
+            "losses": 7,
+            "winRate": 22.2,
+            "gross": -2598.72,
+            "fees": 528.81,
+            "net": -3127.53
+          },
+          "09:15-10:29": {
+            "trades": 7,
+            "wins": 5,
+            "losses": 2,
+            "winRate": 71.4,
+            "gross": 1395.91,
+            "fees": 369.49,
+            "net": 1026.42
+          }
+        }
+      }
+    },
+    {
+      "id": "block_1030_1200_proxy",
+      "label": "Diagnostic: block 10:30-12:00 IST",
+      "diagnostic": false,
+      "overrides": {
+        "REPLAY_ENTRY_BLOCK_RANGES": [
+          {
+            "startMin": 630,
+            "endMin": 720
+          }
+        ]
+      },
+      "training": {
+        "sessions": 4,
+        "trades": 4,
+        "wins": 3,
+        "losses": 1,
+        "winRate": 75,
+        "gross": 1275.36,
+        "fees": 210.28,
+        "net": 1065.08,
+        "profitFactor": 40.1,
+        "maxDrawdown": 27.24,
+        "maxDrawdownPct": 0.003,
+        "profitableDays": 1,
+        "profitableDayPct": 25,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": 0,
+          "2026-07-16": 1065.08,
+          "2026-07-17": 0
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 4,
+            "wins": 3,
+            "losses": 1,
+            "winRate": 75,
+            "gross": 1275.36,
+            "fees": 210.28,
+            "net": 1065.08
+          }
+        },
+        "byTimeWindow": {
+          "09:15-10:29": {
+            "trades": 4,
+            "wins": 3,
+            "losses": 1,
+            "winRate": 75,
+            "gross": 1275.36,
+            "fees": 210.28,
+            "net": 1065.08
+          }
+        }
+      },
+      "oos": {
+        "sessions": 2,
+        "trades": 3,
+        "wins": 2,
+        "losses": 1,
+        "winRate": 66.7,
+        "gross": 120.55,
+        "fees": 159.21,
+        "net": -38.66,
+        "profitFactor": 0.78,
+        "maxDrawdown": 175.77,
+        "maxDrawdownPct": 0.018,
+        "profitableDays": 0,
+        "profitableDayPct": 0,
+        "daily": {
+          "2026-07-20": -38.66,
+          "2026-07-21": 0
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 3,
+            "wins": 2,
+            "losses": 1,
+            "winRate": 66.7,
+            "gross": 120.55,
+            "fees": 159.21,
+            "net": -38.66
+          }
+        },
+        "byTimeWindow": {
+          "09:15-10:29": {
+            "trades": 3,
+            "wins": 2,
+            "losses": 1,
+            "winRate": 66.7,
+            "gross": 120.55,
+            "fees": 159.21,
+            "net": -38.66
+          }
+        }
+      },
+      "all": {
+        "sessions": 6,
+        "trades": 7,
+        "wins": 5,
+        "losses": 2,
+        "winRate": 71.4,
+        "gross": 1395.91,
+        "fees": 369.49,
+        "net": 1026.42,
+        "profitFactor": 6.06,
+        "maxDrawdown": 203.01,
+        "maxDrawdownPct": 0.02,
+        "profitableDays": 1,
+        "profitableDayPct": 16.7,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": 0,
+          "2026-07-16": 1065.08,
+          "2026-07-17": 0,
+          "2026-07-20": -38.66,
+          "2026-07-21": 0
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 7,
+            "wins": 5,
+            "losses": 2,
+            "winRate": 71.4,
+            "gross": 1395.91,
+            "fees": 369.49,
+            "net": 1026.42
+          }
+        },
+        "byTimeWindow": {
+          "09:15-10:29": {
+            "trades": 7,
+            "wins": 5,
+            "losses": 2,
+            "winRate": 71.4,
+            "gross": 1395.91,
+            "fees": 369.49,
+            "net": 1026.42
+          }
+        }
+      }
+    },
+    {
+      "id": "disable_breakdown",
+      "label": "Disable BREAKDOWN entries",
+      "diagnostic": false,
+      "overrides": {
+        "REPLAY_BLOCKED_SETUPS": [
+          "BREAKDOWN"
+        ]
+      },
+      "training": {
+        "sessions": 4,
+        "trades": 5,
+        "wins": 3,
+        "losses": 2,
+        "winRate": 60,
+        "gross": 454.84,
+        "fees": 262.86,
+        "net": 191.98,
+        "profitFactor": 1.21,
+        "maxDrawdown": 873.1,
+        "maxDrawdownPct": 0.087,
+        "profitableDays": 1,
+        "profitableDayPct": 25,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": -873.1,
+          "2026-07-16": 1065.08,
+          "2026-07-17": 0
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 5,
+            "wins": 3,
+            "losses": 2,
+            "winRate": 60,
+            "gross": 454.84,
+            "fees": 262.86,
+            "net": 191.98
+          }
+        },
+        "byTimeWindow": {
+          "10:30-11:59": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -820.52,
+            "fees": 52.58,
+            "net": -873.1
+          },
+          "09:15-10:29": {
+            "trades": 4,
+            "wins": 3,
+            "losses": 1,
+            "winRate": 75,
+            "gross": 1275.36,
+            "fees": 210.28,
+            "net": 1065.08
+          }
+        }
+      },
+      "oos": {
+        "sessions": 2,
+        "trades": 11,
+        "wins": 4,
+        "losses": 7,
+        "winRate": 36.4,
+        "gross": -1657.65,
+        "fees": 635.44,
+        "net": -2293.09,
+        "profitFactor": 0.15,
+        "maxDrawdown": 2293.09,
+        "maxDrawdownPct": 0.229,
+        "profitableDays": 0,
+        "profitableDayPct": 0,
+        "daily": {
+          "2026-07-20": -1063.24,
+          "2026-07-21": -1229.85
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 10,
+            "wins": 4,
+            "losses": 6,
+            "winRate": 40,
+            "gross": -1270.05,
+            "fees": 553.14,
+            "net": -1823.19
+          },
+          "TOP_GAINER_CONTINUATION": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -387.6,
+            "fees": 82.3,
+            "net": -469.9
+          }
+        },
+        "byTimeWindow": {
+          "09:15-10:29": {
+            "trades": 3,
+            "wins": 2,
+            "losses": 1,
+            "winRate": 66.7,
+            "gross": 120.55,
+            "fees": 159.21,
+            "net": -38.66
+          },
+          "10:30-11:59": {
+            "trades": 8,
+            "wins": 2,
+            "losses": 6,
+            "winRate": 25,
+            "gross": -1778.2,
+            "fees": 476.23,
+            "net": -2254.43
+          }
+        }
+      },
+      "all": {
+        "sessions": 6,
+        "trades": 16,
+        "wins": 7,
+        "losses": 9,
+        "winRate": 43.8,
+        "gross": -1202.81,
+        "fees": 898.3,
+        "net": -2101.11,
+        "profitFactor": 0.42,
+        "maxDrawdown": 2320.33,
+        "maxDrawdownPct": 0.232,
+        "profitableDays": 1,
+        "profitableDayPct": 16.7,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": -873.1,
+          "2026-07-16": 1065.08,
+          "2026-07-17": 0,
+          "2026-07-20": -1063.24,
+          "2026-07-21": -1229.85
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 15,
+            "wins": 7,
+            "losses": 8,
+            "winRate": 46.7,
+            "gross": -815.21,
+            "fees": 816,
+            "net": -1631.21
+          },
+          "TOP_GAINER_CONTINUATION": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -387.6,
+            "fees": 82.3,
+            "net": -469.9
+          }
+        },
+        "byTimeWindow": {
+          "10:30-11:59": {
+            "trades": 9,
+            "wins": 2,
+            "losses": 7,
+            "winRate": 22.2,
+            "gross": -2598.72,
+            "fees": 528.81,
+            "net": -3127.53
+          },
+          "09:15-10:29": {
+            "trades": 7,
+            "wins": 5,
+            "losses": 2,
+            "winRate": 71.4,
+            "gross": 1395.91,
+            "fees": 369.49,
+            "net": 1026.42
+          }
+        }
+      }
+    },
+    {
+      "id": "restore_stop_guard",
+      "label": "Restore daily and clustered stop guards",
+      "diagnostic": false,
+      "overrides": {
+        "SIMULATION_OVERRIDE_STOP_GUARD": false
+      },
+      "training": {
+        "sessions": 4,
+        "trades": 5,
+        "wins": 3,
+        "losses": 2,
+        "winRate": 60,
+        "gross": 454.84,
+        "fees": 262.86,
+        "net": 191.98,
+        "profitFactor": 1.21,
+        "maxDrawdown": 873.1,
+        "maxDrawdownPct": 0.087,
+        "profitableDays": 1,
+        "profitableDayPct": 25,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": -873.1,
+          "2026-07-16": 1065.08,
+          "2026-07-17": 0
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 5,
+            "wins": 3,
+            "losses": 2,
+            "winRate": 60,
+            "gross": 454.84,
+            "fees": 262.86,
+            "net": 191.98
+          }
+        },
+        "byTimeWindow": {
+          "10:30-11:59": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -820.52,
+            "fees": 52.58,
+            "net": -873.1
+          },
+          "09:15-10:29": {
+            "trades": 4,
+            "wins": 3,
+            "losses": 1,
+            "winRate": 75,
+            "gross": 1275.36,
+            "fees": 210.28,
+            "net": 1065.08
+          }
+        }
+      },
+      "oos": {
+        "sessions": 2,
+        "trades": 11,
+        "wins": 4,
+        "losses": 7,
+        "winRate": 36.4,
+        "gross": -1657.65,
+        "fees": 635.44,
+        "net": -2293.09,
+        "profitFactor": 0.15,
+        "maxDrawdown": 2293.09,
+        "maxDrawdownPct": 0.229,
+        "profitableDays": 0,
+        "profitableDayPct": 0,
+        "daily": {
+          "2026-07-20": -1063.24,
+          "2026-07-21": -1229.85
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 10,
+            "wins": 4,
+            "losses": 6,
+            "winRate": 40,
+            "gross": -1270.05,
+            "fees": 553.14,
+            "net": -1823.19
+          },
+          "TOP_GAINER_CONTINUATION": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -387.6,
+            "fees": 82.3,
+            "net": -469.9
+          }
+        },
+        "byTimeWindow": {
+          "09:15-10:29": {
+            "trades": 3,
+            "wins": 2,
+            "losses": 1,
+            "winRate": 66.7,
+            "gross": 120.55,
+            "fees": 159.21,
+            "net": -38.66
+          },
+          "10:30-11:59": {
+            "trades": 8,
+            "wins": 2,
+            "losses": 6,
+            "winRate": 25,
+            "gross": -1778.2,
+            "fees": 476.23,
+            "net": -2254.43
+          }
+        }
+      },
+      "all": {
+        "sessions": 6,
+        "trades": 16,
+        "wins": 7,
+        "losses": 9,
+        "winRate": 43.8,
+        "gross": -1202.81,
+        "fees": 898.3,
+        "net": -2101.11,
+        "profitFactor": 0.42,
+        "maxDrawdown": 2320.33,
+        "maxDrawdownPct": 0.232,
+        "profitableDays": 1,
+        "profitableDayPct": 16.7,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": -873.1,
+          "2026-07-16": 1065.08,
+          "2026-07-17": 0,
+          "2026-07-20": -1063.24,
+          "2026-07-21": -1229.85
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 15,
+            "wins": 7,
+            "losses": 8,
+            "winRate": 46.7,
+            "gross": -815.21,
+            "fees": 816,
+            "net": -1631.21
+          },
+          "TOP_GAINER_CONTINUATION": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -387.6,
+            "fees": 82.3,
+            "net": -469.9
+          }
+        },
+        "byTimeWindow": {
+          "10:30-11:59": {
+            "trades": 9,
+            "wins": 2,
+            "losses": 7,
+            "winRate": 22.2,
+            "gross": -2598.72,
+            "fees": 528.81,
+            "net": -3127.53
+          },
+          "09:15-10:29": {
+            "trades": 7,
+            "wins": 5,
+            "losses": 2,
+            "winRate": 71.4,
+            "gross": 1395.91,
+            "fees": 369.49,
+            "net": 1026.42
+          }
+        }
+      }
+    },
+    {
+      "id": "daily_trade_cap_6",
+      "label": "Cap daily entries at 6",
+      "diagnostic": false,
+      "overrides": {
+        "SIMULATION_DAILY_MAX_TRADES": 6
+      },
+      "training": {
+        "sessions": 4,
+        "trades": 5,
+        "wins": 3,
+        "losses": 2,
+        "winRate": 60,
+        "gross": 454.84,
+        "fees": 262.86,
+        "net": 191.98,
+        "profitFactor": 1.21,
+        "maxDrawdown": 873.1,
+        "maxDrawdownPct": 0.087,
+        "profitableDays": 1,
+        "profitableDayPct": 25,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": -873.1,
+          "2026-07-16": 1065.08,
+          "2026-07-17": 0
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 5,
+            "wins": 3,
+            "losses": 2,
+            "winRate": 60,
+            "gross": 454.84,
+            "fees": 262.86,
+            "net": 191.98
+          }
+        },
+        "byTimeWindow": {
+          "10:30-11:59": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -820.52,
+            "fees": 52.58,
+            "net": -873.1
+          },
+          "09:15-10:29": {
+            "trades": 4,
+            "wins": 3,
+            "losses": 1,
+            "winRate": 75,
+            "gross": 1275.36,
+            "fees": 210.28,
+            "net": 1065.08
+          }
+        }
+      },
+      "oos": {
+        "sessions": 2,
+        "trades": 11,
+        "wins": 4,
+        "losses": 7,
+        "winRate": 36.4,
+        "gross": -1657.65,
+        "fees": 635.44,
+        "net": -2293.09,
+        "profitFactor": 0.15,
+        "maxDrawdown": 2293.09,
+        "maxDrawdownPct": 0.229,
+        "profitableDays": 0,
+        "profitableDayPct": 0,
+        "daily": {
+          "2026-07-20": -1063.24,
+          "2026-07-21": -1229.85
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 10,
+            "wins": 4,
+            "losses": 6,
+            "winRate": 40,
+            "gross": -1270.05,
+            "fees": 553.14,
+            "net": -1823.19
+          },
+          "TOP_GAINER_CONTINUATION": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -387.6,
+            "fees": 82.3,
+            "net": -469.9
+          }
+        },
+        "byTimeWindow": {
+          "09:15-10:29": {
+            "trades": 3,
+            "wins": 2,
+            "losses": 1,
+            "winRate": 66.7,
+            "gross": 120.55,
+            "fees": 159.21,
+            "net": -38.66
+          },
+          "10:30-11:59": {
+            "trades": 8,
+            "wins": 2,
+            "losses": 6,
+            "winRate": 25,
+            "gross": -1778.2,
+            "fees": 476.23,
+            "net": -2254.43
+          }
+        }
+      },
+      "all": {
+        "sessions": 6,
+        "trades": 16,
+        "wins": 7,
+        "losses": 9,
+        "winRate": 43.8,
+        "gross": -1202.81,
+        "fees": 898.3,
+        "net": -2101.11,
+        "profitFactor": 0.42,
+        "maxDrawdown": 2320.33,
+        "maxDrawdownPct": 0.232,
+        "profitableDays": 1,
+        "profitableDayPct": 16.7,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": -873.1,
+          "2026-07-16": 1065.08,
+          "2026-07-17": 0,
+          "2026-07-20": -1063.24,
+          "2026-07-21": -1229.85
+        },
+        "bySetup": {
+          "MOMENTUM_RUNNER": {
+            "trades": 15,
+            "wins": 7,
+            "losses": 8,
+            "winRate": 46.7,
+            "gross": -815.21,
+            "fees": 816,
+            "net": -1631.21
+          },
+          "TOP_GAINER_CONTINUATION": {
+            "trades": 1,
+            "wins": 0,
+            "losses": 1,
+            "winRate": 0,
+            "gross": -387.6,
+            "fees": 82.3,
+            "net": -469.9
+          }
+        },
+        "byTimeWindow": {
+          "10:30-11:59": {
+            "trades": 9,
+            "wins": 2,
+            "losses": 7,
+            "winRate": 22.2,
+            "gross": -2598.72,
+            "fees": 528.81,
+            "net": -3127.53
+          },
+          "09:15-10:29": {
+            "trades": 7,
+            "wins": 5,
+            "losses": 2,
+            "winRate": 71.4,
+            "gross": 1395.91,
+            "fees": 369.49,
+            "net": 1026.42
+          }
+        }
+      }
+    },
+    {
+      "id": "higher_min_net_1_25",
+      "label": "Require modeled net opportunity >= 1.25%",
+      "diagnostic": false,
+      "overrides": {
+        "SIMULATION_MIN_NET_PROFIT_PCT": 1.25
+      },
+      "training": {
+        "sessions": 4,
+        "trades": 0,
+        "wins": 0,
+        "losses": 0,
+        "winRate": 0,
+        "gross": 0,
+        "fees": 0,
+        "net": 0,
+        "profitFactor": 0,
+        "maxDrawdown": 0,
+        "maxDrawdownPct": 0,
+        "profitableDays": 0,
+        "profitableDayPct": 0,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": 0,
+          "2026-07-16": 0,
+          "2026-07-17": 0
+        },
+        "bySetup": {},
+        "byTimeWindow": {}
+      },
+      "oos": {
+        "sessions": 2,
+        "trades": 0,
+        "wins": 0,
+        "losses": 0,
+        "winRate": 0,
+        "gross": 0,
+        "fees": 0,
+        "net": 0,
+        "profitFactor": 0,
+        "maxDrawdown": 0,
+        "maxDrawdownPct": 0,
+        "profitableDays": 0,
+        "profitableDayPct": 0,
+        "daily": {
+          "2026-07-20": 0,
+          "2026-07-21": 0
+        },
+        "bySetup": {},
+        "byTimeWindow": {}
+      },
+      "all": {
+        "sessions": 6,
+        "trades": 0,
+        "wins": 0,
+        "losses": 0,
+        "winRate": 0,
+        "gross": 0,
+        "fees": 0,
+        "net": 0,
+        "profitFactor": 0,
+        "maxDrawdown": 0,
+        "maxDrawdownPct": 0,
+        "profitableDays": 0,
+        "profitableDayPct": 0,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": 0,
+          "2026-07-16": 0,
+          "2026-07-17": 0,
+          "2026-07-20": 0,
+          "2026-07-21": 0
+        },
+        "bySetup": {},
+        "byTimeWindow": {}
+      }
+    },
+    {
+      "id": "combined_candidate",
+      "label": "Combined diagnostic candidate",
+      "diagnostic": true,
+      "overrides": {
+        "SIMULATION_MOMENTUM_RUNNER_MAX_CONFIRMATION_AGE_MIN": 5,
+        "SIMULATION_ENTRY_END_MIN": 825,
+        "SIMULATION_OVERRIDE_STOP_GUARD": false,
+        "SIMULATION_DAILY_MAX_TRADES": 6,
+        "SIMULATION_MIN_NET_PROFIT_PCT": 1.25,
+        "REPLAY_ENTRY_BLOCK_RANGES": [
+          {
+            "startMin": 630,
+            "endMin": 720
+          }
+        ],
+        "REPLAY_BLOCKED_SETUPS": [
+          "BREAKDOWN"
+        ]
+      },
+      "training": {
+        "sessions": 4,
+        "trades": 0,
+        "wins": 0,
+        "losses": 0,
+        "winRate": 0,
+        "gross": 0,
+        "fees": 0,
+        "net": 0,
+        "profitFactor": 0,
+        "maxDrawdown": 0,
+        "maxDrawdownPct": 0,
+        "profitableDays": 0,
+        "profitableDayPct": 0,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": 0,
+          "2026-07-16": 0,
+          "2026-07-17": 0
+        },
+        "bySetup": {},
+        "byTimeWindow": {}
+      },
+      "oos": {
+        "sessions": 2,
+        "trades": 0,
+        "wins": 0,
+        "losses": 0,
+        "winRate": 0,
+        "gross": 0,
+        "fees": 0,
+        "net": 0,
+        "profitFactor": 0,
+        "maxDrawdown": 0,
+        "maxDrawdownPct": 0,
+        "profitableDays": 0,
+        "profitableDayPct": 0,
+        "daily": {
+          "2026-07-20": 0,
+          "2026-07-21": 0
+        },
+        "bySetup": {},
+        "byTimeWindow": {}
+      },
+      "all": {
+        "sessions": 6,
+        "trades": 0,
+        "wins": 0,
+        "losses": 0,
+        "winRate": 0,
+        "gross": 0,
+        "fees": 0,
+        "net": 0,
+        "profitFactor": 0,
+        "maxDrawdown": 0,
+        "maxDrawdownPct": 0,
+        "profitableDays": 0,
+        "profitableDayPct": 0,
+        "daily": {
+          "2026-07-13": 0,
+          "2026-07-15": 0,
+          "2026-07-16": 0,
+          "2026-07-17": 0,
+          "2026-07-20": 0,
+          "2026-07-21": 0
+        },
+        "bySetup": {},
+        "byTimeWindow": {}
+      }
+    }
+  ]
+}

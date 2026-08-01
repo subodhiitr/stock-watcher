@@ -308,18 +308,20 @@ test('portfolio modal moves Entry Why and Exit Reason to the end of transaction 
   const { source } = loadDashboardApp();
   assert.match(
     source,
-    /<th>Status<\/th><th>Mode<\/th><th>Broker<\/th><th>Symbol<\/th><th>Side<\/th><th>Qty<\/th><th>Entry<\/th><th>Exit\/Live<\/th><th>Capital<\/th><th>Entry Time<\/th><th>Exit Time<\/th><th>Total Cost<\/th><th>Gross P&L<\/th><th>Net P&L<\/th><th>Entry Why<\/th><th>Exit Reason<\/th>/
+    /<th>Status<\/th><th>Mode<\/th><th>Broker<\/th><th>Symbol<\/th><th>Side<\/th><th>Qty<\/th><th>Entry<\/th><th>Exit<\/th><th>Live<\/th><th>Capital<\/th><th>Entry Time<\/th><th>Exit Time<\/th><th>Total Cost<\/th><th>Gross P&L<\/th><th>Net P&L<\/th><th>Entry Why<\/th><th>Exit Reason<\/th>/
   );
 });
 
-test('portfolio modal lets users pick transaction date with today as default', () => {
+test('portfolio modal provides the latest five trading days instead of a calendar input', () => {
   const { source } = loadDashboardApp();
-  assert.match(source, /let portfolioTransactionDate = getTradeDateISO\(\)/);
+  assert.match(source, /let portfolioTransactionDate = getRecentPortfolioTradingDays\(5\)\[0\] \|\| getTradeDateISO\(\)/);
+  assert.match(source, /function getRecentPortfolioTradingDays\(/);
   assert.match(source, /function setPortfolioTransactionDate\(/);
   assert.match(source, /function isTradeOnPortfolioDate\(/);
-  assert.match(source, /portfolioTransactionDateInput/);
-  assert.match(source, /type="date"/);
-  assert.match(source, /onchange="setPortfolioTransactionDate\(this\.value\)"/);
+  assert.match(source, /class="portfolio-date-panel" role="group" aria-label="Select one of the latest five trading days"/);
+  assert.match(source, /class="portfolio-date-option\$\{active \? ' active' : ''\}"/);
+  assert.match(source, /onclick="setPortfolioTransactionDate\('\$\{escapeHTML\(day\)\}'\)"/);
+  assert.doesNotMatch(source, /portfolioTransactionDateInput/);
   assert.match(source, /loadPortfolioTransactionsForDate\(portfolioTransactionDate\)/);
   assert.match(source, /PAPER_TRADES_ENDPOINT\}\?date=\$\{encodeURIComponent\(dateKey\)\}/);
   assert.match(source, /paperTrades\.filter\(t => isTradeOnPortfolioDate\(t, portfolioTransactionDate\)\)/);

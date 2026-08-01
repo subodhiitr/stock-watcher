@@ -30,8 +30,41 @@ test('runSimulationDomainCycle returns entry and exit intent collections', () =>
   assert.deepEqual(calls, ['exit:INFY', 'entries']);
   assert.deepEqual(intents, {
     exitIntents: [],
+    scaleInIntents: [],
     entryIntents: [{ symbol: 'TCS', side: 'buy', price: 3800 }]
   });
+});
+
+test('runSimulationDomainCycle reserves capacity for Momentum Runner scale-ins before new entries', () => {
+  const runner = { id:'runner-1', symbol:'INFY', sector:'IT', entryPrice:100, stop:99.2 };
+  const candidate = { symbol:'INFY', price:100.2, sector:'IT' };
+  const engine = {
+    getSimulationExitIntent() { return null; },
+    getMomentumRunnerScaleInIntent() {
+      return { action:'scale_in', symbol:'INFY', qty:50, price:100.2, trade:runner, candidate };
+    },
+    getSimulationEntryIntents(candidates, at, settings, context) {
+      assert.equal(context.cashAvailable, 4990);
+      assert.equal(context.openExposure, 15010);
+      return [];
+    },
+  };
+  const intents = runSimulationDomainCycle({
+    openTrades:[runner],
+    candidates:[],
+    at:'2026-07-24T05:00:00.000Z',
+    settings:{ SIMULATION_MAX_GROSS_EXPOSURE_PCT:80 },
+    context:{
+      candidateBySymbol:new Map([['INFY', candidate]]),
+      cashAvailable:10000,
+      portfolioEquity:100000,
+      openExposure:10000,
+      remainingHeatRisk:1000,
+      sectorHeatRemaining:{ IT:1000 },
+    },
+  }, { engine });
+  assert.equal(intents.scaleInIntents.length, 1);
+  assert.equal(intents.scaleInIntents[0].qty, 50);
 });
 
 test('runSimulationDomainCycle computes exits before entries and frees symbols closed in the cycle', () => {
@@ -154,4 +187,21 @@ test('runSimulationDomainCycle respects max concurrent positions per symbol sett
 
   // JKPAPER candidate should be filtered out because max concurrent positions (1) is already reached
   assert.equal(intents.entryIntents.length, 0, 'Should not allow a 2nd position on JKPAPER when max concurrent is 1');
+});
+
+test('runSimulationDomainCycle applies a final max-new-per-cycle invariant', () => {
+  const engine = {
+    getSimulationExitIntent() { return null; },
+    getSimulationEntryIntents() {
+      return ['ONE', 'TWO', 'THREE'].map(symbol => ({ symbol, side:'buy', price:100 }));
+    },
+  };
+  const intents = runSimulationDomainCycle({
+    openTrades:[],
+    candidates:[],
+    at:'2026-07-24T05:00:00.000Z',
+    settings:{ SIMULATION_MAX_NEW_PER_CYCLE:1 },
+    context:{},
+  }, { engine });
+  assert.deepEqual(intents.entryIntents.map(intent => intent.symbol), ['ONE']);
 });

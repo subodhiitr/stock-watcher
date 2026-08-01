@@ -1,12 +1,12 @@
 {
   "ok": true,
   "date": "2026-08-08",
-  "savedAt": 1784344537913,
-  "builtInMs": 44672,
+  "savedAt": 1785437466348,
+  "builtInMs": 47405,
   "source": "nse-board-meetings",
-  "scanned": 3033,
-  "count": 1,
-  "symbolCount": 1,
+  "scanned": 3043,
+  "count": 2,
+  "symbolCount": 2,
   "items": [
     {
       "symbol": "ANANTRAJ",
@@ -15,6 +15,18 @@
       "title": "ANANT RAJ LIMITED has informed the Exchange about Board Meeting to be held on 08-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
       "source": "NSE",
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=ANANTRAJ",
+      "eventDate": "2026-08-07T18:30:00.000Z",
+      "dateKey": "2026-08-08",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "HBLENGINE",
+      "name": "HBL Engineering Limited",
+      "type": "Financial Results",
+      "title": "To consider and approve the financial results for the period ended Jun 30, 2026",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=HBLENGINE",
       "eventDate": "2026-08-07T18:30:00.000Z",
       "dateKey": "2026-08-08",
       "status": "upcoming",

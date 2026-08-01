@@ -13,6 +13,11 @@ test('Sharekhan websocket initial subscription uses stock-only universe', () => 
   assert.match(source, /const universeSyms = getSharekhanStockUniverseSymbols\(\);/);
 });
 
+test('Sharekhan websocket always includes the 63MOONS ticker', () => {
+  assert.match(source, /SHAREKHAN_EXTRA_TICKER_SYMBOLS\s*=\s*Object\.freeze\(\['63MOONS'\]\)/);
+  assert.match(source, /\.\.\.SHAREKHAN_EXTRA_TICKER_SYMBOLS/);
+});
+
 test('Sharekhan websocket incremental subscriptions reject ETFs', () => {
   assert.match(source, /filter\(sym => sym && universe\.has\(sym\) && !isEtfSimulationSymbol\(sym\)\)/);
 });

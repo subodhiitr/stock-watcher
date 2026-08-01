@@ -68,19 +68,22 @@ test('normalizeYahooCandles drops invalid zero and extreme outlier candles', () 
   assert.deepEqual(result.candles.map(c => c.close), [5198, 5195]);
 });
 
-test('limitCandlesToRange keeps the requested number of latest IST sessions', () => {
+test('Today is restricted to the current IST date while multi-day ranges keep latest sessions', () => {
   const candles = [
     { time:'2026-07-06T03:45:00.000Z', close:100 },
     { time:'2026-07-07T03:45:00.000Z', close:101 },
     { time:'2026-07-08T03:45:00.000Z', close:102 },
   ];
-  assert.deepEqual(limitCandlesToRange(candles, '1d').map(c => c.close), [102]);
-  assert.deepEqual(limitCandlesToRange(candles, '2d').map(c => c.close), [101, 102]);
+  const now = Date.parse('2026-07-08T04:30:00.000Z');
+  assert.deepEqual(limitCandlesToRange(candles, '1d', now).map(c => c.close), [102]);
+  assert.deepEqual(limitCandlesToRange(candles, '2d', now).map(c => c.close), [101, 102]);
+  assert.deepEqual(limitCandlesToRange(candles.slice(0, 2), '1d', now), []);
 });
 
 test('intraday candles use Sharekhan historical 5m data before Yahoo', async () => {
   let yahooCalls = 0;
   const service = createIntradayCandlesService({
+    now:() => Date.parse('2026-07-08T04:30:00.000Z'),
     resolveNseSymbol: symbol => symbol,
     fetchSharekhanCandles: async symbol => ({
       timestamp:[1783482300, 1783482600],
@@ -108,6 +111,7 @@ test('intraday candles use Sharekhan historical 5m data before Yahoo', async () 
 test('intraday candles fall back to Yahoo when Sharekhan history is empty', async () => {
   let yahooCalls = 0;
   const service = createIntradayCandlesService({
+    now:() => Date.parse('2026-07-08T04:30:00.000Z'),
     resolveNseSymbol: symbol => symbol,
     fetchSharekhanCandles: async () => null,
     httpsGet: async () => {
@@ -128,6 +132,55 @@ test('intraday candles fall back to Yahoo when Sharekhan history is empty', asyn
   assert.equal(payload.fallbackFrom, 'sharekhan-historical');
   assert.equal(payload.candles.length, 1);
   assert.equal(yahooCalls, 1);
+});
+
+test('during market hours stale Sharekhan history falls back to current Yahoo candles', async () => {
+  let yahooCalls = 0;
+  const service = createIntradayCandlesService({
+    now:() => Date.parse('2026-07-08T04:30:00.000Z'),
+    resolveNseSymbol:symbol => symbol,
+    fetchSharekhanCandles:async () => ({
+      timestamp:[1783395900],
+      indicators:{ quote:[{ open:[98], high:[100], low:[97], close:[99], volume:[100] }] },
+    }),
+    httpsGet:async () => {
+      yahooCalls += 1;
+      return {
+        status:200,
+        body:JSON.stringify({ chart:{ result:[{
+          timestamp:[1783482300],
+          indicators:{ quote:[{ open:[100], high:[103], low:[99], close:[102], volume:[200] }] },
+        }] } }),
+      };
+    },
+  });
+
+  const payload = await service.fetchCandles('TCS', '1d', '5m');
+
+  assert.equal(payload.source, 'yahoo');
+  assert.equal(payload.candles.length, 1);
+  assert.equal(payload.candles[0].close, 102);
+  assert.match(payload.fallbackReason, /current IST session/);
+  assert.equal(yahooCalls, 1);
+});
+
+test('Today returns no previous-session candles before market open', async () => {
+  const service = createIntradayCandlesService({
+    now:() => Date.parse('2026-07-08T02:30:00.000Z'),
+    resolveNseSymbol:symbol => symbol,
+    httpsGet:async () => ({
+      status:200,
+      body:JSON.stringify({ chart:{ result:[{
+        timestamp:[1783395900],
+        indicators:{ quote:[{ open:[98], high:[100], low:[97], close:[99], volume:[100] }] },
+      }] } }),
+    }),
+  });
+
+  const payload = await service.fetchCandles('TCS', '1d', '5m');
+
+  assert.equal(payload.source, 'yahoo');
+  assert.deepEqual(payload.candles, []);
 });
 
 test('intraday candles route fetches Yahoo 5m candles for requested range', async () => {
@@ -171,6 +224,7 @@ test('intraday candles route fetches Yahoo 5m candles for requested range', asyn
 
 test('intraday candles route returns requested 15m aggregation', async () => {
   const service = createIntradayCandlesService({
+    now:() => Date.parse('2026-07-08T04:30:00.000Z'),
     resolveNseSymbol: symbol => symbol,
     httpsGet: async () => ({
       status:200,

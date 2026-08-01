@@ -1,12 +1,12 @@
 {
   "ok": true,
   "date": "2026-07-31",
-  "savedAt": 1784344537913,
-  "builtInMs": 44654,
+  "savedAt": 1785437466348,
+  "builtInMs": 47390,
   "source": "nse-board-meetings",
-  "scanned": 3033,
-  "count": 10,
-  "symbolCount": 10,
+  "scanned": 3043,
+  "count": 19,
+  "symbolCount": 17,
   "items": [
     {
       "symbol": "ABB",
@@ -17,7 +17,7 @@
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=ABB",
       "eventDate": "2026-07-30T18:30:00.000Z",
       "dateKey": "2026-07-31",
-      "status": "upcoming",
+      "status": "today",
       "period": null
     },
     {
@@ -29,7 +29,7 @@
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=ABCAPITAL",
       "eventDate": "2026-07-30T18:30:00.000Z",
       "dateKey": "2026-07-31",
-      "status": "upcoming",
+      "status": "today",
       "period": null
     },
     {
@@ -41,7 +41,7 @@
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=BAJAJFINSV",
       "eventDate": "2026-07-30T18:30:00.000Z",
       "dateKey": "2026-07-31",
-      "status": "upcoming",
+      "status": "today",
       "period": null
     },
     {
@@ -53,7 +53,43 @@
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=BAJAJHLDNG",
       "eventDate": "2026-07-30T18:30:00.000Z",
       "dateKey": "2026-07-31",
-      "status": "upcoming",
+      "status": "today",
+      "period": null
+    },
+    {
+      "symbol": "BLUSPRING",
+      "name": "Bluspring Enterprises Limited",
+      "type": "Financial Results",
+      "title": "BLUSPRING ENTERPRISES LIMITED has informed the Exchange about Board Meeting to be held on 31-Jul-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=BLUSPRING",
+      "eventDate": "2026-07-30T18:30:00.000Z",
+      "dateKey": "2026-07-31",
+      "status": "today",
+      "period": null
+    },
+    {
+      "symbol": "DIXON",
+      "name": "Dixon Technologies (India) Limited",
+      "type": "Financial Results",
+      "title": "Dixon Technologies (India) Limited has informed the Exchange about Board Meeting to be held on 31-Jul-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=DIXON",
+      "eventDate": "2026-07-30T18:30:00.000Z",
+      "dateKey": "2026-07-31",
+      "status": "today",
+      "period": null
+    },
+    {
+      "symbol": "GAIL",
+      "name": "GAIL (India) Limited",
+      "type": "Financial Results",
+      "title": "GAIL (INDIA) LIMITED has informed the Exchange about Board Meeting to be held on 31-Jul-2026 to consider and approve the Quarterly Unaudited Financial results of the Company for the period ended June 2026 and Other business.",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=GAIL",
+      "eventDate": "2026-07-30T18:30:00.000Z",
+      "dateKey": "2026-07-31",
+      "status": "today",
       "period": null
     },
     {
@@ -65,7 +101,19 @@
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=GLENMARK",
       "eventDate": "2026-07-30T18:30:00.000Z",
       "dateKey": "2026-07-31",
-      "status": "upcoming",
+      "status": "today",
+      "period": null
+    },
+    {
+      "symbol": "GMDCLTD",
+      "name": "Gujarat Mineral Development Corporation Limited",
+      "type": "Financial Results",
+      "title": "GUJARAT MINERAL DEVELOPMENT CORPORATION LIMITED has informed the Exchange about Board Meeting to be held on 31-Jul-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=GMDCLTD",
+      "eventDate": "2026-07-30T18:30:00.000Z",
+      "dateKey": "2026-07-31",
+      "status": "today",
       "period": null
     },
     {
@@ -77,7 +125,7 @@
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=INTELLECT",
       "eventDate": "2026-07-30T18:30:00.000Z",
       "dateKey": "2026-07-31",
-      "status": "upcoming",
+      "status": "today",
       "period": null
     },
     {
@@ -89,7 +137,7 @@
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=IOC",
       "eventDate": "2026-07-30T18:30:00.000Z",
       "dateKey": "2026-07-31",
-      "status": "upcoming",
+      "status": "today",
       "period": null
     },
     {
@@ -101,7 +149,19 @@
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=ITC",
       "eventDate": "2026-07-30T18:30:00.000Z",
       "dateKey": "2026-07-31",
-      "status": "upcoming",
+      "status": "today",
+      "period": null
+    },
+    {
+      "symbol": "KAJARIACER",
+      "name": "Kajaria Ceramics Limited",
+      "type": "Financial Results",
+      "title": "KAJARIA CERAMICS LIMITED has informed the Exchange about Board Meeting to be held on 31-Jul-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=KAJARIACER",
+      "eventDate": "2026-07-30T18:30:00.000Z",
+      "dateKey": "2026-07-31",
+      "status": "today",
       "period": null
     },
     {
@@ -113,7 +173,43 @@
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=MARUTI",
       "eventDate": "2026-07-30T18:30:00.000Z",
       "dateKey": "2026-07-31",
-      "status": "upcoming",
+      "status": "today",
+      "period": null
+    },
+    {
+      "symbol": "NATIONALUM",
+      "name": "National Aluminium Company Limited",
+      "type": "Dividend",
+      "title": "National Aluminium Company Limited has informed the Exchange about Board Meeting to be held on 31-Jul-2026 to consider Dividend.",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=NATIONALUM",
+      "eventDate": "2026-07-30T18:30:00.000Z",
+      "dateKey": "2026-07-31",
+      "status": "today",
+      "period": null
+    },
+    {
+      "symbol": "NATIONALUM",
+      "name": "National Aluminium Company Limited",
+      "type": "Final Dividend",
+      "title": "Final Dividend for FY 2025-26.",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=NATIONALUM",
+      "eventDate": "2026-07-30T18:30:00.000Z",
+      "dateKey": "2026-07-31",
+      "status": "today",
+      "period": null
+    },
+    {
+      "symbol": "NATIONALUM",
+      "name": "National Aluminium Company Limited",
+      "type": "Financial Results",
+      "title": "National Aluminium Company Limited has informed the Exchange about Board Meeting to be held on 31-Jul-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=NATIONALUM",
+      "eventDate": "2026-07-30T18:30:00.000Z",
+      "dateKey": "2026-07-31",
+      "status": "today",
       "period": null
     },
     {
@@ -125,7 +221,19 @@
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=SUNPHARMA",
       "eventDate": "2026-07-30T18:30:00.000Z",
       "dateKey": "2026-07-31",
-      "status": "upcoming",
+      "status": "today",
+      "period": null
+    },
+    {
+      "symbol": "URBANCO",
+      "name": "Urban Company Limited",
+      "type": "Financial Results",
+      "title": "URBAN COMPANY LIMITED has informed the Exchange about Board Meeting to be held on 31-Jul-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=URBANCO",
+      "eventDate": "2026-07-30T18:30:00.000Z",
+      "dateKey": "2026-07-31",
+      "status": "today",
       "period": null
     }
   ],

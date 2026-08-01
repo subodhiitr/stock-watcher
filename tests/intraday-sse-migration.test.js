@@ -43,7 +43,9 @@ test('mobile app subscribes to live intraday and trade streams', () => {
 test('mobile setup selection uses the lightweight cache endpoint', () => {
   const mobile = fs.readFileSync(MOBILE_APP_PATH, 'utf8');
   const proxy = fs.readFileSync(TICKER_PROXY_PATH, 'utf8');
-  assert.match(mobile, /api\(`\/mobile-setups\?filter=/);
-  assert.doesNotMatch(mobile, /simulation\/analysis\?source=.*mobile/);
+  const setupStart = mobile.indexOf('async function loadSetups()');
+  const setupBody = mobile.slice(setupStart, mobile.indexOf('\n  function ', setupStart));
+  assert.match(setupBody, /api\(`\/mobile-setups\?filter=/);
+  assert.doesNotMatch(setupBody, /simulation\/analysis\?source=.*mobile/);
   assert.match(proxy, /function buildMobileSetupsPayload/);
 });

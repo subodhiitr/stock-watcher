@@ -154,6 +154,15 @@ async function handleOpenTrade(req, res, payload, trades, deps) {
     res.end(JSON.stringify({ error: 'Open paper trade already exists for this symbol', trade: existing }));
     return;
   }
+  if (payload.source !== 'simulation' && payload.validateSimulationEntry === true && typeof deps.prepareManualTradeEntryPayload === 'function') {
+    const validation = await deps.prepareManualTradeEntryPayload(payload, trades);
+    if (!validation?.ok) {
+      res.writeHead(422, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok:false, error:validation?.error || 'Manual entry failed simulation validation' }));
+      return;
+    }
+    payload = validation.payload;
+  }
   const requestedMode = String(payload.brokerMode || payload.executionMode || '').toLowerCase();
   const executionMode = deps.validBrokerModes.has(requestedMode) ? requestedMode : 'zerodha_dry_run';
   if (executionMode !== 'zerodha_dry_run' && !deps.hasLiveTradeConfirmation(req, payload)) {
@@ -176,6 +185,7 @@ async function handleOpenTrade(req, res, payload, trades, deps) {
     stop: Number.isFinite(Number(payload.stop)) ? +Number(payload.stop).toFixed(2) : null,
     signal: payload.signal || null,
     score: Number.isFinite(Number(payload.score)) ? Number(payload.score) : null,
+    decisionScore: Number.isFinite(Number(payload.decisionScore)) ? Number(payload.decisionScore) : null,
     rr: Number.isFinite(Number(payload.rr)) ? Number(payload.rr) : null,
     reservedCapital: Number.isFinite(Number(payload.reservedCapital)) ? +Number(payload.reservedCapital).toFixed(2) : +(entryPrice * qty).toFixed(2),
     portfolioInitial: Number.isFinite(Number(payload.portfolioInitial)) ? +Number(payload.portfolioInitial).toFixed(2) : null,
@@ -184,6 +194,10 @@ async function handleOpenTrade(req, res, payload, trades, deps) {
     setupType: payload.setupType || null,
     setup: payload.setup || null,
     entryContext: payload.entryContext && typeof payload.entryContext === 'object' ? payload.entryContext : null,
+    entrySnapshotId:payload.entryContext?.snapshotId || null,
+    entrySnapshotAt:payload.entryContext?.snapshotAt || null,
+    entrySnapshotAgeMin:Number.isFinite(Number(payload.entryContext?.snapshotAgeMin)) ? Number(payload.entryContext.snapshotAgeMin) : null,
+    sector:String(payload.sector || ''),
     notes: payload.notes || '',
     openedAt: String(payload.transactionTime || '').match(/\d{4}-\d{2}-\d{2}T/) ? payload.transactionTime : new Date().toISOString(),
     executionMode,
@@ -369,6 +383,13 @@ async function handleCloseTrade(res, payload, trades, deps) {
     grossPnl: pnl.grossPnl,
     charges: pnl.charges,
     chargeBreakup: pnl.chargeBreakup,
+    exitState: {
+      exitPrice:+exitPrice.toFixed(2),
+      closedAt,
+      reason:payload.reason || 'Manual exit',
+      dayClosePrice:null,
+      benchmarkStatus:'pending',
+    },
     exitOwner: 'manual',
     managedBySimulation: false,
     managementState: 'manual_only',
@@ -418,6 +439,13 @@ async function handlePartialCloseTrade(res, payload, trades, deps) {
     exitPrice:+exitPrice.toFixed(2),
     closedAt,
     closeReason: payload.reason || 'Partial exit',
+    exitState: {
+      exitPrice:+exitPrice.toFixed(2),
+      closedAt,
+      reason:payload.reason || 'Partial exit',
+      dayClosePrice:null,
+      benchmarkStatus:'pending',
+    },
     entryOwner: trade.entryOwner,
     exitOwner: 'manual',
     managedBySimulation: false,

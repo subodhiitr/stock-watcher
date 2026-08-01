@@ -17,8 +17,8 @@ test('mobile shell advances asset and service-worker cache versions', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'mobile-sw.js'), 'utf8');
 
   assert.match(controller, /mobile\.css\?v=20260718-14/);
-  assert.match(controller, /mobile-app\.js\?v=20260718-47/);
-  assert.match(serviceWorker, /intradayx-mobile-v54/);
+  assert.match(controller, /mobile-app\.js\?v=20260730-52/);
+  assert.match(serviceWorker, /intradayx-mobile-v56/);
   assert.match(serviceWorker, /mobile\.css\?v=20260718-14/);
-  assert.match(serviceWorker, /mobile-app\.js\?v=20260718-47/);
+  assert.match(serviceWorker, /mobile-app\.js\?v=20260730-52/);
 });

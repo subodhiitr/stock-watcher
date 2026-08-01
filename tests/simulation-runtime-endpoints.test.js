@@ -102,6 +102,10 @@ test('POST /simulation/start and GET /simulation/status expose runtime defaults'
   assert.equal(status.json.ok, true);
   assert.equal(status.json.state, 'running');
   assert.equal(status.json.tickIntervalSec, 15);
+  assert.equal(typeof status.json.schedulerDiagnostics, 'object');
+  assert.equal(status.json.schedulerDiagnostics.activeMinIntervalMs, 2000);
+  assert.equal(status.json.schedulerDiagnostics.idleMinIntervalMs, 5000);
+  assert.equal(typeof status.json.schedulerDiagnostics.queuedSymbolCount, 'number');
   assert.equal(status.json.lockActive, false);
   assert.equal(typeof status.json.dataQuality, 'object');
   assert.equal(typeof status.json.dataQuality.total, 'number');

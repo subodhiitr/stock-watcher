@@ -123,10 +123,13 @@ function getPrepared(db) {
     setJsonCache: db.prepare(`INSERT INTO json_cache (key, data, expires_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at, updated_at = excluded.updated_at`),
     deleteJsonCache: db.prepare('DELETE FROM json_cache WHERE key = ?'),
     upsertTrade: db.prepare(`
-      INSERT INTO trade_txns (id, data, created_at, updated_at)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO trade_txns (id, data, day_close_price, day_close_source, exit_category, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         data = excluded.data,
+        day_close_price = excluded.day_close_price,
+        day_close_source = excluded.day_close_source,
+        exit_category = excluded.exit_category,
         updated_at = excluded.updated_at
     `),
     getDayPnlRows: db.prepare('SELECT date, pnl FROM day_pnl ORDER BY date DESC'),
@@ -359,9 +362,98 @@ function initDb(path = DEFAULT_DB_PATH) {
     CREATE TABLE IF NOT EXISTS trade_txns (
       id TEXT PRIMARY KEY,
       data TEXT NOT NULL,
+      day_close_price REAL,
+      day_close_source TEXT,
+      exit_category TEXT,
       created_at INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS setup_efficiency_trade_facts (
+      position_id TEXT PRIMARY KEY,
+      setup_type TEXT NOT NULL,
+      side TEXT,
+      closed_at INTEGER NOT NULL DEFAULT 0,
+      source_updated_at INTEGER NOT NULL DEFAULT 0,
+      data TEXT NOT NULL,
+      reconciled_at INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_setup_efficiency_facts_setup_closed
+    ON setup_efficiency_trade_facts(setup_type, closed_at);
+
+    CREATE TABLE IF NOT EXISTS setup_efficiency_summary (
+      setup_type TEXT NOT NULL,
+      period TEXT NOT NULL,
+      data TEXT NOT NULL,
+      computed_at INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (setup_type, period)
+    );
+
+    CREATE TABLE IF NOT EXISTS setup_efficiency_reconciliation (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      cursor_updated_at INTEGER NOT NULL DEFAULT 0,
+      cursor_trade_id TEXT NOT NULL DEFAULT '',
+      last_started_at INTEGER NOT NULL DEFAULT 0,
+      last_completed_at INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'idle',
+      rows_scanned INTEGER NOT NULL DEFAULT 0,
+      positions_updated INTEGER NOT NULL DEFAULT 0,
+      error TEXT NOT NULL DEFAULT ''
+    );
+
+    INSERT OR IGNORE INTO setup_efficiency_reconciliation (id) VALUES (1);
+
+    CREATE TABLE IF NOT EXISTS exit_quality_trade_facts (
+      exit_id TEXT PRIMARY KEY,
+      position_id TEXT NOT NULL,
+      exit_category TEXT NOT NULL,
+      side TEXT,
+      closed_at INTEGER NOT NULL DEFAULT 0,
+      source_updated_at INTEGER NOT NULL DEFAULT 0,
+      data TEXT NOT NULL,
+      reconciled_at INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_exit_quality_facts_category_closed
+    ON exit_quality_trade_facts(exit_category, closed_at);
+
+    CREATE TABLE IF NOT EXISTS exit_quality_summary (
+      exit_category TEXT NOT NULL,
+      period TEXT NOT NULL,
+      data TEXT NOT NULL,
+      computed_at INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (exit_category, period)
+    );
+
+    CREATE TABLE IF NOT EXISTS exit_quality_reconciliation (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      cursor_updated_at INTEGER NOT NULL DEFAULT 0,
+      cursor_trade_id TEXT NOT NULL DEFAULT '',
+      last_started_at INTEGER NOT NULL DEFAULT 0,
+      last_completed_at INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'idle',
+      rows_scanned INTEGER NOT NULL DEFAULT 0,
+      exits_updated INTEGER NOT NULL DEFAULT 0,
+      close_prices_resolved INTEGER NOT NULL DEFAULT 0,
+      error TEXT NOT NULL DEFAULT ''
+    );
+
+    INSERT OR IGNORE INTO exit_quality_reconciliation (id) VALUES (1);
+
+    CREATE TABLE IF NOT EXISTS strategy_advisor_runs (
+      id TEXT PRIMARY KEY,
+      trade_date TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'queued',
+      phase TEXT NOT NULL DEFAULT 'queued',
+      progress INTEGER NOT NULL DEFAULT 0,
+      data TEXT NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_strategy_advisor_runs_date_updated
+    ON strategy_advisor_runs(trade_date, updated_at DESC);
 
     CREATE TABLE IF NOT EXISTS fresh_news (
       symbol TEXT NOT NULL,
@@ -434,6 +526,17 @@ function initDb(path = DEFAULT_DB_PATH) {
       ON trade_txns (json_extract(data, '$.status'));
     CREATE INDEX IF NOT EXISTS idx_trade_txns_opened_at
       ON trade_txns (CAST(json_extract(data, '$.openedAt') AS INTEGER));
+  `);
+  try { db.exec('ALTER TABLE trade_txns ADD COLUMN day_close_price REAL'); } catch (_) {}
+  try { db.exec('ALTER TABLE trade_txns ADD COLUMN day_close_source TEXT'); } catch (_) {}
+  try { db.exec('ALTER TABLE trade_txns ADD COLUMN exit_category TEXT'); } catch (_) {}
+  db.exec(`
+    UPDATE trade_txns
+    SET
+      day_close_price = COALESCE(day_close_price, CAST(json_extract(data, '$.exitState.dayClosePrice') AS REAL)),
+      day_close_source = COALESCE(day_close_source, json_extract(data, '$.exitState.dayCloseSource')),
+      exit_category = COALESCE(exit_category, json_extract(data, '$.exitState.category'))
+    WHERE json_extract(data, '$.exitState') IS NOT NULL
   `);
 
   activeDb = db;
@@ -641,7 +744,18 @@ function saveTrade(trade) {
   const existingTrade = parseTradeRow(existing) ?? {};
   const merged = { ...existingTrade, ...patch, id: patch.id };
   const now = Date.now();
-  prepared.upsertTrade.run(patch.id, JSON.stringify(merged), now, now);
+  const dayClosePrice = Number(merged.exitState?.dayClosePrice ?? merged.dayClosePrice);
+  const dayCloseSource = String(merged.exitState?.dayCloseSource || merged.dayCloseSource || '');
+  const exitCategory = String(merged.exitState?.category || merged.exitCategory || '');
+  prepared.upsertTrade.run(
+    patch.id,
+    JSON.stringify(merged),
+    dayClosePrice > 0 ? dayClosePrice : null,
+    dayCloseSource || null,
+    exitCategory || null,
+    now,
+    now
+  );
 
   // Update day_pnl when a closed trade with pnl is saved
   if (String(merged.status || '').toLowerCase() === 'closed' && Number.isFinite(Number(merged.pnl))) {
@@ -751,6 +865,319 @@ function getTradesUpdatedAt() {
   const db = requireDb();
   const row = db.prepare('SELECT COALESCE(MAX(updated_at), 0) AS ts FROM trade_txns').get();
   return row?.ts ?? 0;
+}
+
+function listTradeRowsUpdatedAfter(updatedAt = 0, afterId = '', limit = 5000) {
+  const db = requireDb();
+  const rows = db.prepare(`
+    SELECT id, data, updated_at
+    FROM trade_txns
+    WHERE (
+      updated_at > ?
+      OR (updated_at = ? AND id > ?)
+    )
+    AND LOWER(COALESCE(json_extract(data, '$.source'), '')) = 'simulation'
+    ORDER BY updated_at ASC, id ASC
+    LIMIT ?
+  `).all(Number(updatedAt) || 0, Number(updatedAt) || 0, String(afterId || ''), Math.max(1, Number(limit) || 5000));
+  return rows.map(row => ({
+    id:row.id,
+    updatedAt:Number(row.updated_at) || 0,
+    trade:parseTradeRow(row),
+  })).filter(row => row.trade);
+}
+
+function listSimulationTradesForRoots(rootIds = []) {
+  const roots = [...new Set((rootIds || []).map(String).filter(Boolean))];
+  if (!roots.length) return [];
+  const db = requireDb();
+  const placeholders = roots.map(() => '?').join(', ');
+  const rows = db.prepare(`
+    SELECT id, data, updated_at
+    FROM trade_txns
+    WHERE LOWER(COALESCE(json_extract(data, '$.source'), '')) = 'simulation'
+    AND (
+      id IN (${placeholders})
+      OR CAST(json_extract(data, '$.parentId') AS TEXT) IN (${placeholders})
+    )
+    ORDER BY updated_at ASC, id ASC
+  `).all(...roots, ...roots);
+  return rows.map(row => ({
+    id:row.id,
+    updatedAt:Number(row.updated_at) || 0,
+    trade:parseTradeRow(row),
+  })).filter(row => row.trade);
+}
+
+function upsertSetupEfficiencyFact(fact) {
+  if (!fact?.positionId || !fact?.setupType) return null;
+  const db = requireDb();
+  const now = Date.now();
+  db.prepare(`
+    INSERT INTO setup_efficiency_trade_facts
+      (position_id, setup_type, side, closed_at, source_updated_at, data, reconciled_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(position_id) DO UPDATE SET
+      setup_type = excluded.setup_type,
+      side = excluded.side,
+      closed_at = excluded.closed_at,
+      source_updated_at = excluded.source_updated_at,
+      data = excluded.data,
+      reconciled_at = excluded.reconciled_at
+  `).run(
+    String(fact.positionId),
+    String(fact.setupType),
+    String(fact.side || ''),
+    Number(fact.closedAt) || 0,
+    Number(fact.sourceUpdatedAt) || 0,
+    JSON.stringify(fact),
+    now
+  );
+  return fact;
+}
+
+function deleteSetupEfficiencyFact(positionId) {
+  if (!positionId) return 0;
+  const db = requireDb();
+  return db.prepare('DELETE FROM setup_efficiency_trade_facts WHERE position_id = ?').run(String(positionId)).changes || 0;
+}
+
+function listSetupEfficiencyFacts() {
+  const db = requireDb();
+  return db.prepare('SELECT data FROM setup_efficiency_trade_facts ORDER BY closed_at ASC, position_id ASC')
+    .all()
+    .map(row => parseJson(row.data, null))
+    .filter(Boolean);
+}
+
+function replaceSetupEfficiencySummaries(rows = []) {
+  const db = requireDb();
+  const replace = db.transaction(items => {
+    db.prepare('DELETE FROM setup_efficiency_summary').run();
+    const insert = db.prepare(`
+      INSERT INTO setup_efficiency_summary (setup_type, period, data, computed_at)
+      VALUES (?, ?, ?, ?)
+    `);
+    const now = Date.now();
+    for (const row of items) {
+      insert.run(String(row.setupType || 'UNKNOWN'), String(row.period || 'all'), JSON.stringify(row), now);
+    }
+  });
+  replace(Array.isArray(rows) ? rows : []);
+}
+
+function listSetupEfficiencySummaries(period = 'all') {
+  const db = requireDb();
+  return db.prepare(`
+    SELECT data FROM setup_efficiency_summary
+    WHERE period = ?
+    ORDER BY CAST(json_extract(data, '$.efficiencyScore') AS REAL) DESC, setup_type ASC
+  `).all(String(period || 'all')).map(row => parseJson(row.data, null)).filter(Boolean);
+}
+
+function loadSetupEfficiencyReconciliation() {
+  const db = requireDb();
+  const row = db.prepare('SELECT * FROM setup_efficiency_reconciliation WHERE id = 1').get();
+  return row ? {
+    cursorUpdatedAt:Number(row.cursor_updated_at) || 0,
+    cursorTradeId:String(row.cursor_trade_id || ''),
+    lastStartedAt:Number(row.last_started_at) || 0,
+    lastCompletedAt:Number(row.last_completed_at) || 0,
+    status:String(row.status || 'idle'),
+    rowsScanned:Number(row.rows_scanned) || 0,
+    positionsUpdated:Number(row.positions_updated) || 0,
+    error:String(row.error || ''),
+  } : null;
+}
+
+function saveSetupEfficiencyReconciliation(state = {}) {
+  const current = loadSetupEfficiencyReconciliation() || {};
+  const next = { ...current, ...state };
+  const db = requireDb();
+  db.prepare(`
+    INSERT INTO setup_efficiency_reconciliation
+      (id, cursor_updated_at, cursor_trade_id, last_started_at, last_completed_at, status, rows_scanned, positions_updated, error)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      cursor_updated_at = excluded.cursor_updated_at,
+      cursor_trade_id = excluded.cursor_trade_id,
+      last_started_at = excluded.last_started_at,
+      last_completed_at = excluded.last_completed_at,
+      status = excluded.status,
+      rows_scanned = excluded.rows_scanned,
+      positions_updated = excluded.positions_updated,
+      error = excluded.error
+  `).run(
+    Number(next.cursorUpdatedAt) || 0,
+    String(next.cursorTradeId || ''),
+    Number(next.lastStartedAt) || 0,
+    Number(next.lastCompletedAt) || 0,
+    String(next.status || 'idle'),
+    Number(next.rowsScanned) || 0,
+    Number(next.positionsUpdated) || 0,
+    String(next.error || '')
+  );
+  return next;
+}
+
+function upsertExitQualityFact(fact) {
+  if (!fact?.exitId || !fact?.exitCategory) return null;
+  const db = requireDb();
+  db.prepare(`
+    INSERT INTO exit_quality_trade_facts
+      (exit_id, position_id, exit_category, side, closed_at, source_updated_at, data, reconciled_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(exit_id) DO UPDATE SET
+      position_id = excluded.position_id,
+      exit_category = excluded.exit_category,
+      side = excluded.side,
+      closed_at = excluded.closed_at,
+      source_updated_at = excluded.source_updated_at,
+      data = excluded.data,
+      reconciled_at = excluded.reconciled_at
+  `).run(
+    String(fact.exitId),
+    String(fact.positionId || fact.exitId),
+    String(fact.exitCategory),
+    String(fact.side || ''),
+    Number(fact.closedAt) || 0,
+    Number(fact.sourceUpdatedAt) || 0,
+    JSON.stringify(fact),
+    Date.now()
+  );
+  return fact;
+}
+
+function deleteExitQualityFact(exitId) {
+  if (!exitId) return 0;
+  return requireDb().prepare('DELETE FROM exit_quality_trade_facts WHERE exit_id = ?').run(String(exitId)).changes || 0;
+}
+
+function listExitQualityFacts() {
+  return requireDb().prepare('SELECT data FROM exit_quality_trade_facts ORDER BY closed_at ASC, exit_id ASC')
+    .all()
+    .map(row => parseJson(row.data, null))
+    .filter(Boolean);
+}
+
+function replaceExitQualitySummaries(rows = []) {
+  const db = requireDb();
+  db.transaction(items => {
+    db.prepare('DELETE FROM exit_quality_summary').run();
+    const insert = db.prepare(`
+      INSERT INTO exit_quality_summary (exit_category, period, data, computed_at)
+      VALUES (?, ?, ?, ?)
+    `);
+    for (const row of items) {
+      insert.run(String(row.exitCategory || 'Other'), String(row.period || 'all'), JSON.stringify(row), Date.now());
+    }
+  })(Array.isArray(rows) ? rows : []);
+}
+
+function listExitQualitySummaries(period = 'all') {
+  return requireDb().prepare(`
+    SELECT data FROM exit_quality_summary
+    WHERE period = ?
+    ORDER BY CAST(json_extract(data, '$.qualityScore') AS REAL) DESC, exit_category ASC
+  `).all(String(period || 'all')).map(row => parseJson(row.data, null)).filter(Boolean);
+}
+
+function loadExitQualityReconciliation() {
+  const row = requireDb().prepare('SELECT * FROM exit_quality_reconciliation WHERE id = 1').get();
+  return row ? {
+    cursorUpdatedAt:Number(row.cursor_updated_at) || 0,
+    cursorTradeId:String(row.cursor_trade_id || ''),
+    lastStartedAt:Number(row.last_started_at) || 0,
+    lastCompletedAt:Number(row.last_completed_at) || 0,
+    status:String(row.status || 'idle'),
+    rowsScanned:Number(row.rows_scanned) || 0,
+    exitsUpdated:Number(row.exits_updated) || 0,
+    closePricesResolved:Number(row.close_prices_resolved) || 0,
+    error:String(row.error || ''),
+  } : null;
+}
+
+function saveExitQualityReconciliation(state = {}) {
+  const current = loadExitQualityReconciliation() || {};
+  const next = { ...current, ...state };
+  requireDb().prepare(`
+    INSERT INTO exit_quality_reconciliation
+      (id, cursor_updated_at, cursor_trade_id, last_started_at, last_completed_at, status, rows_scanned, exits_updated, close_prices_resolved, error)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      cursor_updated_at = excluded.cursor_updated_at,
+      cursor_trade_id = excluded.cursor_trade_id,
+      last_started_at = excluded.last_started_at,
+      last_completed_at = excluded.last_completed_at,
+      status = excluded.status,
+      rows_scanned = excluded.rows_scanned,
+      exits_updated = excluded.exits_updated,
+      close_prices_resolved = excluded.close_prices_resolved,
+      error = excluded.error
+  `).run(
+    Number(next.cursorUpdatedAt) || 0,
+    String(next.cursorTradeId || ''),
+    Number(next.lastStartedAt) || 0,
+    Number(next.lastCompletedAt) || 0,
+    String(next.status || 'idle'),
+    Number(next.rowsScanned) || 0,
+    Number(next.exitsUpdated) || 0,
+    Number(next.closePricesResolved) || 0,
+    String(next.error || '')
+  );
+  return next;
+}
+
+function saveStrategyAdvisorRun(run = {}) {
+  if (!run?.id || !run?.date) return null;
+  const now = Date.now();
+  const createdAt = Number(run.createdAt) || now;
+  const updatedAt = Number(run.updatedAt) || now;
+  requireDb().prepare(`
+    INSERT INTO strategy_advisor_runs
+      (id, trade_date, status, phase, progress, data, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      trade_date = excluded.trade_date,
+      status = excluded.status,
+      phase = excluded.phase,
+      progress = excluded.progress,
+      data = excluded.data,
+      updated_at = excluded.updated_at
+  `).run(
+    String(run.id),
+    String(run.date),
+    String(run.status || 'queued'),
+    String(run.phase || 'queued'),
+    Math.max(0, Math.min(100, Math.round(Number(run.progress) || 0))),
+    JSON.stringify({ ...run, createdAt, updatedAt }),
+    createdAt,
+    updatedAt
+  );
+  return { ...run, createdAt, updatedAt };
+}
+
+function getStrategyAdvisorRun(id) {
+  if (!id) return null;
+  const row = requireDb().prepare('SELECT data FROM strategy_advisor_runs WHERE id = ?').get(String(id));
+  return row ? parseJson(row.data, null) : null;
+}
+
+function listStrategyAdvisorRuns({ date = '', limit = 20 } = {}) {
+  const boundedLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 20)));
+  const rows = date
+    ? requireDb().prepare(`
+        SELECT data FROM strategy_advisor_runs
+        WHERE trade_date = ?
+        ORDER BY updated_at DESC
+        LIMIT ?
+      `).all(String(date), boundedLimit)
+    : requireDb().prepare(`
+        SELECT data FROM strategy_advisor_runs
+        ORDER BY updated_at DESC
+        LIMIT ?
+      `).all(boundedLimit);
+  return rows.map(row => parseJson(row.data, null)).filter(Boolean);
 }
 
 function computeAllTimeRealizedPnl() {
@@ -1111,6 +1538,25 @@ module.exports = {
   countTrades,
   deleteTrade,
   getTradesUpdatedAt,
+  listTradeRowsUpdatedAfter,
+  listSimulationTradesForRoots,
+  upsertSetupEfficiencyFact,
+  deleteSetupEfficiencyFact,
+  listSetupEfficiencyFacts,
+  replaceSetupEfficiencySummaries,
+  listSetupEfficiencySummaries,
+  loadSetupEfficiencyReconciliation,
+  saveSetupEfficiencyReconciliation,
+  upsertExitQualityFact,
+  deleteExitQualityFact,
+  listExitQualityFacts,
+  replaceExitQualitySummaries,
+  listExitQualitySummaries,
+  loadExitQualityReconciliation,
+  saveExitQualityReconciliation,
+  saveStrategyAdvisorRun,
+  getStrategyAdvisorRun,
+  listStrategyAdvisorRuns,
   computeAllTimeRealizedPnl,
   getDayPnl,
   rebuildDayPnl,

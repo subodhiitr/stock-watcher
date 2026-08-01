@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { StringDecoder } = require('string_decoder');
 const TradeRules = require('./trade_rules');
 const SimulationEngine = require('./simulation_engine');
 
@@ -17,12 +18,10 @@ async function getSnapshotStore() {
 
 const ROOT = __dirname;
 const SNAPSHOT_DIR = path.join(ROOT, 'snapshots');
-const DEFAULT_SNAPSHOT_FILE = path.join(SNAPSHOT_DIR, 'simulation_snapshots.json');
-const LEGACY_SNAPSHOT_FILE = path.join(ROOT, 'simulation_snapshots.json');
-const DAILY_SNAPSHOT_PREFIX = 'simulation_snapshots';
 const DB_FILE = path.resolve(ROOT, process.env.STOCK_WATCHER_DB_PATH || 'stock-watcher.db');
 const PAPER_TRADES_FILE = path.join(ROOT, 'paper_trades.json');
 const TRADE_SETTINGS_FILE = path.join(ROOT, 'trade_settings.json');
+const DECISION_JOURNAL_DIR = path.join(ROOT, 'cache', 'simulation_decisions');
 
 // Try to load trade setting overrides from DB (if available), else fall back to JSON file
 function loadTradeSettingOverrides(file) {
@@ -78,7 +77,6 @@ Usage:
   node backtest_simulation.js [options]
 
 Options:
-  --file <path>              Snapshot file. Default: dated files, or dated file for --day.
   --day <YYYY-MM-DD>         Backtest only one IST trading date.
   --first-hour-cap <n>       Override first-hour entry cap.
   --max-active-open <n>      Override max active simulation open trades.
@@ -94,6 +92,8 @@ Options:
   --capital <amount>         Override starting/available capital for replay.
   --default-capital          Use dashboard default capital instead of saved portfolio cash.
   --recompute-scores         Re-score buy-side snapshot candidates before replay.
+  --recorded-decisions       Use persisted live candidate selection/ranking when available.
+  --skip-opportunities       Skip expensive hypothetical missed-opportunity analysis.
   --sweep                    Run a small parameter sweep and rank by net P/L.
   --json                     Print full JSON result.
   --help                     Show this help.
@@ -106,7 +106,7 @@ Examples:
 }
 
 function parseArgs(argv) {
-  const args = { file: DEFAULT_SNAPSHOT_FILE, fileExplicit: false, json: false };
+  const args = { json:false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     const next = () => {
@@ -115,10 +115,6 @@ function parseArgs(argv) {
     };
     if (arg === '--help' || arg === '-h') args.help = true;
     else if (arg === '--json') args.json = true;
-    else if (arg === '--file') {
-      args.file = path.resolve(ROOT, next());
-      args.fileExplicit = true;
-    }
     else if (arg === '--day') args.day = next();
     else if (arg === '--first-hour-cap') args.firstHourCap = Number(next());
     else if (arg === '--max-active-open') args.maxActiveOpen = Number(next());
@@ -134,38 +130,22 @@ function parseArgs(argv) {
     else if (arg === '--capital') args.capital = Number(next());
     else if (arg === '--default-capital') args.defaultCapital = true;
     else if (arg === '--recompute-scores') args.recomputeScores = true;
+    else if (arg === '--recorded-decisions') args.recordedDecisions = true;
+    else if (arg === '--skip-opportunities') args.skipOpportunities = true;
     else if (arg === '--sweep') args.sweep = true;
     else throw new Error(`Unknown option: ${arg}`);
-  }
-  if (args.day && !args.fileExplicit) {
-    const dailyFile = getDailySnapshotFile(args.day);
-    args.file = fs.existsSync(dailyFile) ? dailyFile : null;
-  } else if (!args.fileExplicit) {
-    args.file = null;
   }
   return args;
 }
 
-function getDailySnapshotFile(day) {
-  return path.join(SNAPSHOT_DIR, `${DAILY_SNAPSHOT_PREFIX}_${day}.json`);
-}
-
-function listDailySnapshotFiles() {
-  try {
-    return fs.existsSync(SNAPSHOT_DIR) ? fs.readdirSync(SNAPSHOT_DIR)
-      .filter(name => /^simulation_snapshots_\d{4}-\d{2}-\d{2}\.json(?:\.gz)?$/.test(name) ||
-                      /^snapshot-\d{4}-\d{2}-\d{2}\.json(?:\.gz)?$/.test(name))
-      .map(name => path.join(SNAPSHOT_DIR, name))
-      .sort() : [];
-  } catch (_) {
-    return [];
-  }
-}
-
 function loadSettings(overrides) {
-  const settings = TradeRules.withDefaults(DEFAULTS);
-  const saved = loadTradeSettingOverrides(TRADE_SETTINGS_FILE);
-  Object.assign(settings, saved);
+  const snapshots = Array.isArray(overrides?.snapshots) ? overrides.snapshots : [];
+  const historicalContext = getHistoricalReplayContext(snapshots);
+  const settings = TradeRules.withDefaults(historicalContext.settings || DEFAULTS);
+  if (!historicalContext.settings) {
+    const saved = loadTradeSettingOverrides(TRADE_SETTINGS_FILE);
+    Object.assign(settings, saved);
+  }
   if (Number.isFinite(overrides.firstHourCap)) settings.SIMULATION_FIRST_HOUR_MAX_ENTRIES = overrides.firstHourCap;
   if (Number.isFinite(overrides.maxActiveOpen)) settings.SIMULATION_MAX_ACTIVE_OPEN = overrides.maxActiveOpen;
   if (Number.isFinite(overrides.maxNewPerCycle)) settings.SIMULATION_MAX_NEW_PER_CYCLE = overrides.maxNewPerCycle;
@@ -177,15 +157,22 @@ function loadSettings(overrides) {
   if (overrides.autoShorts) settings.SIMULATION_AUTO_SHORTS = true;
   if (overrides.shortOnly) settings.SIMULATION_AUTO_SHORTS = true;
   if (overrides.enableEtf) settings.SIMULATION_ENABLE_ETF = true;
+  settings.REPLAY_SKIP_OPPORTUNITIES = !!overrides.skipOpportunities;
   settings.REPLAY_LONG_ONLY = !!overrides.longOnly;
   settings.REPLAY_SHORT_ONLY = !!overrides.shortOnly;
-  const dbPortfolioCash = overrides.defaultCapital ? null : loadPortfolioAvailableCashFromDb(DB_FILE);
-  const filePortfolioCash = (!overrides.defaultCapital && !dbPortfolioCash) ? loadPortfolioAvailableCash(PAPER_TRADES_FILE) : null;
+  const historicalPortfolio = historicalContext.portfolio;
+  const dbPortfolioCash = (overrides.defaultCapital || historicalPortfolio) ? null : loadPortfolioAvailableCashFromDb(DB_FILE);
+  const filePortfolioCash = (!overrides.defaultCapital && !historicalPortfolio && !dbPortfolioCash) ? loadPortfolioAvailableCash(PAPER_TRADES_FILE) : null;
   const portfolioCash = dbPortfolioCash || filePortfolioCash;
   const portfolioSource = dbPortfolioCash ? 'SQLite portfolio state' : 'paper_trades.json portfolio capital';
   if (Number.isFinite(overrides.capital) && overrides.capital > 0) {
     settings.PORTFOLIO_INITIAL_CAPITAL = +overrides.capital.toFixed(2);
     settings.PORTFOLIO_CAPITAL_SOURCE = 'command-line';
+  } else if (historicalPortfolio) {
+    settings.PORTFOLIO_INITIAL_CAPITAL = historicalPortfolio.capital;
+    settings.PORTFOLIO_AVAILABLE_CASH = historicalPortfolio.cashAvailable;
+    settings.PORTFOLIO_CAPITAL_SOURCE = 'historical-snapshot';
+    settings.PORTFOLIO_CAPITAL_DETAIL = historicalPortfolio;
   } else if (portfolioCash && Number.isFinite(portfolioCash.capital) && portfolioCash.capital > 0) {
     settings.PORTFOLIO_INITIAL_CAPITAL = portfolioCash.capital;
     settings.PORTFOLIO_AVAILABLE_CASH = portfolioCash.cashAvailable;
@@ -195,7 +182,80 @@ function loadSettings(overrides) {
     settings.PORTFOLIO_CAPITAL_SOURCE = overrides.defaultCapital ? 'dashboard default' : 'dashboard default; saved portfolio unavailable';
   }
   settings.REPLAY_RECOMPUTE_SCORES = !!(overrides.recomputeScores || overrides.REPLAY_RECOMPUTE_SCORES);
+  settings.REPLAY_SETTINGS_SOURCE = historicalContext.settings ? 'historical-snapshot' : 'current-settings-fallback';
+  settings.REPLAY_SETTINGS_VARIANTS = historicalContext.settingsVariants;
+  settings.REPLAY_HISTORICAL_CAPITAL_AVAILABLE = !!historicalPortfolio;
   return settings;
+}
+
+function stableObjectKey(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  return JSON.stringify(Object.fromEntries(Object.keys(source).sort().map(key => [key, source[key]])));
+}
+
+function getHistoricalReplayContext(snapshots = []) {
+  const rows = Array.isArray(snapshots) ? snapshots : [];
+  const variants = new Map();
+  for (const snapshot of rows) {
+    const caps = snapshot?.caps && typeof snapshot.caps === 'object' ? snapshot.caps : null;
+    if (!caps || !Object.keys(caps).length) continue;
+    const key = stableObjectKey(caps);
+    const current = variants.get(key) || { count:0, settings:caps, firstAt:snapshot.at || '' };
+    current.count += 1;
+    variants.set(key, current);
+  }
+  const selected = [...variants.values()].sort((left, right) => right.count - left.count || String(left.firstAt).localeCompare(String(right.firstAt)))[0] || null;
+  const portfolioSnapshot = rows.find(snapshot => {
+    const portfolio = snapshot?.portfolio;
+    return Number(portfolio?.capital) > 0 && Number.isFinite(Number(portfolio?.cashAvailable));
+  })?.portfolio;
+  const portfolio = portfolioSnapshot ? {
+    capital:Number(portfolioSnapshot.capital),
+    cashAvailable:Number(portfolioSnapshot.cashAvailable),
+    equity:Number(portfolioSnapshot.equity ?? portfolioSnapshot.capital),
+    openExposure:Number(portfolioSnapshot.openExposure || 0),
+    realizedPnl:Number(portfolioSnapshot.realizedPnl || 0),
+    at:portfolioSnapshot.at || null,
+  } : null;
+  return { settings:selected?.settings || null, settingsVariants:variants.size, portfolio };
+}
+
+function assessReplayReliability(snapshots = [], settings = {}) {
+  const rows = (Array.isArray(snapshots) ? snapshots : []).filter(snapshot => snapshot?.at);
+  const marketRows = rows.filter(snapshot => {
+    const minutes = istMinutes(snapshot.at);
+    return minutes >= 9 * 60 + 15 && minutes <= 15 * 60 + 30;
+  });
+  let maxGapMin = 0;
+  for (let index = 1; index < marketRows.length; index += 1) {
+    maxGapMin = Math.max(maxGapMin, (new Date(marketRows[index].at) - new Date(marketRows[index - 1].at)) / 60000);
+  }
+  const firstMinute = marketRows.length ? istMinutes(marketRows[0].at) : null;
+  const lastMinute = marketRows.length ? istMinutes(marketRows.at(-1).at) : null;
+  const context = getHistoricalReplayContext(rows);
+  const issues = [];
+  if (marketRows.length < 120) issues.push(`only ${marketRows.length} market-hour snapshots`);
+  if (maxGapMin > 5) issues.push(`maximum market-hour gap ${round1(maxGapMin)} minutes`);
+  if (firstMinute == null || firstMinute > 9 * 60 + 25) issues.push('opening coverage starts after 09:25 IST');
+  if (lastMinute == null || lastMinute < 15 * 60 + 20) issues.push('closing coverage ends before 15:20 IST');
+  if (!context.settings) issues.push('historical settings are unavailable');
+  if (context.settingsVariants > 1) issues.push(`${context.settingsVariants} settings variants occurred intraday`);
+  if (!context.portfolio) issues.push('historical opening capital is unavailable');
+  const unusable = marketRows.length < 60 || maxGapMin > 20 || firstMinute == null;
+  const reliable = !issues.length;
+  return {
+    status:unusable ? 'unreliable' : reliable ? 'reliable' : 'degraded',
+    mode:settings.__recordedDecisionCycles instanceof Map ? 'recorded' : 'hypothetical',
+    marketSnapshots:marketRows.length,
+    totalSnapshots:rows.length,
+    firstMarketAt:marketRows[0]?.at || null,
+    lastMarketAt:marketRows.at(-1)?.at || null,
+    maxGapMin:round1(maxGapMin),
+    historicalSettingsAvailable:!!context.settings,
+    settingsVariants:context.settingsVariants,
+    historicalCapitalAvailable:!!context.portfolio,
+    issues,
+  };
 }
 
 function computePortfolioAvailableCash(portfolio, trades) {
@@ -264,42 +324,22 @@ function loadPortfolioAvailableCash(file) {
 }
 
 async function readSnapshots(file, day) {
+  if (file) throw new Error('Snapshot file fallback has been removed; migrate snapshots to SQLite first');
   const snapshotStoreModule = await getSnapshotStore();
-  const dailyFiles = listDailySnapshotFiles();
-  const files = file
-    ? [file]
-    : (dailyFiles.length
-      ? dailyFiles
-      : [DEFAULT_SNAPSHOT_FILE, LEGACY_SNAPSHOT_FILE].filter(snapshotFile => fs.existsSync(snapshotFile)));
-  let snapshots = [];
-  
-  for (const snapshotFile of files) {
-    // Extract date from file path pattern
-    const dailyMatch = snapshotFile.match(/simulation_snapshots_(\d{4}-\d{2}-\d{2})(?:\.json(?:\.gz)?)?$/) ||
-                       snapshotFile.match(/snapshot-(\d{4}-\d{2}-\d{2})(?:\.json(?:\.gz)?)?$/);
-    if (dailyMatch) {
-      const date = dailyMatch[1];
-      try {
-        const data = await snapshotStoreModule.loadSnapshotDay(date, SNAPSHOT_DIR);
-        if (data && data.snapshots) {
-          snapshots.push(...data.snapshots);
-        }
-      } catch (err) {
-        // Silently skip if snapshot not found
-        if (!err.message.includes('Snapshot not found')) {
-          throw err;
-        }
-      }
+  const dates = day ? [day] : await snapshotStoreModule.listSnapshotDays(SNAPSHOT_DIR);
+  const snapshots = [];
+  for (const date of dates) {
+    try {
+      const data = await snapshotStoreModule.loadSnapshotDay(date, SNAPSHOT_DIR);
+      if (Array.isArray(data?.snapshots)) snapshots.push(...data.snapshots);
+    } catch (error) {
+      if (!error.message.includes('Snapshot not found')) throw error;
     }
   }
-  
-  snapshots = snapshots
-    .filter(s => s && s.at && Array.isArray(s.candidates))
-    .sort((a, b) => new Date(a.at) - new Date(b.at));
-  if (day) {
-    snapshots = snapshots.filter(s => istDateKey(s.at) === day);
-  }
-  return snapshots;
+  return snapshots
+    .filter(snapshot => snapshot?.at && Array.isArray(snapshot?.candidates))
+    .filter(snapshot => !day || istDateKey(snapshot.at) === day)
+    .sort((left, right) => new Date(left.at) - new Date(right.at));
 }
 
 function istDateKey(value) {
@@ -343,12 +383,139 @@ function isEntryWindow(value, settings = {}) {
   return TradeRules.isSimulationEntryWindow(value, settings);
 }
 
+function forEachJsonLineSync(file, callback, chunkSize = 4 * 1024 * 1024) {
+  const fd = fs.openSync(file, 'r');
+  const buffer = Buffer.allocUnsafe(chunkSize);
+  const decoder = new StringDecoder('utf8');
+  let carry = '';
+  try {
+    let bytesRead;
+    do {
+      bytesRead = fs.readSync(fd, buffer, 0, buffer.length, null);
+      const text = carry + decoder.write(buffer.subarray(0, bytesRead));
+      const lines = text.split(/\r?\n/);
+      carry = lines.pop() || '';
+      for (const line of lines) callback(line);
+    } while (bytesRead > 0);
+    carry += decoder.end();
+    if (carry) callback(carry);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function loadRecordedDecisionCycles(day, fileOverride = '') {
+  if (!day) return new Map();
+  const file = fileOverride || path.join(DECISION_JOURNAL_DIR, `simulation_decisions_${day}.jsonl`);
+  if (!fs.existsSync(file)) return new Map();
+  const cycles = new Map();
+  const recordedOpenSymbols = new Set();
+  forEachJsonLineSync(file, line => {
+    if (!line.trim()) return;
+    try {
+      const row = JSON.parse(line);
+      if (row.event !== 'cycle_decisions' || !row.snapshotAt) return;
+      for (const exit of Array.isArray(row.exitIntents) ? row.exitIntents : []) {
+        if (String(exit?.action || 'close').toLowerCase() !== 'partial' && exit?.symbol) {
+          recordedOpenSymbols.delete(String(exit.symbol).toUpperCase());
+        }
+      }
+      const acceptedEntryIntents = [];
+      for (const entry of Array.isArray(row.entryIntents) ? row.entryIntents : []) {
+        const symbol = String(entry?.symbol || '').toUpperCase();
+        if (!symbol || recordedOpenSymbols.has(symbol)) continue;
+        recordedOpenSymbols.add(symbol);
+        acceptedEntryIntents.push(entry);
+      }
+      const rankedCandidates = Array.isArray(row.rankedCandidates)
+        ? row.rankedCandidates.filter(candidate => candidate?.selected)
+        : [];
+      if (acceptedEntryIntents.length || rankedCandidates.length) {
+        cycles.set(row.snapshotAt, {
+          snapshotAt:row.snapshotAt,
+          at:row.at,
+          entryIntents:acceptedEntryIntents,
+          rankedCandidates,
+        });
+      }
+    } catch (_) {}
+  });
+  return cycles;
+}
+
+function loadRecordedDecisionCyclesFromSnapshots(snapshots = []) {
+  const cycles = new Map();
+  const rows = Array.isArray(snapshots) ? snapshots : [];
+  const snapshotTimes = new Set(rows.map(snapshot => String(snapshot?.at || '')).filter(Boolean));
+  for (const snapshot of rows) {
+    const cycle = snapshot?.decisionCycle;
+    const snapshotAt = String(cycle?.snapshotAt || '');
+    if (!snapshotTimes.has(snapshotAt) || (!Array.isArray(cycle?.entryIntents) && !Array.isArray(cycle?.rankedCandidates))) continue;
+    cycles.set(snapshotAt, {
+      ...cycle,
+      snapshotAt,
+      at:cycle.recordedAt || cycle.at || snapshot.at,
+    });
+  }
+  return cycles;
+}
+
+function alignRecordedDecisionCycles(snapshots, cycles, maxDistanceMin = 6) {
+  const source = Array.isArray(snapshots) ? snapshots : [];
+  const rows = cycles instanceof Map ? [...cycles.values()] : [];
+  if (!source.length || !rows.length) return new Map();
+  const snapshotTimes = source.map(snapshot => new Date(snapshot.at).getTime());
+  const maxDistanceMs = Math.max(0, Number(maxDistanceMin) || 0) * 60000;
+  const aligned = new Map();
+
+  const closestSnapshotIndex = target => {
+    let low = 0;
+    let high = snapshotTimes.length - 1;
+    while (low < high) {
+      const mid = Math.floor((low + high) / 2);
+      if (snapshotTimes[mid] < target) low = mid + 1;
+      else high = mid;
+    }
+    const candidates = [low, low - 1].filter(index => index >= 0 && index < snapshotTimes.length);
+    return candidates.sort((a, b) => Math.abs(snapshotTimes[a] - target) - Math.abs(snapshotTimes[b] - target))[0];
+  };
+
+  for (const row of rows) {
+    const target = new Date(row.snapshotAt || row.at).getTime();
+    if (!Number.isFinite(target)) continue;
+    const index = closestSnapshotIndex(target);
+    if (!Number.isInteger(index) || Math.abs(snapshotTimes[index] - target) > maxDistanceMs) continue;
+    const key = source[index].at;
+    const current = aligned.get(key) || { snapshotAt:key, entryIntents:[], rankedCandidates:[] };
+    const seenEntries = new Set(current.entryIntents.map(entry => String(entry?.symbol || '').toUpperCase()));
+    for (const entry of Array.isArray(row.entryIntents) ? row.entryIntents : []) {
+      const symbol = String(entry?.symbol || '').toUpperCase();
+      if (symbol && !seenEntries.has(symbol)) {
+        current.entryIntents.push(entry);
+        seenEntries.add(symbol);
+      }
+    }
+    current.rankedCandidates.push(...(Array.isArray(row.rankedCandidates) ? row.rankedCandidates : []));
+    aligned.set(key, current);
+  }
+  return aligned;
+}
+
 function isEodSettlement(value, settings = {}) {
   return TradeRules.isSimulationEodSettlement(value, settings);
 }
 
+function isReplayEntryTimeBlocked(value, settings = {}) {
+  const mins = istMinutes(value);
+  return (Array.isArray(settings.REPLAY_ENTRY_BLOCK_RANGES) ? settings.REPLAY_ENTRY_BLOCK_RANGES : [])
+    .some(range => mins >= Number(range?.startMin) && mins < Number(range?.endMin));
+}
+
 function runBacktest(snapshots, settings) {
   settings = TradeRules.withDefaults(settings);
+  const replayControls = Object.fromEntries(Object.entries(settings).filter(([key]) =>
+    key.startsWith('REPLAY_') || key.startsWith('PORTFOLIO_') || key.startsWith('__')
+  ));
   
   // Clear memoization cache for fresh backtest
   SimulationEngine.clearFeeCache?.();
@@ -358,6 +525,7 @@ function runBacktest(snapshots, settings) {
   let currentBySymbol = new Map();
   const lastKnownBySymbol = new Map();
   const previousCandidateBySymbol = new Map();
+  const marketHistory = [];
 
   const startingCash = Number.isFinite(Number(settings.PORTFOLIO_AVAILABLE_CASH))
     ? Math.max(0, Number(settings.PORTFOLIO_AVAILABLE_CASH))
@@ -386,6 +554,19 @@ function runBacktest(snapshots, settings) {
 
   const openTrades = () => trades.filter(t => t.status === 'open');
   const simOpenTrades = () => openTrades().filter(t => t.source === 'simulation');
+  const openPositionCounts = () => {
+    const counts = new Map();
+    for (const trade of openTrades()) counts.set(trade.symbol, (counts.get(trade.symbol) || 0) + 1);
+    return counts;
+  };
+  const openSideCounts = () => {
+    const counts = new Map();
+    for (const trade of openTrades()) {
+      const side = String(trade.side || 'buy').toLowerCase() === 'sell' ? 'sell' : 'buy';
+      counts.set(side, (counts.get(side) || 0) + 1);
+    }
+    return counts;
+  };
   const realizedPnl = () => {
     const result = trades.filter(t => t.status === 'closed').reduce((sum, t) => sum + (Number(t.pnl) || 0), 0);
     if (process.env.DEBUG_CASH && !Number.isFinite(result)) console.error(`DEBUG_CASH: realizedPnl=${result}`);
@@ -453,7 +634,7 @@ function runBacktest(snapshots, settings) {
     }
   }
 
-  function partialCloseTrade(trade, exitPrice, reason, at, qty, runner = false, newTarget = null) {
+  function partialCloseTrade(trade, exitPrice, reason, at, qty, runner = false, newTarget = null, protectRemainder = false) {
     exitPrice = SimulationEngine.applyAdverseSlippage(exitPrice, trade.side, 'exit', settings);
     const closeQty = Math.floor(Number(qty));
     const openQty = Math.floor(Number(trade.qty));
@@ -500,19 +681,90 @@ function runBacktest(snapshots, settings) {
     trade._partialTargetBooked = true;
     trade._runnerArmed = true;
     trade._runnerWideTrail = !!runner;
-    trade.target = runner && Number.isFinite(Number(newTarget)) ? round2(newTarget) : null;
+    trade.target = Number.isFinite(Number(newTarget)) ? round2(newTarget) : null;
+    if (protectRemainder) {
+      if (String(trade.side || '').toLowerCase() === 'sell') trade._shortProfitLockArmed = true;
+      else trade._longProfitLockArmed = true;
+    }
     trades.push(partial);
     return true;
   }
 
+  function scaleInMomentumRunner(trade, intent, at) {
+    const addQty = Math.max(0, Math.floor(Number(intent?.qty) || 0));
+    const observedPrice = Number(intent?.price);
+    if (!trade || addQty <= 0 || !Number.isFinite(observedPrice) || observedPrice <= 0) return false;
+    const fill = SimulationEngine.applyAdverseSlippage(observedPrice, trade.side, 'entry', settings);
+    const oldQty = Math.max(0, Math.floor(Number(trade.qty) || 0));
+    const oldEntry = Number(trade.entryPrice);
+    const requiredCash = fill * addQty;
+    if (oldQty <= 0 || !Number.isFinite(oldEntry) || requiredCash > cashAvailable() + 0.01) return false;
+    const newQty = oldQty + addQty;
+    const weightedEntry = ((oldEntry * oldQty) + (fill * addQty)) / newQty;
+    const stopPct = Math.max(0.1, Number(settings.SIMULATION_RUNNER_INITIAL_STOP_PCT) || 0.8);
+    trade.qty = newQty;
+    trade.entryPrice = round2(weightedEntry);
+    trade.stop = round2(String(trade.side || 'buy').toLowerCase() === 'sell'
+      ? trade.entryPrice * (1 + stopPct / 100)
+      : trade.entryPrice * (1 - stopPct / 100));
+    trade.reservedCapital = round2(trade.entryPrice * newQty);
+    trade._momentumRunnerScaledIn = true;
+    trade._momentumRunnerFullQty = Math.max(newQty, Math.floor(Number(intent.plannedFullQty) || newQty));
+    trade.scaleIns = [...(trade.scaleIns || []), {
+      qty:addQty,
+      price:round2(fill),
+      at,
+      reason:intent.reason,
+      maxFavorablePct:intent.maxFavorablePct,
+      vwap:intent.vwap,
+      trigger:intent.trigger,
+    }];
+    portfolio.cash -= requiredCash;
+    portfolio.reservedCapital += requiredCash;
+    validatePortfolio();
+    return true;
+  }
+
+  const recordedMode = settings.__recordedDecisionCycles instanceof Map;
+  const recordedDecisionSymbols = recordedMode
+    ? new Set([...settings.__recordedDecisionCycles.values()].flatMap(cycle => [
+        ...(Array.isArray(cycle?.entryIntents) ? cycle.entryIntents : []),
+        ...(Array.isArray(cycle?.rankedCandidates) ? cycle.rankedCandidates.filter(row => row?.selected) : []),
+      ]).map(row => String(row?.symbol || '').toUpperCase()).filter(Boolean))
+    : null;
+
   for (const snapshot of snapshots) {
+    if (settings.REPLAY_USE_SNAPSHOT_SETTINGS !== false && snapshot?.caps && Object.keys(snapshot.caps).length) {
+      settings = TradeRules.withDefaults({ ...snapshot.caps, ...replayControls });
+    }
+    marketHistory.push({ at:snapshot.at, market:snapshot.market || {}, sectorTrend:snapshot.sectorTrend || {} });
+    while (marketHistory.length > 120) marketHistory.shift();
     currentBySymbol = new Map();
-    for (const candidate of snapshot.candidates || []) {
+    const recordedCycle = recordedMode ? settings.__recordedDecisionCycles.get(snapshot.at) : null;
+    const recordedEntryIntents = Array.isArray(recordedCycle?.entryIntents) ? recordedCycle.entryIntents : [];
+    const recordedRows = Array.isArray(recordedCycle?.rankedCandidates) ? recordedCycle.rankedCandidates : [];
+    const recordedSelectedRows = recordedRows.filter(row => row?.selected);
+    const recordedSelectionRows = recordedSelectedRows.length ? recordedSelectedRows : recordedEntryIntents;
+    const recordedRank = recordedMode
+      ? new Map(recordedSelectionRows.map((row, index) => [
+          String(row?.symbol || '').toUpperCase(),
+          { ...row, selected:true, selectionRank:row?.selectionRank ?? index + 1 },
+        ]))
+      : null;
+    const openSymbolSet = new Set(simOpenTrades().map(trade => String(trade.symbol || '').toUpperCase()));
+    const candidatePool = recordedMode
+      ? (snapshot.candidates || []).filter(candidate => {
+          const symbol = String(candidate?.symbol || '').toUpperCase();
+          return openSymbolSet.has(symbol) || recordedDecisionSymbols.has(symbol);
+        })
+      : (snapshot.candidates || []);
+    for (const candidate of candidatePool) {
       if (settings.REPLAY_RECOMPUTE_SCORES) {
         rescoreReplayCandidate(candidate);
       }
       candidate.previousCandidate = previousCandidateBySymbol.get(candidate.symbol) || null;
-      candidate.derivedSetupType = candidate.derivedSetupType || SimulationEngine.deriveSetupType(candidate, settings, snapshot.at);
+      SimulationEngine.applyFrozenEntryTrigger(candidate, candidate.previousCandidate, snapshot.at, settings);
+      candidate.derivedSetupType = SimulationEngine.deriveSetupType(candidate, settings, snapshot.at);
       
       // Pre-calculate risk metrics on each candidate
       const stop = candidate.indicators?.stop;
@@ -531,12 +783,25 @@ function runBacktest(snapshots, settings) {
     }
     for (const open of snapshot.openSimulationTrades || []) {
       if (!currentBySymbol.has(open.symbol)) {
+        const storedManagement = open.managementCandidate && typeof open.managementCandidate === 'object'
+          ? open.managementCandidate
+          : {};
+        const storedIndicators = storedManagement.indicators && typeof storedManagement.indicators === 'object'
+          ? storedManagement.indicators
+          : {};
         const fallback = {
+          ...storedManagement,
           symbol: open.symbol,
           price: open.priceAtSnapshot,
           priceAtSnapshot: open.priceAtSnapshot,
-          score: 0,
-          indicators: { ohlc: open.ohlc || null },
+          score:Number.isFinite(Number(storedManagement.score)) ? Number(storedManagement.score) : 0,
+          candles:Array.isArray(storedManagement.candles) ? storedManagement.candles : [],
+          sectorPriority:storedManagement.sectorPriority || open.sectorPriority || null,
+          indicators: {
+            ...storedIndicators,
+            price:open.priceAtSnapshot,
+            ohlc: open.ohlc || storedIndicators.ohlc || null,
+          },
         };
         fallback.derivedSetupType = SimulationEngine.deriveSetupType(fallback, settings, snapshot.at);
         currentBySymbol.set(open.symbol, fallback);
@@ -548,9 +813,10 @@ function runBacktest(snapshots, settings) {
       const price = Number(candidate?.price ?? candidate?.priceAtSnapshot ?? candidate?.quote?.price);
       if (!Number.isFinite(price) || price <= 0) continue;
       
-      // STOP LOSS CHECK: Immediate exit (no grace period)
-      // This matches simulation_engine.js::getSimulationStopExit
-      // Stop breach = immediate exit at stop price, period
+      // Reconstruct the most adverse observed price for emergency-stop parity.
+      // Normal stops are still confirmed by completed candle closes inside the
+      // shared simulation engine, so an intrabar wick cannot bypass grace or
+      // confirmation settings.
       const stop = Number(trade.stop);
       const entry = Number(trade.entryPrice);
       const side = String(trade.side || 'buy').toLowerCase();
@@ -564,13 +830,18 @@ function runBacktest(snapshots, settings) {
       const openedAt = new Date(trade.openedAt).getTime();
       const usableCandle = candle && Number.isFinite(candleAt) && Number.isFinite(openedAt) && candleAt > openedAt;
       if (Number.isFinite(stop) && stop > 0 && Number.isFinite(entry) && entry > 0) {
-        const stopBreached = side === 'buy'
-          ? (usableCandle ? candle.low <= stop : price <= stop)
-          : (usableCandle ? candle.high >= stop : price >= stop);
+        const adverseObservedPrice = usableCandle
+          ? (side === 'buy' ? Number(candle.low) : Number(candle.high))
+          : price;
+        const stopBreached = side === 'buy' ? adverseObservedPrice <= stop : adverseObservedPrice >= stop;
         if (stopBreached) {
-          const gapPrice = usableCandle ? candle.open : price;
-          const fill = side === 'buy' ? Math.min(stop, gapPrice) : Math.max(stop, gapPrice);
-          exit = { reason: 'Simulation stop loss breach', exitPrice: fill };
+          exit = SimulationEngine.getSimulationStopExit(
+            trade,
+            adverseObservedPrice,
+            candidate,
+            snapshot.at,
+            settings
+          );
         }
       }
 
@@ -588,24 +859,39 @@ function runBacktest(snapshots, settings) {
             quote: { ...(candidate.quote || {}), price: target },
             indicators: { ...(candidate.indicators || {}), price: target },
           };
-          exit = SimulationEngine.getSimulationExit(trade, target, targetCandidate, snapshot.at, settings, { isEodSettlement: false });
+          exit = SimulationEngine.getSimulationExit(trade, target, targetCandidate, snapshot.at, settings, { isEodSettlement: false, market:snapshot.market || {} });
         }
       }
       
       // If no stop loss exit, use normal simulation exit logic
       if (!exit) {
-        exit = SimulationEngine.getSimulationExit(trade, price, candidate, snapshot.at, settings, { isEodSettlement: isEodSettlement(snapshot.at, settings) });
+        exit = SimulationEngine.getSimulationExit(trade, price, candidate, snapshot.at, settings, { isEodSettlement: isEodSettlement(snapshot.at, settings), market:snapshot.market || {} });
       }
       
       if (exit?.action === 'partial') {
         const qty = Math.max(1, Math.floor(Number(trade.qty || 0) * Number(exit.qtyPct || 50) / 100));
-        partialCloseTrade(trade, exit.exitPrice, exit.reason, snapshot.at, qty, exit.runner, exit.newTarget);
+        partialCloseTrade(trade, exit.exitPrice, exit.reason, snapshot.at, qty, exit.runner, exit.newTarget, exit.protectRemainder);
       } else if (exit) {
         closeTrade(trade, exit.exitPrice, exit.reason, snapshot.at);
+      } else if (isEntryWindow(snapshot.at, settings) && !isEodSettlement(snapshot.at, settings)) {
+        const equity = startingCash + realizedPnl();
+        const heat = TradeRules.computePortfolioHeat(trades, equity);
+        const maxHeatRisk = equity * (Number(settings.SIMULATION_MAX_PORTFOLIO_HEAT_PCT || 5) / 100);
+        const maxSectorRisk = equity * (Number(settings.SIMULATION_MAX_SECTOR_HEAT_PCT || 2) / 100);
+        const sectorRisk = Number(heat.bySector[String(trade.sector || candidate?.sector || 'UNKNOWN')] || 0);
+        const grossLimit = equity * (Number(settings.SIMULATION_MAX_GROSS_EXPOSURE_PCT || 80) / 100);
+        const scaleIn = SimulationEngine.getMomentumRunnerScaleInIntent(trade, candidate, price, settings, {
+          cashAvailable:cashAvailable(),
+          remainingGrossCapacity:Math.max(0, grossLimit - openExposure()),
+          remainingHeatRisk:Math.max(0, maxHeatRisk - heat.risk),
+          sectorHeatRemaining:Math.max(0, maxSectorRisk - sectorRisk),
+        });
+        if (scaleIn) scaleInMomentumRunner(trade, scaleIn, snapshot.at);
       }
     }
 
-    if (!isEntryWindow(snapshot.at, settings) || isEodSettlement(snapshot.at, settings)) continue;
+    if (!isEntryWindow(snapshot.at, settings) || isEodSettlement(snapshot.at, settings) ||
+        isReplayEntryTimeBlocked(snapshot.at, settings)) continue;
 
     let slots = Math.max(0, Math.min(
       settings.SIMULATION_MAX_OPEN - openTrades().length,
@@ -613,17 +899,31 @@ function runBacktest(snapshots, settings) {
     ));
     if (slots <= 0 || cashAvailable() <= 0) continue;
 
+    const blockedSetups = new Set(
+      (Array.isArray(settings.REPLAY_BLOCKED_SETUPS) ? settings.REPLAY_BLOCKED_SETUPS : [])
+        .map(setup => String(setup || '').toUpperCase())
+    );
+    const replayCandidates = (recordedMode
+      ? candidatePool
+          .filter(candidate => recordedRank.get(String(candidate?.symbol || '').toUpperCase())?.selected)
+          .sort((a, b) => Number(recordedRank.get(String(a?.symbol || '').toUpperCase())?.selectionRank ?? Number.MAX_SAFE_INTEGER) -
+            Number(recordedRank.get(String(b?.symbol || '').toUpperCase())?.selectionRank ?? Number.MAX_SAFE_INTEGER))
+      : candidatePool)
+      .filter(candidate => !blockedSetups.has(String(candidate?.derivedSetupType || candidate?.setupType || '').toUpperCase()));
     const candidates = SimulationEngine.selectSimulationEntryCandidates(
-      snapshot.candidates || [],
+      replayCandidates,
       snapshot.at,
       settings,
       {
         openSymbols: new Set(openTrades().map(t => t.symbol)),
+        openPositionCounts: openPositionCounts(),
+        openSideCounts: openSideCounts(),
         openTrades: openTrades(),
         closedTrades: trades.filter(t => t?.status === 'closed'),
         entryBlockReason: (symbol, setupType) => entryBlockReason(symbol, setupType, snapshot.at),
         market: snapshot.market,
         sectorTrend: snapshot.sectorTrend,
+        marketHistory,
         indices: snapshot.market?.indices,
         dayStats: dayStats(snapshot.at),
       }
@@ -633,6 +933,9 @@ function runBacktest(snapshots, settings) {
     for (let i = 0; i < candidates.length; i++) {
       if (slots <= 0 || openedThisCycle >= settings.SIMULATION_MAX_NEW_PER_CYCLE) break;
       const candidate = candidates[i];
+      const currentOpenTrades = openTrades();
+      if (currentOpenTrades.length >= Number(settings.SIMULATION_MAX_OPEN || 10) ||
+          simOpenTrades().length >= Number(settings.SIMULATION_MAX_ACTIVE_OPEN || 8)) break;
       const setupType = candidate.derivedSetupType || candidate.setupType || '';
       const block = entryBlockReason(candidate.symbol, setupType, snapshot.at);
       if (block) {
@@ -642,16 +945,36 @@ function runBacktest(snapshots, settings) {
       const observedPrice = Number(candidate.price ?? candidate.priceAtSnapshot ?? candidate.quote?.price);
       if (!Number.isFinite(observedPrice) || observedPrice <= 0) continue;
       const side = candidate.side || candidate.signal || 'buy';
+      if (side === 'sell' && currentOpenTrades.filter(trade => String(trade.side).toLowerCase() === 'sell').length >=
+          Number(settings.SIMULATION_MAX_CONCURRENT_SHORTS || 4)) continue;
       const price = SimulationEngine.applyAdverseSlippage(observedPrice, side, 'entry', settings);
       const remainingCandidates = Math.max(1, candidates.length - i);
       const remainingSlots = Math.max(1, Math.min(slots, remainingCandidates));
       const entryCash = cashAvailable();
       if (entryCash <= 0) continue;
-      const allocation = Math.min(settings.MAX_POSITION_EXPOSURE, entryCash / remainingSlots);
+      const equityBeforeEntry = startingCash + realizedPnl();
+      const maxGrossExposure = equityBeforeEntry * Number(settings.SIMULATION_MAX_GROSS_EXPOSURE_PCT || 80) / 100;
+      const remainingGrossCapacity = Math.max(0, maxGrossExposure - openExposure());
+      if (remainingGrossCapacity < price) continue;
+      const allocation = Math.min(settings.MAX_POSITION_EXPOSURE, entryCash / remainingSlots, remainingGrossCapacity);
       // Use shared function for position sizing
       const closedTrades = trades.filter(t => t.status === 'closed');
       const positionSizingMultiplier = TradeRules.computePositionSizeMultiplier(closedTrades);
-      const suggestion = SimulationEngine.getSuggestedQty(candidate, side, price, entryCash, allocation, settings, positionSizingMultiplier);
+      const runnerInitialMultiplier = Math.max(
+        0.1,
+        Math.min(1, Number(settings.SIMULATION_RUNNER_INITIAL_POSITION_MULTIPLIER) || 0.5)
+      );
+      const setupPositionMultiplier = setupType === 'TOP_GAINER_PULLBACK_RECLAIM'
+        ? Math.max(0.1, Math.min(1, Number(settings.SIMULATION_TOP_GAINER_PULLBACK_POSITION_MULTIPLIER) || 0.5))
+        : (setupType === 'TOP_LOSER_BEAR_FLAG'
+          ? Math.max(0.1, Math.min(1, Number(settings.SIMULATION_TOP_LOSER_POSITION_MULTIPLIER) || 0.5))
+          : (setupType === 'RANGEBOUND'
+            ? Math.max(0.1, Math.min(1, Number(settings.SIMULATION_RANGEBOUND_POSITION_MULTIPLIER) || 0.5))
+            : (setupType === 'MOMENTUM_RUNNER' ? runnerInitialMultiplier : 1)));
+      const fullSuggestion = setupType === 'MOMENTUM_RUNNER'
+        ? SimulationEngine.getSuggestedQty(candidate, side, price, entryCash, allocation, settings, positionSizingMultiplier)
+        : null;
+      const suggestion = SimulationEngine.getSuggestedQty(candidate, side, price, entryCash, allocation, settings, positionSizingMultiplier * setupPositionMultiplier);
       if (suggestion.qty <= 0) continue;
       
       // qty is already applied inside getSuggestedQty with the multiplier
@@ -663,11 +986,20 @@ function runBacktest(snapshots, settings) {
       const maxSectorRisk = equity * (Number(settings.SIMULATION_MAX_SECTOR_HEAT_PCT || 2) / 100);
       const riskPerShare = Number(suggestion.riskPerShare) || 0;
       if (riskPerShare > 0) adjustedQty = Math.min(adjustedQty, Math.floor(Math.max(0, maxHeatRisk - heat.risk) / riskPerShare), Math.floor(Math.max(0, maxSectorRisk - sectorRisk) / riskPerShare));
+      adjustedQty = Math.min(adjustedQty, Math.floor(remainingGrossCapacity / price));
       if (adjustedQty <= 0) continue;
       
       if (process.env.DEBUG_QTY && (trades.length < 2 || !Number.isFinite(suggestion.qty))) {
         console.error(`DEBUG: suggestion.qty=${suggestion.qty}, cashAvail=${cashAvailable()}, allocation=${allocation}, byCash=${suggestion.cashLimit}`);
       }
+      const plannedFullQty = setupType === 'MOMENTUM_RUNNER'
+        ? Math.max(adjustedQty, Math.min(
+            Math.floor(Number(fullSuggestion?.qty) || adjustedQty),
+            riskPerShare > 0 ? Math.floor(Math.max(0, maxHeatRisk - heat.risk) / riskPerShare) : Number.MAX_SAFE_INTEGER,
+            riskPerShare > 0 ? Math.floor(Math.max(0, maxSectorRisk - sectorRisk) / riskPerShare) : Number.MAX_SAFE_INTEGER,
+            Math.floor(remainingGrossCapacity / price)
+          ))
+        : adjustedQty;
       trades.push({
         id: nextId++,
         symbol: candidate.symbol,
@@ -687,6 +1019,8 @@ function runBacktest(snapshots, settings) {
         costProfile:settings.SIMULATION_COST_PROFILE || 'zerodha_intraday',
         reservedCapital: round2(adjustedQty * price),
         setupType,
+        _momentumRunnerFullQty:setupType === 'MOMENTUM_RUNNER' ? plannedFullQty : undefined,
+        _momentumRunnerInitialQty:setupType === 'MOMENTUM_RUNNER' ? adjustedQty : undefined,
         setup: ['Simulation', setupType, candidate.indicators?.entryStatus, candidate.indicators?.entryTrigger]
           .filter(Boolean).join(' | '),
         entryContext: {
@@ -696,6 +1030,8 @@ function runBacktest(snapshots, settings) {
           scoreAudit:candidate.scoreAudit || null,
           side,
           setupType,
+          plannedFullQty:setupType === 'MOMENTUM_RUNNER' ? plannedFullQty : undefined,
+          initialPositionMultiplier:setupType === 'MOMENTUM_RUNNER' ? runnerInitialMultiplier : undefined,
           sectorAligned:!!candidate.sectorPriority?.aligned,
           sectorPriority:candidate.sectorPriority || null,
           reason:`selected rank ${i + 1}`,
@@ -708,7 +1044,7 @@ function runBacktest(snapshots, settings) {
           indicatorSnapshot:SimulationEngine.buildIndicatorAuditSnapshot(candidate),
           settingsSnapshot:SimulationEngine.buildSettingsAuditSnapshot(settings),
           settingsFingerprint:SimulationEngine.stableAuditFingerprint(SimulationEngine.buildSettingsAuditSnapshot(settings)),
-          confirmation:SimulationEngine.getLongEntryConfirmation(candidate, candidate.previousCandidate, side, snapshot.at, settings),
+          confirmation:SimulationEngine.getEntryConfirmation(candidate, candidate.previousCandidate, side, snapshot.at, settings),
           indicators:{
             entryStatus:candidate.indicators?.entryStatus || '',
             entryTrigger:candidate.indicators?.entryTrigger || '',
@@ -771,7 +1107,13 @@ function summarize(trades, snapshots, settings, startingCash = settings.PORTFOLI
   }
 
   const cleanBuckets = buckets => Object.fromEntries(Object.entries(buckets).map(([key, value]) => [key, finishBucket(value)]));
-  const opportunityReport = buildOpportunityReport(snapshots, closed, settings);
+  const opportunityReport = settings.REPLAY_SKIP_OPPORTUNITIES
+    ? {
+        missed:{ longProfit:[], shortProfit:[], longRisk:[], shortRisk:[] },
+        dataQuality:[],
+        dataQualitySummary:{ skipped:true, reason:'opportunity analysis disabled for faster replay' },
+      }
+    : buildOpportunityReport(snapshots, closed, settings);
   const candleCoveragePct = Number(opportunityReport.dataQualitySummary?.candleCoveragePct) || 0;
   const replayConfidence = {
     grade:candleCoveragePct >= 99 ? 'A' : candleCoveragePct >= 95 ? 'B' : candleCoveragePct >= 80 ? 'C' : 'D',
@@ -780,6 +1122,7 @@ function summarize(trades, snapshots, settings, startingCash = settings.PORTFOLI
   };
   const risk = computeRiskStats(closed, settings.PORTFOLIO_INITIAL_CAPITAL);
   const quality = SimulationEngine.summarizeTradeQuality(closed, settings);
+  const replayReliability = assessReplayReliability(snapshots, settings);
   if (process.env.DEBUG_QTY && closed.length > 0) {
     console.error(`DEBUG: First closed trade qty=${closed[0].qty}, keys=${Object.keys(closed[0]).slice(0,10).join(',')}`);
   }
@@ -792,6 +1135,7 @@ function summarize(trades, snapshots, settings, startingCash = settings.PORTFOLI
       capital: settings.PORTFOLIO_INITIAL_CAPITAL,
       availableCash: round2(startingCash),
       capitalSource: settings.PORTFOLIO_CAPITAL_SOURCE || 'dashboard default',
+      settingsSource:settings.REPLAY_SETTINGS_SOURCE || 'current-settings-fallback',
       capitalDetail: settings.PORTFOLIO_CAPITAL_DETAIL || null,
       maxOpen: settings.SIMULATION_MAX_OPEN,
       maxActiveOpen: settings.SIMULATION_MAX_ACTIVE_OPEN,
@@ -832,6 +1176,7 @@ function summarize(trades, snapshots, settings, startingCash = settings.PORTFOLI
     dataQuality: opportunityReport.dataQuality,
     dataQualitySummary: opportunityReport.dataQualitySummary,
     replayConfidence,
+    replayReliability,
     top: closed.slice().sort((a, b) => b.pnl - a.pnl).slice(0, 8).map(formatTrade),
     bottom: closed.slice().sort((a, b) => a.pnl - b.pnl).slice(0, 8).map(formatTrade),
     trades: all,
@@ -890,8 +1235,12 @@ function buildOpportunityReport(snapshots, closedTrades, settings) {
   let missingCandleObservations = 0;
   const bySymbolSide = new Map();
   const previousCandidateBySymbol = new Map();
+  const marketHistory = [];
   for (const [snapshotIndex, snapshot] of snapshots.entries()) {
     const candidates = snapshot.candidates || [];
+    SimulationEngine.annotateTopGainerRanks(candidates, settings);
+    marketHistory.push({ at:snapshot.at, market:snapshot.market || {}, sectorTrend:snapshot.sectorTrend || {} });
+    while (marketHistory.length > 120) marketHistory.shift();
     const duringMarket = isEntryWindow(snapshot.at, settings) || isEodSettlement(snapshot.at, settings);
     if (duringMarket) marketSnapshots += 1;
     else afterHoursSnapshots += 1;
@@ -907,7 +1256,8 @@ function buildOpportunityReport(snapshots, closedTrades, settings) {
       }
       if (!candidate || candidate.assetType === 'etf') continue;
       candidate.previousCandidate = previousCandidateBySymbol.get(candidate.symbol) || candidate.previousCandidate || null;
-      candidate.derivedSetupType = candidate.derivedSetupType || SimulationEngine.deriveSetupType(candidate, settings, snapshot.at);
+      SimulationEngine.applyFrozenEntryTrigger(candidate, candidate.previousCandidate, snapshot.at, settings);
+      candidate.derivedSetupType = SimulationEngine.deriveSetupType(candidate, settings, snapshot.at);
        
       // Pre-calculate risk metrics on each candidate
       const stop = candidate.indicators?.stop;
@@ -927,6 +1277,7 @@ function buildOpportunityReport(snapshots, closedTrades, settings) {
         market: snapshot.market,
         sectorTrend: snapshot.sectorTrend,
         indices: snapshot.market?.indices,
+        marketHistory,
       });
       const candidateIssues = SimulationEngine.getDataQualityIssues(candidate, settings);
       if (!latestCandle) candidateIssues.push('missing replay candle');
@@ -1378,10 +1729,19 @@ async function main() {
     console.log(usage());
     return;
   }
-  const settings = loadSettings(args);
   const snapshots = await readSnapshots(args.file, args.day);
   if (!snapshots.length) {
     throw new Error(`No snapshots found${args.day ? ` for ${args.day}` : ''}${args.file ? ` in ${args.file}` : ''}`);
+  }
+  const settings = loadSettings({ ...args, snapshots });
+  if (args.recordedDecisions) {
+    const exactCycles = loadRecordedDecisionCyclesFromSnapshots(snapshots);
+    settings.__recordedDecisionCycles = exactCycles.size ? exactCycles : alignRecordedDecisionCycles(
+        snapshots,
+        loadRecordedDecisionCycles(args.day),
+        settings.REPLAY_RECORDED_MAX_ALIGNMENT_MIN || 6
+      );
+    settings.REPLAY_RECORDED_SOURCE = exactCycles.size ? 'snapshot-keyed' : 'journal-aligned';
   }
   if (args.sweep) {
     const rows = runSweep(snapshots, settings);
@@ -1409,10 +1769,15 @@ if (require.main === module) {
 module.exports = {
   DEFAULTS,
   buildSweepSettings,
+  alignRecordedDecisionCycles,
+  assessReplayReliability,
   cloneSnapshots,
-  getDailySnapshotFile,
   istDateKey,
+  isReplayEntryTimeBlocked,
   loadPortfolioAvailableCash,
+  getHistoricalReplayContext,
+  loadRecordedDecisionCycles,
+  loadRecordedDecisionCyclesFromSnapshots,
   loadSettings,
   parseArgs,
   readSnapshots,

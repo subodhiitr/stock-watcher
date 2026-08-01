@@ -8,8 +8,8 @@ const TradeRules = require('../trade_rules');
 
 const dashboard = fs.readFileSync(path.join(__dirname, '..', 'dashboard-app.js'), 'utf8');
 
-test('long and short minimum score defaults are both 60', () => {
-  assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_MIN_SCORE, 60);
+test('long minimum score defaults to 65 while the short floor remains independent', () => {
+  assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_MIN_SCORE, 65);
   assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_SHORT_MIN_SCORE, 60);
 });
 

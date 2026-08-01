@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 
-const fs = require('fs');
 const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
 const os = require('os');
 const Backtest = require('./backtest_simulation');
@@ -72,6 +71,9 @@ function compactReplayResult(result) {
     setupStats:setupStatsFromBacktest(result),
     quality:result?.quality || null,
     dataQuality:result?.dataQuality || [],
+    dataQualitySummary:result?.dataQualitySummary || null,
+    replayConfidence:result?.replayConfidence || null,
+    replayReliability:result?.replayReliability || null,
     top:result?.top || [],
     bottom:result?.bottom || [],
   };
@@ -400,16 +402,15 @@ async function runDeepReplaySweep(snapshots, baseSettings, maxVariants = 20) {
 }
 
 async function readSnapshotsForDay(day) {
-  const file = Backtest.getDailySnapshotFile(day);
-  return Backtest.readSnapshots(fs.existsSync(file) ? file : null, day);
+  return Backtest.readSnapshots(null, day);
 }
 
 async function runReplay(day, mode) {
-  const settings = Backtest.loadSettings({ day });
   if (mode === 'autotune') {
     const all = await Backtest.readSnapshots(null, null);
     const days = [...new Set(all.map(s => Backtest.istDateKey(s.at)).filter(Boolean))].sort().slice(-5);
     const recent = all.filter(s => days.includes(Backtest.istDateKey(s.at)));
+    const settings = Backtest.loadSettings({ day, snapshots:recent });
     return {
       ok:true,
       date:day,
@@ -420,6 +421,7 @@ async function runReplay(day, mode) {
   }
   if (mode === 'deep_sweep') {
     const snapshots = await readSnapshotsForDay(day);
+    const settings = Backtest.loadSettings({ day, snapshots });
     const result = compactReplayResult(Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings));
     return {
       ok:true,
@@ -431,6 +433,17 @@ async function runReplay(day, mode) {
     };
   }
   const snapshots = await readSnapshotsForDay(day);
+  const settings = Backtest.loadSettings({ day, snapshots });
+  if (mode === 'report') {
+    const exact = Backtest.loadRecordedDecisionCyclesFromSnapshots(snapshots);
+    const recorded = exact.size ? exact : Backtest.alignRecordedDecisionCycles(
+      snapshots,
+      Backtest.loadRecordedDecisionCycles(day),
+      settings.REPLAY_RECORDED_MAX_ALIGNMENT_MIN || 6
+    );
+    if (recorded.size) settings.__recordedDecisionCycles = recorded;
+    settings.REPLAY_RECORDED_SOURCE = exact.size ? 'snapshot-keyed' : 'journal-aligned';
+  }
   const result = compactReplayResult(Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings));
   const response = {
     ok:true,

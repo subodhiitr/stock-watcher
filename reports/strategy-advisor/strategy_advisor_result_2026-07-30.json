@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-07-30",
+  "status": "done",
+  "phase": "complete",
+  "progress": 100,
+  "createdAt": 1785437475715,
+  "updatedAt": 1785437475715,
+  "thesis": "July 30 was profitable, but three closed positions are not enough to justify changing setup enablement. The strongest improvement area is top-gainer exit allocation: SONACOMS left upside at both its profit-lock and final target exits. Any exact setting values remain a low-confidence analytics hypothesis because no replay was run.",
+  "caveats": [
+    "Only 3 closed positions and 4 exit legs were available; every setup grade is Insufficient data.",
+    "The candidate rows are repeated observations across 298 snapshots, not independent trades.",
+    "Day-close opportunity is a benchmark, not proof that holding longer was feasible without larger adverse excursion.",
+    "Recommendations were derived from stored configuration, transactions, exit quality, setup efficiency, and snapshots only; no replay, backtest, or sweep was run."
+  ],
+  "summary": {
+    "recommendations": 3,
+    "replayTested": 0,
+    "hypotheses": 2,
+    "setupTrades": 3,
+    "exits": 4,
+    "snapshots": 298,
+    "usableSnapshots": 264
+  },
+  "agent": {
+    "provider": "codex-session",
+    "model": "Codex",
+    "toolCalls": 0,
+    "replayUsed": false,
+    "sweepUsed": false
+  },
+  "recommendations": [
+    {
+      "id": "preserve-setup-switches",
+      "type": "setting-change",
+      "setupType": "",
+      "label": "Setup enablement",
+      "title": "Keep all setup enable switches unchanged",
+      "rationale": "The date contains one Top Gainer Continuation position and two Momentum Runner positions. Other setups have snapshot activity but no closed positions, so enabling or disabling a setup from this date would overfit sparse outcome data.",
+      "evidence": [
+        "Top Gainer Continuation: 1 trade, 100% win rate, ₹855.97 net",
+        "Momentum Runner: 2 trades, 50% win rate, ₹138.20 net",
+        "Both traded setup grades are Insufficient data",
+        "Detailed configuration confirms the enable switches currently use their defaults and were not overridden"
+      ],
+      "proposedChanges": [],
+      "confidence": "high",
+      "risk": "Changing enable switches from a three-position sample could suppress valid setups based on one trading date.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "Stored setup efficiency, transaction facts, snapshots, and effective configuration all support preserving the current enablement state."
+      }
+    },
+    {
+      "id": "top-gainer-exit-allocation-hypothesis",
+      "type": "setting-change",
+      "setupType": "TOP_GAINER_CONTINUATION",
+      "label": "Top-gainer exit allocation",
+      "title": "Evaluate a smaller profit lock and slightly wider remainder trail",
+      "rationale": "SONACOMS left ₹382.80 after its profit-lock leg and ₹1,039.29 after its final target leg relative to the day close. The setup-specific controls expose a 25% partial quantity and a 0.35% remainder trail. Moving cautiously to 20% and 0.45% is a concrete next configuration hypothesis, not a validated change.",
+      "evidence": [
+        "SONACOMS trailing/profit-lock exit: ₹176.66 realized net and ₹382.80 day-close opportunity",
+        "SONACOMS target exit: ₹679.31 realized net and ₹1,039.29 day-close opportunity",
+        "SIMULATION_TOP_GAINER_PARTIAL_QTY_PCT is 25, equals its default, and is not overridden",
+        "SIMULATION_TOP_GAINER_TRAIL_PCT is 0.35%, equals its default, and is not overridden",
+        "Only one Top Gainer Continuation position exists for the date"
+      ],
+      "proposedChanges": [
+        {
+          "key": "SIMULATION_TOP_GAINER_PARTIAL_QTY_PCT",
+          "current": 25,
+          "recommended": 20
+        },
+        {
+          "key": "SIMULATION_TOP_GAINER_TRAIL_PCT",
+          "current": 0.35,
+          "recommended": 0.45
+        }
+      ],
+      "confidence": "low",
+      "risk": "A smaller partial banks less profit and a wider trail can surrender more open gain. Review this pattern across additional dates before applying either value.",
+      "validation": {
+        "status": "hypothesis",
+        "reason": "The mechanism is supported by transaction-level exit and configuration evidence, but one position is insufficient to infer expectancy and no replay was run."
+      }
+    },
+    {
+      "id": "post-extension-pullback-hypothesis",
+      "type": "new-setup",
+      "setupType": "",
+      "label": "New setup hypothesis",
+      "title": "Research a post-extension pullback continuation setup",
+      "rationale": "The snapshot stream repeatedly classified extended candidates as CHASING. A future setup could wait for a pullback toward VWAP or EMA9, require a completed bullish reclaim with renewed relative volume, invalidate below the pullback low or VWAP, take partial profit near the prior intraday high, and trail the remainder.",
+      "evidence": [
+        "CHASING: 6,012 repeated appearances",
+        "CHASING: 4,155 actionable rows across 300 symbols",
+        "Average CHASING score 50.9; maximum score 96",
+        "VWAP Trend Continuation appeared only 44 times across 8 symbols",
+        "No outcome-labelled trades exist for the proposed pattern"
+      ],
+      "proposedChanges": [],
+      "confidence": "low",
+      "risk": "Snapshot appearances are correlated and do not establish expectancy. Define de-duplication, entry timing, invalidation, costs, and multi-date outcome checks before implementing it.",
+      "validation": {
+        "status": "hypothesis",
+        "reason": "The idea is derived from recurring snapshot states and has no executable rules or outcome validation."
+      }
+    }
+  ]
+}

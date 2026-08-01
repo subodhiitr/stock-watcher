@@ -179,7 +179,11 @@ class ConfirmationPoller {
           trade._partialTargetBooked = true;
           trade._runnerArmed = true;
           trade._runnerWideTrail = !!pendingPartial.runner;
-          trade.target = pendingPartial.runner && Number.isFinite(Number(pendingPartial.newTarget)) ? Number(pendingPartial.newTarget) : null;
+          if (Number.isFinite(Number(pendingPartial.newTarget))) trade.target = Number(pendingPartial.newTarget);
+          if (pendingPartial.protectRemainder) {
+            if (String(trade.side || '').toLowerCase() === 'sell') trade._shortProfitLockArmed = true;
+            else trade._longProfitLockArmed = true;
+          }
           trade.partialExits = [...(trade.partialExits || []), { id:partial.id, qty:filledQty, exitPrice:+exitPrice.toFixed(2), closedAt:nowIso, reason:partial.closeReason, pnl:partial.pnl }];
           trade.pendingPartialExit = null;
           trade.broker.status = 'confirmed';

@@ -47,7 +47,7 @@ test('confirmed full exit closes trade using broker average fill', async () => {
 });
 
 test('confirmed partial exit reduces parent only by broker-filled quantity', async () => {
-  const trade = { id:'t2', symbol:'TEST', status:'open', side:'buy', qty:10, entryPrice:100, reservedCapital:1000, pendingPartialExit:{ qty:5, reason:'Simulation partial target', requestedPrice:102, runner:true, newTarget:104 }, broker:{ name:'zerodha', mode:'live', status:'exit_placed', exitOrderId:'x2', exitPlacedAt:new Date().toISOString(), audit:[] } };
+  const trade = { id:'t2', symbol:'TEST', status:'open', side:'buy', qty:10, entryPrice:100, reservedCapital:1000, pendingPartialExit:{ qty:5, reason:'Simulation partial target', requestedPrice:102, runner:true, newTarget:104, protectRemainder:true }, broker:{ name:'zerodha', mode:'live', status:'exit_placed', exitOrderId:'x2', exitPlacedAt:new Date().toISOString(), audit:[] } };
   const trades = [trade];
   const poller = new ConfirmationPoller(
     { getOrderStatus: async () => ({ status:'COMPLETE', averagePrice:102.1, filledQuantity:3 }) },
@@ -58,6 +58,7 @@ test('confirmed partial exit reduces parent only by broker-filled quantity', asy
   assert.equal(trade.status, 'open');
   assert.equal(trade.qty, 7);
   assert.equal(trade.target, 104);
+  assert.equal(trade._longProfitLockArmed, true);
   assert.equal(trades[0].parentId, 't2');
   assert.equal(trades[0].qty, 3);
 });

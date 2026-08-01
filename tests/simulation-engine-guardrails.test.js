@@ -27,6 +27,9 @@ test('momentum runner exits early when it makes no progress and deteriorates', (
     price: 99.8,
     score: 20,
     signal: 'watch',
+    candles: [
+      { time:'2026-06-25T05:15:00.000Z', open:100, high:100.1, low:99.7, close:99.8, volume:1000 },
+    ],
     indicators: {
       vwap: 100.5,
       ema9: 99.8,
@@ -44,6 +47,7 @@ test('momentum runner exits early when it makes no progress and deteriorates', (
       SIMULATION_NO_PROGRESS_RUNNER_EXIT_MIN: 25,
       SIMULATION_NO_PROGRESS_MIN_FAVORABLE_PCT: 0.2,
       SIMULATION_NO_PROGRESS_ADVERSE_PCT: 0.15,
+      SIMULATION_NO_PROGRESS_CONFIRM_BARS: 1,
     }
   );
 
@@ -51,28 +55,278 @@ test('momentum runner exits early when it makes no progress and deteriorates', (
   assert.equal(exit?.exitPrice, 99.8);
 });
 
-test('default zero-progress timers are 60 minutes for standard and runner trades', () => {
-  assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_NO_PROGRESS_EXIT_MIN, 60);
-  assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_NO_PROGRESS_RUNNER_EXIT_MIN, 60);
+test('default zero-progress settings release stalled capital within 35 to 45 minutes', () => {
+  assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_NO_PROGRESS_EXIT_MIN, 45);
+  assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_NO_PROGRESS_RUNNER_EXIT_MIN, 45);
+  assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_NO_PROGRESS_FRESH_BREAKOUT_EXIT_MIN, 35);
+  assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_NO_PROGRESS_MIN_FAVORABLE_PCT, 0.15);
+  assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_NO_PROGRESS_ADVERSE_PCT, 0.1);
+  assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_NO_PROGRESS_CONFIRM_BARS, 1);
+  assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_EXIT_MIN_HOLD_MIN, 30);
 });
 
-test('momentum runner initial stop uses a wider ATR floor and caps excessive risk', () => {
+test('gain milestones protect a reached half-percent long gain over time', () => {
+  const trade = {
+    symbol:'TEST',
+    side:'buy',
+    entryPrice:100,
+    stop:99,
+    target:103,
+    qty:100,
+    setupType:'FRESH_BREAKOUT',
+    openedAt:'2026-06-25T05:00:00.000Z',
+  };
+  const candidate = {
+    symbol:'TEST',
+    side:'buy',
+    score:80,
+    signal:'buy',
+    indicators:{ vwap:100.2, superTrendDirection:'bullish' },
+  };
+  const settings = {
+    SIMULATION_GAIN_MILESTONE_ENABLED:true,
+    SIMULATION_GAIN_MILESTONES_PCT:'0.5,1,1.5,2',
+    SIMULATION_TRAIL_START_PCT:3,
+    SIMULATION_EXIT_MIN_HOLD_MIN:999,
+  };
+
+  assert.equal(
+    SimulationEngine.getSimulationExit(
+      trade,
+      100.65,
+      { ...candidate, price:100.65 },
+      '2026-06-25T05:05:00.000Z',
+      settings
+    ),
+    null,
+    'crossing 0.5% should arm the floor without exiting immediately'
+  );
+  assert.equal(trade._gainMilestoneFloorPct, 0.5);
+  assert.equal(trade._gainMilestoneArmedAt, '2026-06-25T05:05:00.000Z');
+  assert.deepEqual(trade.gainMilestones, [{
+    symbol:'TEST',
+    milestonePct:0.5,
+    reachedAt:'2026-06-25T05:05:00.000Z',
+    price:100.65,
+    holdMin:5,
+  }]);
+
+  const exit = SimulationEngine.getSimulationExit(
+    trade,
+    100.49,
+    { ...candidate, price:100.49 },
+    '2026-06-25T05:10:00.000Z',
+    settings
+  );
+  assert.equal(exit?.reason, 'Simulation 0.5% gain milestone');
+  assert.equal(exit?.exitPrice, 100.5);
+  assert.equal(exit?.holdMin, 10);
+});
+
+test('gain milestone ratchets through the configured floors and stops at two percent', () => {
+  const settings = {
+    SIMULATION_GAIN_MILESTONE_ENABLED:true,
+    SIMULATION_GAIN_MILESTONES_PCT:'0.5,1,1.5,2',
+    SIMULATION_TRAIL_START_PCT:5,
+    SIMULATION_EXIT_MIN_HOLD_MIN:999,
+  };
+  const candidate = { score:80, signal:'buy', indicators:{} };
+  const trade = {
+    symbol:'TEST',
+    side:'buy',
+    entryPrice:100,
+    stop:99,
+    target:110,
+    qty:100,
+    openedAt:'2026-06-25T05:00:00.000Z',
+  };
+
+  assert.equal(SimulationEngine.getSimulationExit(trade, 102.6, candidate, '2026-06-25T05:05:00.000Z', settings), null);
+  assert.equal(trade._gainMilestoneFloorPct, 2, 'there must be no automatic 2.5% floor');
+  const exit = SimulationEngine.getSimulationExit(trade, 101.99, candidate, '2026-06-25T05:06:00.000Z', settings);
+  assert.equal(exit?.gainMilestonePct, 2);
+  assert.equal(exit?.exitPrice, 102);
+});
+
+test('gain milestones protect short positions symmetrically', () => {
+  const settings = {
+    SIMULATION_GAIN_MILESTONE_ENABLED:true,
+    SIMULATION_GAIN_MILESTONES_PCT:'0.5,1,1.5,2',
+    SIMULATION_SHORT_PROFIT_LOCK_PCT:5,
+    SIMULATION_TRAIL_START_PCT:5,
+    SIMULATION_EXIT_MIN_HOLD_MIN:999,
+  };
+  const trade = {
+    symbol:'TEST',
+    side:'sell',
+    entryPrice:100,
+    stop:101,
+    target:95,
+    qty:100,
+    openedAt:'2026-06-25T05:00:00.000Z',
+  };
+
+  assert.equal(
+    SimulationEngine.getSimulationExit(trade, 98.8, { score:-80, signal:'sell', indicators:{} }, '2026-06-25T05:05:00.000Z', settings),
+    null
+  );
+  assert.equal(trade._gainMilestoneFloorPct, 1);
+  const exit = SimulationEngine.getSimulationExit(
+    trade,
+    99.01,
+    { score:-80, signal:'sell', indicators:{} },
+    '2026-06-25T05:06:00.000Z',
+    settings
+  );
+  assert.equal(exit?.exitPrice, 99);
+});
+
+test('gain milestones remain inactive before the first half-percent gain', () => {
+  const trade = {
+    symbol:'TEST',
+    side:'buy',
+    entryPrice:100,
+    stop:99,
+    target:103,
+    qty:100,
+    openedAt:'2026-06-25T05:00:00.000Z',
+  };
+  const exit = SimulationEngine.getSimulationExit(
+    trade,
+    100.49,
+    { score:80, signal:'buy', indicators:{} },
+    '2026-06-25T05:05:00.000Z',
+    {
+      SIMULATION_GAIN_MILESTONE_ENABLED:true,
+      SIMULATION_GAIN_MILESTONES_PCT:'0.5,1,1.5,2',
+      SIMULATION_TRAIL_START_PCT:3,
+      SIMULATION_EXIT_MIN_HOLD_MIN:999,
+    }
+  );
+  assert.equal(exit, null);
+  assert.equal(trade._gainMilestoneFloorPct, undefined);
+});
+
+test('gain milestone rollout does not backfill an impossible historical floor price', () => {
+  const trade = {
+    symbol:'LEGACY',
+    side:'buy',
+    entryPrice:100,
+    stop:99,
+    target:105,
+    qty:100,
+    openedAt:'2026-06-25T05:00:00.000Z',
+    _maxFavorablePct:1.7,
+    _bestPrice:101.7,
+  };
+  const exit = SimulationEngine.getSimulationExit(
+    trade,
+    100.4,
+    { score:80, signal:'buy', indicators:{} },
+    '2026-06-25T05:30:00.000Z',
+    {
+      SIMULATION_GAIN_MILESTONE_ENABLED:true,
+      SIMULATION_GAIN_MILESTONES_PCT:'0.5,1,1.5,2',
+      SIMULATION_TRAIL_START_PCT:3,
+      SIMULATION_EXIT_MIN_HOLD_MIN:999,
+    }
+  );
+  assert.equal(exit?.gainMilestonePct, 1.5);
+  assert.equal(exit?.exitPrice, 100.4);
+});
+
+test('gain milestone histories are captured independently for each stock', () => {
+  const settings = {
+    SIMULATION_GAIN_MILESTONE_ENABLED:true,
+    SIMULATION_GAIN_MILESTONES_PCT:'0.5,1,1.5,2',
+    SIMULATION_TRAIL_START_PCT:5,
+    SIMULATION_EXIT_MIN_HOLD_MIN:999,
+  };
+  const makeTrade = symbol => ({
+    symbol,
+    side:'buy',
+    entryPrice:100,
+    stop:99,
+    target:105,
+    qty:100,
+    openedAt:'2026-06-25T05:00:00.000Z',
+  });
+  const alpha = makeTrade('ALPHA');
+  const beta = makeTrade('BETA');
+  const candidate = { score:80, signal:'buy', indicators:{} };
+
+  assert.equal(SimulationEngine.getSimulationExit(alpha, 101.6, candidate, '2026-06-25T05:10:00.000Z', settings), null);
+  assert.equal(SimulationEngine.getSimulationExit(beta, 100.7, candidate, '2026-06-25T05:12:00.000Z', settings), null);
+
+  assert.equal(alpha.gainMilestoneFloorPct, 1.5);
+  assert.deepEqual(alpha.gainMilestones.map(item => item.milestonePct), [0.5, 1, 1.5]);
+  assert.ok(alpha.gainMilestones.every(item => item.symbol === 'ALPHA'));
+  assert.equal(beta.gainMilestoneFloorPct, 0.5);
+  assert.deepEqual(beta.gainMilestones.map(item => item.milestonePct), [0.5]);
+  assert.ok(beta.gainMilestones.every(item => item.symbol === 'BETA'));
+
+  const alphaExit = SimulationEngine.getSimulationExit(alpha, 101.49, candidate, '2026-06-25T05:15:00.000Z', settings);
+  assert.equal(alphaExit?.gainMilestonePct, 1.5);
+  assert.equal(beta.gainMilestoneFloorPct, 0.5, 'ALPHA exit must not change BETA milestone state');
+});
+
+test('momentum runner initial stop is fixed at 0.80 percent', () => {
   const candidate = {
     setupType: 'MOMENTUM_RUNNER',
     indicators: { target: 1301.94, stop: 1281.21, atr: 6.61 },
   };
   const plan = SimulationEngine.getPaperPlanForCandidate(candidate, 'buy', 1286.5);
-  assert.equal(plan.stop, 1278.57);
+  assert.equal(plan.stop, 1276.21);
 
   const capped = SimulationEngine.getPaperPlanForCandidate(
     { setupType: 'MOMENTUM_RUNNER', indicators: { atr: 30, stop: 1281.21 } },
     'buy',
     1286.5
   );
-  assert.equal(capped.stop, 1270.42);
+  assert.equal(capped.stop, 1276.21);
 });
 
-test('early momentum runner can enter before generic score reaches 70', () => {
+test('momentum runner scale-in requires the 0.50 percent milestone and current VWAP/trigger hold', () => {
+  const trade = {
+    id:'runner-1',
+    symbol:'TEST',
+    side:'buy',
+    setupType:'MOMENTUM_RUNNER',
+    qty:50,
+    entryPrice:100,
+    stop:99.2,
+    _momentumRunnerFullQty:100,
+  };
+  const candidate = {
+    symbol:'TEST',
+    price:100.5,
+    indicators:{ vwap:100.05, entryTrigger:'Buy above 100.10' },
+  };
+  const intent = SimulationEngine.getMomentumRunnerScaleInIntent(trade, candidate, candidate.price);
+  assert.equal(intent?.qty, 50);
+  assert.equal(intent?.action, 'scale_in');
+
+  assert.equal(
+    SimulationEngine.getMomentumRunnerScaleInIntent(
+      { ...trade, _maxFavorablePct:0.49 },
+      { ...candidate, price:100.05 },
+      100.05
+    ),
+    null,
+    'must not add before the MFE threshold or while below the trigger'
+  );
+  assert.equal(
+    SimulationEngine.getMomentumRunnerScaleInIntent(
+      { ...trade, _maxFavorablePct:0.55 },
+      { ...candidate, price:100.08 },
+      100.08
+    ),
+    null,
+    'historical MFE alone is insufficient when the current price has lost the trigger'
+  );
+});
+
+test('hard long score floor blocks an early momentum runner below 65', () => {
   const candidate = {
     symbol: 'SUVEN',
     side: 'buy',
@@ -92,7 +346,7 @@ test('early momentum runner can enter before generic score reaches 70', () => {
       ema9: 103.6,
       ema20: 103.1,
       superTrendDirection: 'bullish',
-      volumeShock: { volumeRatio3m: 1, volumeRatio5m: 1.2 },
+      volumeShock: { volumeRatio3m: 1, volumeRatio5m: 1.2, change5m:0.2 },
       volumeSpike: true,
       stopPct: 0.7,
       volumeShock: {
@@ -100,6 +354,7 @@ test('early momentum runner can enter before generic score reaches 70', () => {
         breakout: true,
         volumeRatio3m: 1.1,
         volumeRatio5m: 1.4,
+        change5m: 0.2,
         recentHigh: 103.9,
       },
       reasons: ['Opening range breakout', 'previous day high'],
@@ -109,7 +364,11 @@ test('early momentum runner can enter before generic score reaches 70', () => {
 
   assert.equal(SimulationEngine.deriveSetupType(candidate), 'MOMENTUM_RUNNER');
   assert.equal(SimulationEngine.getMomentumRunnerInfo(candidate).mode, 'early');
-  assert.equal(SimulationEngine.isReplayCandidateEligible(candidate, '2026-07-02T04:15:00.000Z'), true);
+  assert.equal(SimulationEngine.isReplayCandidateEligible(candidate, '2026-07-02T04:15:00.000Z'), false);
+  assert.match(
+    SimulationEngine.explainCandidateEligibility(candidate, '2026-07-02T04:15:00.000Z').reasons.join(' | '),
+    /hard decision score/
+  );
 });
 
 test('early momentum runner rejects an otherwise strong opportunity after it is already extended', () => {
@@ -194,7 +453,7 @@ test('late momentum runner can pass only with fresh shock or high breakout confi
     indicators: {
       entryStatus: 'Triggered',
       entryTrigger: 'Buy above 101',
-      dayChange: 9.4,
+      dayChange: 5.4,
       relVolumeTimeAdjusted: 7,
       vwap: 103,
       rsi: 70,
@@ -209,8 +468,9 @@ test('late momentum runner can pass only with fresh shock or high breakout confi
         breakout: true,
         volumeRatio3m: 0.7,
         volumeRatio5m: 1.35,
+        change5m: 0.2,
         recentHigh: 103.8,
-        dayChangePct: 9.4,
+        dayChangePct: 5.4,
       },
     },
   };
@@ -323,7 +583,7 @@ test('late momentum runner sizing is reduced', () => {
   assert.ok(reduced.qty <= Math.floor(full.qty * 0.5));
 });
 
-test('strong volume-shock breakout can enter at 55 score only with quality filters', () => {
+test('strong volume-shock breakout cannot bypass the 65 hard score floor', () => {
   const base = {
     symbol: 'PERSISTENT',
     side: 'buy',
@@ -350,7 +610,8 @@ test('strong volume-shock breakout can enter at 55 score only with quality filte
 
   assert.equal(SimulationEngine.deriveSetupType(base), 'VOLUME_SHOCK_BREAKOUT');
   assert.equal(SimulationEngine.isStrongVolumeBreakoutCandidate(base), true);
-  assert.equal(SimulationEngine.isReplayCandidateEligible(base, '2026-07-02T05:00:00.000Z'), true);
+  assert.equal(SimulationEngine.isReplayCandidateEligible(base, '2026-07-02T05:00:00.000Z'), false);
+  assert.equal(SimulationEngine.isReplayCandidateEligible({ ...base, score:65 }, '2026-07-02T05:00:00.000Z'), true);
   assert.equal(SimulationEngine.isReplayCandidateEligible({ ...base, score: 54 }, '2026-07-02T05:00:00.000Z'), false);
   assert.equal(SimulationEngine.isReplayCandidateEligible({
     ...base,
@@ -494,7 +755,7 @@ test('quality fresh breakout relaxation still blocks larger trigger chases', () 
       ema9: 102.8,
       ema20: 101.8,
       superTrendDirection: 'bullish',
-      volumeShock: { volumeRatio3m: 1, volumeRatio5m: 1.2 },
+      volumeShock: { volumeRatio3m: 1, volumeRatio5m: 1.2, change5m:0.2 },
       stopPct: 0.6,
       reasons: ['Opening range breakout', 'previous day high'],
     },
@@ -554,7 +815,7 @@ function makeEligibleCandidate(symbol, score = 85) {
       ema9: 100.8,
       ema20: 100.1,
       superTrendDirection: 'bullish',
-      volumeShock: { volumeRatio3m: 1, volumeRatio5m: 1.2 },
+      volumeShock: { volumeRatio3m: 1, volumeRatio5m: 1.2, change5m:0.2 },
       stopPct: 0.6,
       reasons: ['previous day high'],
     },
@@ -600,6 +861,26 @@ test('candidate ranking selects momentum runner ahead of higher-score fresh brea
   assert.equal(selected[0]?.symbol, 'RUNNER-RANK');
 });
 
+test('momentum runner entries are capped at 0.50 percent above VWAP', () => {
+  const candidate = makeEligibleCandidate('RUNNER-VWAP', 95);
+  candidate.setupType = candidate.derivedSetupType = 'MOMENTUM_RUNNER';
+  candidate.price = 100.7;
+  candidate.candles = [{ time:'2026-07-02T04:50:00.000Z', open:100.1, high:100.8, low:100, close:100.6, volume:1000 }];
+  candidate.indicators = {
+    ...candidate.indicators,
+    entryTrigger:'Buy above 100.2',
+    vwap:100.1,
+    volumeShock:{ isShock:true, volumeRatio3m:1.2, volumeRatio5m:1.3, change5m:0.2 },
+  };
+  assert.match(
+    SimulationEngine.getSetupBlockReason(candidate, 'MOMENTUM_RUNNER', '2026-07-02T05:00:00.000Z', {
+      SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED:true,
+      SIMULATION_MOMENTUM_RUNNER_MAX_VWAP_EXTENSION_PCT:0.5,
+    }, {}),
+    /long VWAP extension .* exceeds 0.5%/
+  );
+});
+
 test('degraded intraday data quality reduces entries before blocking fully', () => {
   const settings = {
     SIMULATION_DATA_QUALITY_MIN_SAMPLE: 4,
@@ -621,7 +902,7 @@ test('degraded intraday data quality reduces entries before blocking fully', () 
   const selected = SimulationEngine.selectSimulationEntryCandidates(candidates, '2026-07-02T05:00:00.000Z', settings, {
     market: { indices: { nifty50: { change: 0.2 } } },
   });
-  assert.equal(selected.length, 2);
+  assert.equal(selected.length, 1);
 });
 
 test('severely degraded intraday data quality blocks new entries', () => {
@@ -684,7 +965,7 @@ test('VWAP continuation blocks weak recent volume impulse at entry', () => {
   assert.equal(SimulationEngine.isReplayCandidateEligible(candidate, '2026-07-03T05:22:00.000Z'), false);
 });
 
-test('VWAP continuation allows negative 5m change only on fresh high breakout', () => {
+test('global long momentum gate blocks negative 5m VWAP continuation even at a fresh high', () => {
   const candidate = makeEligibleCandidate('FRESHHIGH', 100);
   candidate.setupType = 'VWAP_TREND_CONTINUATION';
   candidate.derivedSetupType = 'VWAP_TREND_CONTINUATION';
@@ -705,7 +986,7 @@ test('VWAP continuation allows negative 5m change only on fresh high breakout', 
   candidate.previousCandidate = SimulationEngine.toConfirmationCandidate(candidate);
 
   assert.equal(SimulationEngine.getVwapContinuationInfo(candidate).ok, true);
-  assert.equal(SimulationEngine.isReplayCandidateEligible(candidate, '2026-07-03T05:22:00.000Z'), true);
+  assert.equal(SimulationEngine.isReplayCandidateEligible(candidate, '2026-07-03T05:22:00.000Z'), false);
 
   const faded = {
     ...candidate,
@@ -848,6 +1129,9 @@ test('no-progress exit uses setup-specific timing and VWAP continuation volume f
     side: 'buy',
     price: 99.8,
     score: 20,
+    candles: [
+      { time:'2026-07-02T05:20:00.000Z', open:100, high:100.1, low:99.7, close:99.8, volume:1000 },
+    ],
     indicators: {
       vwap: 100.5,
       ema9: 99.8,
@@ -856,54 +1140,68 @@ test('no-progress exit uses setup-specific timing and VWAP continuation volume f
       relVolumeTimeAdjusted: 0.9,
     },
   };
+  const legacyConfirmationSettings = {
+    SIMULATION_NO_PROGRESS_RUNNER_EXIT_MIN:60,
+    SIMULATION_NO_PROGRESS_FRESH_BREAKOUT_EXIT_MIN:30,
+    SIMULATION_NO_PROGRESS_ADVERSE_PCT:0.15,
+    SIMULATION_NO_PROGRESS_CONFIRM_BARS:1,
+  };
 
   assert.equal(SimulationEngine.getSimulationExit(
     { ...baseTrade, setupType: 'MOMENTUM_RUNNER' },
     99.8,
     weakCandidate,
-    '2026-07-02T05:59:30.000Z'
+    '2026-07-02T05:59:30.000Z',
+    legacyConfirmationSettings
   ), null);
   assert.equal(SimulationEngine.getSimulationExit(
     { ...baseTrade, setupType: 'MOMENTUM_RUNNER' },
     99.8,
     weakCandidate,
-    '2026-07-02T06:00:00.000Z'
+    '2026-07-02T06:00:00.000Z',
+    legacyConfirmationSettings
   )?.reason, 'Simulation zero-progress exit');
   assert.equal(SimulationEngine.getSimulationExit(
     { ...baseTrade, setupType: 'FRESH_BREAKOUT' },
     99.8,
     weakCandidate,
-    '2026-07-02T05:29:59.000Z'
+    '2026-07-02T05:29:59.000Z',
+    legacyConfirmationSettings
   ), null);
   assert.equal(SimulationEngine.getSimulationExit(
     { ...baseTrade, setupType: 'FRESH_BREAKOUT' },
     99.8,
     weakCandidate,
-    '2026-07-02T05:30:00.000Z'
+    '2026-07-02T05:30:00.000Z',
+    legacyConfirmationSettings
   )?.reason, 'Simulation zero-progress exit');
   assert.equal(SimulationEngine.getSimulationExit(
     { ...baseTrade, setupType: 'VWAP_TREND_CONTINUATION' },
     99.8,
     { ...weakCandidate, indicators: { ...weakCandidate.indicators, relVolumeTimeAdjusted: 1.6 } },
-    '2026-07-02T05:30:00.000Z'
+    '2026-07-02T05:30:00.000Z',
+    legacyConfirmationSettings
   ), null);
   assert.equal(SimulationEngine.getSimulationExit(
     { ...baseTrade, setupType: 'VWAP_TREND_CONTINUATION' },
     99.8,
     { ...weakCandidate, indicators: { ...weakCandidate.indicators, relVolumeTimeAdjusted: 1.3 } },
-    '2026-07-02T05:29:59.000Z'
+    '2026-07-02T05:29:59.000Z',
+    legacyConfirmationSettings
   ), null);
   assert.equal(SimulationEngine.getSimulationExit(
     { ...baseTrade, setupType: 'VWAP_TREND_CONTINUATION' },
     99.8,
     { ...weakCandidate, indicators: { ...weakCandidate.indicators, relVolumeTimeAdjusted: 1.3 } },
-    '2026-07-02T05:30:00.000Z'
+    '2026-07-02T05:30:00.000Z',
+    legacyConfirmationSettings
   )?.reason, 'Simulation zero-progress exit');
   assert.equal(SimulationEngine.getSimulationExit(
     { ...baseTrade, setupType: 'VWAP_TREND_CONTINUATION' },
     99.8,
     weakCandidate,
-    '2026-07-02T05:30:00.000Z'
+    '2026-07-02T05:30:00.000Z',
+    legacyConfirmationSettings
   )?.reason, 'Simulation zero-progress exit');
 });
 
@@ -977,7 +1275,7 @@ test('candidate selection forwards sector trend into the shared market-regime ru
   candidate.setupType = 'MOMENTUM_RUNNER';
   candidate.derivedSetupType = 'MOMENTUM_RUNNER';
   candidate.indicators.dayChange = 1.1;
-  const selected = SimulationEngine.selectSimulationEntryCandidates([candidate], '2026-07-13T06:00:00.000Z', {}, {
+  const selected = SimulationEngine.selectSimulationEntryCandidates([candidate], '2026-07-13T06:00:00.000Z', { SIMULATION_MOMENTUM_RUNNER_MAX_CONFIRMATION_AGE_MIN:20000 }, {
     openSymbols: new Set(),
     market: { indices: { nifty50: { change: -0.42 } } },
     sectorTrend: { IT: 0.72 },
@@ -988,13 +1286,50 @@ test('candidate selection forwards sector trend into the shared market-regime ru
 
 test('candidate selection reserves only the remaining rolling entry capacity in one cycle', () => {
   const candidates = ['ONE', 'TWO', 'THREE'].map((symbol, index) => makeEligibleCandidate(symbol, 95 - index));
-  const selected = SimulationEngine.selectSimulationEntryCandidates(candidates, '2026-07-13T05:25:00.000Z', {}, {
+  const selected = SimulationEngine.selectSimulationEntryCandidates(candidates, '2026-07-13T05:25:00.000Z', { SIMULATION_MOMENTUM_RUNNER_MAX_CONFIRMATION_AGE_MIN:20000 }, {
     openSymbols: new Set(),
     dayStats: { rollingEntries: 1 },
   });
 
   assert.equal(selected.length, 1);
   assert.equal(selected[0].symbol, 'ONE');
+});
+
+test('candidate selection enforces concurrent short and total open-position caps', () => {
+  const candidate = makeEligibleCandidate('NEW-SHORT', 90);
+  candidate.side = candidate.signal = 'sell';
+  candidate.score = candidate.decisionScore = -90;
+  candidate.setupType = candidate.derivedSetupType = 'BREAKDOWN';
+  candidate.price = 99.65;
+  candidate.candles = [{ time:'2026-07-13T05:15:00.000Z', open:100.15, high:100.2, low:99.55, close:99.75, volume:1000 }];
+  candidate.indicators = {
+    ...candidate.indicators,
+    entryTrigger:'Sell below 100', vwap:99.9, dayChange:-1,
+    rsi:38, ema9:99.7, ema20:100.05, superTrendDirection:'bearish',
+    volumeShock:{ volumeRatio3m:1.1, volumeRatio5m:1.2 },
+  };
+  const settings = {
+    SIMULATION_MAX_CONCURRENT_SHORTS:4,
+    SIMULATION_MAX_OPEN:10,
+    SIMULATION_MAX_ACTIVE_OPEN:8,
+  };
+  const baseContext = {
+    openSymbols:new Set(),
+    openPositionCounts:new Map([['EXISTING', 4]]),
+    openSideCounts:{ buy:0, sell:4 },
+  };
+  assert.equal(
+    SimulationEngine.selectSimulationEntryCandidates([candidate], '2026-07-13T05:25:30.000Z', settings, baseContext).length,
+    0
+  );
+  assert.equal(
+    SimulationEngine.selectSimulationEntryCandidates([candidate], '2026-07-13T05:25:30.000Z', settings, {
+      ...baseContext,
+      openPositionCounts:new Map([['EXISTING', 10]]),
+      openSideCounts:{ buy:6, sell:3 },
+    }).length,
+    0
+  );
 });
 
 test('sector alignment adds a bounded boost without outranking a materially better candidate', () => {
@@ -1010,16 +1345,16 @@ test('sector alignment adds a bounded boost without outranking a materially bett
     { symbol:'IT-A', sector:'IT', side:'watch', score:0, indicators:{ dayChange:0.8 } },
     { symbol:'IT-B', sector:'IT', side:'watch', score:0, indicators:{ dayChange:0.7 } },
   ];
-  const selected = SimulationEngine.selectSimulationEntryCandidates([ordinary, aligned, ...sectorBreadth], '2026-07-13T06:00:00.000Z', {}, {
+  const selected = SimulationEngine.selectSimulationEntryCandidates([ordinary, aligned, ...sectorBreadth], '2026-07-13T06:00:00.000Z', { SIMULATION_MOMENTUM_RUNNER_MAX_CONFIRMATION_AGE_MIN:20000 }, {
     openSymbols:new Set(),
     dayStats:{ rollingEntries:0, rollingOrdinaryEntries:0, rollingSectorEntries:0 },
     market:{ indices:{ nifty50:{ change:-0.1 } } },
     sectorTrend:{ IT:1.0, Finance:0.1 },
   });
 
-  assert.deepEqual(selected.map(candidate => candidate.symbol), ['ORDINARY', 'HCLTECH']);
-  assert.equal(selected[1].sectorPriority.aligned, true);
-  assert.ok(selected[1].sectorPriority.boost > 0);
+  assert.deepEqual(selected.map(candidate => candidate.symbol), ['ORDINARY']);
+  assert.equal(aligned.sectorPriority.aligned, true);
+  assert.ok(aligned.sectorPriority.boost > 0);
 });
 
 test('strong sector alignment never bypasses trigger distance or entry quality guards', () => {
@@ -1087,7 +1422,7 @@ test('an ordinary rolling entry preserves the remaining slot for a sector-aligne
     { symbol:'IT-C', sector:'IT', side:'watch', score:0, indicators:{ dayChange:0.8 } },
     { symbol:'IT-D', sector:'IT', side:'watch', score:0, indicators:{ dayChange:0.7 } },
   ];
-  const selected = SimulationEngine.selectSimulationEntryCandidates([ordinary, aligned, ...fillers], '2026-07-13T06:00:00.000Z', {}, {
+  const selected = SimulationEngine.selectSimulationEntryCandidates([ordinary, aligned, ...fillers], '2026-07-13T06:00:00.000Z', { SIMULATION_MOMENTUM_RUNNER_MAX_CONFIRMATION_AGE_MIN:20000 }, {
     openSymbols:new Set(),
     dayStats:{ rollingEntries:1, rollingOrdinaryEntries:1, rollingSectorEntries:0 },
     market:{ indices:{ nifty50:{ change:-0.1 } } },
@@ -1097,22 +1432,261 @@ test('an ordinary rolling entry preserves the remaining slot for a sector-aligne
   assert.deepEqual(selected.map(candidate => candidate.symbol), ['TECHM']);
 });
 
-test('breakeven protection waits for minimum hold and exits at observed executable price', () => {
+test('breakeven protection waits for distinct completed VWAP-loss candles', () => {
   const openedAt = '2026-07-10T04:45:00.000Z';
   const trade = {
     symbol: 'TEST', side: 'buy', qty: 100, entryPrice: 100,
     target: 102, stop: 99, openedAt, setupType: 'MOMENTUM_RUNNER',
+    _partialTargetBooked:true,
   };
-  const candidate = { symbol: 'TEST', price: 100.7, indicators: {} };
+  const candidate = { symbol: 'TEST', price: 100.7, indicators: { vwap:100.2 } };
   const settings = {
+    SIMULATION_GAIN_MILESTONE_ENABLED:false,
     SIMULATION_BREAKEVEN_PROTECT_PCT: 0.65,
+    SIMULATION_LONG_PROFIT_LOCK_PCT: 0.65,
     SIMULATION_BREAKEVEN_MIN_HOLD_MIN: 5,
+    SIMULATION_LONG_PROFIT_LOCK_MIN_HOLD_MIN: 5,
     SIMULATION_BREAKEVEN_COST_BUFFER_PCT: 0.02,
+    SIMULATION_EXIT_FADE_CONFIRM_BARS: 2,
+    SIMULATION_TRAIL_START_PCT: 2,
   };
 
   assert.equal(SimulationEngine.getSimulationExit(trade, 100.7, candidate, '2026-07-10T04:46:00.000Z', settings), null);
-  const exit = SimulationEngine.getSimulationExit(trade, 100.1, { ...candidate, price: 100.1 }, '2026-07-10T04:51:00.000Z', settings);
+  const firstBreach = {
+    ...candidate,
+    price:100.1,
+    candles:[{ time:'2026-07-10T04:50:00.000Z', open:100.25, high:100.3, low:100.05, close:100.1, volume:1000 }],
+  };
+  assert.equal(SimulationEngine.getSimulationExit(trade, 100.1, firstBreach, '2026-07-10T04:56:00.000Z', settings), null);
+  assert.equal(SimulationEngine.getSimulationExit(trade, 100.1, firstBreach, '2026-07-10T04:57:00.000Z', settings), null);
+  assert.equal(trade._breakevenBreachCount, 1, 'refreshing one completed candle must not confirm the exit');
+  const secondBreach = {
+    ...candidate,
+    price:100.05,
+    candles:[{ time:'2026-07-10T04:55:00.000Z', open:100.15, high:100.2, low:100, close:100.05, volume:1000 }],
+  };
+  const exit = SimulationEngine.getSimulationExit(trade, 100.05, secondBreach, '2026-07-10T05:01:00.000Z', settings);
   assert.equal(exit.reason, 'Simulation breakeven guard');
-  assert.equal(exit.exitPrice, 100.1);
+  assert.equal(exit.exitPrice, 100.05);
+  assert.equal(exit.confirmedBars, 2);
   assert.notEqual(exit.exitPrice, trade.entryPrice);
+});
+
+test('short profit lock books half at 0.25 percent and protects the remainder', () => {
+  const trade = {
+    symbol:'SHORT-LOCK', side:'sell', qty:100, entryPrice:100,
+    target:98, stop:101, openedAt:'2026-07-10T04:45:00.000Z', setupType:'BREAKDOWN',
+  };
+  const candidate = {
+    symbol:'SHORT-LOCK', side:'sell', price:99.75, score:-80,
+    indicators:{ vwap:100.2, ema9:99.8, ema20:100.1, superTrendDirection:'bearish' },
+  };
+  const settings = TradeRules.withDefaults({
+    SIMULATION_SHORT_PROFIT_LOCK_PCT:0.25,
+    SIMULATION_SHORT_PROFIT_LOCK_PARTIAL_QTY_PCT:50,
+    SIMULATION_BREAKEVEN_MIN_HOLD_MIN:0,
+    SIMULATION_EXIT_FADE_CONFIRM_BARS:1,
+  });
+  const partial = SimulationEngine.getSimulationExit(trade, 99.75, candidate, '2026-07-10T04:46:00.000Z', settings);
+  assert.equal(partial.reason, 'Simulation short profit lock');
+  assert.equal(partial.action, 'partial');
+  assert.equal(partial.qtyPct, 50);
+  assert.equal(partial.newTarget, 98);
+  assert.equal(partial.protectRemainder, true);
+
+  trade._partialTargetBooked = true;
+  assert.equal(SimulationEngine.getSimulationExit(
+    trade,
+    100,
+    { ...candidate, price:100 },
+    '2026-07-10T04:47:00.000Z',
+    settings
+  ), null, 'the first retracement to cost must not exit without a completed VWAP-loss candle');
+  const protectedExit = SimulationEngine.getSimulationExit(
+    trade,
+    100,
+    {
+      ...candidate,
+      price:100,
+      indicators:{ ...candidate.indicators, vwap:99.8 },
+      candles:[{ time:'2026-07-10T04:45:00.000Z', open:99.9, high:100.1, low:99.85, close:100, volume:1000 }],
+    },
+    '2026-07-10T04:51:00.000Z',
+    settings
+  );
+  assert.equal(protectedExit.reason, 'Simulation breakeven guard');
+  assert.equal(protectedExit.confirmedBars, 1);
+});
+
+test('momentum runner requires non-negative 5m momentum even after a VWAP reclaim', () => {
+  const candidate = makeEligibleCandidate('RECLAIM-RUNNER', 90);
+  candidate.setupType = candidate.derivedSetupType = 'MOMENTUM_RUNNER';
+  candidate.sectorPriority = { aligned:true, sectorAvg:1, breadthPct:75, rs:1.2 };
+  candidate.indicators.volumeShock = {
+    ...candidate.indicators.volumeShock,
+    change5m:-0.2,
+  };
+  let reason = SimulationEngine.getSetupBlockReason(
+    candidate,
+    'MOMENTUM_RUNNER',
+    '2026-07-02T05:00:00.000Z',
+    {},
+    {}
+  );
+  assert.match(reason, /long 5m momentum -0.2% is negative/);
+
+  candidate.candles = [
+    { time:'2026-07-02T04:45:00.000Z', open:100.2, high:100.3, low:99.8, close:100.1, volume:900 },
+    { time:'2026-07-02T04:50:00.000Z', open:100.05, high:100.8, low:100, close:100.7, volume:1200 },
+  ];
+  reason = SimulationEngine.getSetupBlockReason(
+    candidate,
+    'MOMENTUM_RUNNER',
+    '2026-07-02T05:00:00.000Z',
+    { SIMULATION_LONG_REQUIRE_FRESH_VOLUME_AFTER_CONFIRMATION:false },
+    {}
+  );
+  assert.match(reason, /long 5m momentum -0.2% is negative/);
+});
+
+test('momentum runner requires sector alignment or strong stock-relative strength', () => {
+  const candidate = makeEligibleCandidate('RS-RUNNER', 90);
+  candidate.setupType = candidate.derivedSetupType = 'MOMENTUM_RUNNER';
+  candidate.sectorPriority = { aligned:false, sectorAvg:0.1, breadthPct:45, rs:0.4 };
+  let reason = SimulationEngine.getSetupBlockReason(candidate, 'MOMENTUM_RUNNER', '2026-07-02T05:00:00.000Z', {}, {
+    market:{ indices:{ nifty50:{ change:0.1 } } },
+  });
+  assert.match(reason, /sector alignment or RS/);
+  candidate.sectorPriority.rs = 0.9;
+  reason = SimulationEngine.getSetupBlockReason(candidate, 'MOMENTUM_RUNNER', '2026-07-02T05:00:00.000Z', {}, {
+    market:{ indices:{ nifty50:{ change:0.1 } } },
+  });
+  assert.doesNotMatch(reason, /sector alignment or RS/);
+});
+
+test('fragmented market permits only dominant-sector long leaders', () => {
+  const candidate = makeEligibleCandidate('FRAGMENTED', 90);
+  candidate.setupType = candidate.derivedSetupType = 'VWAP_PULLBACK_OR_HOLD';
+  candidate.sectorPriority = { aligned:false, sectorAvg:0.1, breadthPct:45, rs:0.4 };
+  const context = {
+    market:{ indices:{
+      nifty50:{ change:0.05 },
+      banknifty:{ change:-0.4 },
+      smallcap:{ change:-0.3 },
+    } },
+  };
+  let reason = SimulationEngine.getSetupBlockReason(candidate, candidate.setupType, '2026-07-02T05:00:00.000Z', {}, context);
+  assert.match(reason, /fragmented market/);
+  candidate.sectorPriority = { aligned:true, sectorAvg:1.1, sectorRank:1, sectorCount:8, breadthPct:75, rs:1.3 };
+  reason = SimulationEngine.getSetupBlockReason(candidate, candidate.setupType, '2026-07-02T05:00:00.000Z', {}, context);
+  assert.doesNotMatch(reason, /fragmented market/);
+});
+
+test('entry expected gross move must cover at least 2.5 times modeled costs', () => {
+  const candidate = makeEligibleCandidate('COST-MULTIPLE', 90);
+  candidate.setupType = candidate.derivedSetupType = 'VWAP_PULLBACK_OR_HOLD';
+  candidate.cost = { ok:true, netPct:1.2, targetPct:0.3, costPct:0.08, slippagePct:0.06 };
+  const explanation = SimulationEngine.explainCandidateEligibility(candidate, '2026-07-02T05:00:00.000Z', {}, {});
+  assert.ok(explanation.reasons.some(reason => /2.5x modeled costs/.test(reason)));
+});
+
+test('flat-market generic runner locks at 0.55 while a dominant leader retains 0.80', () => {
+  const settings = TradeRules.withDefaults({ SIMULATION_LONG_PROFIT_LOCK_MIN_HOLD_MIN:15, SIMULATION_TRAIL_START_PCT:2 });
+  const market = { indices:{ nifty50:{ change:0.05 }, banknifty:{ change:-0.4 }, smallcap:{ change:-0.3 } } };
+  const candidate = makeEligibleCandidate('ADAPTIVE-LOCK', 90);
+  candidate.price = 100.55;
+  candidate.sectorPriority = { aligned:false, sectorAvg:0.1, breadthPct:45, rs:0.4 };
+  const trade = {
+    symbol:candidate.symbol, side:'buy', setupType:'MOMENTUM_RUNNER',
+    entryPrice:100, qty:20, openedAt:'2026-07-02T04:30:00.000Z',
+  };
+  const partial = SimulationEngine.getSimulationExit(trade, 100.55, candidate, '2026-07-02T05:00:00.000Z', settings, { market });
+  assert.equal(partial?.action, 'partial');
+  assert.equal(partial?.qtyPct, 25);
+  assert.equal(trade._activeLongProfitLockPct, 0.55);
+
+  const leaderTrade = { ...trade, _partialTargetBooked:false, _maxFavorablePct:0, _bestPrice:100 };
+  const leaderCandidate = { ...candidate, sectorPriority:{ aligned:true, sectorAvg:1.2, sectorRank:1, sectorCount:8, breadthPct:75, rs:1.4 } };
+  assert.equal(
+    SimulationEngine.getSimulationExit(leaderTrade, 100.55, leaderCandidate, '2026-07-02T05:00:00.000Z', settings, { market }),
+    null
+  );
+  assert.equal(leaderTrade._activeLongProfitLockPct, 0.8);
+});
+
+test('fragmented market requires an actual top-ranked sector, not merely aligned Finance', () => {
+  const candidate = makeEligibleCandidate('JIOFIN-LIKE', 90);
+  candidate.sector = 'Finance';
+  candidate.setupType = candidate.derivedSetupType = 'VWAP_PULLBACK_OR_HOLD';
+  const sectorStats = {
+    Finance:{ count:8, avg:0.54, advancePct:75, declinePct:25 },
+    IT:{ count:8, avg:2.42, advancePct:88, declinePct:12 },
+    Media:{ count:8, avg:2.64, advancePct:88, declinePct:12 },
+    'Consumer Services':{ count:8, avg:2.92, advancePct:88, declinePct:12 },
+  };
+  const context = {
+    market:{ indices:{
+      nifty50:{ change:0.14 },
+      banknifty:{ change:-0.15 },
+      smallcap:{ change:-0.35 },
+    } },
+    sectorTrend:{ Finance:0.54, IT:2.42, Media:2.64, 'Consumer Services':2.92 },
+  };
+  SimulationEngine.applySectorPriority(candidate, sectorStats, context, TradeRules.withDefaults({}));
+  assert.equal(candidate.sectorPriority.aligned, true);
+  assert.equal(candidate.sectorPriority.sectorRank, 4);
+  assert.match(
+    SimulationEngine.getSetupBlockReason(candidate, candidate.setupType, '2026-07-28T05:22:22.790Z', {}, context),
+    /not a dominant-sector leader/
+  );
+});
+
+test('momentum runner rejects a positive five-minute move after its prior impulse high has faded', () => {
+  const candidate = makeEligibleCandidate('LATE-RUNNER', 90);
+  candidate.price = 238.6;
+  candidate.setupType = candidate.derivedSetupType = 'MOMENTUM_RUNNER';
+  candidate.sectorPriority = { aligned:true, sectorAvg:1.2, sectorRank:1, sectorCount:8, breadthPct:75, rs:1.2 };
+  candidate.indicators.vwap = 237.46;
+  candidate.indicators.entryTrigger = 'Buy above 237.40';
+  candidate.indicators.dayChange = 1.03;
+  candidate.indicators.volumeShock = {
+    ...candidate.indicators.volumeShock,
+    change5m:0.55,
+    recentHigh:239.18,
+    recentHighAt:'2026-07-28T05:05:00.000Z',
+    breakout:false,
+  };
+  assert.match(
+    SimulationEngine.getSetupBlockReason(candidate, 'MOMENTUM_RUNNER', '2026-07-28T05:22:22.790Z', {}, {}),
+    /impulse faded/
+  );
+});
+
+test('zero-progress re-entry is limited to one completed VWAP reclaim', () => {
+  const candidate = makeEligibleCandidate('REENTRY', 90);
+  candidate.price = 100.6;
+  candidate.indicators.vwap = 100;
+  candidate.indicators.relVolumeTimeAdjusted = 1.4;
+  candidate.candles = [
+    { time:'2026-07-02T04:55:00.000Z', open:100.1, high:100.2, low:99.8, close:99.95, volume:900 },
+    { time:'2026-07-02T05:00:00.000Z', open:99.95, high:100.7, low:99.9, close:100.55, volume:1200 },
+  ];
+  candidate.indicators.volumeShock = { volumeRatio3m:1.1, volumeRatio5m:1.2, change5m:0.2 };
+  const closed = [{
+    symbol:'REENTRY', status:'closed', side:'buy',
+    closeReason:'Simulation zero-progress exit',
+    closedAt:'2026-07-02T04:45:00.000Z',
+  }];
+  assert.equal(
+    SimulationEngine.isTimedContinuationReentryAllowed(candidate, '2026-07-02T05:06:00.000Z', { closedTrades:closed }, {}),
+    true
+  );
+  closed.push({
+    symbol:'REENTRY', status:'closed', closeReason:'Simulation target',
+    entryContext:{ continuationReentry:true },
+  });
+  assert.equal(
+    SimulationEngine.isTimedContinuationReentryAllowed(candidate, '2026-07-02T05:06:00.000Z', { closedTrades:closed }, {}),
+    false
+  );
 });

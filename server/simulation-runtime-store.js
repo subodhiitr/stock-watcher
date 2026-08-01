@@ -79,13 +79,29 @@ function ensureParentDir(filePath) {
 }
 
 function writeState(filePath, state) {
-  const tempPath = `${filePath}.tmp`;
+  const tempPath = `${filePath}.${process.pid}.${Math.random().toString(36).slice(2, 8)}.tmp`;
   const payload = `${JSON.stringify(state, null, 2)}\n`;
   try {
     ensureParentDir(filePath);
     fs.writeFileSync(tempPath, payload, 'utf8');
-    fs.renameSync(tempPath, filePath);
+    let renamed = false;
+    for (let attempt = 0; attempt < 5 && !renamed; attempt += 1) {
+      try {
+        fs.renameSync(tempPath, filePath);
+        renamed = true;
+      } catch (error) {
+        if (!['EPERM', 'EACCES'].includes(error?.code) || attempt === 4) break;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10 * (attempt + 1));
+      }
+    }
+    if (!renamed) {
+      // Windows can briefly lock the destination while virus scanners/indexers
+      // inspect it. Preserve the requested state with a bounded non-atomic fallback.
+      fs.copyFileSync(tempPath, filePath);
+      fs.rmSync(tempPath, { force:true });
+    }
   } catch (error) {
+    try { fs.rmSync(tempPath, { force:true }); } catch {}
     throw new RuntimeStatePersistenceError(`Failed to persist runtime state at ${filePath}`, error);
   }
 }

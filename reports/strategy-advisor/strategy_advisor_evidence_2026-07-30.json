@@ -1,0 +1,4265 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-07-30",
+  "generatedAt": 1785508377140,
+  "instructions": {
+    "replayAllowed": false,
+    "backtestAllowed": false,
+    "sweepAllowed": false,
+    "applySettingsAllowed": false
+  },
+  "summary": {
+    "setupTrades": 3,
+    "exits": 4,
+    "snapshots": 298,
+    "usableSnapshots": 264
+  },
+  "setupEfficiency": {
+    "summary": {
+      "closedPositions": 3,
+      "efficientSetups": 0,
+      "profitableSetups": 2,
+      "bestSetup": "Top Gainer Continuation",
+      "reviewSetups": 0
+    },
+    "setups": [
+      {
+        "setupType": "TOP_GAINER_CONTINUATION",
+        "label": "Top Gainer Continuation",
+        "trades": 1,
+        "wins": 1,
+        "losses": 0,
+        "winRate": 100,
+        "netPnl": 855.97,
+        "avgNetPct": 0.856,
+        "profitFactor": 4,
+        "maxDrawdown": 0,
+        "efficiencyScore": 50.8,
+        "grade": "Insufficient data"
+      },
+      {
+        "setupType": "MOMENTUM_RUNNER",
+        "label": "Momentum Runner",
+        "trades": 2,
+        "wins": 1,
+        "losses": 1,
+        "winRate": 50,
+        "netPnl": 138.2,
+        "avgNetPct": -0.071,
+        "profitFactor": 1.49,
+        "maxDrawdown": 279.2,
+        "efficiencyScore": 50.3,
+        "grade": "Insufficient data"
+      }
+    ]
+  },
+  "exitQuality": {
+    "summary": {
+      "exits": 4,
+      "benchmarkCoveragePct": 100,
+      "opportunityLoss": 1597.29,
+      "valueProtected": 1692.8,
+      "perfectExitPct": 25,
+      "bestCategory": "Target"
+    },
+    "categories": [
+      {
+        "exitCategory": "Target",
+        "exits": 2,
+        "wins": 2,
+        "winRate": 100,
+        "netPnl": 1096.71,
+        "opportunityLoss": 1039.29,
+        "valueProtected": 1692.8,
+        "benchmarkCoveragePct": 100,
+        "qualityScore": 57.4
+      },
+      {
+        "exitCategory": "Trailing",
+        "exits": 1,
+        "wins": 1,
+        "winRate": 100,
+        "netPnl": 176.66,
+        "opportunityLoss": 382.8,
+        "valueProtected": 0,
+        "benchmarkCoveragePct": 100,
+        "qualityScore": 48.4
+      },
+      {
+        "exitCategory": "VWAP",
+        "exits": 1,
+        "wins": 0,
+        "winRate": 0,
+        "netPnl": -279.2,
+        "opportunityLoss": 175.2,
+        "valueProtected": 0,
+        "benchmarkCoveragePct": 100,
+        "qualityScore": 44.8
+      }
+    ]
+  },
+  "snapshots": {
+    "snapshots": 298,
+    "usableSnapshots": 264,
+    "candidateRows": 25509,
+    "actionableRows": 20308,
+    "setups": [
+      {
+        "setupType": "BREAKDOWN",
+        "label": "Breakdown",
+        "appearances": 7764,
+        "actionable": 7764,
+        "scoreTotal": 546338,
+        "maxScore": 100,
+        "avgScore": 70.4,
+        "uniqueSymbols": 221
+      },
+      {
+        "setupType": "FRESH_BREAKOUT",
+        "label": "Fresh Breakout",
+        "appearances": 6016,
+        "actionable": 5237,
+        "scoreTotal": 360388,
+        "maxScore": 100,
+        "avgScore": 59.9,
+        "uniqueSymbols": 245
+      },
+      {
+        "setupType": "CHASING",
+        "label": "CHASING",
+        "appearances": 6012,
+        "actionable": 4155,
+        "scoreTotal": 306135,
+        "maxScore": 96,
+        "avgScore": 50.9,
+        "uniqueSymbols": 300
+      },
+      {
+        "setupType": "MOMENTUM_RUNNER",
+        "label": "Momentum Runner",
+        "appearances": 2041,
+        "actionable": 2041,
+        "scoreTotal": 157618,
+        "maxScore": 100,
+        "avgScore": 77.2,
+        "uniqueSymbols": 60
+      },
+      {
+        "setupType": "VWAP_REJECTION",
+        "label": "VWAP Rejection",
+        "appearances": 477,
+        "actionable": 477,
+        "scoreTotal": 29001,
+        "maxScore": 71,
+        "avgScore": 60.8,
+        "uniqueSymbols": 87
+      },
+      {
+        "setupType": "VWAP_PULLBACK_OR_HOLD",
+        "label": "VWAP Pullback / Hold",
+        "appearances": 464,
+        "actionable": 464,
+        "scoreTotal": 27849,
+        "maxScore": 71,
+        "avgScore": 60,
+        "uniqueSymbols": 75
+      },
+      {
+        "setupType": "LOW_VOLUME",
+        "label": "LOW VOLUME",
+        "appearances": 886,
+        "actionable": 65,
+        "scoreTotal": 23620,
+        "maxScore": 74,
+        "avgScore": 26.7,
+        "uniqueSymbols": 186
+      },
+      {
+        "setupType": "VWAP_TREND_CONTINUATION",
+        "label": "VWAP Trend Continuation",
+        "appearances": 44,
+        "actionable": 44,
+        "scoreTotal": 4120,
+        "maxScore": 96,
+        "avgScore": 93.6,
+        "uniqueSymbols": 8
+      },
+      {
+        "setupType": "SHORT_MOMENTUM",
+        "label": "SHORT MOMENTUM",
+        "appearances": 38,
+        "actionable": 38,
+        "scoreTotal": 2360,
+        "maxScore": 70,
+        "avgScore": 62.1,
+        "uniqueSymbols": 1
+      },
+      {
+        "setupType": "RANGEBOUND",
+        "label": "Rangebound Reversion",
+        "appearances": 18,
+        "actionable": 18,
+        "scoreTotal": 1206,
+        "maxScore": 83,
+        "avgScore": 67,
+        "uniqueSymbols": 9
+      },
+      {
+        "setupType": "VOLUME_SHOCK_BREAKOUT",
+        "label": "Volume Shock Breakout",
+        "appearances": 5,
+        "actionable": 5,
+        "scoreTotal": 279,
+        "maxScore": 68,
+        "avgScore": 55.8,
+        "uniqueSymbols": 1
+      },
+      {
+        "setupType": "LONG_MOMENTUM",
+        "label": "Long Momentum",
+        "appearances": 1744,
+        "actionable": 0,
+        "scoreTotal": 42768,
+        "maxScore": 34,
+        "avgScore": 24.5,
+        "uniqueSymbols": 229
+      }
+    ],
+    "blockedReasons": [],
+    "evidenceReasons": [
+      {
+        "reason": "Below VWAP",
+        "count": 13929
+      },
+      {
+        "reason": "Above VWAP",
+        "count": 11541
+      },
+      {
+        "reason": "SuperTrend bearish",
+        "count": 10471
+      },
+      {
+        "reason": "Opening range breakdown",
+        "count": 10246
+      },
+      {
+        "reason": "EMA 9 below EMA 20",
+        "count": 8950
+      },
+      {
+        "reason": "Opening range breakout",
+        "count": 8861
+      },
+      {
+        "reason": "RSI weak",
+        "count": 8379
+      },
+      {
+        "reason": "SuperTrend bullish",
+        "count": 7973
+      }
+    ],
+    "emergingPatterns": [],
+    "settingsFingerprints": [
+      {
+        "fingerprint": "fnv1a-62466f52",
+        "snapshots": 124
+      },
+      {
+        "fingerprint": "fnv1a-5952fe7d",
+        "snapshots": 98
+      },
+      {
+        "fingerprint": "fnv1a-6ce4bbdb",
+        "snapshots": 32
+      },
+      {
+        "fingerprint": "fnv1a-eb53674c",
+        "snapshots": 30
+      },
+      {
+        "fingerprint": "fnv1a-0185c022",
+        "snapshots": 6
+      },
+      {
+        "fingerprint": "fnv1a-fb5c28df",
+        "snapshots": 3
+      },
+      {
+        "fingerprint": "fnv1a-b7d764f2",
+        "snapshots": 3
+      },
+      {
+        "fingerprint": "fnv1a-a6210774",
+        "snapshots": 2
+      }
+    ]
+  },
+  "transactions": {
+    "positions": [
+      {
+        "positionId": "1785392979426-z2qq1h",
+        "setupType": "TOP_GAINER_CONTINUATION",
+        "side": "buy",
+        "symbol": "SONACOMS",
+        "openedAt": 1785392979085,
+        "closedAt": 1785394512751,
+        "tradeDay": "2026-07-30",
+        "sourceUpdatedAt": 1785433325669,
+        "legs": 2,
+        "score": 73,
+        "exposure": 99964,
+        "pnl": 855.97,
+        "grossPnl": 956.41,
+        "charges": 100.44,
+        "netPct": 0.8563,
+        "holdMin": 25.6,
+        "exitReason": "Simulation 1% gain milestone",
+        "exitBucket": "Target",
+        "targetHit": true,
+        "stopHit": false,
+        "trailHit": false,
+        "lateEntry": false
+      },
+      {
+        "positionId": "1785395101917-lr2xu8",
+        "setupType": "MOMENTUM_RUNNER",
+        "side": "buy",
+        "symbol": "SUPRIYA",
+        "openedAt": 1785395101548,
+        "closedAt": 1785395821007,
+        "tradeDay": "2026-07-30",
+        "sourceUpdatedAt": 1785433325505,
+        "legs": 1,
+        "score": 87,
+        "exposure": 100081.05,
+        "pnl": 417.4,
+        "grossPnl": 500.25,
+        "charges": 82.85,
+        "netPct": 0.4171,
+        "holdMin": 12,
+        "exitReason": "Simulation 0.5% gain milestone",
+        "exitBucket": "Target",
+        "targetHit": true,
+        "stopHit": false,
+        "trailHit": false,
+        "lateEntry": true
+      },
+      {
+        "positionId": "1785395700886-q1lmnr",
+        "setupType": "MOMENTUM_RUNNER",
+        "side": "buy",
+        "symbol": "JBMA",
+        "openedAt": 1785395700091,
+        "closedAt": 1785397801782,
+        "tradeDay": "2026-07-30",
+        "sourceUpdatedAt": 1785433325769,
+        "legs": 1,
+        "score": 83,
+        "exposure": 49913.75,
+        "pnl": -279.2,
+        "grossPnl": -226.3,
+        "charges": 52.9,
+        "netPct": -0.5594,
+        "holdMin": 35,
+        "exitReason": "Simulation VWAP loss",
+        "exitBucket": "VWAP",
+        "targetHit": false,
+        "stopHit": false,
+        "trailHit": false,
+        "lateEntry": true
+      }
+    ],
+    "exits": [
+      {
+        "exitId": "1785392979426-z2qq1h-partial-1785394335787",
+        "positionId": "1785392979426-z2qq1h",
+        "setupType": "TOP_GAINER_CONTINUATION",
+        "symbol": "SONACOMS",
+        "side": "buy",
+        "qty": 33,
+        "entryPrice": 746,
+        "exitPrice": 752.15,
+        "closedAt": 1785394335077,
+        "tradeDay": "2026-07-30",
+        "sourceUpdatedAt": 1785433325570,
+        "closeReason": "Simulation top-gainer profit lock",
+        "exitCategory": "Trailing",
+        "pnl": 176.66,
+        "grossPnl": 202.95,
+        "charges": 26.29,
+        "exposure": 24618,
+        "netPct": 0.7176,
+        "dayClosePrice": 763.75,
+        "dayCloseSource": "simulation-closing-snapshot",
+        "opportunityPnl": 382.8,
+        "opportunityPct": 1.5422,
+        "perfectExit": false,
+        "beatDayClose": false
+      },
+      {
+        "exitId": "1785392979426-z2qq1h",
+        "positionId": "1785392979426-z2qq1h",
+        "setupType": "TOP_GAINER_CONTINUATION",
+        "symbol": "SONACOMS",
+        "side": "buy",
+        "qty": 101,
+        "entryPrice": 746,
+        "exitPrice": 753.46,
+        "closedAt": 1785394512751,
+        "tradeDay": "2026-07-30",
+        "sourceUpdatedAt": 1785433325669,
+        "closeReason": "Simulation 1% gain milestone",
+        "exitCategory": "Target",
+        "pnl": 679.31,
+        "grossPnl": 753.46,
+        "charges": 74.15,
+        "exposure": 75346,
+        "netPct": 0.9016,
+        "dayClosePrice": 763.75,
+        "dayCloseSource": "simulation-closing-snapshot",
+        "opportunityPnl": 1039.29,
+        "opportunityPct": 1.3657,
+        "perfectExit": false,
+        "beatDayClose": false
+      },
+      {
+        "exitId": "1785395101917-lr2xu8",
+        "positionId": "1785395101917-lr2xu8",
+        "setupType": "MOMENTUM_RUNNER",
+        "symbol": "SUPRIYA",
+        "side": "buy",
+        "qty": 115,
+        "entryPrice": 870.27,
+        "exitPrice": 874.62,
+        "closedAt": 1785395821007,
+        "tradeDay": "2026-07-30",
+        "sourceUpdatedAt": 1785433325505,
+        "closeReason": "Simulation 0.5% gain milestone",
+        "exitCategory": "Target",
+        "pnl": 417.4,
+        "grossPnl": 500.25,
+        "charges": 82.85,
+        "exposure": 100081.05,
+        "netPct": 0.4171,
+        "dayClosePrice": 859.9,
+        "dayCloseSource": "simulation-closing-snapshot",
+        "opportunityPnl": -1692.8,
+        "opportunityPct": -1.683,
+        "perfectExit": true,
+        "beatDayClose": true
+      },
+      {
+        "exitId": "1785395700886-q1lmnr",
+        "positionId": "1785395700886-q1lmnr",
+        "setupType": "MOMENTUM_RUNNER",
+        "symbol": "JBMA",
+        "side": "buy",
+        "qty": 73,
+        "entryPrice": 683.75,
+        "exitPrice": 680.65,
+        "closedAt": 1785397801782,
+        "tradeDay": "2026-07-30",
+        "sourceUpdatedAt": 1785433325769,
+        "closeReason": "Simulation VWAP loss",
+        "exitCategory": "VWAP",
+        "pnl": -279.2,
+        "grossPnl": -226.3,
+        "charges": 52.9,
+        "exposure": 49913.75,
+        "netPct": -0.5594,
+        "dayClosePrice": 683.05,
+        "dayCloseSource": "simulation-closing-snapshot",
+        "opportunityPnl": 175.2,
+        "opportunityPct": 0.3526,
+        "perfectExit": false,
+        "beatDayClose": false
+      }
+    ]
+  },
+  "configuration": {
+    "setups": [
+      {
+        "setupType": "OPENING_FLUSH_VWAP_RECLAIM",
+        "label": "Opening Flush Reclaim",
+        "side": "long",
+        "description": "Buys a sharp opening dip after price reclaims VWAP.",
+        "enableSetting": "SIMULATION_OPENING_FLUSH_REVERSAL_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": false,
+        "settingPrefixes": [
+          "SIMULATION_OPENING_FLUSH_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": false,
+        "transactionPerformance": {
+          "setupType": "OPENING_FLUSH_VWAP_RECLAIM",
+          "label": "Opening Flush Reclaim",
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "netPnl": 0,
+          "avgNetPct": 0,
+          "profitFactor": 0,
+          "maxDrawdown": 0,
+          "efficiencyScore": 0,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": null,
+        "configuration": [
+          {
+            "key": "SIMULATION_OPENING_FLUSH_MAX_TRIGGER_EXTENSION_PCT",
+            "value": 0.4,
+            "defaultValue": 0.4,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_OPENING_FLUSH_MIN_DECLINE_PCT",
+            "value": 1,
+            "defaultValue": 1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_OPENING_FLUSH_MIN_INDEX_RECOVERY_PCT",
+            "value": 0.5,
+            "defaultValue": 0.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_OPENING_FLUSH_MIN_SCORE",
+            "value": 60,
+            "defaultValue": 60,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_OPENING_FLUSH_REVERSAL_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "",
+            "valueType": "boolean"
+          }
+        ]
+      },
+      {
+        "setupType": "TOP_GAINER_PULLBACK_RECLAIM",
+        "label": "Top Gainer Pullback",
+        "side": "long",
+        "description": "Enters a strong top gainer after a controlled VWAP pullback and reclaim.",
+        "enableSetting": "SIMULATION_TOP_GAINER_PULLBACK_RECLAIM_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": false,
+        "settingPrefixes": [
+          "SIMULATION_TOP_GAINER_PULLBACK_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": false,
+        "transactionPerformance": {
+          "setupType": "TOP_GAINER_PULLBACK_RECLAIM",
+          "label": "Top Gainer Pullback",
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "netPnl": 0,
+          "avgNetPct": 0,
+          "profitFactor": 0,
+          "maxDrawdown": 0,
+          "efficiencyScore": 0,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": null,
+        "configuration": [
+          {
+            "key": "SIMULATION_TOP_GAINER_PULLBACK_MAX_DAY_GAIN_PCT",
+            "value": 12,
+            "defaultValue": 12,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum day gain for a top-gainer pullback-reclaim candidate.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_PULLBACK_MAX_VWAP_EXTENSION_PCT",
+            "value": 0.5,
+            "defaultValue": 0.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum entry extension above VWAP after a top-gainer reclaim.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_PULLBACK_MAX_VWAP_TOUCH_PCT",
+            "value": 0.25,
+            "defaultValue": 0.25,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum distance from VWAP that counts as the required pullback touch.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_PULLBACK_MIN_DAY_GAIN_PCT",
+            "value": 5,
+            "defaultValue": 5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum day gain for a top-gainer pullback-reclaim candidate.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_PULLBACK_POSITION_MULTIPLIER",
+            "value": 0.5,
+            "defaultValue": 0.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Position-size multiplier for top-gainer pullback-reclaim entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_PULLBACK_RECLAIM_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Enable a half-sized top-gainer entry only after a completed VWAP pullback and bullish reclaim.",
+            "valueType": "boolean"
+          }
+        ]
+      },
+      {
+        "setupType": "TOP_GAINER_CONTINUATION",
+        "label": "Top Gainer Continuation",
+        "side": "long",
+        "description": "Follows sustained strength in one of the session’s leading gainers.",
+        "enableSetting": "SIMULATION_TOP_GAINER_CONTINUATION_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": false,
+        "settingPrefixes": [
+          "SIMULATION_TOP_GAINER_"
+        ],
+        "excludedPrefixes": [
+          "SIMULATION_TOP_GAINER_PULLBACK_"
+        ],
+        "usedOnDate": true,
+        "transactionPerformance": {
+          "setupType": "TOP_GAINER_CONTINUATION",
+          "label": "Top Gainer Continuation",
+          "trades": 1,
+          "wins": 1,
+          "losses": 0,
+          "winRate": 100,
+          "netPnl": 855.97,
+          "avgNetPct": 0.856,
+          "profitFactor": 4,
+          "maxDrawdown": 0,
+          "efficiencyScore": 50.8,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": null,
+        "configuration": [
+          {
+            "key": "SIMULATION_TOP_GAINER_AVOID_END_MIN",
+            "value": 810,
+            "defaultValue": 810,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "End of the IST minute window in which new top-gainer continuation entries are blocked.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_AVOID_START_MIN",
+            "value": 720,
+            "defaultValue": 720,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Start of the IST minute window in which new top-gainer continuation entries are blocked.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTINUATION_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Enables the dedicated top-gainer continuation setup.",
+            "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_COUNT",
+            "value": 5,
+            "defaultValue": 5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Number of highest day-change stocks treated as the top-gainer candidate pool.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_MAX_DAY_GAIN_PCT",
+            "value": 6,
+            "defaultValue": 6,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum day gain allowed before a top-gainer continuation is considered overextended.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_MAX_TRIGGER_EXTENSION_PCT",
+            "value": 0.6,
+            "defaultValue": 0.6,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum entry extension above the trigger for top-gainer continuation.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_MAX_VWAP_EXTENSION_PCT",
+            "value": 0.8,
+            "defaultValue": 0.8,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum entry extension above VWAP for top-gainer continuation.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_MIN_DAY_GAIN_PCT",
+            "value": 1.5,
+            "defaultValue": 1.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum day gain required for a top-gainer continuation entry.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_MIN_REL_VOL",
+            "value": 1.2,
+            "defaultValue": 1.2,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Fallback minimum time-adjusted relative volume for top-gainer continuation.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_MIN_VOLUME_RATIO_3M",
+            "value": 1,
+            "defaultValue": 1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum fresh three-minute volume ratio accepted by top-gainer continuation.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_MIN_VOLUME_RATIO_5M",
+            "value": 1,
+            "defaultValue": 1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum fresh five-minute volume ratio accepted by top-gainer continuation.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_PARTIAL_QTY_PCT",
+            "value": 25,
+            "defaultValue": 25,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Percentage of a top-gainer position booked when its profit lock is reached.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_PROFIT_LOCK_PCT",
+            "value": 0.8,
+            "defaultValue": 0.8,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Favorable move that books a partial top-gainer profit and arms the remainder trail.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_TRAIL_PCT",
+            "value": 0.35,
+            "defaultValue": 0.35,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Trailing distance applied to the remaining top-gainer position after profit lock.",
+            "valueType": "number"
+          }
+        ]
+      },
+      {
+        "setupType": "EARLY_MOMENTUM",
+        "label": "Early Momentum",
+        "side": "long",
+        "description": "Captures high-volume momentum shortly after the opening range forms.",
+        "enableSetting": "SIMULATION_EARLY_MOMENTUM_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": false,
+        "settingPrefixes": [
+          "SIMULATION_EARLY_MOMENTUM_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": false,
+        "transactionPerformance": {
+          "setupType": "EARLY_MOMENTUM",
+          "label": "Early Momentum",
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "netPnl": 0,
+          "avgNetPct": 0,
+          "profitFactor": 0,
+          "maxDrawdown": 0,
+          "efficiencyScore": 0,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": null,
+        "configuration": [
+          {
+            "key": "SIMULATION_EARLY_MOMENTUM_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Allow lower-weight EMA5/EMA9, RSI7 and higher-close evidence while full intraday indicators are warming up.",
+            "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_EARLY_MOMENTUM_ENTRY_CUTOFF_MIN",
+            "value": 615,
+            "defaultValue": 615,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "IST minute after which new early-momentum entries are blocked.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_EARLY_MOMENTUM_MIN_REL_VOL",
+            "value": 1.3,
+            "defaultValue": 1.3,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum time-adjusted relative volume required for early momentum.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_EARLY_MOMENTUM_MIN_SCORE",
+            "value": 55,
+            "defaultValue": 55,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Independent minimum score for the early-momentum setup.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_EARLY_MOMENTUM_MIN_STRONG_RS_PCT",
+            "value": 0.75,
+            "defaultValue": 0.75,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum stock-relative strength accepted instead of sector alignment for early momentum.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_EARLY_MOMENTUM_MIN_VOLUME_RATIO_3M",
+            "value": 1,
+            "defaultValue": 1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum fresh three-minute volume ratio required for early momentum.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_EARLY_MOMENTUM_MIN_VOLUME_RATIO_5M",
+            "value": 1,
+            "defaultValue": 1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum fresh five-minute volume ratio required for early momentum.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_EARLY_MOMENTUM_REQUIRE_SECTOR_ALIGNMENT_OR_RS",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Require early momentum to have sector alignment or strong stock-relative strength when market evidence is available.",
+            "valueType": "boolean"
+          }
+        ]
+      },
+      {
+        "setupType": "VOLUME_SHOCK_BREAKOUT",
+        "label": "Volume Shock Breakout",
+        "side": "long",
+        "description": "Looks for a breakout supported by an exceptional burst in volume.",
+        "enableSetting": "SIMULATION_VOLUME_SHOCK_BREAKOUT_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": false,
+        "settingPrefixes": [
+          "SIMULATION_VOLUME_SHOCK_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": true,
+        "transactionPerformance": {
+          "setupType": "VOLUME_SHOCK_BREAKOUT",
+          "label": "Volume Shock Breakout",
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "netPnl": 0,
+          "avgNetPct": 0,
+          "profitFactor": 0,
+          "maxDrawdown": 0,
+          "efficiencyScore": 0,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": {
+          "setupType": "VOLUME_SHOCK_BREAKOUT",
+          "label": "Volume Shock Breakout",
+          "appearances": 5,
+          "actionable": 5,
+          "scoreTotal": 279,
+          "maxScore": 68,
+          "avgScore": 55.8,
+          "uniqueSymbols": 1
+        },
+        "configuration": [
+          {
+            "key": "SIMULATION_VOLUME_SHOCK_BREAKOUT_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Allows Volume Shock Breakout candidates to open new simulation trades.",
+            "valueType": "boolean"
+          }
+        ]
+      },
+      {
+        "setupType": "FRESH_BREAKOUT",
+        "label": "Fresh Breakout",
+        "side": "long",
+        "description": "Enters a newly triggered breakout before it becomes extended.",
+        "enableSetting": "SIMULATION_FRESH_BREAKOUT_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": false,
+        "settingPrefixes": [
+          "SIMULATION_FRESH_BREAKOUT_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": true,
+        "transactionPerformance": {
+          "setupType": "FRESH_BREAKOUT",
+          "label": "Fresh Breakout",
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "netPnl": 0,
+          "avgNetPct": 0,
+          "profitFactor": 0,
+          "maxDrawdown": 0,
+          "efficiencyScore": 0,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": {
+          "setupType": "FRESH_BREAKOUT",
+          "label": "Fresh Breakout",
+          "appearances": 6016,
+          "actionable": 5237,
+          "scoreTotal": 360388,
+          "maxScore": 100,
+          "avgScore": 59.9,
+          "uniqueSymbols": 245
+        },
+        "configuration": [
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Allows Fresh Breakout candidates to open new simulation trades.",
+            "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_HIGH_REL_VOL",
+            "value": 2,
+            "defaultValue": 2,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Relative-volume threshold that allows the relaxed fresh-breakout VWAP extension.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_HIGH_REL_VOL_MAX_VWAP_EXTENSION_PCT",
+            "value": 1,
+            "defaultValue": 1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum VWAP extension allowed for fresh breakouts when relative volume is high.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_MAX_VWAP_EXTENSION_PCT",
+            "value": 0.8,
+            "defaultValue": 0.8,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Normal maximum VWAP extension allowed for fresh-breakout entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_MIN_BREADTH_PCT",
+            "value": 50,
+            "defaultValue": 50,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum percentage of advancing candidates required for a long fresh-breakout entry.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_MIN_NIFTY_CHANGE_PCT",
+            "value": -0.1,
+            "defaultValue": -0.1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum Nifty session change required for a long fresh-breakout entry.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_MIN_SCORE",
+            "value": 60,
+            "defaultValue": 60,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Independent minimum score for normal fresh-breakout entries; momentum runners use their own score thresholds.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_MIN_VOLUME_RATIO_3M",
+            "value": 0.7,
+            "defaultValue": 0.7,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum recent 3-minute volume ratio accepted for a fresh breakout when the 5-minute ratio does not qualify.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_MIN_VOLUME_RATIO_5M",
+            "value": 0.9,
+            "defaultValue": 0.9,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum recent 5-minute volume ratio accepted for a fresh breakout when the 3-minute ratio does not qualify.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_RELAXED_MAX_RSI",
+            "value": 78,
+            "defaultValue": 78,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum RSI allowed for quality fresh-breakout near-miss relaxation.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_RELAXED_MAX_TRIGGER_EXTENSION_PCT",
+            "value": 1,
+            "defaultValue": 1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum trigger extension allowed for quality fresh breakouts under near-miss relaxation.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_RELAXED_MAX_VWAP_EXTENSION_PCT",
+            "value": 1.1,
+            "defaultValue": 1.1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum VWAP extension allowed for quality fresh breakouts under near-miss relaxation.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_RELAXED_MIN_CONFIRMATIONS",
+            "value": 3,
+            "defaultValue": 3,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum breakout confirmations required for quality fresh-breakout near-miss relaxation.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_RELAXED_MIN_REL_VOL",
+            "value": 2,
+            "defaultValue": 2,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum relative volume required for the quality fresh-breakout near-miss relaxation.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_FRESH_BREAKOUT_RELAXED_MIN_SCORE",
+            "value": 72,
+            "defaultValue": 72,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Lower score floor for quality fresh breakouts that narrowly miss the general long score threshold.",
+            "valueType": "number"
+          }
+        ]
+      },
+      {
+        "setupType": "VWAP_PULLBACK_OR_HOLD",
+        "label": "VWAP Pullback / Hold",
+        "side": "long",
+        "description": "Buys a constructive pullback that holds or promptly reclaims VWAP.",
+        "enableSetting": "SIMULATION_VWAP_PULLBACK_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": false,
+        "settingPrefixes": [
+          "SIMULATION_VWAP_PULLBACK_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": true,
+        "transactionPerformance": {
+          "setupType": "VWAP_PULLBACK_OR_HOLD",
+          "label": "VWAP Pullback / Hold",
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "netPnl": 0,
+          "avgNetPct": 0,
+          "profitFactor": 0,
+          "maxDrawdown": 0,
+          "efficiencyScore": 0,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": {
+          "setupType": "VWAP_PULLBACK_OR_HOLD",
+          "label": "VWAP Pullback / Hold",
+          "appearances": 464,
+          "actionable": 464,
+          "scoreTotal": 27849,
+          "maxScore": 71,
+          "avgScore": 60,
+          "uniqueSymbols": 75
+        },
+        "configuration": [
+          {
+            "key": "SIMULATION_VWAP_PULLBACK_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Allows VWAP Pullback or Hold candidates to open new simulation trades.",
+            "valueType": "boolean"
+          }
+        ]
+      },
+      {
+        "setupType": "VWAP_TREND_CONTINUATION",
+        "label": "VWAP Trend Continuation",
+        "side": "long",
+        "description": "Continues an established intraday uptrend while price holds above VWAP.",
+        "enableSetting": "SIMULATION_VWAP_TREND_CONTINUATION_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": false,
+        "settingPrefixes": [
+          "SIMULATION_VWAP_TREND_CONTINUATION_",
+          "SIMULATION_VWAP_CONT_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": true,
+        "transactionPerformance": {
+          "setupType": "VWAP_TREND_CONTINUATION",
+          "label": "VWAP Trend Continuation",
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "netPnl": 0,
+          "avgNetPct": 0,
+          "profitFactor": 0,
+          "maxDrawdown": 0,
+          "efficiencyScore": 0,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": {
+          "setupType": "VWAP_TREND_CONTINUATION",
+          "label": "VWAP Trend Continuation",
+          "appearances": 44,
+          "actionable": 44,
+          "scoreTotal": 4120,
+          "maxScore": 96,
+          "avgScore": 93.6,
+          "uniqueSymbols": 8
+        },
+        "configuration": [
+          {
+            "key": "SIMULATION_VWAP_CONT_BLOCK_NEGATIVE_5M_UNLESS_BREAKOUT",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Blocks VWAP trend-continuation entries when 5-minute price change is negative unless price is making a fresh high.",
+            "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_VWAP_CONT_MAX_TRIGGER_EXTENSION_PCT",
+            "value": 2.5,
+            "defaultValue": 2.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum allowed price extension above the trigger for VWAP trend-continuation entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_VWAP_CONT_MAX_VWAP_EXTENSION_PCT",
+            "value": 1.1,
+            "defaultValue": 1.1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum allowed price extension above VWAP for VWAP trend-continuation entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_VWAP_CONT_MIN_REL_VOL",
+            "value": 1.5,
+            "defaultValue": 1.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum relative volume required for VWAP trend-continuation entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_VWAP_CONT_MIN_SCORE",
+            "value": 85,
+            "defaultValue": 85,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum score required for VWAP trend-continuation entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_VWAP_CONT_MIN_VOLUME_RATIO_3M",
+            "value": 0.8,
+            "defaultValue": 0.8,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum recent 3-minute volume impulse accepted for VWAP trend-continuation entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_VWAP_CONT_MIN_VOLUME_RATIO_5M",
+            "value": 1,
+            "defaultValue": 1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum recent 5-minute volume impulse accepted for VWAP trend-continuation entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_VWAP_TREND_CONTINUATION_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Allows VWAP Trend Continuation candidates to open new simulation trades.",
+            "valueType": "boolean"
+          }
+        ]
+      },
+      {
+        "setupType": "MOMENTUM_RUNNER",
+        "label": "Momentum Runner",
+        "side": "long",
+        "description": "Trades persistent relative-strength leaders with strong participation.",
+        "enableSetting": "SIMULATION_MOMENTUM_RUNNER_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": false,
+        "settingPrefixes": [
+          "SIMULATION_MOMENTUM_RUNNER_",
+          "SIMULATION_RUNNER_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": true,
+        "transactionPerformance": {
+          "setupType": "MOMENTUM_RUNNER",
+          "label": "Momentum Runner",
+          "trades": 2,
+          "wins": 1,
+          "losses": 1,
+          "winRate": 50,
+          "netPnl": 138.2,
+          "avgNetPct": -0.071,
+          "profitFactor": 1.49,
+          "maxDrawdown": 279.2,
+          "efficiencyScore": 50.3,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": {
+          "setupType": "MOMENTUM_RUNNER",
+          "label": "Momentum Runner",
+          "appearances": 2041,
+          "actionable": 2041,
+          "scoreTotal": 157618,
+          "maxScore": 100,
+          "avgScore": 77.2,
+          "uniqueSymbols": 60
+        },
+        "configuration": [
+          {
+            "key": "SIMULATION_MOMENTUM_RUNNER_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Allows Momentum Runner candidates to open new simulation trades.",
+            "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_MOMENTUM_RUNNER_MAX_CONFIRMATION_AGE_MIN",
+            "value": 10,
+            "defaultValue": 10,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_MOMENTUM_RUNNER_MAX_VWAP_EXTENSION_PCT",
+            "value": 0.5,
+            "defaultValue": 0.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Setup-specific maximum VWAP extension for Momentum Runner entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_ALLOW_CONFIRMED_VWAP_RECLAIM",
+            "value": false,
+            "defaultValue": true,
+            "overridden": true,
+            "differsFromDefault": true,
+            "source": "current-override",
+            "description": "Allow a runner with weaker five-minute momentum only after a completed bullish VWAP reclaim.",
+            "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_RUNNER_CHASE_MAX_DAY_GAIN_PCT",
+            "value": 6,
+            "defaultValue": 6,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum existing day gain for an ordinary momentum-runner entry.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_CHASE_MAX_IMPULSE_AGE_MIN",
+            "value": null,
+            "defaultValue": null,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum age of the completed entry impulse for a momentum-runner entry.",
+            "valueType": "null"
+          },
+          {
+            "key": "SIMULATION_RUNNER_ENTRY_CUTOFF_MIN",
+            "value": 870,
+            "defaultValue": 870,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "IST minute of day after which new momentum-runner entries are blocked.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_INITIAL_POSITION_MULTIPLIER",
+            "value": 0.5,
+            "defaultValue": 0.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Initial Momentum Runner quantity multiplier; the remaining planned quantity is added only after scale-in confirmation.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_INITIAL_STOP_PCT",
+            "value": 0.8,
+            "defaultValue": 0.8,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Momentum Runner stop-loss distance as a percentage of the weighted-average entry price.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_LATE_BREAKOUT_MIN_VOLUME_RATIO_5M",
+            "value": 1.2,
+            "defaultValue": 1.2,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum 5-minute volume impulse required when a late runner is allowed by a fresh high breakout.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_LATE_MAX_DAY_CHANGE_PCT",
+            "value": 7,
+            "defaultValue": 7,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum day gain allowed for momentum-runner entries during the late strict window.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_LATE_MAX_TRIGGER_EXTENSION_PCT",
+            "value": 2,
+            "defaultValue": 2,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum trigger extension allowed for confirmed momentum-runner entries during the late strict window.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_LATE_MAX_VWAP_EXTENSION_PCT",
+            "value": 1,
+            "defaultValue": 1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum VWAP extension allowed for confirmed momentum-runner entries during the late strict window.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_LATE_MIN_VOLUME_RATIO_3M",
+            "value": 0.8,
+            "defaultValue": 0.8,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum recent 3-minute volume impulse required during the late strict momentum-runner window.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_LATE_MIN_VOLUME_RATIO_5M",
+            "value": 1,
+            "defaultValue": 1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum recent 5-minute volume impulse required during the late strict momentum-runner window.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_LATE_SIZE_FACTOR",
+            "value": 0.5,
+            "defaultValue": 0.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Quantity multiplier applied to late momentum-runner entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_LATE_SIZE_REDUCTION_DAY_CHANGE_PCT",
+            "value": 7,
+            "defaultValue": 7,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Day gain where momentum-runner sizing is reduced because the move is already extended.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_LATE_STRICT_START_MIN",
+            "value": 825,
+            "defaultValue": 825,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "IST minute of day when momentum-runner entries switch to stricter late-entry filters.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_MAX_BELOW_RECENT_HIGH_PCT",
+            "value": 0.15,
+            "defaultValue": 0.15,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum distance below the prior impulse high accepted without a fresh breakout or completed VWAP reclaim.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_MAX_DAY_CHANGE_PCT",
+            "value": 8,
+            "defaultValue": 8,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum day gain allowed for normal momentum-runner entries unless fresh shock/high breakout confirms continuation.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_MAX_INITIAL_STOP_PCT",
+            "value": 1.25,
+            "defaultValue": 1.25,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum initial momentum-runner stop distance as a percentage of entry price.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_MAX_RECENT_HIGH_AGE_MIN",
+            "value": 10,
+            "defaultValue": 10,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum age of the prior impulse high accepted without a fresh breakout or completed VWAP reclaim.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_MAX_TRIGGER_EXTENSION_PCT",
+            "value": 3.25,
+            "defaultValue": 3.25,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum allowed price extension above the trigger for momentum-runner entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_MAX_VWAP_EXTENSION_PCT",
+            "value": 1.25,
+            "defaultValue": 1.25,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum allowed price extension above VWAP for momentum-runner entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_MIN_CHANGE_5M_PCT",
+            "value": 0.1,
+            "defaultValue": 0.1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum positive five-minute price change for long momentum runners unless a completed VWAP reclaim is confirmed.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_MIN_REL_VOL",
+            "value": 3,
+            "defaultValue": 3,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum relative volume required for momentum-runner entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_MIN_SCORE",
+            "value": 65,
+            "defaultValue": 65,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum trade score required for momentum-runner entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_MIN_STRONG_RS_PCT",
+            "value": 0.75,
+            "defaultValue": 0.75,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum stock return over Nifty return that qualifies as strong relative strength for a runner.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_MIN_VOLUME_RATIO_3M",
+            "value": 0.8,
+            "defaultValue": 0.8,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum recent 3-minute volume impulse accepted for momentum-runner entries unless a fresh high breakout confirms.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_MIN_VOLUME_RATIO_5M",
+            "value": 1,
+            "defaultValue": 1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum recent 5-minute volume impulse accepted for momentum-runner entries unless a fresh high breakout confirms.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_REQUIRE_BULLISH_SUPERTREND",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "When true, buy-side momentum runners require bullish SuperTrend.",
+            "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_RUNNER_REQUIRE_SECTOR_ALIGNMENT_OR_RS",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Require momentum runners to be sector aligned or show strong stock-relative strength.",
+            "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_RUNNER_SCALE_IN_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Allow a half-sized Momentum Runner to add its remaining planned quantity after favourable movement while holding VWAP and trigger.",
+            "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_RUNNER_SCALE_IN_MIN_MFE_PCT",
+            "value": 0.5,
+            "defaultValue": 0.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum Momentum Runner favourable excursion required before adding the remaining planned quantity.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_STOP_ATR_MULTIPLIER",
+            "value": 1.2,
+            "defaultValue": 1.2,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum ATR multiple used for a momentum-runner initial stop so normal volatility does not cause an immediate exit.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_TARGET_STEP_PCT",
+            "value": 1.2,
+            "defaultValue": 1.2,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Next target step percent applied to remaining runner quantity after a momentum-confirmed partial target.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_TRAIL_PCT",
+            "value": 0.9,
+            "defaultValue": 0.9,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Normal trailing stop percent used for momentum-runner exits.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RUNNER_WIDE_TRAIL_PCT",
+            "value": 1.35,
+            "defaultValue": 1.35,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Wider trailing stop percent used when momentum remains strong.",
+            "valueType": "number"
+          }
+        ]
+      },
+      {
+        "setupType": "RANGEBOUND",
+        "label": "Rangebound Reversion",
+        "side": "long",
+        "description": "Buys near a proven intraday range floor for a move back through the range.",
+        "enableSetting": "SIMULATION_RANGEBOUND_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": true,
+        "settingPrefixes": [
+          "SIMULATION_RANGEBOUND_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": true,
+        "transactionPerformance": {
+          "setupType": "RANGEBOUND",
+          "label": "Rangebound Reversion",
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "netPnl": 0,
+          "avgNetPct": 0,
+          "profitFactor": 0,
+          "maxDrawdown": 0,
+          "efficiencyScore": 0,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": {
+          "setupType": "RANGEBOUND",
+          "label": "Rangebound Reversion",
+          "appearances": 18,
+          "actionable": 18,
+          "scoreTotal": 1206,
+          "maxScore": 83,
+          "avgScore": 67,
+          "uniqueSymbols": 9
+        },
+        "configuration": [
+          {
+            "key": "SIMULATION_RANGEBOUND_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": true,
+            "differsFromDefault": false,
+            "source": "current-override",
+            "description": "Enables 45-minute range detection and lower-bound mean-reversion entries.",
+            "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_ENTRY_CUTOFF_MIN",
+            "value": 885,
+            "defaultValue": 885,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "IST minute when new rangebound entries stop for the day.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_ENTRY_START_MIN",
+            "value": 600,
+            "defaultValue": 600,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Earliest IST minute when a rangebound setup may open a new position.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_MAX_LOWER_DISTANCE_PCT",
+            "value": 0.15,
+            "defaultValue": 0.15,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum live-price distance above the lower boundary accepted for a rangebound buy.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_MAX_NIFTY_DECLINE_PCT",
+            "value": 0.5,
+            "defaultValue": 0.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum Nifty decline tolerated by a rangebound long entry.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_MIN_BREADTH_PCT",
+            "value": 25,
+            "defaultValue": 25,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum advancing-market breadth accepted by a rangebound long entry.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_MIN_GROSS_TO_COST_MULTIPLE",
+            "value": 2,
+            "defaultValue": 1.5,
+            "overridden": true,
+            "differsFromDefault": true,
+            "source": "current-override",
+            "description": "Minimum rangebound gross move as a multiple of modeled costs.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_MIN_MIDPOINT_CROSSES",
+            "value": 2,
+            "defaultValue": 2,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum close-price crossings through the range midpoint required to prove oscillation.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_MIN_NET_PROFIT_PCT",
+            "value": 0.4,
+            "defaultValue": 0.4,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum modeled net profit accepted for a rangebound lower-to-upper move.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_MIN_RANGE_PCT",
+            "value": 0.75,
+            "defaultValue": 0.75,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum percentage distance between the detected lower and upper range boundaries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_MIN_RS_PCT",
+            "value": -1.5,
+            "defaultValue": -1.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum stock-relative strength accepted by a rangebound long entry.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_MIN_SCORE",
+            "value": 40,
+            "defaultValue": 35,
+            "overridden": true,
+            "differsFromDefault": true,
+            "source": "current-override",
+            "description": "Setup-specific decision-score floor for rangebound lower-bound entries.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_MIN_SECTOR_PCT",
+            "value": -1,
+            "defaultValue": -1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum sector change accepted by a rangebound long entry.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_MIN_TOUCHES_PER_SIDE",
+            "value": 2,
+            "defaultValue": 2,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum number of candles that must touch each side of the detected range.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_POSITION_MULTIPLIER",
+            "value": 0.5,
+            "defaultValue": 0.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Position-size multiplier for the lower-criteria rangebound setup.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_WINDOW_MIN",
+            "value": 45,
+            "defaultValue": 45,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Intraday lookback window in minutes used to identify a rangebound stock.",
+            "valueType": "number"
+          }
+        ]
+      },
+      {
+        "setupType": "LONG_MOMENTUM",
+        "label": "Long Momentum",
+        "side": "long",
+        "description": "General long-side momentum setup used when no specialist setup is stronger.",
+        "enableSetting": "SIMULATION_LONG_MOMENTUM_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": false,
+        "settingPrefixes": [
+          "SIMULATION_LONG_MOMENTUM_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": true,
+        "transactionPerformance": {
+          "setupType": "LONG_MOMENTUM",
+          "label": "Long Momentum",
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "netPnl": 0,
+          "avgNetPct": 0,
+          "profitFactor": 0,
+          "maxDrawdown": 0,
+          "efficiencyScore": 0,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": {
+          "setupType": "LONG_MOMENTUM",
+          "label": "Long Momentum",
+          "appearances": 1744,
+          "actionable": 0,
+          "scoreTotal": 42768,
+          "maxScore": 34,
+          "avgScore": 24.5,
+          "uniqueSymbols": 229
+        },
+        "configuration": [
+          {
+            "key": "SIMULATION_LONG_MOMENTUM_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Allows general Long Momentum candidates to open new simulation trades.",
+            "valueType": "boolean"
+          }
+        ]
+      },
+      {
+        "setupType": "BREAKDOWN",
+        "label": "Breakdown",
+        "side": "short",
+        "description": "Shorts a fresh support break with bearish price and volume confirmation.",
+        "enableSetting": "SIMULATION_BREAKDOWN_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": false,
+        "settingPrefixes": [
+          "SIMULATION_BREAKDOWN_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": true,
+        "transactionPerformance": {
+          "setupType": "BREAKDOWN",
+          "label": "Breakdown",
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "netPnl": 0,
+          "avgNetPct": 0,
+          "profitFactor": 0,
+          "maxDrawdown": 0,
+          "efficiencyScore": 0,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": {
+          "setupType": "BREAKDOWN",
+          "label": "Breakdown",
+          "appearances": 7764,
+          "actionable": 7764,
+          "scoreTotal": 546338,
+          "maxScore": 100,
+          "avgScore": 70.4,
+          "uniqueSymbols": 221
+        },
+        "configuration": [
+          {
+            "key": "SIMULATION_BREAKDOWN_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Allows Breakdown candidates to open new short simulation trades.",
+            "valueType": "boolean"
+          }
+        ]
+      },
+      {
+        "setupType": "VWAP_REJECTION",
+        "label": "VWAP Rejection",
+        "side": "short",
+        "description": "Shorts a failed recovery when price is rejected at VWAP.",
+        "enableSetting": "SIMULATION_VWAP_REJECTION_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": false,
+        "settingPrefixes": [
+          "SIMULATION_VWAP_REJECTION_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": true,
+        "transactionPerformance": {
+          "setupType": "VWAP_REJECTION",
+          "label": "VWAP Rejection",
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "netPnl": 0,
+          "avgNetPct": 0,
+          "profitFactor": 0,
+          "maxDrawdown": 0,
+          "efficiencyScore": 0,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": {
+          "setupType": "VWAP_REJECTION",
+          "label": "VWAP Rejection",
+          "appearances": 477,
+          "actionable": 477,
+          "scoreTotal": 29001,
+          "maxScore": 71,
+          "avgScore": 60.8,
+          "uniqueSymbols": 87
+        },
+        "configuration": [
+          {
+            "key": "SIMULATION_VWAP_REJECTION_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Allows VWAP Rejection candidates to open new short simulation trades.",
+            "valueType": "boolean"
+          }
+        ]
+      },
+      {
+        "setupType": "BEAR_FLAG_CONTINUATION",
+        "label": "Bear Flag Continuation",
+        "side": "short",
+        "description": "Re-enters downside momentum after a compact bearish consolidation.",
+        "enableSetting": "SIMULATION_BEAR_FLAG_CONTINUATION_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": false,
+        "settingPrefixes": [
+          "SIMULATION_BEAR_FLAG_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": false,
+        "transactionPerformance": {
+          "setupType": "BEAR_FLAG_CONTINUATION",
+          "label": "Bear Flag Continuation",
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "netPnl": 0,
+          "avgNetPct": 0,
+          "profitFactor": 0,
+          "maxDrawdown": 0,
+          "efficiencyScore": 0,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": null,
+        "configuration": [
+          {
+            "key": "SIMULATION_BEAR_FLAG_CONTINUATION_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Enable a distinct short continuation after an initial breakdown and multi-candle bear-flag consolidation.",
+            "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_BEAR_FLAG_MAX_DAY_DECLINE_PCT",
+            "value": 6,
+            "defaultValue": 6,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum existing day decline allowed for a bear-flag continuation.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_BEAR_FLAG_MAX_VWAP_EXTENSION_PCT",
+            "value": 0.8,
+            "defaultValue": 0.8,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum price extension below VWAP for a bear-flag continuation entry.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_BEAR_FLAG_MIN_CONSOLIDATION_CANDLES",
+            "value": 2,
+            "defaultValue": 2,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum consolidation candles required before a bear-flag breakdown.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_BEAR_FLAG_MIN_DAY_DECLINE_PCT",
+            "value": 2,
+            "defaultValue": 2,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum existing day decline required for a bear-flag continuation.",
+            "valueType": "number"
+          }
+        ]
+      },
+      {
+        "setupType": "TOP_LOSER_BEAR_FLAG",
+        "label": "Top Loser Bear Flag",
+        "side": "short",
+        "description": "Targets a weak top loser that consolidates before another leg down.",
+        "enableSetting": "SIMULATION_TOP_LOSER_BEAR_FLAG_ENABLED",
+        "enabled": true,
+        "enabledByDefault": true,
+        "enableOverridden": false,
+        "settingPrefixes": [
+          "SIMULATION_TOP_LOSER_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": false,
+        "transactionPerformance": {
+          "setupType": "TOP_LOSER_BEAR_FLAG",
+          "label": "Top Loser Bear Flag",
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "netPnl": 0,
+          "avgNetPct": 0,
+          "profitFactor": 0,
+          "maxDrawdown": 0,
+          "efficiencyScore": 0,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": null,
+        "configuration": [
+          {
+            "key": "SIMULATION_TOP_LOSER_BEAR_FLAG_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "",
+            "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_TOP_LOSER_BEAR_FLAG_MIN_SCORE",
+            "value": 55,
+            "defaultValue": 55,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_LOSER_COUNT",
+            "value": 5,
+            "defaultValue": 5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_LOSER_POSITION_MULTIPLIER",
+            "value": 0.5,
+            "defaultValue": 0.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "",
+            "valueType": "number"
+          }
+        ]
+      }
+    ],
+    "sharedConfiguration": [
+      {
+        "key": "MAX_POSITION_EXPOSURE",
+        "value": 100000,
+        "defaultValue": 100000,
+        "overridden": true,
+        "differsFromDefault": false,
+        "source": "current-override",
+        "description": "Maximum rupee exposure allowed in one position. Manual and simulation sizing should not allocate more than this to a single stock or ETF.",
+        "valueType": "number"
+      },
+      {
+        "key": "PORTFOLIO_AVAILABLE_CASH",
+        "value": 987378.38,
+        "overridden": false,
+        "differsFromDefault": true,
+        "source": "historical-or-derived",
+        "description": "",
+        "valueType": "number"
+      },
+      {
+        "key": "PORTFOLIO_CAPITAL_DETAIL",
+        "value": {
+          "initial": 500000,
+          "addedCapital": 500000,
+          "capital": 1000000,
+          "realized": -12621.62,
+          "openExposure": 0,
+          "cashAvailable": 987378.38,
+          "tradeCount": 541
+        },
+        "overridden": false,
+        "differsFromDefault": true,
+        "source": "historical-or-derived",
+        "description": "",
+        "valueType": "object"
+      },
+      {
+        "key": "PORTFOLIO_CAPITAL_SOURCE",
+        "value": "SQLite portfolio state",
+        "overridden": false,
+        "differsFromDefault": true,
+        "source": "historical-or-derived",
+        "description": "",
+        "valueType": "string"
+      },
+      {
+        "key": "PORTFOLIO_INITIAL_CAPITAL",
+        "value": 1000000,
+        "defaultValue": 500000,
+        "overridden": false,
+        "differsFromDefault": true,
+        "source": "historical-or-derived",
+        "description": "Fallback portfolio capital used for risk, return, and daily-loss calculations. Dashboard and backtest should replace this with saved portfolio capital.",
+        "valueType": "number"
+      },
+      {
+        "key": "REPLAY_LONG_ONLY",
+        "value": false,
+        "overridden": false,
+        "differsFromDefault": true,
+        "source": "historical-or-derived",
+        "description": "",
+        "valueType": "boolean"
+      },
+      {
+        "key": "REPLAY_RECOMPUTE_SCORES",
+        "value": false,
+        "overridden": false,
+        "differsFromDefault": true,
+        "source": "historical-or-derived",
+        "description": "",
+        "valueType": "boolean"
+      },
+      {
+        "key": "REPLAY_SHORT_ONLY",
+        "value": false,
+        "overridden": false,
+        "differsFromDefault": true,
+        "source": "historical-or-derived",
+        "description": "",
+        "valueType": "boolean"
+      },
+      {
+        "key": "REPLAY_SKIP_OPPORTUNITIES",
+        "value": false,
+        "overridden": false,
+        "differsFromDefault": true,
+        "source": "historical-or-derived",
+        "description": "",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_AUTO_MANUAL_EXITS",
+        "value": true,
+        "defaultValue": false,
+        "overridden": true,
+        "differsFromDefault": true,
+        "source": "current-override",
+        "description": "When true, manual open trades use simulation exit logic for target, stop-loss, trailing, time-stop, and EOD square-off.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_AUTO_SHORTS",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "When true, simulation may open short/sell-side entries. When false, it only auto-buys long setups.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_AUTO_STOP_MIN",
+        "value": 930,
+        "defaultValue": 930,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_BREAKEVEN_COST_BUFFER_PCT",
+        "value": 0.02,
+        "defaultValue": 0.02,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Extra favorable-price buffer above estimated round-trip costs for breakeven protection.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_BREAKEVEN_MIN_HOLD_MIN",
+        "value": 5,
+        "defaultValue": 5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum holding time before breakeven protection may close a trade.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_BREAKEVEN_PROTECT_PCT",
+        "value": 0.65,
+        "defaultValue": 0.65,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Favorable move percent after which simulation protects capital around breakeven.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_CLUSTERED_STOP_COOLDOWN_MIN",
+        "value": 45,
+        "defaultValue": 45,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minutes to pause fresh entries after clustered losing stop exits.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_CLUSTERED_STOP_COUNT",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Number of recent losing stop exits that trigger a temporary fresh-entry cooldown.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_CLUSTERED_STOP_WINDOW_MIN",
+        "value": 60,
+        "defaultValue": 60,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Lookback minutes for clustered losing stop exits.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_CONTINUATION_REENTRY_COOLDOWN_MIN",
+        "value": 15,
+        "defaultValue": 15,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_CONTINUATION_REENTRY_ENABLED",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_CONTINUATION_REENTRY_MAX_PER_SYMBOL",
+        "value": 1,
+        "defaultValue": 1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_COST_PROFILE",
+        "value": "zerodha_intraday",
+        "defaultValue": "zerodha_intraday",
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "",
+        "valueType": "string"
+      },
+      {
+        "key": "SIMULATION_DAILY_MAX_NET_LOSS_PCT",
+        "value": 0.3,
+        "defaultValue": 0.3,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum net daily loss percent of portfolio capital before fresh entries are blocked.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_DAILY_MAX_STOPS",
+        "value": 4,
+        "defaultValue": 4,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Base number of losing stop exits allowed in one day before blocking fresh entries.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_DAILY_MAX_STOPS_PROFIT_MULTIPLIER",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Multiplier applied to the daily stop limit after the day has enough profit buffer.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_DAILY_MAX_TRADES",
+        "value": 30,
+        "defaultValue": 12,
+        "overridden": true,
+        "differsFromDefault": true,
+        "source": "current-override",
+        "description": "Maximum number of new simulation entries allowed in one trading day.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_DAILY_STOP_PROFIT_BUFFER_PCT",
+        "value": 0.2,
+        "defaultValue": 0.2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Portfolio profit percent needed before the higher daily stop limit is allowed.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_DATA_QUALITY_BLOCK_BAD_RATIO",
+        "value": 0.45,
+        "defaultValue": 0.45,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Bad-candidate ratio that blocks new entries during degraded intraday data quality.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_DATA_QUALITY_MIN_SAMPLE",
+        "value": 25,
+        "defaultValue": 25,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum candidate sample size before snapshot-level data-quality throttles activate.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_DATA_QUALITY_REDUCED_TOP_N",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum top-N candidates considered while intraday data quality is degraded but not blocked.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_DATA_QUALITY_REDUCE_BAD_RATIO",
+        "value": 0.25,
+        "defaultValue": 0.25,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Bad-candidate ratio that reduces entry selection during degraded intraday data quality.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_DOMINANT_LEADER_MAX_SECTOR_RANK",
+        "value": 3,
+        "defaultValue": 3,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum directional sector rank that qualifies as dominant in a fragmented market.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_DOMINANT_LEADER_MIN_RS_PCT",
+        "value": 0.75,
+        "defaultValue": 0.75,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum stock-relative strength for a dominant-sector leader.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_DOMINANT_LEADER_MIN_SECTOR_BREADTH_PCT",
+        "value": 60,
+        "defaultValue": 60,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum directional sector breadth for a dominant-sector leader.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_DOMINANT_LEADER_MIN_SECTOR_PCT",
+        "value": 0.5,
+        "defaultValue": 0.5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum sector change for a long to qualify as a dominant-sector leader.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EARLY_RUNNER_LATE_MAX_TRIGGER_EXTENSION_PCT",
+        "value": 2.5,
+        "defaultValue": 2.5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum trigger extension allowed for early momentum-runner entries during the late strict window.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EARLY_RUNNER_LATE_MAX_VWAP_EXTENSION_PCT",
+        "value": 1.3,
+        "defaultValue": 1.3,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum VWAP extension allowed for early momentum-runner entries during the late strict window.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EARLY_RUNNER_MAX_DAY_CHANGE_PCT",
+        "value": 8,
+        "defaultValue": 8,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum day gain allowed before early momentum-runner entries are considered too late.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EARLY_RUNNER_MAX_TRIGGER_EXTENSION_PCT",
+        "value": 1.25,
+        "defaultValue": 1.25,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum trigger extension allowed for early momentum-runner entries.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EARLY_RUNNER_MAX_VWAP_EXTENSION_PCT",
+        "value": 1.5,
+        "defaultValue": 1.5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum VWAP extension allowed for early momentum-runner entries.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EARLY_RUNNER_MIN_DAY_CHANGE_PCT",
+        "value": 0.5,
+        "defaultValue": 0.5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum day gain required for early momentum-runner entries.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EARLY_RUNNER_MIN_REL_VOL",
+        "value": 1.3,
+        "defaultValue": 1.3,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum relative volume required for early momentum-runner entries.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EARLY_RUNNER_MIN_SCORE",
+        "value": 40,
+        "defaultValue": 40,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Lower score floor for early momentum-runner entries when volume, trend, and breakout confirmations are already aligned.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EMERGENCY_STOP_PCT",
+        "value": 1.25,
+        "defaultValue": 1.25,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Hard adverse move percent from entry that can exit immediately, even during stop grace.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_ENABLE_ETF",
+        "value": false,
+        "defaultValue": false,
+        "overridden": true,
+        "differsFromDefault": false,
+        "source": "current-override",
+        "description": "When true, simulation may open long ETF entries. ETF shorts remain disabled.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_ENTRY_END_MIN",
+        "value": 885,
+        "defaultValue": 885,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_ENTRY_MAX_SNAPSHOT_AGE_MIN",
+        "value": 3,
+        "defaultValue": 3,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum age in minutes allowed between the candidate snapshot and automated entry.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_ENTRY_START_MIN",
+        "value": 570,
+        "defaultValue": 570,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_ENTRY_TRIGGER_FREEZE_ENABLED",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Freeze an armed entry trigger so completed-candle confirmation is not measured against a moving trigger.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_ENTRY_TRIGGER_FREEZE_MIN",
+        "value": 15,
+        "defaultValue": 15,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minutes an armed entry trigger remains frozen before it may re-arm at a new level.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EOD_SETTLEMENT_MIN",
+        "value": 915,
+        "defaultValue": 915,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EXIT_FADE_CONFIRM_BARS",
+        "value": 3,
+        "defaultValue": 3,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Number of consecutive completed candles required before VWAP-loss or momentum-fade exits are confirmed.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EXIT_MIN_HOLD_MIN",
+        "value": 30,
+        "defaultValue": 30,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum hold time before VWAP-loss or momentum-fade exits can close a trade.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EXPECTANCY_BLOCK_MIN_SAMPLE",
+        "value": 25,
+        "defaultValue": 25,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum exact setup and score-band sample required before negative expectancy can block an entry.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EXPECTANCY_ENABLED",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Uses realized net outcomes to calibrate candidate ranking and block sufficiently sampled negative-expectancy score bands.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_EXPECTANCY_LOOKBACK_TRADES",
+        "value": 200,
+        "defaultValue": 200,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum recent closed positions used to calibrate net expectancy.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EXPECTANCY_MAX_SCORE_ADJUSTMENT",
+        "value": 10,
+        "defaultValue": 10,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum positive or negative score adjustment contributed by realized net expectancy.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EXPECTANCY_MIN_NET_PCT",
+        "value": 0,
+        "defaultValue": 0,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum average realized net return required for a sufficiently sampled setup and score band.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EXPECTANCY_MIN_PROFIT_FACTOR",
+        "value": 0.85,
+        "defaultValue": 0.85,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum realized profit factor required for a sufficiently sampled setup and score band.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_EXPECTANCY_MIN_SAMPLE",
+        "value": 12,
+        "defaultValue": 12,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum closed positions required before realized expectancy can adjust a candidate score.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_FIRST_HOUR_MAX_ENTRIES",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum new entries allowed during the first trading hour to avoid overtrading early volatility.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_FRAGMENTED_MARKET_FILTER_ENABLED",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "In a flat Nifty with weak Bank Nifty and Smallcap indices, restrict longs to dominant-sector leaders.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_FRAGMENTED_MARKET_FLAT_NIFTY_ABS_PCT",
+        "value": 0.2,
+        "defaultValue": 0.2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum absolute Nifty change treated as flat by the fragmented-market filter.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_FRAGMENTED_MARKET_MAX_BANK_PCT",
+        "value": 0,
+        "defaultValue": 0,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum Bank Nifty change that participates in the fragmented-market filter.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_FRAGMENTED_MARKET_MAX_SMALLCAP_PCT",
+        "value": 0,
+        "defaultValue": 0,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum Smallcap change that participates in the fragmented-market filter.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_GAIN_MILESTONES_PCT",
+        "value": "0.5,1,1.5,2",
+        "defaultValue": "0.5,1,1.5,2",
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Comma-separated persistent gain floors. Defaults to 0.5%, 1%, 1.5%, and 2%.",
+        "valueType": "string"
+      },
+      {
+        "key": "SIMULATION_GAIN_MILESTONE_ENABLED",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Protect reached gain milestones before later exit rules can turn a profitable trade negative.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_HIGH_PROFIT_EXIT_HOUR_CUTOFF",
+        "value": 13,
+        "defaultValue": 13,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Hour (24-hour IST) after which the high-profit short trigger no longer applies. Default is 13 (1 PM IST). After this hour, stocks are not triggered for short entry even if they gained 17%+.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_HIGH_PROFIT_EXIT_PROFIT_PCT",
+        "value": 1.5,
+        "defaultValue": 1.5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Target profit percent for the automatic short entry triggered by high gains. Default is 1.5% (stock drops 1.5% from entry).",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_HIGH_PROFIT_EXIT_STOP_PCT",
+        "value": 1,
+        "defaultValue": 1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Stop loss percent for the automatic short entry. Default is 1% (stock rises 1% from entry triggers stop).",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_HIGH_PROFIT_EXIT_THRESHOLD_PCT",
+        "value": 17,
+        "defaultValue": 17,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Stock gain percentage before the hour cutoff that triggers an automatic short entry. When stock increases this much before 1 PM IST, simulation will open a short to capture mean reversion.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LATE_LONG_EXCEPTION_ENABLED",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Allows only strict top-gainer/VWAP continuation exceptions after the ordinary long-entry cutoff.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_LATE_LONG_EXCEPTION_MIN_CHANGE_5M_PCT",
+        "value": 0.2,
+        "defaultValue": 0.2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum positive five-minute move required for an exceptional late long entry.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LATE_LONG_EXCEPTION_MIN_REL_VOL",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum relative volume required for an exceptional late long entry.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LATE_LONG_EXCEPTION_MIN_SCORE",
+        "value": 90,
+        "defaultValue": 90,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum decision score for an exceptional late long entry.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LATE_LONG_EXCEPTION_MIN_VOLUME_RATIO_3M",
+        "value": 1.2,
+        "defaultValue": 1.2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum three-minute volume ratio accepted for an exceptional late long entry.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LATE_LONG_EXCEPTION_MIN_VOLUME_RATIO_5M",
+        "value": 1.2,
+        "defaultValue": 1.2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum five-minute volume ratio accepted for an exceptional late long entry.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_BLOCK_NEGATIVE_5M",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Blocks long entries with explicit negative five-minute momentum unless the setup is a formal pullback/VWAP-reclaim setup.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_LONG_CONFIRM_BARS",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Legacy snapshot-confirmation count used only when long confirmation mode is two_snapshots.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_CONFIRM_CANDLE_MIN",
+        "value": 5,
+        "defaultValue": 5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Candle duration in minutes used to determine whether the breakout candle is complete.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_CONFIRM_MODE",
+        "value": "completed_candle_hold",
+        "defaultValue": "completed_candle_hold",
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Long-entry persistence rule: completed_candle_hold requires a completed breakout candle followed by a live trigger/VWAP hold; two_snapshots retains the legacy rule.",
+        "valueType": "string"
+      },
+      {
+        "key": "SIMULATION_LONG_ENTRY_CUTOFF_MIN",
+        "value": 855,
+        "defaultValue": 855,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "IST minute after which ordinary new long entries are blocked.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Master switch for mandatory long completed-candle, post-confirmation volume, and extension controls.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_LONG_FLAT_MARKET_ABS_PCT",
+        "value": 0.2,
+        "defaultValue": 0.2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Absolute Nifty change treated as flat when selecting the adaptive long profit-lock threshold.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_HARD_MIN_DECISION_SCORE",
+        "value": 65,
+        "defaultValue": 65,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Hard long-side decision-score floor applied after setup-specific score relaxations.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_HARD_MIN_DECISION_SCORE_ENABLED",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "When true, no long-side setup relaxation may enter below the hard decision-score floor.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_LONG_MAX_TRIGGER_EXTENSION_PCT",
+        "value": 0.6,
+        "defaultValue": 0.6,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum price extension above the entry trigger for every long setup.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_MAX_VWAP_EXTENSION_PCT",
+        "value": 0.8,
+        "defaultValue": 0.8,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum price extension above VWAP for every long setup.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_MIN_POST_CONFIRM_VOLUME_RATIO_3M",
+        "value": 1,
+        "defaultValue": 1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum current three-minute volume ratio required after long candle confirmation.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_MIN_POST_CONFIRM_VOLUME_RATIO_5M",
+        "value": 1,
+        "defaultValue": 1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum current five-minute volume ratio required after long candle confirmation.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_NEGATIVE_5M_RECLAIM_POSITION_MULTIPLIER",
+        "value": 0.5,
+        "defaultValue": 0.5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum position multiplier for a formal pullback/reclaim entry while five-minute momentum is negative.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_PROFIT_LOCK_MIN_HOLD_MIN",
+        "value": 15,
+        "defaultValue": 15,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum hold before the long profit lock can activate.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_PROFIT_LOCK_PARTIAL_QTY_PCT",
+        "value": 25,
+        "defaultValue": 25,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Percentage of a standard long position booked when the 0.80% profit lock activates.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_PROFIT_LOCK_PCT",
+        "value": 0.8,
+        "defaultValue": 0.8,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Favorable move that activates the cost-protecting profit lock for long positions.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_REQUIRE_COMPLETED_CANDLE",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "When true, every allowed long setup must use completed-candle confirmation even if a legacy confirmation mode is configured.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_LONG_REQUIRE_FRESH_VOLUME_AFTER_CONFIRMATION",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "When true, every long entry requires a current 3m or 5m volume impulse after its confirming candle completes.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_LONG_SECTOR_RS_OVERRIDE_ENABLED",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Allows a triggered high-score momentum runner or top-gainer continuation in a strongly positive sector to ignore only a mild negative-Nifty conflict. Breadth, sector, relative-strength, setup, cost, stop, heat, and daily-risk guards still apply.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_LONG_SECTOR_RS_OVERRIDE_MAX_NIFTY_DECLINE_PCT",
+        "value": 0.75,
+        "defaultValue": 0.75,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Largest Nifty decline that the long sector-relative-strength override may tolerate.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_SECTOR_RS_OVERRIDE_MIN_RS_PCT",
+        "value": 0.5,
+        "defaultValue": 0.5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum stock relative strength versus Nifty required for the sector-relative-strength Nifty override.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_SECTOR_RS_OVERRIDE_MIN_SCORE",
+        "value": 85,
+        "defaultValue": 85,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum long score required for the sector-relative-strength Nifty override.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_SECTOR_RS_OVERRIDE_MIN_SECTOR_PCT",
+        "value": 0.5,
+        "defaultValue": 0.5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum sector average gain required for the long sector-relative-strength Nifty override.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_TRAIL_PCT",
+        "value": 0.4,
+        "defaultValue": 0.4,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Trailing stop percent used for long positions after enough profit cushion is built.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_LONG_WEAK_MARKET_RUNNER_PROFIT_LOCK_PCT",
+        "value": 0.55,
+        "defaultValue": 0.55,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Earlier profit-lock threshold for a generic momentum runner when the broad market is flat or weak.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MANUAL_ENTRY_MAX_LIVE_DEVIATION_PCT",
+        "value": 0.25,
+        "defaultValue": 0.25,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum allowed difference between a manual order price and the validated live candidate price.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MARKET_BREADTH_PCT",
+        "value": 55,
+        "defaultValue": 55,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Advance/decline breadth threshold used by the market-regime guard when breadth data is available.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MARKET_REGIME_NIFTY_PCT",
+        "value": 0.25,
+        "defaultValue": 0.25,
+        "overridden": true,
+        "differsFromDefault": false,
+        "source": "current-override",
+        "description": "Nifty change threshold used by the market-regime guard. Long entries are blocked below negative threshold; short entries are blocked above positive threshold.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MARKET_REGIME_RS_PCT",
+        "value": 0.2,
+        "defaultValue": 0.2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Relative strength threshold against Nifty used by the market-regime guard. Long entries need stock RS above negative threshold; shorts need stock RS below positive threshold.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MARKET_REGIME_SECTOR_PCT",
+        "value": 0.15,
+        "defaultValue": 0.15,
+        "overridden": true,
+        "differsFromDefault": false,
+        "source": "current-override",
+        "description": "Sector average change threshold used by the market-regime guard. Long entries are blocked when sector is weaker than this negative threshold; shorts are blocked when sector is stronger than this positive threshold.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MAX_ACTIVE_OPEN",
+        "value": 8,
+        "defaultValue": 8,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum active simulation positions allowed at the same time. This can be lower than total open when partial runners are active.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MAX_CONCURRENT_POSITIONS_PER_SYMBOL",
+        "value": 1,
+        "defaultValue": 1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MAX_CONCURRENT_SHORTS",
+        "value": 4,
+        "defaultValue": 4,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum simultaneous open simulation short positions.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MAX_DAILY_ENTRIES_PER_SYMBOL",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MAX_GROSS_EXPOSURE_PCT",
+        "value": 80,
+        "defaultValue": 80,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum reserved open notional as a percent of current portfolio equity.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MAX_NEW_PER_CYCLE",
+        "value": 2,
+        "defaultValue": 1,
+        "overridden": true,
+        "differsFromDefault": true,
+        "source": "current-override",
+        "description": "Maximum new simulation entries allowed during one refresh cycle.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MAX_OPEN",
+        "value": 15,
+        "defaultValue": 10,
+        "overridden": true,
+        "differsFromDefault": true,
+        "source": "current-override",
+        "description": "Maximum total simulation trades allowed to remain open at the same time.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MAX_OPEN_PER_SECTOR",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum simultaneous open positions allowed in one sector.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MAX_PORTFOLIO_HEAT_PCT",
+        "value": 5,
+        "defaultValue": 5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MAX_POSITION_MULTIPLIER",
+        "value": 1,
+        "defaultValue": 1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Hard ceiling for the portfolio-level simulation position multiplier; 1 prevents sizing above the normal risk budget.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MAX_SECTOR_HEAT_PCT",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MIN_GROSS_TO_COST_MULTIPLE",
+        "value": 2.5,
+        "defaultValue": 2.5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum expected gross move as a multiple of modeled round-trip charges plus slippage.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MIN_NET_PROFIT_PCT",
+        "value": 1,
+        "defaultValue": 1,
+        "overridden": true,
+        "differsFromDefault": false,
+        "source": "current-override",
+        "description": "Minimum expected net profit percent required after estimated brokerage and charges before a trade is suggested or auto-entered.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_MIN_SCORE",
+        "value": 65,
+        "defaultValue": 65,
+        "overridden": true,
+        "differsFromDefault": false,
+        "source": "current-override",
+        "description": "Minimum general long-side trade score required before simulation can consider a buy candidate.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_NEG_CANDLE_EXIT_COUNT",
+        "value": 3,
+        "defaultValue": 3,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Number of consecutive bearish candles (close < open for longs; close > open for shorts) required to exit a trade that is at least SIMULATION_NEG_CANDLE_EXIT_MIN_GAIN_PCT in profit.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_NEG_CANDLE_EXIT_MIN_GAIN_PCT",
+        "value": 1,
+        "defaultValue": 1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum current favorable move percent required before the consecutive negative candle exit rule becomes active. Default is 1.0 (trade must be at least 1% in profit).",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_NO_PROGRESS_ADVERSE_PCT",
+        "value": 0.1,
+        "defaultValue": 0.1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum adverse move required before confirmed no-progress deterioration can close a trade.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_NO_PROGRESS_CONFIRM_BARS",
+        "value": 1,
+        "defaultValue": 1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Number of consecutive completed candles beyond VWAP required to confirm a no-progress exit.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_NO_PROGRESS_EXIT_MIN",
+        "value": 45,
+        "defaultValue": 45,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minutes after entry before an unproductive trade can be closed early.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_NO_PROGRESS_FRESH_BREAKOUT_EXIT_MIN",
+        "value": 35,
+        "defaultValue": 35,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "No-progress exit window for fresh-breakout trades.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_NO_PROGRESS_MIN_FAVORABLE_PCT",
+        "value": 0.15,
+        "defaultValue": 0.15,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum favorable move expected by the no-progress window.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_NO_PROGRESS_RUNNER_EXIT_MIN",
+        "value": 60,
+        "defaultValue": 45,
+        "overridden": true,
+        "differsFromDefault": true,
+        "source": "current-override",
+        "description": "No-progress exit window for momentum-runner or target-runner trades.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_NO_PROGRESS_VWAP_CONT_EXIT_MIN",
+        "value": 30,
+        "defaultValue": 30,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "No-progress exit window for VWAP trend-continuation trades when the rule is active.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_NO_PROGRESS_VWAP_CONT_REL_VOL_FADE",
+        "value": 1.5,
+        "defaultValue": 1.5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Relative-volume threshold below which VWAP continuation is considered faded for no-progress exits.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_NO_PROGRESS_VWAP_CONT_REQUIRE_REL_VOL_FADE",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "When true, VWAP continuation no-progress exits only activate after relative volume fades.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_OVERRIDE_STOP_GUARD",
+        "value": true,
+        "defaultValue": false,
+        "overridden": true,
+        "differsFromDefault": true,
+        "source": "current-override",
+        "description": "When enabled, simulation does not block fresh entries after hitting the daily stop guard. Other guards (daily loss, trade limit, cooldowns) still apply.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_PROFIT_REENTRY_COOLDOWN_MIN",
+        "value": 45,
+        "defaultValue": 45,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minutes to wait before re-entering a symbol after a profitable exit.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_REQUIRE_NIFTY_FOR_SHORTS",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "When true, short entries are blocked if Nifty regime data is unavailable.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_ROLLING_ENTRY_MAX",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum new simulation entries allowed inside the rolling entry window.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_ROLLING_ENTRY_WINDOW_MIN",
+        "value": 5,
+        "defaultValue": 5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Rolling time window in minutes used to rate-limit new simulation entries.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_ROLLING_ORDINARY_ENTRY_MAX",
+        "value": 1,
+        "defaultValue": 1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum non-sector-aligned entries allowed inside the rolling entry window.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_ROLLING_SECTOR_ENTRY_MAX",
+        "value": 1,
+        "defaultValue": 1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum strongly sector-aligned entries allowed inside the rolling entry window.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SECTOR_PRIORITY_ENABLED",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Prioritizes high-quality candidates aligned with a broad, sufficiently covered sector trend.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_SECTOR_PRIORITY_MAX_BOOST",
+        "value": 5,
+        "defaultValue": 5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum ranking-score boost contributed by sector trend, breadth, and relative strength.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SECTOR_PRIORITY_MIN_BREADTH_PCT",
+        "value": 60,
+        "defaultValue": 60,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum percentage of sector constituents moving in the trade direction.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SECTOR_PRIORITY_MIN_CONSTITUENTS",
+        "value": 3,
+        "defaultValue": 3,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum fresh sector constituents required before sector priority is trusted.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SECTOR_PRIORITY_MIN_RS_PCT",
+        "value": 0.5,
+        "defaultValue": 0.5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum directional stock relative strength versus Nifty required for sector priority.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SECTOR_PRIORITY_MIN_SCORE",
+        "value": 72,
+        "defaultValue": 80,
+        "overridden": true,
+        "differsFromDefault": true,
+        "source": "current-override",
+        "description": "Minimum absolute candidate score required for strong sector-alignment priority.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SECTOR_PRIORITY_MIN_SECTOR_PCT",
+        "value": 0.5,
+        "defaultValue": 0.5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum directional sector move required for strong sector-alignment priority.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SETUP_COOLDOWN_MIN",
+        "value": 90,
+        "defaultValue": 90,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minutes to wait before re-entering the same symbol and setup type after a losing stop exit.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SETUP_DAILY_LOSS_GUARD_COUNT",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Blocks fresh entries for a setup type after this many losing trades in the same setup during the day.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_ALLOW_AVOID_GUARD",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Allows risk guard level Avoid for short entries. Some long-side avoid reasons are actually bearish confirmations for shorts.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_SHORT_CONFIRM_BARS",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Number of triggered below-VWAP snapshots required to confirm short breakdown entries.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_LATE_ACCELERATION_ENABLED",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Require multiple fresh downside-acceleration signals for short entries after the configured late-start time.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_SHORT_LATE_ACCELERATION_LOOKBACK_MIN",
+        "value": 15,
+        "defaultValue": 15,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Lookback window used to test whether Nifty and the stock sector are making new lows.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_LATE_ACCELERATION_MAX_CHANGE_5M_PCT",
+        "value": -0.25,
+        "defaultValue": -0.25,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum five-minute stock change that qualifies as fresh downside acceleration.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_LATE_ACCELERATION_MAX_CLOSE_POSITION",
+        "value": 0.3,
+        "defaultValue": 0.3,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum candle close position within its range; 0.30 means the bottom 30%.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_LATE_ACCELERATION_MIN_SIGNALS",
+        "value": 4,
+        "defaultValue": 4,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum qualifying stock, candle, Nifty-new-low and sector-new-low signals for a late short; four requires full alignment.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_LATE_ACCELERATION_REQUIRE_STOCK_SIGNAL",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Require stock-level five-minute downside acceleration in addition to the multi-signal late-short threshold.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_SHORT_LATE_ACCELERATION_START_MIN",
+        "value": 630,
+        "defaultValue": 630,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "IST minute after which the short acceleration gate applies.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_LATE_DEEP_DECLINE_GUARD_ENABLED",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Block late shorts after a deep existing decline unless a completed VWAP/trigger rejection is confirmed.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_SHORT_LATE_DEEP_DECLINE_MAX_PCT",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum existing day decline allowed for an ordinary late short without a retest rejection.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_LATE_DEEP_DECLINE_START_MIN",
+        "value": 630,
+        "defaultValue": 630,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "IST minute after which the deep-decline short guard applies.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_MARKET_BREADTH_PCT",
+        "value": 52,
+        "defaultValue": 52,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Advance breadth threshold that blocks new short entries when strict short market guard is enabled.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_MARKET_GUARD_STRICT",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "When true, shorts use stricter Nifty, breadth, sector, and relative-strength thresholds than long-side market regime checks.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_SHORT_MARKET_REGIME_NIFTY_PCT",
+        "value": 0.1,
+        "defaultValue": 0.1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Nifty gain threshold that blocks new short entries when strict short market guard is enabled.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_MARKET_REGIME_RS_PCT",
+        "value": 0.1,
+        "defaultValue": 0.1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Relative-strength threshold that blocks new short entries when strict short market guard is enabled.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_MARKET_REGIME_SECTOR_PCT",
+        "value": 0.05,
+        "defaultValue": 0.05,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Sector gain threshold that blocks new short entries when strict short market guard is enabled.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_MAX_CONFIRM_LOWER_WICK_RATIO",
+        "value": 0.45,
+        "defaultValue": 0.45,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum lower-wick share of the confirming short candle range.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_MAX_STOP_PCT",
+        "value": 0.75,
+        "defaultValue": 0.75,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum stop-loss distance allowed for short entries.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_MAX_TRIGGER_EXTENSION_PCT",
+        "value": 0.3,
+        "defaultValue": 0.3,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_MIN_BEARISH_CONFIRMATIONS",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum bearish confirmation count required for short entries, using VWAP, EMA, SuperTrend, RSI, trigger and score alignment.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_MIN_POST_CONFIRM_VOLUME_RATIO_3M",
+        "value": 1,
+        "defaultValue": 1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum post-confirmation three-minute volume ratio for shorts.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_MIN_POST_CONFIRM_VOLUME_RATIO_5M",
+        "value": 1,
+        "defaultValue": 1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum post-confirmation five-minute volume ratio for shorts.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_MIN_REL_VOL",
+        "value": 0.8,
+        "defaultValue": 0.8,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum time-adjusted relative volume required for short breakdown or VWAP-rejection entries.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_MIN_SCORE",
+        "value": 70,
+        "defaultValue": 60,
+        "overridden": true,
+        "differsFromDefault": true,
+        "source": "current-override",
+        "description": "Minimum absolute short-side score required before simulation can consider a sell candidate.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_PROFIT_LOCK_PARTIAL_QTY_PCT",
+        "value": 50,
+        "defaultValue": 50,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Short quantity booked when the short profit lock activates.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_PROFIT_LOCK_PCT",
+        "value": 0.25,
+        "defaultValue": 0.25,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Favorable short move that books a partial profit and protects the remainder for costs.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_REQUIRE_COMPLETED_CANDLE",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Require a completed breakdown candle followed by a live trigger and VWAP rejection hold for shorts.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_SHORT_REQUIRE_FRESH_VOLUME_AFTER_CONFIRMATION",
+        "value": true,
+        "defaultValue": true,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Require fresh 3m or 5m selling volume after the completed short confirmation candle.",
+        "valueType": "boolean"
+      },
+      {
+        "key": "SIMULATION_SHORT_TRAIL_PCT",
+        "value": 0.4,
+        "defaultValue": 0.4,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Trailing stop percent used after a short trade moves sufficiently in favor.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SHORT_TRIGGER_DISTANCE_PCT",
+        "value": 1.2,
+        "defaultValue": 1.2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum distance from current price to short trigger before it is flagged as too far for intraday short analysis.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SLIPPAGE_PCT",
+        "value": 0.06,
+        "defaultValue": 0.06,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_STOP_CONFIRM_BARS",
+        "value": 2,
+        "defaultValue": 2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Number of consecutive completed candles beyond the stop required to confirm a normal stop exit.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_STOP_GRACE_MIN",
+        "value": 10,
+        "defaultValue": 10,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minutes after entry during which normal stop checks are softened unless emergency conditions occur.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_STRONG_BREAKOUT_MAX_DAY_GAIN_PCT",
+        "value": 8,
+        "defaultValue": 8,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum day gain allowed for strong volume-breakout score relaxation.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_STRONG_BREAKOUT_MAX_RSI",
+        "value": 75,
+        "defaultValue": 75,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum RSI allowed for strong volume-breakout score relaxation.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_STRONG_BREAKOUT_MIN_DAY_GAIN_PCT",
+        "value": 3,
+        "defaultValue": 3,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum day gain required for strong volume-breakout score relaxation.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_STRONG_BREAKOUT_MIN_REL_VOL",
+        "value": 3,
+        "defaultValue": 3,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum relative volume required for strong volume-breakout score relaxation.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_STRONG_BREAKOUT_MIN_SCORE",
+        "value": 55,
+        "defaultValue": 55,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Lower score floor for strong volume-shock or high-relative-volume fresh breakouts.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_SYMBOL_COOLDOWN_MIN",
+        "value": 90,
+        "defaultValue": 90,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minutes to wait before re-entering the same symbol after a losing stop exit.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_TARGET_PARTIAL_QTY_PCT",
+        "value": 50,
+        "defaultValue": 50,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Percent of position quantity booked at partial target before leaving a runner.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_TARGET_RUNNER_MIN_REL_VOL",
+        "value": 1.5,
+        "defaultValue": 1.5,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum relative volume required to keep the remaining quantity as a target runner.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_TARGET_RUNNER_MIN_SCORE",
+        "value": 60,
+        "defaultValue": 60,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum score required to keep the remaining quantity as a target runner.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_TIME_STOP_MIN",
+        "value": 45,
+        "defaultValue": 45,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minutes after entry before a non-performing trade can be exited by time-stop logic.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_TIME_STOP_MIN_PROFIT_PCT",
+        "value": 0.2,
+        "defaultValue": 0.2,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Minimum favorable move expected by the time-stop window before a weak trade can be closed.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_TOP_N",
+        "value": 10,
+        "defaultValue": 10,
+        "overridden": true,
+        "differsFromDefault": false,
+        "source": "current-override",
+        "description": "Number of highest-ranked candidates considered first for simulation entries.",
+        "valueType": "number"
+      },
+      {
+        "key": "SIMULATION_TRAIL_START_PCT",
+        "value": 0.8,
+        "defaultValue": 0.8,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Favorable move percent after which non-runner positions start using a trailing-profit guard.",
+        "valueType": "number"
+      },
+      {
+        "key": "TRADE_RISK_PCT",
+        "value": 1,
+        "defaultValue": 1,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum portfolio capital risked per trade, based on entry price versus stop loss.",
+        "valueType": "number"
+      }
+    ],
+    "overrideCount": 20,
+    "effectiveSettingCount": 321
+  }
+}

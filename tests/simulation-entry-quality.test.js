@@ -91,10 +91,57 @@ test('entry audit snapshots are deterministic and contain the active decision co
 
   assert.equal(snapshot.SIMULATION_MAX_NEW_PER_CYCLE, 1);
   assert.equal(snapshot.SIMULATION_LONG_CONFIRM_MODE, 'completed_candle_hold');
+  assert.equal(snapshot.SIMULATION_LONG_HARD_MIN_DECISION_SCORE, 65);
+  assert.equal(snapshot.SIMULATION_LONG_ENTRY_CUTOFF_MIN, 14 * 60 + 15);
+  assert.equal(snapshot.SIMULATION_RUNNER_SCALE_IN_MIN_MFE_PCT, 0.5);
+  assert.equal(snapshot.SIMULATION_MAX_POSITION_MULTIPLIER, 1);
   assert.equal(fingerprint, SimulationEngine.stableAuditFingerprint({ ...snapshot }));
   assert.deepEqual(
     SimulationEngine.buildIndicatorAuditSnapshot(qualityCandidate()).entryStatus,
     'Triggered'
+  );
+});
+
+test('ordinary long entries stop at 14:15 IST while strict continuation setups use the exception gate', () => {
+  const settings = TradeRules.withDefaults({
+    SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED:false,
+  });
+  const ordinary = qualityCandidate({
+    setupType:'FRESH_BREAKOUT',
+    derivedSetupType:'FRESH_BREAKOUT',
+    decisionScore:95,
+  });
+  assert.doesNotMatch(
+    SimulationEngine.getSetupBlockReason(ordinary, 'FRESH_BREAKOUT', '2026-07-16T08:44:00.000Z', settings),
+    /ordinary long entries blocked/
+  );
+  assert.match(
+    SimulationEngine.getSetupBlockReason(ordinary, 'FRESH_BREAKOUT', '2026-07-16T08:45:00.000Z', settings),
+    /ordinary long entries blocked after 14:15 IST/
+  );
+
+  const exceptional = qualityCandidate({
+    setupType:'VWAP_TREND_CONTINUATION',
+    derivedSetupType:'VWAP_TREND_CONTINUATION',
+    decisionScore:95,
+    indicators:{
+      ...qualityCandidate().indicators,
+      relVolumeTimeAdjusted:2.5,
+      volumeShock:{ volumeRatio3m:1.3, volumeRatio5m:1.3, change5m:0.3, recentHigh:101 },
+    },
+  });
+  const exceptionReason = SimulationEngine.getSetupBlockReason(
+    exceptional,
+    'VWAP_TREND_CONTINUATION',
+    '2026-07-16T08:50:00.000Z',
+    settings
+  );
+  assert.doesNotMatch(exceptionReason, /ordinary long entries blocked/);
+
+  exceptional.decisionScore = 89;
+  assert.match(
+    SimulationEngine.getSetupBlockReason(exceptional, 'VWAP_TREND_CONTINUATION', '2026-07-16T08:50:00.000Z', settings),
+    /late long decision score 89 < 90/
   );
 });
 
@@ -144,6 +191,210 @@ test('completed-candle mode does not accept two snapshots without a completed br
   );
   assert.equal(confirmation.ok, false);
   assert.match(confirmation.reason, /completed 5m candle/);
+});
+
+function globallyConfirmedShort(overrides = {}) {
+  const base = qualityCandidate({
+    symbol:'SHORT-QUALITY',
+    side:'sell',
+    signal:'sell',
+    price:99.7,
+    score:-85,
+    setupType:'BREAKDOWN',
+    derivedSetupType:'BREAKDOWN',
+    __snapshotAt:'2026-07-16T05:10:30.000Z',
+    candles:[
+      { time:'2026-07-16T04:55:00.000Z', open:100.2, high:100.25, low:99.7, close:99.8, volume:900 },
+      { time:'2026-07-16T05:00:00.000Z', open:100.15, high:100.2, low:99.55, close:99.75, volume:1000 },
+    ],
+    indicators:{
+      ...qualityCandidate().indicators,
+      entryTrigger:'Sell below 100',
+      vwap:99.9,
+      rsi:38,
+      ema9:99.7,
+      ema20:100.05,
+      superTrendDirection:'bearish',
+      dayChange:-1.2,
+      volumeShock:{ volumeRatio3m:1.1, volumeRatio5m:1.2, change5m:-0.2 },
+    },
+  });
+  return { ...base, ...overrides };
+}
+
+test('short entries require a bearish completed candle, a live hold, and fresh volume', () => {
+  const settings = TradeRules.withDefaults({});
+  const candidate = globallyConfirmedShort();
+  const confirmation = SimulationEngine.getShortEntryConfirmation(candidate, null, 'sell', candidate.__snapshotAt, settings);
+  assert.equal(confirmation.ok, true);
+  assert.equal(confirmation.retestRejected, true);
+
+  const noCandle = globallyConfirmedShort({ candles:[] });
+  assert.match(
+    SimulationEngine.getShortEntryConfirmation(noCandle, null, 'sell', noCandle.__snapshotAt, settings).reason,
+    /completed 5m candle/
+  );
+
+  const staleVolume = globallyConfirmedShort({
+    indicators:{ ...candidate.indicators, volumeShock:{ volumeRatio3m:0.7, volumeRatio5m:0.8 } },
+  });
+  assert.match(
+    SimulationEngine.getShortEntryConfirmation(staleVolume, null, 'sell', staleVolume.__snapshotAt, settings).reason,
+    /fresh post-confirmation volume/
+  );
+
+  const reclaimed = globallyConfirmedShort({ price:100.05 });
+  assert.match(
+    SimulationEngine.getShortEntryConfirmation(reclaimed, null, 'sell', reclaimed.__snapshotAt, settings).reason,
+    /post-breakdown hold failed/
+  );
+});
+
+test('late deeply-declined shorts need a completed trigger or VWAP retest rejection', () => {
+  const settings = TradeRules.withDefaults({ SIMULATION_SHORT_LATE_ACCELERATION_ENABLED:false });
+  const at = '2026-07-16T05:10:30.000Z'; // 10:40 IST
+  const rejectedRetest = globallyConfirmedShort({
+    __snapshotAt:at,
+    indicators:{ ...globallyConfirmedShort().indicators, dayChange:-3 },
+  });
+  assert.equal(SimulationEngine.getSetupBlockReason(rejectedRetest, 'BREAKDOWN', at, settings), '');
+
+  const noRetest = globallyConfirmedShort({
+    __snapshotAt:at,
+    candles:[
+      { time:'2026-07-16T04:55:00.000Z', open:99.82, high:99.85, low:99.7, close:99.75, volume:900 },
+      { time:'2026-07-16T05:00:00.000Z', open:99.82, high:99.86, low:99.6, close:99.65, volume:1000 },
+    ],
+    indicators:{ ...globallyConfirmedShort().indicators, dayChange:-3 },
+  });
+  assert.match(
+    SimulationEngine.getSetupBlockReason(noRetest, 'BREAKDOWN', at, settings),
+    /late short blocked/
+  );
+});
+
+test('late shorts require full stock, candle, Nifty and sector acceleration alignment', () => {
+  const settings = TradeRules.withDefaults({});
+  const at = '2026-07-16T05:10:30.000Z';
+  const candidate = globallyConfirmedShort({
+    __snapshotAt:at,
+    candles:[
+      { time:'2026-07-16T04:55:00.000Z', open:100.2, high:100.25, low:99.7, close:99.8, volume:900 },
+      { time:'2026-07-16T05:00:00.000Z', open:100.15, high:100.2, low:99.55, close:99.7, volume:1000 },
+    ],
+    indicators:{
+      ...globallyConfirmedShort().indicators,
+      dayChange:-1.5,
+      volumeShock:{ volumeRatio3m:1.2, volumeRatio5m:1.3, change5m:-0.3 },
+    },
+    sector:'IT',
+  });
+  const context = {
+    market:{ indices:{ nifty50:{ change:-0.7 } } },
+    sectorTrend:{ IT:-1 },
+    marketHistory:[{ at:'2026-07-16T05:00:00.000Z', market:{ indices:{ nifty50:{ change:-0.5 } } }, sectorTrend:{ IT:-0.8 } }],
+  };
+  const info = SimulationEngine.getLateShortAccelerationInfo(candidate, at, context, settings,
+    SimulationEngine.getShortEntryConfirmation(candidate, null, 'sell', at, settings));
+  assert.equal(info.ok, true);
+  assert.equal(info.required, 4);
+  assert.equal(info.count, 4);
+  assert.equal(SimulationEngine.getSetupBlockReason(candidate, 'BREAKDOWN', at, settings, context), '');
+
+  const stalled = globallyConfirmedShort({
+    ...candidate,
+    indicators:{ ...candidate.indicators, volumeShock:{ volumeRatio3m:1.2, volumeRatio5m:1.3, change5m:0.1 } },
+  });
+  assert.match(
+    SimulationEngine.getSetupBlockReason(stalled, 'BREAKDOWN', at, settings, {
+      market:{ indices:{ nifty50:{ change:-0.4 } } },
+      sectorTrend:{ IT:-0.5 },
+      marketHistory:context.marketHistory,
+    }),
+    /late short acceleration/
+  );
+});
+
+test('opening-flush reversal requires VWAP reclaim, higher closes, fresh volume and index recovery', () => {
+  const at = '2026-07-16T05:20:30.000Z';
+  const candidate = qualityCandidate({
+    side:'buy',
+    signal:'buy',
+    price:100.3,
+    __snapshotAt:at,
+    candles:[
+      { time:'2026-07-16T05:00:00.000Z', open:99.2, high:99.3, low:98.5, close:98.8, volume:800 },
+      { time:'2026-07-16T05:05:00.000Z', open:98.8, high:99.7, low:98.7, close:99.5, volume:900 },
+      { time:'2026-07-16T05:10:00.000Z', open:99.5, high:100.3, low:99.4, close:100.2, volume:1200 },
+    ],
+    indicators:{
+      ...qualityCandidate().indicators,
+      entryTrigger:'Buy above 100.1',
+      vwap:100,
+      openingHigh:101,
+      ohlc:{ previousClose:100, session:{ low:97 } },
+      volumeShock:{ volumeRatio3m:1.1, volumeRatio5m:1.2 },
+    },
+  });
+  const info = SimulationEngine.getOpeningFlushReversalInfo(candidate, {}, at, {
+    market:{ indices:{ nifty50:{ change:-0.2 } } },
+    marketHistory:[{ at:'2026-07-16T04:50:00.000Z', market:{ indices:{ nifty50:{ change:-0.8 } } } }],
+  });
+  assert.equal(info.ok, true);
+  assert.equal(info.twoHigherCloses, true);
+  assert.ok(info.indexRecoveryPct >= 0.5);
+});
+
+test('armed entry triggers stay frozen for fifteen minutes', () => {
+  const settings = TradeRules.withDefaults({});
+  const previous = {
+    side:'sell',
+    __frozenEntryTrigger:102,
+    __frozenTriggerAt:new Date('2026-07-16T05:00:00.000Z').getTime(),
+  };
+  const candidate = globallyConfirmedShort({
+    indicators:{ ...globallyConfirmedShort().indicators, entryStatus:'Triggered', entryTrigger:'Sell below 100' },
+  });
+  SimulationEngine.applyFrozenEntryTrigger(candidate, previous, '2026-07-16T05:10:00.000Z', settings);
+  assert.equal(SimulationEngine.getEntryTriggerPrice(candidate), 102);
+  const rearmed = globallyConfirmedShort({
+    indicators:{ ...globallyConfirmedShort().indicators, entryStatus:'Triggered', entryTrigger:'Sell below 100' },
+  });
+  SimulationEngine.applyFrozenEntryTrigger(rearmed, previous, '2026-07-16T05:16:00.000Z', settings);
+  assert.equal(SimulationEngine.getEntryTriggerPrice(rearmed), 100);
+});
+
+test('top-gainer pullback reclaim and bear-flag continuation are separate confirmed setups', () => {
+  const settings = TradeRules.withDefaults({});
+  const at = '2026-07-16T05:10:30.000Z';
+  const pullback = qualityCandidate({
+    symbol:'GAINER', price:100.4, score:85, topGainerRank:1, __snapshotAt:at,
+    candles:[{ time:'2026-07-16T05:00:00.000Z', open:99.9, high:100.4, low:99.8, close:100.3, volume:1000 }],
+    indicators:{
+      ...qualityCandidate().indicators,
+      dayChange:6, vwap:100, ema9:100.3, ema20:99.8, superTrendDirection:'bullish',
+      volumeShock:{ volumeRatio3m:1.2, volumeRatio5m:1.3 },
+    },
+  });
+  assert.equal(SimulationEngine.getTopGainerPullbackReclaimInfo(pullback, settings, at).ok, true);
+  assert.equal(SimulationEngine.deriveSetupType(pullback, settings, at), 'TOP_GAINER_PULLBACK_RECLAIM');
+
+  const bearFlag = globallyConfirmedShort({
+    symbol:'BEAR-FLAG', price:99.65, score:-85, sector:'IT', __snapshotAt:at,
+    previousCandidate:{ side:'sell', signal:'sell', price:100.2, indicators:{ vwap:100.5 } },
+    candles:[
+      { time:'2026-07-16T04:45:00.000Z', open:100.7, high:101, low:100, close:100.4, volume:800 },
+      { time:'2026-07-16T04:50:00.000Z', open:100.4, high:100.8, low:100, close:100.2, volume:700 },
+      { time:'2026-07-16T05:00:00.000Z', open:100.3, high:100.4, low:99.5, close:99.7, volume:1200 },
+    ],
+    indicators:{
+      ...globallyConfirmedShort().indicators,
+      dayChange:-3, vwap:100.3,
+      volumeShock:{ volumeRatio3m:1.2, volumeRatio5m:1.3, change5m:-0.3 },
+    },
+  });
+  assert.equal(SimulationEngine.getBearFlagContinuationInfo(bearFlag, settings, at).ok, true);
+  assert.equal(SimulationEngine.deriveSetupType(bearFlag, settings, at), 'BEAR_FLAG_CONTINUATION');
 });
 
 function globallyConfirmedLong(overrides = {}) {
@@ -218,8 +469,113 @@ test('all long setups enforce 0.60 percent trigger and 0.80 percent VWAP extensi
   );
 });
 
-test('standard long profit lock activates at 0.40 percent without the legacy hold delay', () => {
+function earlyMomentumCandidate(overrides = {}) {
+  const base = qualityCandidate({
+    symbol:'EARLY',
+    price:100.5,
+    score:59,
+    setupType:'',
+    derivedSetupType:'',
+    __snapshotAt:'2026-07-16T05:10:30.000Z',
+    candles:[
+      { time:'2026-07-16T05:00:00.000Z', open:99.9, high:100.4, low:99.8, close:100.3, volume:1000 },
+      { time:'2026-07-16T05:10:00.000Z', open:100.4, high:100.6, low:100.4, close:100.5, volume:200 },
+    ],
+    indicators:{
+      ...qualityCandidate().indicators,
+      entryTrigger:'Buy above 100 with VWAP hold',
+      vwap:100.1,
+      ema5:100.3,
+      ema9:null,
+      ema20:null,
+      rsi7:66,
+      rsi:null,
+      superTrendDirection:null,
+      relVolumeTimeAdjusted:2,
+      volumeShock:{ volumeRatio3m:1.2, volumeRatio5m:1.1, change5m:0.2 },
+      earlyMomentum:{
+        active:true,
+        warmup:true,
+        trigger:100,
+        emaBullish:true,
+        higherCloses:true,
+        higherLows:true,
+        rsiHealthy:true,
+        freshVolume:true,
+      },
+    },
+  });
+  return { ...base, ...overrides };
+}
+
+test('early momentum uses partial warm-up evidence and retains completed-candle entry guards', () => {
+  const settings = TradeRules.withDefaults({
+    SIMULATION_EARLY_MOMENTUM_ENTRY_CUTOFF_MIN:11 * 60,
+    SIMULATION_LONG_HARD_MIN_DECISION_SCORE_ENABLED:false,
+  });
+  const candidate = earlyMomentumCandidate();
+  assert.equal(SimulationEngine.getEarlyMomentumInfo(candidate, settings).ok, true);
+  assert.equal(SimulationEngine.deriveSetupType(candidate, settings, candidate.__snapshotAt), 'EARLY_MOMENTUM');
+  candidate.derivedSetupType = 'EARLY_MOMENTUM';
+  assert.equal(
+    SimulationEngine.getMinScoreForCandidate(settings, 'buy', 'EARLY_MOMENTUM', candidate),
+    55
+  );
+  assert.equal(
+    SimulationEngine.getSetupBlockReason(candidate, 'EARLY_MOMENTUM', candidate.__snapshotAt, settings),
+    ''
+  );
+
+  const noCompletedBreakout = earlyMomentumCandidate({
+    candles:[{ time:'2026-07-16T05:10:00.000Z', open:100.4, high:100.6, low:100.4, close:100.5, volume:200 }],
+  });
+  noCompletedBreakout.derivedSetupType = 'EARLY_MOMENTUM';
+  assert.match(
+    SimulationEngine.getSetupBlockReason(noCompletedBreakout, 'EARLY_MOMENTUM', noCompletedBreakout.__snapshotAt, settings),
+    /completed 5m candle/
+  );
+});
+
+test('early momentum rejects stale volume and strict extension breaches', () => {
   const settings = TradeRules.withDefaults({});
+  const staleVolume = earlyMomentumCandidate({
+    indicators:{
+      ...earlyMomentumCandidate().indicators,
+      volumeShock:{ volumeRatio3m:0.8, volumeRatio5m:0.9, change5m:0.2 },
+    },
+  });
+  assert.equal(SimulationEngine.getEarlyMomentumInfo(staleVolume, settings).ok, false);
+
+  const extended = earlyMomentumCandidate({ price:100.9 });
+  assert.equal(SimulationEngine.getEarlyMomentumInfo(extended, settings).ok, false);
+});
+
+test('early momentum is blocked after 10:15 IST and requires sector support when market evidence exists', () => {
+  const settings = TradeRules.withDefaults({});
+  const late = earlyMomentumCandidate({ __snapshotAt:'2026-07-28T04:56:00.000Z' });
+  assert.match(
+    SimulationEngine.getEarlyMomentumInfo(late, settings, late.__snapshotAt, {}).reason,
+    /blocked after 10:15 IST/
+  );
+
+  const unsupported = earlyMomentumCandidate({ __snapshotAt:'2026-07-28T04:35:00.000Z' });
+  unsupported.sectorPriority = { aligned:false, sectorAvg:0.2, sectorRank:6, sectorCount:12, breadthPct:45, rs:0.4 };
+  assert.match(
+    SimulationEngine.getEarlyMomentumInfo(
+      unsupported,
+      settings,
+      unsupported.__snapshotAt,
+      { market:{ indices:{ nifty50:{ change:0.1 } } } }
+    ).reason,
+    /sector alignment or RS/
+  );
+});
+
+test('standard long profit lock books 25 percent without exiting on the first cost retracement', () => {
+  const settings = TradeRules.withDefaults({
+    SIMULATION_GAIN_MILESTONE_ENABLED:false,
+    SIMULATION_TRAIL_START_PCT:2,
+  });
   const trade = {
     symbol:'LOCK',
     side:'buy',
@@ -228,20 +584,27 @@ test('standard long profit lock activates at 0.40 percent without the legacy hol
     qty:10,
     openedAt:'2026-07-16T05:00:00.000Z',
   };
-  const candidate = globallyConfirmedLong({ symbol:'LOCK', price:100.4 });
+  const candidate = globallyConfirmedLong({ symbol:'LOCK', price:100.8 });
   assert.equal(
-    SimulationEngine.getSimulationExit(trade, 100.4, candidate, '2026-07-16T05:00:05.000Z', settings, {}),
-    null
+    SimulationEngine.getSimulationExit(trade, 100.8, candidate, '2026-07-16T05:14:59.000Z', settings, {}),
+    null,
+    'profit lock must not activate before the configured minimum hold'
   );
+  const partial = SimulationEngine.getSimulationExit(trade, 100.8, candidate, '2026-07-16T05:15:00.000Z', settings, {});
+  assert.equal(partial.reason, 'Simulation long profit lock');
+  assert.equal(partial.action, 'partial');
+  assert.equal(partial.qtyPct, 25);
+  assert.equal(partial.protectRemainder, true);
+  trade._partialTargetBooked = true;
   const locked = SimulationEngine.getSimulationExit(
     trade,
     100.1,
     { ...candidate, price:100.1 },
-    '2026-07-16T05:00:10.000Z',
+    '2026-07-16T05:15:10.000Z',
     settings,
     {}
   );
-  assert.equal(locked.reason, 'Simulation breakeven guard');
+  assert.equal(locked, null, 'breakeven requires completed VWAP deterioration confirmation');
 });
 
 function topGainerCandidate(symbol, dayChange, overrides = {}) {
@@ -300,7 +663,7 @@ test('top-gainer continuation ranks the universe and applies its qualification a
   );
 });
 
-test('top-gainer continuation exits on a completed trigger/VWAP loss and locks profit at 0.4 percent', () => {
+test('top-gainer continuation exits on a completed trigger/VWAP loss and locks profit at 0.8 percent', () => {
   const settings = TradeRules.withDefaults({});
   const trade = {
     symbol:'GAINER',
@@ -328,17 +691,17 @@ test('top-gainer continuation exits on a completed trigger/VWAP loss and locks p
   );
   assert.equal(holdExit.reason, 'Simulation top-gainer trigger and VWAP loss');
 
-  trade._maxFavorablePct = 0.4;
-  trade._bestPrice = 100.4;
+  trade._maxFavorablePct = 0.8;
+  trade._bestPrice = 100.8;
   const partial = SimulationEngine.getTopGainerContinuationExit(
     trade,
-    100.4,
+    100.8,
     topGainerCandidate('GAINER', 3),
     '2026-07-16T05:06:00.000Z',
     settings
   );
   assert.equal(partial.action, 'partial');
-  assert.equal(partial.qtyPct, 50);
+  assert.equal(partial.qtyPct, 25);
 
   trade._partialTargetBooked = true;
   trade._bestPrice = 101;
