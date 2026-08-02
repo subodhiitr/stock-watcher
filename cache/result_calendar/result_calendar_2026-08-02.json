@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "date": "2026-08-02",
+  "savedAt": 1785640590228,
+  "builtInMs": 90214,
+  "source": "nse-board-meetings",
+  "scanned": 3041,
+  "count": 1,
+  "symbolCount": 1,
+  "items": [
+    {
+      "symbol": "PERSISTENT",
+      "name": "Persistent Systems Limited",
+      "type": "Financial Results",
+      "title": "PERSISTENT SYSTEMS LIMITED has informed the Exchange about Board Meeting to be held on 02-Aug-2026 to consider and approve the Quarterly Audited Financial results of the Company for the period ended June 2026 and Other business.",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=PERSISTENT",
+      "eventDate": "2026-08-01T18:30:00.000Z",
+      "dateKey": "2026-08-02",
+      "status": "today",
+      "period": null
+    }
+  ],
+  "version": 3
+}

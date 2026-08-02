@@ -1,0 +1,9 @@
+[
+  {
+    "symbol": "NIFTYBEES",
+    "holdings": [
+      { "symbol": "RELIANCE", "weight": 9.5 },
+      { "symbol": "TCS", "weight": 8.2 }
+    ]
+  }
+]

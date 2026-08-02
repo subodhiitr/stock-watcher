@@ -1,8 +1,26 @@
 #!/usr/bin/env node
 'use strict';
 
-const fs = require('fs');
+const { Worker, isMainThread, parentPort, workerData } = require('worker_threads');
+const os = require('os');
 const Backtest = require('./backtest_simulation');
+
+function isClosedIpcError(e) {
+  return e && e.code === 'ERR_IPC_CHANNEL_CLOSED';
+}
+
+function sendToParent(message) {
+  if (typeof process.send !== 'function' || !process.connected) return false;
+  try {
+    process.send(message, err => {
+      if (err && !isClosedIpcError(err)) throw err;
+    });
+    return true;
+  } catch (e) {
+    if (!isClosedIpcError(e)) throw e;
+    return false;
+  }
+}
 
 function setupStatsFromBacktest(result) {
   return Object.entries(result?.bySetup || {})
@@ -53,6 +71,9 @@ function compactReplayResult(result) {
     setupStats:setupStatsFromBacktest(result),
     quality:result?.quality || null,
     dataQuality:result?.dataQuality || [],
+    dataQualitySummary:result?.dataQualitySummary || null,
+    replayConfidence:result?.replayConfidence || null,
+    replayReliability:result?.replayReliability || null,
     top:result?.top || [],
     bottom:result?.bottom || [],
   };
@@ -109,6 +130,60 @@ function uniqueSweepOutcomes(rows) {
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
+  });
+}
+
+function buildSweepRow(settings, result) {
+  return {
+    minScore:settings.SIMULATION_MIN_SCORE,
+    topN:settings.SIMULATION_TOP_N,
+    perCycle:settings.SIMULATION_MAX_NEW_PER_CYCLE,
+    firstHour:settings.SIMULATION_FIRST_HOUR_MAX_ENTRIES,
+    trail:settings.SIMULATION_LONG_TRAIL_PCT,
+    stopConfirm:settings.SIMULATION_STOP_CONFIRM_BARS,
+    fadeConfirm:settings.SIMULATION_EXIT_FADE_CONFIRM_BARS,
+    stopGrace:settings.SIMULATION_STOP_GRACE_MIN,
+    partialQty:settings.SIMULATION_TARGET_PARTIAL_QTY_PCT,
+    trades:result.summary.trades,
+    winRate:result.summary.winRate,
+    net:result.summary.net,
+    returnPct:result.summary.returnPct,
+    maxDrawdown:result.summary.maxDrawdown,
+    maxDrawdownPct:result.summary.maxDrawdownPct,
+    maxLossStreak:result.summary.maxLossStreak,
+  };
+}
+
+function runSweepBatch(settingsList, snapshots) {
+  const cpuCount = Math.max(1, Math.min(os.cpus().length, 8));
+  const chunkSize = Math.ceil(settingsList.length / cpuCount);
+  const chunks = [];
+  for (let i = 0; i < settingsList.length; i += chunkSize) {
+    chunks.push(settingsList.slice(i, i + chunkSize));
+  }
+  const workers = [];
+  let completed = 0;
+  let settled = false;
+  const results = new Array(chunks.length);
+  return new Promise((resolve, reject) => {
+    const fail = (err) => {
+      if (settled) return;
+      settled = true;
+      for (const w of workers) { try { w.terminate(); } catch (_) {} }
+      reject(err);
+    };
+    chunks.forEach((batch, idx) => {
+      const w = new Worker(__filename, { workerData:{ batch, snapshots } });
+      workers.push(w);
+      w.on('message', msg => {
+        if (settled) return;
+        if (msg && msg.ok === false) { fail(new Error(msg.error || 'Sweep worker failed')); return; }
+        results[idx] = Array.isArray(msg) ? msg : [];
+        if (++completed === chunks.length) { settled = true; resolve(results.flat()); }
+      });
+      w.on('error', err => fail(err));
+      w.on('exit', code => { if (!settled && code !== 0) fail(new Error(`Sweep worker exited ${code}`)); });
+    });
   });
 }
 
@@ -171,29 +246,10 @@ function buildQuickSweepSettings(baseSettings) {
   return uniqueSweepSettings(variants);
 }
 
-function runQuickReplaySweep(snapshots, baseSettings, maxVariants = 5) {
+async function runQuickReplaySweep(snapshots, baseSettings, maxVariants = 5) {
   const limit = Math.max(1, Math.floor(Number(maxVariants) || 5));
-  const ranked = normalizeSweepRows(buildQuickSweepSettings(baseSettings).map(settings => {
-    const result = Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings);
-    return {
-      minScore:settings.SIMULATION_MIN_SCORE,
-      topN:settings.SIMULATION_TOP_N,
-      perCycle:settings.SIMULATION_MAX_NEW_PER_CYCLE,
-      firstHour:settings.SIMULATION_FIRST_HOUR_MAX_ENTRIES,
-      trail:settings.SIMULATION_LONG_TRAIL_PCT,
-      stopConfirm:settings.SIMULATION_STOP_CONFIRM_BARS,
-      fadeConfirm:settings.SIMULATION_EXIT_FADE_CONFIRM_BARS,
-      stopGrace:settings.SIMULATION_STOP_GRACE_MIN,
-      partialQty:settings.SIMULATION_TARGET_PARTIAL_QTY_PCT,
-      trades:result.summary.trades,
-      winRate:result.summary.winRate,
-      net:result.summary.net,
-      returnPct:result.summary.returnPct,
-      maxDrawdown:result.summary.maxDrawdown,
-      maxDrawdownPct:result.summary.maxDrawdownPct,
-      maxLossStreak:result.summary.maxLossStreak,
-    };
-  }))
+  const rows = await runSweepBatch(buildQuickSweepSettings(baseSettings), snapshots);
+  const ranked = normalizeSweepRows(rows)
     .sort((a, b) => b.net - a.net || a.maxDrawdown - b.maxDrawdown || b.winRate - a.winRate);
   return uniqueSweepOutcomes(ranked).slice(0, limit);
 }
@@ -337,65 +393,57 @@ function buildDeepSweepSettings(baseSettings) {
   return uniqueSweepSettings(variants);
 }
 
-function runDeepReplaySweep(snapshots, baseSettings, maxVariants = 20) {
+async function runDeepReplaySweep(snapshots, baseSettings, maxVariants = 20) {
   const limit = Math.max(1, Math.floor(Number(maxVariants) || 20));
-  const ranked = normalizeSweepRows(buildDeepSweepSettings(baseSettings).map(settings => {
-    const result = Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings);
-    return {
-      minScore:settings.SIMULATION_MIN_SCORE,
-      topN:settings.SIMULATION_TOP_N,
-      perCycle:settings.SIMULATION_MAX_NEW_PER_CYCLE,
-      firstHour:settings.SIMULATION_FIRST_HOUR_MAX_ENTRIES,
-      trail:settings.SIMULATION_LONG_TRAIL_PCT,
-      stopConfirm:settings.SIMULATION_STOP_CONFIRM_BARS,
-      fadeConfirm:settings.SIMULATION_EXIT_FADE_CONFIRM_BARS,
-      stopGrace:settings.SIMULATION_STOP_GRACE_MIN,
-      partialQty:settings.SIMULATION_TARGET_PARTIAL_QTY_PCT,
-      trades:result.summary.trades,
-      winRate:result.summary.winRate,
-      net:result.summary.net,
-      returnPct:result.summary.returnPct,
-      maxDrawdown:result.summary.maxDrawdown,
-      maxDrawdownPct:result.summary.maxDrawdownPct,
-      maxLossStreak:result.summary.maxLossStreak,
-    };
-  }))
+  const rows = await runSweepBatch(buildDeepSweepSettings(baseSettings), snapshots);
+  const ranked = normalizeSweepRows(rows)
     .sort((a, b) => b.net - a.net || a.maxDrawdown - b.maxDrawdown || b.winRate - a.winRate);
   return uniqueSweepOutcomes(ranked).slice(0, limit);
 }
 
-function readSnapshotsForDay(day) {
-  const file = Backtest.getDailySnapshotFile(day);
-  return Backtest.readSnapshots(fs.existsSync(file) ? file : null, day);
+async function readSnapshotsForDay(day) {
+  return Backtest.readSnapshots(null, day);
 }
 
-function runReplay(day, mode) {
-  const settings = Backtest.loadSettings({ day });
+async function runReplay(day, mode) {
   if (mode === 'autotune') {
-    const all = Backtest.readSnapshots(null, null);
+    const all = await Backtest.readSnapshots(null, null);
     const days = [...new Set(all.map(s => Backtest.istDateKey(s.at)).filter(Boolean))].sort().slice(-5);
     const recent = all.filter(s => days.includes(Backtest.istDateKey(s.at)));
+    const settings = Backtest.loadSettings({ day, snapshots:recent });
     return {
       ok:true,
       date:day,
       days,
       count:recent.length,
-      autoTuneRows:runQuickReplaySweep(recent, settings, 3),
+      autoTuneRows:await runQuickReplaySweep(recent, settings, 3),
     };
   }
   if (mode === 'deep_sweep') {
-    const snapshots = readSnapshotsForDay(day);
+    const snapshots = await readSnapshotsForDay(day);
+    const settings = Backtest.loadSettings({ day, snapshots });
     const result = compactReplayResult(Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings));
     return {
       ok:true,
       date:day,
       count:snapshots.length,
       result,
-      sweepRows:runDeepReplaySweep(snapshots, settings, 20),
+      sweepRows:await runDeepReplaySweep(snapshots, settings, 20),
       deepSweep:true,
     };
   }
-  const snapshots = readSnapshotsForDay(day);
+  const snapshots = await readSnapshotsForDay(day);
+  const settings = Backtest.loadSettings({ day, snapshots });
+  if (mode === 'report') {
+    const exact = Backtest.loadRecordedDecisionCyclesFromSnapshots(snapshots);
+    const recorded = exact.size ? exact : Backtest.alignRecordedDecisionCycles(
+      snapshots,
+      Backtest.loadRecordedDecisionCycles(day),
+      settings.REPLAY_RECORDED_MAX_ALIGNMENT_MIN || 6
+    );
+    if (recorded.size) settings.__recordedDecisionCycles = recorded;
+    settings.REPLAY_RECORDED_SOURCE = exact.size ? 'snapshot-keyed' : 'journal-aligned';
+  }
   const result = compactReplayResult(Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings));
   const response = {
     ok:true,
@@ -404,18 +452,35 @@ function runReplay(day, mode) {
     result,
   };
   if (mode === 'sweep') {
-    response.sweepRows = runQuickReplaySweep(snapshots, settings, 5);
+    response.sweepRows = await runQuickReplaySweep(snapshots, settings, 5);
   }
   return response;
 }
 
-process.on('message', message => {
+if (!isMainThread && parentPort) {
   try {
-    const day = String(message?.day || '').trim();
-    const mode = ['report', 'sweep', 'autotune', 'deep_sweep'].includes(message?.mode) ? message.mode : 'report';
-    if (!day) throw new Error('day is required');
-    process.send?.({ ok:true, payload:runReplay(day, mode) });
+    const { batch, snapshots } = workerData;
+    const rows = batch.map(settings => {
+      const result = Backtest.runBacktest(Backtest.cloneSnapshots(snapshots), settings);
+      return buildSweepRow(settings, result);
+    });
+    parentPort.postMessage(rows);
   } catch (e) {
-    process.send?.({ ok:false, error:e.stack || e.message || String(e) });
+    parentPort.postMessage({ ok:false, error:e.message || String(e) });
   }
-});
+} else {
+  process.on('error', e => {
+    if (isClosedIpcError(e)) return;
+    throw e;
+  });
+  process.on('message', async message => {
+    try {
+      const day = String(message?.day || '').trim();
+      const mode = ['report', 'sweep', 'autotune', 'deep_sweep'].includes(message?.mode) ? message.mode : 'report';
+      if (!day) throw new Error('day is required');
+      sendToParent({ ok:true, payload:await runReplay(day, mode) });
+    } catch (e) {
+      sendToParent({ ok:false, error:e.stack || e.message || String(e) });
+    }
+  });
+}

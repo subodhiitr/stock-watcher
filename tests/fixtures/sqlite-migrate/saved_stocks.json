@@ -1,0 +1,17 @@
+[
+  {
+    "sym": "RELIANCE",
+    "sector": "Energy",
+    "cap": "large"
+  },
+  {
+    "sym": "SBIN",
+    "sector": "Banking",
+    "cap": "large"
+  },
+  {
+    "sym": "BAJAJFINSV",
+    "sector": "Finance",
+    "cap": "large"
+  }
+]

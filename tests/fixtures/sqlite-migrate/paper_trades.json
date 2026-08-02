@@ -1,0 +1,30 @@
+[
+  {
+    "id": "trade-001",
+    "symbol": "RELIANCE",
+    "status": "closed",
+    "source": "manual",
+    "strategy": "swing",
+    "side": "buy",
+    "opened_at": 1609459200000,
+    "entry_price": 2050.15,
+    "qty": 5,
+    "exit_price": 2100.50,
+    "closed_at": 1609545600000,
+    "pnl": 252.75
+  },
+  {
+    "id": "trade-002",
+    "symbol": "TCS",
+    "status": "open",
+    "source": "manual",
+    "strategy": "scalp",
+    "side": "sell",
+    "opened_at": 1609632000000,
+    "entry_price": 3450.25,
+    "qty": 2,
+    "exit_price": null,
+    "closed_at": null,
+    "pnl": 0
+  }
+]

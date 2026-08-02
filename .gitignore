@@ -4,3 +4,7 @@ package-lock.json
 .env
 __pycache__/
 *.pyc
+snapshots/*.db
+snapshots/*.db-shm
+snapshots/*.db-wal
+.worktrees/

@@ -77,7 +77,7 @@ function loadCredentials() {
   }
 }
 
-function saveCredentialsTokens({ accessToken, refreshToken }) {
+function saveCredentialsTokens({ requestToken, accessToken, refreshToken }) {
   try {
     if (!fs.existsSync(CREDS_FILE)) return false;
     const content = fs.readFileSync(CREDS_FILE, 'utf8');
@@ -90,6 +90,7 @@ function saveCredentialsTokens({ accessToken, refreshToken }) {
       else lines.push(`${key}=${value}`);
     };
 
+    upsert('ZERODHA_REQUEST_TOKEN', requestToken);
     upsert('ZERODHA_ACCESS_TOKEN', accessToken);
     upsert('ZERODHA_REFRESH_TOKEN', refreshToken);
     fs.writeFileSync(CREDS_FILE, lines.join('\n'), 'utf8');

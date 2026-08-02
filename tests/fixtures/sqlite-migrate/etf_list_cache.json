@@ -1,0 +1,18 @@
+[
+  {
+    "symbol": "NIFTYBEES",
+    "name": "Nifty BeES",
+    "data": {
+      "nav": 250.50,
+      "aum": 1000000000
+    }
+  },
+  {
+    "symbol": "JUNIORBEES",
+    "name": "Junior BeES",
+    "data": {
+      "nav": 75.25,
+      "aum": 500000000
+    }
+  }
+]

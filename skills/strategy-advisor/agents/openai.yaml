@@ -1,0 +1,4 @@
+interface:
+  display_name: "Strategy Advisor"
+  short_description: "Review daily strategy settings without replay"
+  default_prompt: "Use $strategy-advisor to analyze a trading date and recommend configuration improvements without replay."

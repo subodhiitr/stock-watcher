@@ -1,0 +1,20 @@
+{
+  "INFY": {
+    "news": [
+      {
+        "title": "Infosys expands AI services",
+        "source": "Business Today",
+        "date": "2026-06-22"
+      }
+    ]
+  },
+  "WIPRO": {
+    "news": [
+      {
+        "title": "Wipro wins new contract",
+        "source": "ET",
+        "date": "2026-06-23"
+      }
+    ]
+  }
+}

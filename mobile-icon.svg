@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="108" fill="#101820"/>
+  <path d="M112 330h288" stroke="#66aaff" stroke-width="34" stroke-linecap="round"/>
+  <path d="M132 306l74-74 58 58 116-116" fill="none" stroke="#2fd17c" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="382" cy="172" r="28" fill="#f0b84d"/>
+  <text x="256" y="408" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="800" fill="#f4f7f8">IX</text>
+</svg>

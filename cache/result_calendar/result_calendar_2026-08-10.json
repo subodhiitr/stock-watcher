@@ -1,0 +1,85 @@
+{
+  "ok": true,
+  "date": "2026-08-10",
+  "savedAt": 1785640590228,
+  "builtInMs": 90235,
+  "source": "nse-board-meetings",
+  "scanned": 3041,
+  "count": 6,
+  "symbolCount": 6,
+  "items": [
+    {
+      "symbol": "ARE&M",
+      "name": "Amara Raja Energy & Mobility Limited",
+      "type": "Financial Results",
+      "title": "AMARA RAJA ENERGY & MOBILITY LIMITED has informed the Exchange about Board Meeting to be held on 10-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=ARE%26M",
+      "eventDate": "2026-08-09T18:30:00.000Z",
+      "dateKey": "2026-08-10",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "BOSCHLTD",
+      "name": "Bosch Limited",
+      "type": "Financial Results",
+      "title": "BOSCH LIMITED has informed the Exchange about Board Meeting to be held on 10-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=BOSCHLTD",
+      "eventDate": "2026-08-09T18:30:00.000Z",
+      "dateKey": "2026-08-10",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "GLAND",
+      "name": "Gland Pharma Limited",
+      "type": "Financial Results",
+      "title": "GLAND PHARMA LIMITED has informed the Exchange about Board Meeting to be held on 10-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=GLAND",
+      "eventDate": "2026-08-09T18:30:00.000Z",
+      "dateKey": "2026-08-10",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "HINDCOPPER",
+      "name": "Hindustan Copper Limited",
+      "type": "Financial Results",
+      "title": "HINDUSTAN COPPER LIMITED has informed the Exchange about Board Meeting to be held on 10-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=HINDCOPPER",
+      "eventDate": "2026-08-09T18:30:00.000Z",
+      "dateKey": "2026-08-10",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "NAUKRI",
+      "name": "Info Edge (India) Limited",
+      "type": "Financial Results",
+      "title": "INFO EDGE (INDIA) LIMITED has informed the Exchange about Board Meeting to be held on 10-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=NAUKRI",
+      "eventDate": "2026-08-09T18:30:00.000Z",
+      "dateKey": "2026-08-10",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "TRITURBINE",
+      "name": "Triveni Turbine Limited",
+      "type": "Financial Results",
+      "title": "Triveni Turbine Limited has informed the Exchange about Board Meeting to be held on 10-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=TRITURBINE",
+      "eventDate": "2026-08-09T18:30:00.000Z",
+      "dateKey": "2026-08-10",
+      "status": "upcoming",
+      "period": null
+    }
+  ],
+  "version": 3
+}

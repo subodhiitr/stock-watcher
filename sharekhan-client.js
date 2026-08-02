@@ -1,4 +1,6 @@
 const { SharekhanApi } = require('sharekhan-api/lib');
+const { buildScripCodeMap } = require('./sharekhan-intraday');
+const { getScripCode, upsertScripCodes } = require('./server/db');
 
 class SharekhanClient {
   constructor(config = {}) {
@@ -12,8 +14,14 @@ class SharekhanClient {
     this.onTokenUpdate = typeof config.onTokenUpdate === 'function' ? config.onTokenUpdate : null;
     this.lastTokenRefreshAt = null;
     this.symbolCodeCache = new Map();
+    this.streamingSymbolCodeCache = new Map();
     this.symbolCacheUpdatedAt = 0;
     this.symbolCacheTtlMs = 6 * 60 * 60 * 1000;
+    this.historicalRequestQueue = Promise.resolve();
+    this.historicalNextRequestAt = 0;
+    this.historicalRequestSpacingMs = 1500;
+    this.historicalRetryLimit = 3;
+    this.historicalRetryBaseMs = 750;
 
     this.client = new SharekhanApi({
       api_key: this.apiKey,
@@ -21,6 +29,7 @@ class SharekhanClient {
       access_token: this.accessToken || undefined,
       vender_key: this.vendorKey || undefined,
     });
+    if (this.accessToken) this.client.setAccessToken(this.accessToken);
   }
 
   setAccessToken(token) {
@@ -63,6 +72,11 @@ class SharekhanClient {
   async withAuthRetry(task) {
     const res = await task();
     const status = Number(res?.status || 0);
+    // Surface server errors so callers get clear failure instead of silent empty data
+    if (status >= 500) {
+      const msg = String(res?.message || res?.error || 'Server error');
+      throw new Error(`SHAREKHAN_SERVER_ERROR_${status}: ${msg}`);
+    }
     if (status !== 401 && status !== 403) return res;
     const refreshed = await this.refreshAccessToken();
     if (!refreshed) throw new Error('AUTH_FAILED_REFRESH_NEEDED');
@@ -76,29 +90,115 @@ class SharekhanClient {
 
   async ensureSymbolCodeMap(exchange = 'NC') {
     const now = Date.now();
-    if (this.symbolCodeCache.size && now - this.symbolCacheUpdatedAt < this.symbolCacheTtlMs) return;
-    const result = await this.withAuthRetry(() => this.client.getActiveScriptOfDay(exchange));
-    const payload = this.parseResponse(result);
-    const list = Array.isArray(payload) ? payload
-      : (Array.isArray(payload?.data) ? payload.data
-      : (Array.isArray(payload?.result) ? payload.result : []));
-    const nextMap = new Map();
-    for (const item of list) {
-      const symbol = String(item?.tradingSymbol || item?.symbol || item?.name || '').trim().toUpperCase();
-      const scripCode = Number(item?.scripCode || item?.scrip_code || item?.scriptCode || 0);
-      if (symbol && Number.isFinite(scripCode) && scripCode > 0) nextMap.set(symbol, scripCode);
-    }
-    if (nextMap.size) {
-      this.symbolCodeCache = nextMap;
-      this.symbolCacheUpdatedAt = now;
-    }
+    // Return early if in-memory cache is fresh
+    if (this.symbolCodeCache.size && this.streamingSymbolCodeCache.size && now - this.symbolCacheUpdatedAt < this.symbolCacheTtlMs) return;
+    // Fetch from master endpoint
+    try {
+      const result = await this.withAuthRetry(() => this.client.getActiveScriptOfDay(exchange));
+      const payload = this.parseResponse(result);
+      const list = Array.isArray(payload) ? payload
+        : (Array.isArray(payload?.data) ? payload.data
+        : (Array.isArray(payload?.result) ? payload.result : []));
+      const nextMap = buildScripCodeMap(list);
+      const nextStreamingMap = new Map();
+      for (const item of list) {
+        const symbol = String(item?.tradingSymbol || '').trim().toUpperCase();
+        const code = Number(item?.scripCode || 0);
+        if (symbol && Number.isFinite(code) && code > 0) nextStreamingMap.set(symbol, code);
+      }
+      if (nextStreamingMap.size) this.streamingSymbolCodeCache = nextStreamingMap;
+      if (nextMap.size) {
+        this.symbolCodeCache = nextMap;
+        this.symbolCacheUpdatedAt = now;
+        // Save to DB: convert Map to array of {symbol, sharekhan_code}
+        const rows = Array.from(nextMap.entries()).map(([symbol, code]) => ({
+          symbol,
+          sharekhan_code: code
+        }));
+        upsertScripCodes(rows, 'sharekhan');
+      }
+    } catch (_) {}
   }
 
   async resolveScripCode(symbol, exchange = 'NC') {
     const clean = String(symbol || '').trim().toUpperCase().replace(/\.NS$/i, '');
     if (!clean) return 0;
+    
+    // Check in-memory cache first
+    const cached = this.symbolCodeCache.get(clean);
+    if (cached) return Number(cached);
+    
+    // Check DB cache second
+    const dbCode = getScripCode(clean, 'sharekhan');
+    if (dbCode) {
+      // Populate in-memory cache for future use
+      this.symbolCodeCache.set(clean, dbCode);
+      this.symbolCacheUpdatedAt = Date.now();
+      return Number(dbCode);
+    }
+    
+    // If not in memory or DB, try to fetch from API
     await this.ensureSymbolCodeMap(exchange);
     return Number(this.symbolCodeCache.get(clean) || 0);
+  }
+
+  // Adapter method satisfying fetchSharekhanIntraday client contract
+  async getScripCode(symbol) {
+    return this.resolveScripCode(symbol, 'NC');
+  }
+
+  // Adapter method satisfying fetchSharekhanIntraday client contract
+  // Returns raw candle data (array or string) — normalizeSharekhanCandles handles both
+  async fetchRawCandles(exchange, scripCode, interval) {
+    const run = async () => {
+      const waitMs = Math.max(0, this.historicalNextRequestAt - Date.now());
+      if (waitMs) await new Promise(resolve => setTimeout(resolve, waitMs));
+      this.historicalNextRequestAt = Date.now() + this.historicalRequestSpacingMs;
+      const maxAttempts = Math.max(1, Number(this.historicalRetryLimit) || 3);
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          const res = await this.withAuthRetry(() =>
+            this.client.getHistoricalIntervalData(exchange, scripCode, interval)
+          );
+          if (Number(res?.status) === 429) {
+            if (attempt >= maxAttempts) throw new Error('SHAREKHAN_RATE_LIMITED_429');
+            await new Promise(resolve => setTimeout(resolve, Math.max(5000, this.historicalRetryBaseMs * attempt)));
+            continue;
+          }
+          const data = this.parseResponse(res);
+          if (!data) return [];
+          if (Array.isArray(data)) return data;
+          if (Array.isArray(data.data)) return data.data;
+          if (typeof data === 'string') return data;
+          return [];
+        } catch (err) {
+          const message = String(err?.message || err || '');
+          const transient = /SHAREKHAN_SERVER_ERROR_5\d\d|ECONN|EAI_AGAIN|ETIMEDOUT|EACCES|network|socket|timeout/i.test(message);
+          if (!transient || attempt >= maxAttempts) {
+            console.warn(`[sharekhan-client] fetchRawCandles(${exchange}, ${scripCode}, ${interval}) failed: ${message}`);
+            throw err;
+          }
+          const retryMs = Math.max(0, Number(this.historicalRetryBaseMs) || 0) * attempt;
+          console.warn(`[sharekhan-client] fetchRawCandles(${exchange}, ${scripCode}, ${interval}) retry ${attempt}/${maxAttempts - 1}: ${message}`);
+          if (retryMs) await new Promise(resolve => setTimeout(resolve, retryMs));
+        }
+      }
+      return [];
+    };
+    const queued = this.historicalRequestQueue.then(run, run);
+    this.historicalRequestQueue = queued.catch(() => {});
+    return queued;
+  }
+
+  // Index instruments are present in Sharekhan's active-script response but
+  // are intentionally excluded from the equity-only order/candle cache.
+  async resolveStreamingScripCode(symbol, exchange = 'NC') {
+    const clean = String(symbol || '').trim().toUpperCase().replace(/\.NS$/i, '');
+    if (!clean) return 0;
+    const cached = this.streamingSymbolCodeCache.get(clean);
+    if (cached) return Number(cached);
+    await this.ensureSymbolCodeMap(exchange);
+    return Number(this.streamingSymbolCodeCache.get(clean) || this.symbolCodeCache.get(clean) || 0);
   }
 
   buildOrderPayload(order = {}) {
@@ -171,10 +271,18 @@ class SharekhanClient {
   }
 
   async getPortfolioState() {
-    const [fundRes, holdingsRes] = await this.withAuthRetry(() => Promise.all([
-      this.client.getFundsDetails('NC'),
-      this.client.getHoldings(),
-    ]));
+    // Fetch funds and holdings independently so errors surface per-call
+    const checkStatus = (res, name) => {
+      const status = Number(res?.status || 0);
+      if (status >= 500) throw new Error(`SHAREKHAN_SERVER_ERROR_${status} on ${name}: ${res?.message || 'Bad Gateway'}`);
+      if (status === 401 || status === 403) throw new Error('AUTH_FAILED_REFRESH_NEEDED');
+      return res;
+    };
+
+    const [fundRes, holdingsRes] = await Promise.all([
+      this.client.getFundsDetails('NC').then(r => checkStatus(r, 'getFundsDetails')),
+      this.client.getHoldings().then(r => checkStatus(r, 'getHoldings')),
+    ]);
 
     const fundPayload = this.parseResponse(fundRes);
     const holdingsPayload = this.parseResponse(holdingsRes);
@@ -184,10 +292,11 @@ class SharekhanClient {
       : (Array.isArray(holdingsPayload) ? holdingsPayload : []);
 
     const holdingsList = holdings.map(h => {
-      const qty = this.toNum(h.quantity || h.qty || h.holdingQty);
+      // Sharekhan API uses: dp (available qty), holdPrice (avg price), invstQty, aval, cncqty
+      const qty = this.toNum(h.dp || h.aval || h.quantity || h.qty || h.holdingQty);
+      const avgPrice = this.toNum(h.holdPrice || h.avgPrice || h.averagePrice || h.avg_cost || h.costPrice);
       const ltp = this.toNum(h.ltp || h.lastPrice || h.last_price);
-      const avgPrice = this.toNum(h.avgPrice || h.averagePrice || h.avg_cost || h.costPrice);
-      const marketValue = this.toNum(h.marketValue || (qty * ltp));
+      const marketValue = this.toNum(h.marketValue || (qty * ltp) || (qty * avgPrice));
       const investedValue = this.toNum(h.investedValue || (qty * avgPrice));
       const pnl = this.toNum(h.pnl || h.unrealizedPnl || (marketValue - investedValue));
       return {
@@ -195,7 +304,7 @@ class SharekhanClient {
         exchange: String(h.exchange || 'NC'),
         isin: String(h.isin || ''),
         qty,
-        t1Qty: this.toNum(h.t1Qty || h.t1_quantity),
+        t1Qty: this.toNum(h.t1Qty || h.t1_quantity || h.invstQty),
         avgPrice,
         ltp,
         closePrice: this.toNum(h.closePrice || h.close_price),
@@ -207,8 +316,9 @@ class SharekhanClient {
     });
 
     const holdingsValue = holdingsList.reduce((sum, h) => sum + this.toNum(h.marketValue), 0);
-    const availableCash = this.toNum(fundRow.availableCash || fundRow.available || fundRow.netAvailable || fundRow.cash);
-    const utilizedMargin = this.toNum(fundRow.utilized || fundRow.marginUsed || fundRow.blockedAmount);
+    // Sharekhan API uses: currentCashBalance, intradayMarginCash, limitAgainstShares
+    const availableCash = this.toNum(fundRow.currentCashBalance || fundRow.availableCash || fundRow.available || fundRow.netAvailable || fundRow.cash);
+    const utilizedMargin = this.toNum(fundRow.intradayMarginCash || fundRow.utilized || fundRow.marginUsed || fundRow.blockedAmount);
     const netEquity = this.toNum(fundRow.netEquity || fundRow.net || availableCash);
 
     return {

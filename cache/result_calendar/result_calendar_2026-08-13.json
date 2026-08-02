@@ -1,0 +1,85 @@
+{
+  "ok": true,
+  "date": "2026-08-13",
+  "savedAt": 1785640590228,
+  "builtInMs": 90244,
+  "source": "nse-board-meetings",
+  "scanned": 3041,
+  "count": 6,
+  "symbolCount": 6,
+  "items": [
+    {
+      "symbol": "ELGIEQUIP",
+      "name": "Elgi Equipments Limited",
+      "type": "Financial Results",
+      "title": "ELGI EQUIPMENTS LIMITED has informed the Exchange about Board Meeting to be held on 13-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=ELGIEQUIP",
+      "eventDate": "2026-08-12T18:30:00.000Z",
+      "dateKey": "2026-08-13",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "IPCALAB",
+      "name": "IPCA Laboratories Limited",
+      "type": "Financial Results",
+      "title": "To consider and approve the financial results for the period ended Jun 30, 2026",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=IPCALAB",
+      "eventDate": "2026-08-12T18:30:00.000Z",
+      "dateKey": "2026-08-13",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "JUBLFOOD",
+      "name": "Jubilant Foodworks Limited",
+      "type": "Financial Results",
+      "title": "JUBILANT FOODWORKS LIMITED has informed the Exchange about Board Meeting to be held on 13-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=JUBLFOOD",
+      "eventDate": "2026-08-12T18:30:00.000Z",
+      "dateKey": "2026-08-13",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "MFSL",
+      "name": "Max Financial Services Limited",
+      "type": "Financial Results",
+      "title": "Max Financial Services Limited has informed the Exchange about Board Meeting to be held on 13-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=MFSL",
+      "eventDate": "2026-08-12T18:30:00.000Z",
+      "dateKey": "2026-08-13",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "PAGEIND",
+      "name": "Page Industries Limited",
+      "type": "Financial Results",
+      "title": "To consider and approve the financial results for the period ended Jun 30, 2026 and dividend",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=PAGEIND",
+      "eventDate": "2026-08-12T18:30:00.000Z",
+      "dateKey": "2026-08-13",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "TMPV",
+      "name": "Tata Motors Passenger Vehicles Limited",
+      "type": "Financial Results",
+      "title": "Tata Motors Passenger Vehicles Limited has informed the Exchange about Board Meeting to be held on 13-Aug-2026 to inter-alia consider and approve the Audited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=TMPV",
+      "eventDate": "2026-08-12T18:30:00.000Z",
+      "dateKey": "2026-08-13",
+      "status": "upcoming",
+      "period": null
+    }
+  ],
+  "version": 3
+}

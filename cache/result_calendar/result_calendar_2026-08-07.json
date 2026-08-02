@@ -1,0 +1,109 @@
+{
+  "ok": true,
+  "date": "2026-08-07",
+  "savedAt": 1785640590228,
+  "builtInMs": 90228,
+  "source": "nse-board-meetings",
+  "scanned": 3041,
+  "count": 8,
+  "symbolCount": 8,
+  "items": [
+    {
+      "symbol": "GODREJCP",
+      "name": "Godrej Consumer Products Limited",
+      "type": "Financial Results",
+      "title": "GODREJ CONSUMER PRODUCTS LIMITED has informed the Exchange about Board Meeting to be held on 07-Aug-2026 to consider and approve the Quarterly Unaudited Financial results of the Company for the period ended June 2026 and Dividend.",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=GODREJCP",
+      "eventDate": "2026-08-06T18:30:00.000Z",
+      "dateKey": "2026-08-07",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "HINDALCO",
+      "name": "Hindalco Industries Limited",
+      "type": "Financial Results",
+      "title": "HINDALCO INDUSTRIES LIMITED has informed the Exchange about Board Meeting to be held on 07-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=HINDALCO",
+      "eventDate": "2026-08-06T18:30:00.000Z",
+      "dateKey": "2026-08-07",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "KAYNES",
+      "name": "Kaynes Technology India Limited",
+      "type": "Financial Results",
+      "title": "Kaynes Technology India Limited has informed the Exchange about Board Meeting to be held on 07-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=KAYNES",
+      "eventDate": "2026-08-06T18:30:00.000Z",
+      "dateKey": "2026-08-07",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "OIL",
+      "name": "Oil India Limited",
+      "type": "Financial Results",
+      "title": "OIL INDIA LIMITED has informed the Exchange about Board Meeting to be held on 07-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=OIL",
+      "eventDate": "2026-08-06T18:30:00.000Z",
+      "dateKey": "2026-08-07",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "PFC",
+      "name": "Power Finance Corporation Limited",
+      "type": "Financial Results",
+      "title": "POWER FINANCE CORPORATION LIMITED has informed the Exchange about Board Meeting to be held on 07-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=PFC",
+      "eventDate": "2026-08-06T18:30:00.000Z",
+      "dateKey": "2026-08-07",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "RAMCOCEM",
+      "name": "The Ramco Cements Limited",
+      "type": "Financial Results",
+      "title": "THE RAMCO CEMENTS LIMITED has informed the Exchange about Board Meeting to be held on 07-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=RAMCOCEM",
+      "eventDate": "2026-08-06T18:30:00.000Z",
+      "dateKey": "2026-08-07",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "SBIN",
+      "name": "State Bank of India",
+      "type": "Financial Results",
+      "title": "STATE BANK OF INDIA has informed the Exchange about Board Meeting to be held on 07-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=SBIN",
+      "eventDate": "2026-08-06T18:30:00.000Z",
+      "dateKey": "2026-08-07",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "TITAN",
+      "name": "Titan Company Limited",
+      "type": "Financial Results",
+      "title": "TITAN COMPANY LIMITED has informed the Exchange about Board Meeting to be held on 07-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=TITAN",
+      "eventDate": "2026-08-06T18:30:00.000Z",
+      "dateKey": "2026-08-07",
+      "status": "upcoming",
+      "period": null
+    }
+  ],
+  "version": 3
+}

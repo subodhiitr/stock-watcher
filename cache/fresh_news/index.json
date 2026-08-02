@@ -1,43 +1,277 @@
 {
-  "version": 4,
-  "savedAt": 1782296178686,
+  "version": 5,
+  "savedAt": 1785639375038,
   "partitioned": true,
   "days": {
-    "2026-06-19": {
-      "date": "2026-06-19",
-      "savedAt": 1782023539662,
-      "builtInMs": 38331,
+    "2026-07-03": {
+      "date": "2026-07-03",
+      "savedAt": 1783333047584,
+      "builtInMs": 43159,
       "source": "nse-market-wide+symbol-announcements",
-      "scanned": 258,
-      "count": 39,
-      "symbolCount": 32
+      "scanned": 320,
+      "count": 52,
+      "symbolCount": 47
     },
-    "2026-06-22": {
-      "date": "2026-06-22",
-      "savedAt": 1782123374712,
-      "builtInMs": 74701,
+    "2026-07-04": {
+      "date": "2026-07-04",
+      "savedAt": 1783227672255,
+      "builtInMs": 13338,
       "source": "nse-market-wide+symbol-announcements",
-      "scanned": 298,
-      "count": 25,
-      "symbolCount": 25
+      "scanned": 320,
+      "count": 14,
+      "symbolCount": 13
     },
-    "2026-06-23": {
-      "date": "2026-06-23",
-      "savedAt": 1782209774023,
-      "builtInMs": 73967,
+    "2026-07-05": {
+      "date": "2026-07-05",
+      "savedAt": 1783227712380,
+      "builtInMs": 40119,
       "source": "nse-market-wide+symbol-announcements",
-      "scanned": 298,
-      "count": 21,
-      "symbolCount": 21
+      "scanned": 320,
+      "count": 3,
+      "symbolCount": 2
     },
-    "2026-06-24": {
-      "date": "2026-06-24",
-      "savedAt": 1782296178675,
-      "builtInMs": 78638,
+    "2026-07-06": {
+      "date": "2026-07-06",
+      "savedAt": 1783419451808,
+      "builtInMs": 67937,
       "source": "nse-market-wide+symbol-announcements",
-      "scanned": 298,
-      "count": 21,
-      "symbolCount": 21
+      "scanned": 320,
+      "count": 46,
+      "symbolCount": 37
+    },
+    "2026-07-07": {
+      "date": "2026-07-07",
+      "savedAt": 1783505820054,
+      "builtInMs": 24521,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 31,
+      "symbolCount": 30
+    },
+    "2026-07-08": {
+      "date": "2026-07-08",
+      "savedAt": 1783592321972,
+      "builtInMs": 40466,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 34,
+      "symbolCount": 28
+    },
+    "2026-07-09": {
+      "date": "2026-07-09",
+      "savedAt": 1783678716415,
+      "builtInMs": 137534,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 49,
+      "symbolCount": 37
+    },
+    "2026-07-10": {
+      "date": "2026-07-10",
+      "savedAt": 1783937822803,
+      "builtInMs": 21165,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 46,
+      "symbolCount": 38
+    },
+    "2026-07-11": {
+      "date": "2026-07-11",
+      "savedAt": 1783853692055,
+      "builtInMs": 17819,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 20,
+      "symbolCount": 15
+    },
+    "2026-07-12": {
+      "date": "2026-07-12",
+      "savedAt": 1783853706594,
+      "builtInMs": 14532,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 6,
+      "symbolCount": 5
+    },
+    "2026-07-13": {
+      "date": "2026-07-13",
+      "savedAt": 1784024198759,
+      "builtInMs": 12489,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 41,
+      "symbolCount": 30
+    },
+    "2026-07-14": {
+      "date": "2026-07-14",
+      "savedAt": 1784110588262,
+      "builtInMs": 11990,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 46,
+      "symbolCount": 33
+    },
+    "2026-07-15": {
+      "date": "2026-07-15",
+      "savedAt": 1784196995213,
+      "builtInMs": 11171,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 51,
+      "symbolCount": 37
+    },
+    "2026-07-16": {
+      "date": "2026-07-16",
+      "savedAt": 1784283387791,
+      "builtInMs": 12278,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 56,
+      "symbolCount": 34
+    },
+    "2026-07-17": {
+      "date": "2026-07-17",
+      "savedAt": 1784542677283,
+      "builtInMs": 97007,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 46,
+      "symbolCount": 28
+    },
+    "2026-07-18": {
+      "date": "2026-07-18",
+      "savedAt": 1784369824977,
+      "builtInMs": 39087,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 24,
+      "symbolCount": 16
+    },
+    "2026-07-19": {
+      "date": "2026-07-19",
+      "savedAt": 1784432681317,
+      "builtInMs": 56021,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 0,
+      "symbolCount": 0
+    },
+    "2026-07-20": {
+      "date": "2026-07-20",
+      "savedAt": 1784610207253,
+      "builtInMs": 113778,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 43,
+      "symbolCount": 35
+    },
+    "2026-07-21": {
+      "date": "2026-07-21",
+      "savedAt": 1784737887091,
+      "builtInMs": 152251,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 60,
+      "symbolCount": 39
+    },
+    "2026-07-22": {
+      "date": "2026-07-22",
+      "savedAt": 1784737734822,
+      "builtInMs": 117265,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 95,
+      "symbolCount": 60
+    },
+    "2026-07-23": {
+      "date": "2026-07-23",
+      "savedAt": 1784888286289,
+      "builtInMs": 15617,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 63,
+      "symbolCount": 40
+    },
+    "2026-07-24": {
+      "date": "2026-07-24",
+      "savedAt": 1785147416987,
+      "builtInMs": 22187,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 79,
+      "symbolCount": 46
+    },
+    "2026-07-25": {
+      "date": "2026-07-25",
+      "savedAt": 1784974632168,
+      "builtInMs": 47080,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 20,
+      "symbolCount": 17
+    },
+    "2026-07-27": {
+      "date": "2026-07-27",
+      "savedAt": 1785233767145,
+      "builtInMs": 20586,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 57,
+      "symbolCount": 35
+    },
+    "2026-07-28": {
+      "date": "2026-07-28",
+      "savedAt": 1785320198257,
+      "builtInMs": 16275,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 58,
+      "symbolCount": 37
+    },
+    "2026-07-29": {
+      "date": "2026-07-29",
+      "savedAt": 1785406655441,
+      "builtInMs": 73519,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 318,
+      "count": 82,
+      "symbolCount": 53
+    },
+    "2026-07-30": {
+      "date": "2026-07-30",
+      "savedAt": 1785492962779,
+      "builtInMs": 18301,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 319,
+      "count": 82,
+      "symbolCount": 46
+    },
+    "2026-07-31": {
+      "date": "2026-07-31",
+      "savedAt": 1785639352288,
+      "builtInMs": 38563,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 319,
+      "count": 72,
+      "symbolCount": 43
+    },
+    "2026-08-01": {
+      "date": "2026-08-01",
+      "savedAt": 1785639362557,
+      "builtInMs": 10260,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 319,
+      "count": 38,
+      "symbolCount": 31
+    },
+    "2026-08-02": {
+      "date": "2026-08-02",
+      "savedAt": 1785639375036,
+      "builtInMs": 12470,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 319,
+      "count": 2,
+      "symbolCount": 2
     }
   }
 }
