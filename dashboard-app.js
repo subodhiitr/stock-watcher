@@ -821,9 +821,9 @@ function openSSEStream(url, onData, { timeoutMs = 90000 } = {}) {
     es.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
-        if (msg.done) { clearTimeout(timer); cleanup(); resolve({ ok: true }); return; }
         if (msg.error) { console.warn('SSE stream error event:', msg.error); return; }
         onData(msg);
+        if (msg.done) { clearTimeout(timer); cleanup(); resolve({ ok: true }); }
       } catch(e) { console.warn('SSE parse error:', e.message, 'data:', event.data.substring(0, 100)); }
     };
     es.onerror = (err) => { clearTimeout(timer); cleanup(); console.error('SSE connection error:', err); resolve({ ok: false, error: 'connection error' }); };
@@ -846,7 +846,7 @@ let paperTradesStreamReconnectTimer = null;
 let paperTradesStreamReconnectAttempt = 0;
 let tradeSettingsSyncRetryTimer = null;
 let tradeSettingsSyncInFlight = false;
-let serverSimulationCandidateSnapshot = { loading:false, loaded:false, at:'', candidates:[], error:'' };
+let serverSimulationCandidateSnapshot = { loading:false, loaded:false, at:'', candidates:[], combinedCandidates:[], error:'' };
 let serverSimulationCandidateStream = null;
 let intradayLiveStream = null;
 let intradayLiveStreamReconnectTimer = null;
@@ -1117,10 +1117,17 @@ function activateDashboard(src) {
   else if (src==='nse') { si.textContent='🏛️ NSE Direct'; si.className='source-indicator nse'; }
   else { si.textContent='🤖 AI Mode'; si.className='source-indicator ai'; }
 
-  renderDashboardShell('Preparing live rows...');
-  fetchAll();
-  if (currentView === 'etfs') setView('etfs', document.getElementById('tab-etfs')).catch(e => console.warn('initial ETF view failed', e.message));
-  else setView('stocks', document.getElementById('tab-stocks')).catch(e => console.warn('initial stock view failed', e.message));
+  const status = document.getElementById('status-bar');
+  if (status) {
+    status.className = '';
+    status.textContent = 'Connecting to live data…';
+  }
+  const startDashboardLoads = () => {
+    renderDashboardShell('Loading live data in background...');
+    void fetchAll();
+    if (currentView === 'etfs') setView('etfs', document.getElementById('tab-etfs')).catch(e => console.warn('initial ETF view failed', e.message));
+  };
+  requestAnimationFrame(() => requestAnimationFrame(startDashboardLoads));
   startCountdown();
   // Background: check NSE index membership for quarterly rebalancing (cached 24h on proxy)
   refreshIndexMembership().catch(e => console.warn('[index-membership]', e.message));
@@ -1129,7 +1136,9 @@ function activateDashboard(src) {
 function renderDashboardShell(message = 'Loading live data...') {
   renderIndices();
   renderSectors();
-  renderTable({ immediate:true });
+  const tableBody = document.getElementById('stock-tbody');
+  if (Object.keys(stockData).length) renderTable({ immediate:true });
+  else if (tableBody) tableBody.innerHTML = '<tr><td colspan="17" class="loading-row">Waiting for the first live quote batch…</td></tr>';
   renderTopActionBar();
   const status = document.getElementById('status-bar');
   if (status) {
@@ -1155,13 +1164,16 @@ async function connectYahoo() {
   const ps=document.getElementById('proxy-status-yahoo');
   const ce=document.getElementById('connect-err-yahoo');
   ps.style.display='block'; ps.className='proxy-status'; ps.textContent='⏳ Checking proxy…'; ce.textContent='';
+  const healthCheck = checkProxy();
+  dataSource='yahoo';
+  activateDashboard('yahoo');
   try {
-    await checkProxy();
-    ps.className='proxy-status ok'; ps.textContent='✓ Proxy running! Loading dashboard…';
-    dataSource='yahoo'; activateDashboard('yahoo');
+    await healthCheck;
+    ps.className='proxy-status ok'; ps.textContent='✓ Proxy connected · live data loading';
   } catch(e) {
-    ps.style.display='none';
-    ce.textContent='✗ Cannot reach backend proxy. Start Remix server (or node ticker_proxy.js for standalone mode).';
+    ps.className='proxy-status';
+    ps.textContent='⚠ Proxy health check timed out · retrying data in background';
+    ce.textContent='Dashboard remains active and will populate as quote batches become available.';
   }
 }
 
@@ -1401,27 +1413,35 @@ async function fetchYahooStocks(firstLoad = false) {
     setProgress(15);
   }
 
-  if (firstLoad) {
-    try {
-      const r = await fetch(`${PROXY}/dashboard-market?symbols=${encodeURIComponent(symbols.join(','))}`, { signal: AbortSignal.timeout(45000) });
-      const payload = await r.json().catch(() => ({}));
-      if (r.ok && payload?.ok) {
-        if (payload.indices?.nifty50) indexData = payload.indices;
-        const changed = applyYahooQuotes(payload.quotes || {});
-        if (changed) {
-          setProgress(90);
-          setBgProgress(90);
+  if (firstLoad && window.EventSource) {
+    let streamedQuotes = false;
+    let result = { ok:true };
+    for (let offset = 0; offset < symbols.length; offset += 300) {
+      const streamSymbols = symbols.slice(offset, offset + 300);
+      result = await openSSEStream(
+        `${PROXY}/stream/mobile-stock-quotes?symbols=${encodeURIComponent(streamSymbols.join(','))}`,
+        payload => {
+          const changed = applyYahooQuotes(payload.quotes || {});
+          if (!changed) return;
+          streamedQuotes = true;
+          const loaded = Math.min(symbols.length, offset + (Number(payload.loaded) || 0));
+          const progress = 15 + ((loaded / Math.max(1, symbols.length)) * 75);
+          document.getElementById('loading-msg').textContent = `Fetching Yahoo Finance… (${loaded} of ${symbols.length})`;
+          setProgress(progress);
+          setBgProgress(progress);
           renderMarketStatus();
-          renderSectors();
-          renderTable({ immediate:true });
-          if (currentView === 'etfs') renderETFSection();
-          await yieldToBrowser();
-          return;
-        }
-      }
-    } catch(e) {
-      console.warn('dashboard-market failed, falling back to batches:', e.message);
+          scheduleSectorRender();
+          scheduleTableRender();
+        },
+        { timeoutMs:45000 }
+      );
+      if (!result.ok) break;
     }
+    if (streamedQuotes) {
+      await yieldToBrowser();
+      return;
+    }
+    console.warn('Yahoo quote stream unavailable, falling back to batches:', result.error || 'no quotes');
   }
 
   const batchSize = 25;
@@ -1695,6 +1715,14 @@ async function fetchAll() {
 
   try {
     if (dataSource === 'yahoo') {
+      const firstLoadIndices = firstLoad
+        ? fetchYahooIndices()
+            .then(() => {
+              renderIndices();
+              renderMarketStatus();
+            })
+            .catch(error => console.warn('Yahoo indices background load failed:', error.message))
+        : null;
       if (firstLoad) document.getElementById('loading-msg').textContent = 'Fetching indices from Yahoo Finance…';
       if (!firstLoad) {
         await fetchYahooIndices();
@@ -1706,7 +1734,7 @@ async function fetchAll() {
         setBgProgress(10);
       }
       await fetchYahooStocks(firstLoad);
-      if (firstLoad && !indexData?.nifty50) await fetchYahooIndices();
+      if (firstLoadIndices) await firstLoadIndices;
       renderIndices();
       renderSectors();
       await yieldToBrowser();
@@ -3539,14 +3567,15 @@ function renderPortfolioModal() {
     </tr>`;
   }).join('') : `<tr><td colspan="17" style="color:var(--muted);text-align:center;padding:16px">No transactions for ${escapeHTML(formatPortfolioTransactionDate(portfolioTransactionDate))}</td></tr>`;
   const dayRows = Object.entries(summary.dayPnl).length ? Object.entries(summary.dayPnl)
-    .sort(([a], [b]) => b.localeCompare(a))
+    .sort(([left], [right]) => right.localeCompare(left))
+    .slice(0, 10)
     .map(([day, pnl]) => {
       const label = day.match(/^\d{4}-\d{2}-\d{2}$/)
-        ? new Date(day + 'T12:00:00Z').toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: '2-digit' })
+        ? new Date(day + 'T12:00:00Z').toLocaleDateString('en-IN', { year:'numeric', month:'short', day:'2-digit' })
         : escapeHTML(day);
       return `<tr><td>${label}</td><td class="portfolio-pnl ${portfolioValueClass(pnl)}">${moneyINR(pnl)}</td></tr>`;
     })
-    .join('') : `<tr><td colspan="2" style="color:var(--muted);text-align:center;padding:16px">No closed trades yet</td></tr>`;
+    .join('') : `<tr><td colspan="2" style="color:var(--muted);text-align:center;padding:16px">No realized P&L yet</td></tr>`;
 
   body.innerHTML = `
     <div class="portfolio-capital-row">
@@ -3614,10 +3643,10 @@ function renderPortfolioModal() {
         </tbody>
       </table>
     </div>
-    <div class="portfolio-section-title">Day Wise Realized P&L</div>
+    <div class="portfolio-section-title">Day Wise Net P&L · Last 10 Trading Days</div>
     <div class="portfolio-table-wrap">
       <table class="portfolio-table" style="min-width:360px">
-        <thead><tr><th>Day</th><th>P&L</th></tr></thead>
+        <thead><tr><th>Day</th><th>Net P&L</th></tr></thead>
         <tbody>${dayRows}</tbody>
       </table>
     </div>
@@ -3644,12 +3673,13 @@ async function openPortfolioModal() {
   const modal = document.getElementById('portfolio-modal');
   if (modal) modal.style.display = 'flex';
   const body = document.getElementById('portfolio-modal-body');
-  if (!paperTradesLoaded && body) {
+  if (body) {
     body.innerHTML = `<div style="color:var(--muted);padding:16px">Loading portfolio...</div>`;
-    await loadPaperTrades();
   }
-  // Always refresh historical day P&L when modal opens
-  loadHistoricalDayPnl().then(() => renderPortfolioModal());
+  await Promise.all([
+    paperTradesLoaded ? Promise.resolve() : loadPaperTrades(),
+    loadHistoricalDayPnl(),
+  ]);
   renderPortfolioModal();
   updateZerodhaConfirmationsTable();
 }
@@ -8310,7 +8340,7 @@ async function runSimulationCycle({ allowEntries = true } = {}) {
 
 async function loadHistoricalDayPnl() {
   try {
-    const res = await fetch(`${PROXY}/portfolio/day-pnl`, { signal: AbortSignal.timeout(5000) });
+    const res = await fetch(`${PROXY}/portfolio/day-pnl?limit=10`, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return;
     const data = await res.json().catch(() => null);
     if (data?.ok && data.dayPnl && typeof data.dayPnl === 'object') {
@@ -8774,20 +8804,34 @@ function renderRangeboundTradeInfo(t) {
 }
 
 function renderTradeCell(row) {
-  const serverCandidate = activeSetupCard === 'simulation_top25'
-    ? serverSimulationCandidateSnapshot.candidates.find(candidate => String(candidate?.symbol || '').toUpperCase() === row.sym)
+  const serverCandidates = activeSetupCard === 'combined_top'
+    ? serverSimulationCandidateSnapshot.combinedCandidates
+    : activeSetupCard === 'simulation_top25'
+      ? serverSimulationCandidateSnapshot.candidates
+      : null;
+  const serverCandidate = serverCandidates
+    ? serverCandidates.find(candidate => String(candidate?.symbol || '').toUpperCase() === row.sym)
     : null;
   if (serverCandidate) {
     const side = String(serverCandidate.side || serverCandidate.signal || '--').toUpperCase();
     const setupType = String(serverCandidate.derivedSetupType || serverCandidate.setupType || 'NO_SIGNAL').replace(/_/g, ' ');
     const decisionScore = Number(serverCandidate.decisionScore ?? serverCandidate.entryContext?.decisionScore ?? serverCandidate.score);
-    const reason = serverCandidate.selectionReason
+    const reason = activeSetupCard === 'combined_top' && serverCandidate.profitabilityReason
+      ? serverCandidate.profitabilityReason
+      : serverCandidate.selectionReason
       || (serverCandidate.selected
         ? `Selected: ${setupType}`
         : `Not selected: ${(serverCandidate.blockReason || serverCandidate.eligibilityReasons?.[0] || 'outside entry capacity')}`);
+    const profitability = serverCandidate.profitability || {};
+    const rankLabel = activeSetupCard === 'combined_top'
+      ? `Combined #${Number(serverCandidate.combinedRank) || '--'}`
+      : `Server #${Number(serverCandidate.serverRank) || '--'}`;
+    const profitabilityLabel = Number.isFinite(Number(profitability.winRate))
+      ? `Win chance ${Number(profitability.winRate).toFixed(1)}% · ${Number(profitability.sample) || 0} trades`
+      : `Profitability score ${Number.isFinite(decisionScore) ? decisionScore.toFixed(2) : '--'}`;
     return `<div class="trade-cell simulation-candidate-cell" title="${escapeHTML(reason)}">
-      <span class="trade-badge-row"><span class="signal-badge ${side === 'SELL' ? 'sell' : 'buy'}">${escapeHTML(side)}</span><span class="simulation-rank-badge">Server #${Number(serverCandidate.serverRank) || '--'}</span></span>
-      <span class="trade-score">Decision ${Number.isFinite(decisionScore) ? decisionScore.toFixed(2) : '--'} · ${escapeHTML(setupType)}</span>
+      <span class="trade-badge-row"><span class="signal-badge ${side === 'SELL' ? 'sell' : 'buy'}">${escapeHTML(side)}</span><span class="simulation-rank-badge">${escapeHTML(rankLabel)}</span></span>
+      <span class="trade-score">${escapeHTML(profitabilityLabel)} · ${escapeHTML(setupType)}</span>
       <span class="simulation-selection-reason ${serverCandidate.selected ? 'selected' : ''}">${escapeHTML(reason)}</span>
     </div>`;
   }
@@ -9038,10 +9082,13 @@ function getHealthScore(sym){
 
 const SETUP_FILTER_KEYS = new Set([
   'setup_simulation_top25',
+  'setup_combined_top',
   'setup_rangebound',
   'setup_opening_flush',
   'setup_top_gainer_pullback',
   'setup_top_gainer_continuation',
+  'setup_gap_and_go',
+  'setup_bull_flag',
   'setup_vwap_continuation',
   'setup_breakdown',
   'setup_bear_flag',
@@ -9054,10 +9101,13 @@ const SETUP_FILTER_KEYS = new Set([
 ]);
 const SETUP_CARD_FILTERS = {
   simulation_top25: ['setup_simulation_top25'],
+  combined_top: ['setup_combined_top'],
   rangebound: ['setup_rangebound'],
   opening_flush: ['setup_opening_flush'],
   top_gainer_pullback: ['setup_top_gainer_pullback'],
   top_gainer_continuation: ['setup_top_gainer_continuation'],
+  gap_and_go: ['setup_gap_and_go'],
+  bull_flag: ['setup_bull_flag'],
   vwap_continuation: ['setup_vwap_continuation'],
   breakdown: ['setup_breakdown'],
   bear_flags: ['setup_bear_flag'],
@@ -9070,7 +9120,7 @@ const SETUP_CARD_FILTERS = {
 
 function selectSetupCard(kind, ...filterModes) {
   if (activeSetupCard === kind) {
-    if (kind === 'simulation_top25') disconnectServerSimulationTop25Stream();
+    if (['simulation_top25', 'combined_top'].includes(kind)) disconnectServerSimulationTop25Stream();
     // Second click — deselect and reset
     activeSetupCard = null;
     stockFilters.clear();
@@ -9082,7 +9132,7 @@ function selectSetupCard(kind, ...filterModes) {
   }
   // Preserve non-card filters while dropping previous card's preset filters.
   const prevCard = activeSetupCard;
-  if (prevCard === 'simulation_top25') disconnectServerSimulationTop25Stream();
+  if (['simulation_top25', 'combined_top'].includes(prevCard)) disconnectServerSimulationTop25Stream();
   const prevPreset = new Set(SETUP_CARD_FILTERS[prevCard] || []);
   const preserved = new Set([...stockFilters].filter(f => !prevPreset.has(f) && !SETUP_FILTER_KEYS.has(f) && !filterModes.includes(f)));
   activeSetupCard = kind;
@@ -9114,11 +9164,15 @@ function applyServerSimulationTop25Payload(payload = {}) {
     .slice()
     .sort((a, b) => (Number(a.serverRank) || Number.MAX_SAFE_INTEGER) - (Number(b.serverRank) || Number.MAX_SAFE_INTEGER))
     .slice(0, 25);
+  const combinedCandidates = (Array.isArray(payload.combinedCandidates) ? payload.combinedCandidates : [])
+    .slice()
+    .sort((a, b) => (Number(a.combinedRank) || Number.MAX_SAFE_INTEGER) - (Number(b.combinedRank) || Number.MAX_SAFE_INTEGER));
   serverSimulationCandidateSnapshot = {
     loading:false,
     loaded:true,
     at:String(payload.at || ''),
     candidates,
+    combinedCandidates,
     error:'',
   };
   return true;
@@ -9154,8 +9208,12 @@ function disconnectServerSimulationTop25Stream() {
   serverSimulationCandidateStream = null;
 }
 
+function isServerSimulationCardActive() {
+  return ['simulation_top25', 'combined_top'].includes(activeSetupCard);
+}
+
 function connectServerSimulationTop25Stream() {
-  if (activeSetupCard !== 'simulation_top25' || currentView !== 'stocks') {
+  if (!isServerSimulationCardActive() || currentView !== 'stocks') {
     disconnectServerSimulationTop25Stream();
     return;
   }
@@ -9165,11 +9223,11 @@ function connectServerSimulationTop25Stream() {
   }
   if (serverSimulationCandidateStream) return;
   serverSimulationCandidateSnapshot = { ...serverSimulationCandidateSnapshot, loading:true, error:'' };
-  renderSetupCards(getServerSimulationTop25Rows());
+  renderSetupCards(activeSetupCard === 'combined_top' ? getServerCombinedSetupRows() : getServerSimulationTop25Rows());
   const stream = new EventSource(SIMULATION_ANALYSIS_STREAM_ENDPOINT);
   serverSimulationCandidateStream = stream;
   stream.onmessage = event => {
-    if (activeSetupCard !== 'simulation_top25' || currentView !== 'stocks') {
+    if (!isServerSimulationCardActive() || currentView !== 'stocks') {
       disconnectServerSimulationTop25Stream();
       return;
     }
@@ -9182,7 +9240,7 @@ function connectServerSimulationTop25Stream() {
     }
   };
   stream.onerror = () => {
-    if (activeSetupCard !== 'simulation_top25' || currentView !== 'stocks') disconnectServerSimulationTop25Stream();
+    if (!isServerSimulationCardActive() || currentView !== 'stocks') disconnectServerSimulationTop25Stream();
   };
 }
 
@@ -9194,6 +9252,18 @@ async function selectServerSimulationTop25Card() {
     document.querySelectorAll('#controls-bar .filter-btn').forEach(button => button.classList.remove('active'));
   }
   const selected = selectSetupCard('simulation_top25', 'setup_simulation_top25');
+  if (!selected) return;
+  connectServerSimulationTop25Stream();
+}
+
+async function selectServerCombinedSetupsCard() {
+  if (activeSetupCard !== 'combined_top') {
+    stockFilters.clear();
+    activeSectors = new Set();
+    targetFilter = 'all';
+    document.querySelectorAll('#controls-bar .filter-btn').forEach(button => button.classList.remove('active'));
+  }
+  const selected = selectSetupCard('combined_top', 'setup_combined_top');
   if (!selected) return;
   connectServerSimulationTop25Stream();
 }
@@ -9429,7 +9499,7 @@ async function setView(view, el){
     }, 100);
   } else {
     renderTable();
-    if (activeSetupCard === 'simulation_top25') connectServerSimulationTop25Stream();
+    if (isServerSimulationCardActive()) connectServerSimulationTop25Stream();
   }
 }
 
@@ -9473,7 +9543,15 @@ function getAllStockRows() {
 }
 
 function getServerSimulationTop25Rows() {
-  return serverSimulationCandidateSnapshot.candidates.map((candidate, index) => {
+  return getServerSimulationCandidateRows(serverSimulationCandidateSnapshot.candidates);
+}
+
+function getServerCombinedSetupRows() {
+  return getServerSimulationCandidateRows(serverSimulationCandidateSnapshot.combinedCandidates);
+}
+
+function getServerSimulationCandidateRows(candidates = []) {
+  return candidates.map((candidate, index) => {
     const symbol = String(candidate?.symbol || '').trim().toUpperCase();
     const asset = getAssetBySymbol(symbol) || {};
     const liveData = getBrowserStockData(symbol) || {};
@@ -9485,7 +9563,7 @@ function getServerSimulationTop25Rows() {
       name:asset.name || candidate?.name || symbol,
       sector:asset.sector || candidate?.sector || 'Server candidate',
       cap:asset.cap || candidate?.assetType || 'custom',
-      rank:Number(candidate.serverRank) || index + 1,
+      rank:Number(candidate.combinedRank || candidate.serverRank) || index + 1,
       data:{
         ...liveData,
         ...((Number.isFinite(candidatePrice) && candidatePrice > 0 && !Number(liveData.price)) ? { price:candidatePrice } : {}),
@@ -9536,6 +9614,8 @@ function getStockFilterFns() {
     setup_opening_flush: r => setupType(r) === 'OPENING_FLUSH_VWAP_RECLAIM',
     setup_top_gainer_pullback: r => setupType(r) === 'TOP_GAINER_PULLBACK_RECLAIM',
     setup_top_gainer_continuation: r => setupType(r) === 'TOP_GAINER_CONTINUATION',
+    setup_gap_and_go: r => setupType(r) === 'GAP_AND_GO',
+    setup_bull_flag: r => setupType(r) === 'BULL_FLAG_CONTINUATION',
     setup_vwap_continuation: r => setupType(r) === 'VWAP_TREND_CONTINUATION',
     setup_breakdown: r => setupType(r) === 'BREAKDOWN',
     setup_bear_flag: r => ['BEAR_FLAG_CONTINUATION', 'TOP_LOSER_BEAR_FLAG'].includes(setupType(r)),
@@ -9546,6 +9626,7 @@ function getStockFilterFns() {
     setup_short: r => ['VWAP_REJECTION', 'BREAKDOWN', 'SHORT_MOMENTUM'].includes(setupType(r)),
     setup_shortterm: r => isShortTermPick(r),
     setup_simulation_top25: r => serverSimulationCandidateSnapshot.candidates.some(candidate => String(candidate?.symbol || '').toUpperCase() === r.sym),
+    setup_combined_top: r => serverSimulationCandidateSnapshot.combinedCandidates.some(candidate => String(candidate?.symbol || '').toUpperCase() === r.sym),
   };
 }
 
@@ -9562,6 +9643,8 @@ function getStockFilterGroups() {
       'setup_opening_flush',
       'setup_top_gainer_pullback',
       'setup_top_gainer_continuation',
+      'setup_gap_and_go',
+      'setup_bull_flag',
       'setup_vwap_continuation',
       'setup_breakdown',
       'setup_bear_flag',
@@ -9572,7 +9655,7 @@ function getStockFilterGroups() {
       'setup_short',
     ],
     ['setup_shortterm'],
-    ['setup_simulation_top25'],
+    ['setup_simulation_top25', 'setup_combined_top'],
     ['favorite'],                // standalone
     ['opentrade'],               // standalone
     ['newsrisk'],                // standalone
@@ -10010,10 +10093,13 @@ function renderSetupCards(rows = getAllStockRows()) {
   // Counts run through the exact same grouped filter engine as table clicks.
   const counts = {
     simulationTop25: serverSimulationCandidateSnapshot.candidates.length,
+    combinedTop: serverSimulationCandidateSnapshot.combinedCandidates.length,
     rangebound: countRowsForStockFilters(rows, 'setup_rangebound'),
     openingFlush: countRowsForStockFilters(rows, 'setup_opening_flush'),
     topGainerPullback: countRowsForStockFilters(rows, 'setup_top_gainer_pullback'),
     topGainerContinuation: countRowsForStockFilters(rows, 'setup_top_gainer_continuation'),
+    gapAndGo: countRowsForStockFilters(rows, 'setup_gap_and_go'),
+    bullFlag: countRowsForStockFilters(rows, 'setup_bull_flag'),
     vwapContinuation: countRowsForStockFilters(rows, 'setup_vwap_continuation'),
     breakdown: countRowsForStockFilters(rows, 'setup_breakdown'),
     bearFlags: countRowsForStockFilters(rows, 'setup_bear_flag'),
@@ -10024,6 +10110,13 @@ function renderSetupCards(rows = getAllStockRows()) {
     shortterm: countRowsForStockFilters(rows, 'setup_shortterm'),
   };
   const cards = [
+    [
+      'combined_top',
+      'Combined Top Setups',
+      serverSimulationCandidateSnapshot.loading ? '…' : counts.combinedTop,
+      'Best actionable candidate from each setup, ordered by profitability chance',
+      'selectServerCombinedSetupsCard()',
+    ],
     [
       'simulation_top25',
       'Server Simulation Top 25',
@@ -10039,6 +10132,8 @@ function renderSetupCards(rows = getAllStockRows()) {
     ['opening_flush', 'Opening Flush Reclaim', counts.openingFlush, 'Opening selloff followed by VWAP reclaim', "selectSetupCard('opening_flush','setup_opening_flush')"],
     ['top_gainer_pullback', 'Top-Gainer Pullback', counts.topGainerPullback, 'Top gainer pulls back and reclaims VWAP', "selectSetupCard('top_gainer_pullback','setup_top_gainer_pullback')"],
     ['top_gainer_continuation', 'Top-Gainer Continuation', counts.topGainerContinuation, 'Top gainer holds trend with fresh volume', "selectSetupCard('top_gainer_continuation','setup_top_gainer_continuation')"],
+    ['gap_and_go', 'Gap and Go', counts.gapAndGo, 'Opening gap beyond prior-day range holds with volume', "selectSetupCard('gap_and_go','setup_gap_and_go')"],
+    ['bull_flag', 'Bull-Flag Continuation', counts.bullFlag, 'Tight higher-low consolidation breaks upward', "selectSetupCard('bull_flag','setup_bull_flag')"],
     ['vwap_continuation', 'VWAP Trend Continuation', counts.vwapContinuation, 'Bullish trend continuation above VWAP', "selectSetupCard('vwap_continuation','setup_vwap_continuation')"],
     ['breakdown', 'Breakdown Shorts', counts.breakdown, 'Confirmed downside level breakdown', "selectSetupCard('breakdown','setup_breakdown')"],
     ['bear_flags', 'Bear-Flag Shorts', counts.bearFlags, 'Bear flag and top-loser continuation', "selectSetupCard('bear_flags','setup_bear_flag')"],
@@ -10161,17 +10256,19 @@ function updateSectorTilesPartial(newSectorTrend) {
 function renderTableNow(){
   const search=getStockSearchValue();
   const serverTop25Active = activeSetupCard === 'simulation_top25';
-  let rows=serverTop25Active ? getServerSimulationTop25Rows() : getAllStockRows();
+  const combinedTopActive = activeSetupCard === 'combined_top';
+  const serverCandidateViewActive = serverTop25Active || combinedTopActive;
+  let rows=combinedTopActive ? getServerCombinedSetupRows() : serverTop25Active ? getServerSimulationTop25Rows() : getAllStockRows();
   const totalRows = rows.length;
 
   // ── Sector filter (from heatmap click) ──────────────────
-  if(!serverTop25Active && activeSectors.size) rows = rows.filter(r => activeSectors.has(r.sector));
+  if(!serverCandidateViewActive && activeSectors.size) rows = rows.filter(r => activeSectors.has(r.sector));
 
   // ── Search ───────────────────────────────────────────────
-  if(!serverTop25Active && search) rows=rows.filter(r=>r.sym.toLowerCase().includes(search)||r.name.toLowerCase().includes(search)||r.sector.toLowerCase().includes(search));
+  if(!serverCandidateViewActive && search) rows=rows.filter(r=>r.sym.toLowerCase().includes(search)||r.name.toLowerCase().includes(search)||r.sector.toLowerCase().includes(search));
 
   // ── Target filters (price target delta filters)
-  if(!serverTop25Active && targetFilter && targetFilter!=='all'){
+  if(!serverCandidateViewActive && targetFilter && targetFilter!=='all'){
     rows = rows.filter(r => {
       const pct = getTargetDeltaPct(r);
       if(pct == null) return false;
@@ -10208,7 +10305,7 @@ function renderTableNow(){
   }
   // When a setup card is active, always sort by score (highest first for runners/pullbacks, lowest first for shorts)
   const shortSetupCards = new Set(['breakdown', 'bear_flags', 'vwap_rejection']);
-  const sortOverride = activeSetupCard === 'simulation_top25'
+  const sortOverride = serverCandidateViewActive
     ? { col: 'serverrank', dir: 1 }
     : activeSetupCard === 'shortterm'
     ? { col: 'shortterm', dir: -1 }

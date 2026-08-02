@@ -1,12 +1,12 @@
 {
   "ok": true,
   "date": "2026-08-05",
-  "savedAt": 1785437466348,
-  "builtInMs": 47400,
+  "savedAt": 1785640590228,
+  "builtInMs": 90224,
   "source": "nse-board-meetings",
-  "scanned": 3043,
-  "count": 9,
-  "symbolCount": 9,
+  "scanned": 3041,
+  "count": 10,
+  "symbolCount": 10,
   "items": [
     {
       "symbol": "AUROPHARMA",
@@ -93,10 +93,22 @@
       "period": null
     },
     {
+      "symbol": "POLICYBZR",
+      "name": "PB Fintech Limited",
+      "type": "Financial Results",
+      "title": "PB Fintech Limited has informed the Exchange about Board Meeting to be held on 05-Aug-2026 to consider and approve the Quarterly Unaudited Financial results of the Company for the period ended June 2026 and Other business.",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=POLICYBZR",
+      "eventDate": "2026-08-04T18:30:00.000Z",
+      "dateKey": "2026-08-05",
+      "status": "upcoming",
+      "period": null
+    },
+    {
       "symbol": "POWERGRID",
       "name": "Power Grid Corporation of India Limited",
       "type": "Financial Results",
-      "title": "To consider and approve the financial results for the period ended Jun 30, 2026",
+      "title": "POWER GRID CORPORATION OF INDIA LIMITED has informed the Exchange about Board Meeting to be held on 05-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
       "source": "NSE",
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=POWERGRID",
       "eventDate": "2026-08-04T18:30:00.000Z",

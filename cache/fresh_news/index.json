@@ -1,6 +1,6 @@
 {
   "version": 5,
-  "savedAt": 1785548713464,
+  "savedAt": 1785639375038,
   "partitioned": true,
   "days": {
     "2026-07-03": {
@@ -248,21 +248,30 @@
     },
     "2026-07-31": {
       "date": "2026-07-31",
-      "savedAt": 1785492944469,
-      "builtInMs": 44320,
+      "savedAt": 1785639352288,
+      "builtInMs": 38563,
       "source": "nse-market-wide+symbol-announcements",
       "scanned": 319,
-      "count": 46,
-      "symbolCount": 39
+      "count": 72,
+      "symbolCount": 43
     },
     "2026-08-01": {
       "date": "2026-08-01",
-      "savedAt": 1785548713458,
-      "builtInMs": 58506,
+      "savedAt": 1785639362557,
+      "builtInMs": 10260,
       "source": "nse-market-wide+symbol-announcements",
       "scanned": 319,
-      "count": 0,
-      "symbolCount": 0
+      "count": 38,
+      "symbolCount": 31
+    },
+    "2026-08-02": {
+      "date": "2026-08-02",
+      "savedAt": 1785639375036,
+      "builtInMs": 12470,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 319,
+      "count": 2,
+      "symbolCount": 2
     }
   }
 }

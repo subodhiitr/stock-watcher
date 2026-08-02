@@ -122,6 +122,7 @@ test('GET /simulation/analysis returns server-side analyzed candidates payload',
   assert.equal(response.statusCode, 200);
   assert.equal(response.json.ok, true);
   assert.ok(Array.isArray(response.json.candidates), 'candidates should be an array');
+  assert.ok(Array.isArray(response.json.combinedCandidates), 'combinedCandidates should be an array');
   assert.equal(typeof response.json.entryWindowOpen, 'boolean');
   assert.equal(typeof response.json.eodSettlement, 'boolean');
   assert.equal(typeof response.json.dataQuality, 'object');

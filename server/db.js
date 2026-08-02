@@ -1190,9 +1190,12 @@ function computeAllTimeRealizedPnl() {
   return +(row?.total ?? 0);
 }
 
-function getDayPnl() {
+function getDayPnl(limit = null) {
   const db = requireDb();
-  const rows = getPrepared(db).getDayPnlRows.all();
+  const parsedLimit = Number.parseInt(limit, 10);
+  const rows = Number.isFinite(parsedLimit) && parsedLimit > 0
+    ? db.prepare('SELECT date, pnl FROM day_pnl ORDER BY date DESC LIMIT ?').all(parsedLimit)
+    : getPrepared(db).getDayPnlRows.all();
   const result = {};
   for (const row of rows) result[row.date] = row.pnl;
   return result;

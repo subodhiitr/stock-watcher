@@ -181,9 +181,11 @@ async function handleBrokerRoute(req, res, pathname, searchParams, deps) {
       return true;
     }
     try {
-      const dayPnl = deps.isDbReady() ? deps.getDayPnl() : {};
+      const requestedLimit = Number.parseInt(searchParams.get('limit') || '10', 10);
+      const limit = Math.max(1, Math.min(100, requestedLimit || 10));
+      const dayPnl = deps.isDbReady() ? deps.getDayPnl(limit) : {};
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' });
-      res.end(JSON.stringify({ ok: true, dayPnl }));
+      res.end(JSON.stringify({ ok: true, limit, dayPnl }));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: false, error: e.message }));

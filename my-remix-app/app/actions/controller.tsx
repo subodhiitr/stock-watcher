@@ -52,15 +52,15 @@ async function dashboardResponse(options: { view?: 'stocks' | 'etfs'; action?: '
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
 <title>NSE Midcap Dashboard</title>
-<link rel="preload" href="/dashboard.css?v=20260730-54" as="style">
-<link rel="stylesheet" href="/dashboard.css?v=20260730-54">
+<link rel="preload" href="/dashboard.css?v=20260730-55" as="style">
+<link rel="stylesheet" href="/dashboard.css?v=20260730-55">
 </head>
 <body>
 ${body}
 <script>window.__DASHBOARD_ROUTE__=${bootScript};</script>
 <script defer src="/trade_rules.js?v=20260628-25"></script>
 <script defer src="/simulation_engine.js?v=20260628-25"></script>
-<script defer src="/dashboard-app.js?v=20260730-64"></script>
+<script defer src="/dashboard-app.js?v=20260801-71"></script>
 </body>
 </html>`
 
@@ -88,7 +88,7 @@ function mobileResponse() {
 <link rel="manifest" href="/mobile-manifest.webmanifest">
 <link rel="icon" href="/mobile-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/mobile-icon-192.png">
-<link rel="stylesheet" href="/mobile.css?v=20260718-14">
+<link rel="stylesheet" href="/mobile.css?v=20260801-20">
 </head>
 <body>
 <div class="global-status" id="global-status" role="status" aria-live="assertive"></div>
@@ -173,6 +173,7 @@ function mobileResponse() {
     <label class="setup-selector-card" for="setup-filter-select">
       <span>Show stocks</span>
       <select id="setup-filter-select">
+        <option value="combined_top">Combined Top Setups</option>
         <option value="simulation_top25">Server Simulation Top 25</option>
         <option value="tradeable">Tradeable</option>
         <option value="gainers">Top Gainers</option>
@@ -182,6 +183,8 @@ function mobileResponse() {
         <option value="opening_flush">Opening Flush VWAP Reclaim</option>
         <option value="top_gainer_pullback">Top-Gainer Pullback Reclaim</option>
         <option value="top_gainer_continuation">Top-Gainer Continuation</option>
+        <option value="gap_and_go">Gap and Go</option>
+        <option value="bull_flag">Bull-Flag Continuation</option>
         <option value="vwap_continuation">VWAP Trend Continuation</option>
         <option value="breakdown">Breakdown Shorts</option>
         <option value="bear_flags">Bear-Flag Shorts</option>
@@ -230,6 +233,9 @@ function mobileResponse() {
       <label class="check-row"><input name="SIMULATION_ENABLE_ETF" type="checkbox"> Enable ETF simulation and setups</label>
       <label class="check-row"><input name="SIMULATION_OVERRIDE_STOP_GUARD" type="checkbox"> Stop guard override</label>
       <label class="check-row"><input name="SIMULATION_AUTO_MANUAL_EXITS" type="checkbox"> Auto-exit manual trades</label>
+      <section class="mobile-setup-settings-list" id="mobile-setup-settings-list" aria-label="Setup configuration">
+        <div class="empty">Loading setup configuration…</div>
+      </section>
       <div class="form-actions">
         <button type="submit" id="settings-save">Save Settings</button>
         <button type="button" id="settings-reset">Clear Overrides</button>
@@ -341,7 +347,7 @@ function mobileResponse() {
     <div class="transaction-list" id="portfolio-transactions"></div>
   </section>
 </div>
-<script defer src="/mobile-app.js?v=20260730-52"></script>
+<script defer src="/mobile-app.js?v=20260801-60"></script>
 </body>
 </html>`
 

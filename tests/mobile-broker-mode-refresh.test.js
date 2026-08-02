@@ -23,7 +23,7 @@ test('mobile broker change refreshes broker-specific portfolio and P&L', () => {
 
 test('mobile shell cache version exposes the broker-mode fix', () => {
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'mobile-sw.js'), 'utf8');
-  assert.match(controller, /mobile-app\.js\?v=20260730-52/);
-  assert.match(serviceWorker, /intradayx-mobile-v56/);
-  assert.match(serviceWorker, /mobile-app\.js\?v=20260730-52/);
+  assert.match(controller, /mobile-app\.js\?v=20260801-60/);
+  assert.match(serviceWorker, /intradayx-mobile-v64/);
+  assert.match(serviceWorker, /mobile-app\.js\?v=20260801-60/);
 });

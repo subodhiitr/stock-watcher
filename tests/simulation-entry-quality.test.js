@@ -364,7 +364,7 @@ test('armed entry triggers stay frozen for fifteen minutes', () => {
   assert.equal(SimulationEngine.getEntryTriggerPrice(rearmed), 100);
 });
 
-test('top-gainer pullback reclaim and bear-flag continuation are separate confirmed setups', () => {
+test('top-gainer pullback reclaim and bull/bear-flag continuations are separate confirmed setups', () => {
   const settings = TradeRules.withDefaults({});
   const at = '2026-07-16T05:10:30.000Z';
   const pullback = qualityCandidate({
@@ -378,6 +378,27 @@ test('top-gainer pullback reclaim and bear-flag continuation are separate confir
   });
   assert.equal(SimulationEngine.getTopGainerPullbackReclaimInfo(pullback, settings, at).ok, true);
   assert.equal(SimulationEngine.deriveSetupType(pullback, settings, at), 'TOP_GAINER_PULLBACK_RECLAIM');
+
+  const bullFlag = qualityCandidate({
+    symbol:'BULL-FLAG', price:101.05, score:85, sector:'IT', __snapshotAt:at,
+    previousCandidate:{ side:'buy', signal:'buy', price:100.7, indicators:{ vwap:100.4 } },
+    candles:[
+      { time:'2026-07-16T04:40:00.000Z', open:99.7, high:100.5, low:99.65, close:100.4, volume:1200 },
+      { time:'2026-07-16T04:45:00.000Z', open:100.4, high:100.9, low:100.2, close:100.7, volume:800 },
+      { time:'2026-07-16T04:50:00.000Z', open:100.7, high:100.85, low:100.3, close:100.65, volume:700 },
+      { time:'2026-07-16T05:00:00.000Z', open:100.7, high:101.15, low:100.6, close:101.05, volume:1200 },
+    ],
+    indicators:{
+      ...qualityCandidate().indicators,
+      dayChange:3, vwap:100.4,
+      volumeShock:{ volumeRatio3m:1.2, volumeRatio5m:1.3, change5m:0.3 },
+    },
+  });
+  assert.equal(SimulationEngine.getBullFlagContinuationInfo(bullFlag, settings, at).ok, true);
+  assert.equal(SimulationEngine.deriveSetupType(bullFlag, settings, at), 'BULL_FLAG_CONTINUATION');
+  const weakPole = structuredClone(bullFlag);
+  weakPole.candles[0] = { ...weakPole.candles[0], open:100.1, close:100.4, volume:800 };
+  assert.match(SimulationEngine.getBullFlagContinuationInfo(weakPole, settings, at).reason, /pole gain/);
 
   const bearFlag = globallyConfirmedShort({
     symbol:'BEAR-FLAG', price:99.65, score:-85, sector:'IT', __snapshotAt:at,
@@ -395,6 +416,59 @@ test('top-gainer pullback reclaim and bear-flag continuation are separate confir
   });
   assert.equal(SimulationEngine.getBearFlagContinuationInfo(bearFlag, settings, at).ok, true);
   assert.equal(SimulationEngine.deriveSetupType(bearFlag, settings, at), 'BEAR_FLAG_CONTINUATION');
+});
+
+test('gap-and-go requires a prior-range gap, opening hold, first-hour timing, and fresh volume', () => {
+  const at = '2026-07-16T04:30:00.000Z';
+  const longGap = qualityCandidate({
+    symbol:'LONG-GAP', side:'buy', signal:'buy', price:102, open:101.5, score:85, __snapshotAt:at,
+    indicators:{
+      ...qualityCandidate().indicators,
+      gapPct:1.5, gapQuality:'gap-up holding', prevDayHigh:101, prevDayLow:98,
+      relVolumeTimeAdjusted:1.8,
+      volumeShock:{ volumeRatio3m:1.2, volumeRatio5m:1.3, change5m:0.3 },
+    },
+  });
+  assert.equal(SimulationEngine.getGapAndGoInfo(longGap, {}, at).ok, true);
+  assert.equal(SimulationEngine.deriveSetupType(longGap, {}, at), 'GAP_AND_GO');
+
+  const shortGap = globallyConfirmedShort({
+    symbol:'SHORT-GAP', side:'sell', signal:'sell', price:97.8, open:98.2, score:-85, __snapshotAt:at,
+    indicators:{
+      ...globallyConfirmedShort().indicators,
+      gapPct:-1.8, gapQuality:'gap-down weak', prevDayHigh:102, prevDayLow:99,
+      relVolumeTimeAdjusted:1.9,
+      volumeShock:{ volumeRatio3m:1.1, volumeRatio5m:1.4, change5m:-0.4 },
+    },
+  });
+  assert.equal(SimulationEngine.getGapAndGoInfo(shortGap, {}, at).ok, true);
+  assert.equal(SimulationEngine.deriveSetupType(shortGap, {}, at), 'GAP_AND_GO');
+  assert.match(SimulationEngine.getGapAndGoInfo({ ...longGap, price:101.2, indicators:{ ...longGap.indicators, gapQuality:'gap-up fading' } }, {}, at).reason, /hold/);
+  assert.match(SimulationEngine.getGapAndGoInfo(longGap, {}, '2026-07-16T05:01:00.000Z').reason, /blocked after 10:30/);
+});
+
+test('fresh directional news adjusts only momentum ranking within the configured bound', () => {
+  const base = qualityCandidate({
+    setupType:'MOMENTUM_RUNNER', derivedSetupType:'MOMENTUM_RUNNER', side:'buy', signal:'buy',
+    __snapshotAt:'2026-07-16T05:00:00.000Z',
+    indicators:{
+      ...qualityCandidate().indicators,
+      newsImpact:{ tradeImpactScore:80, newsSentiment:'Positive', tradeImpactReason:'Order win', publishedAt:'2026-07-16T04:00:00.000Z' },
+    },
+  });
+  const positive = SimulationEngine.getMomentumCatalystAdjustment(base, {});
+  assert.equal(positive.adjustment, 4);
+  assert.equal(positive.applied, true);
+  const conflicting = SimulationEngine.getMomentumCatalystAdjustment({
+    ...base,
+    indicators:{ ...base.indicators, newsImpact:{ ...base.indicators.newsImpact, tradeImpactScore:-85 } },
+  }, {});
+  assert.equal(conflicting.adjustment, -4.25);
+  assert.equal(SimulationEngine.getMomentumCatalystAdjustment({ ...base, derivedSetupType:'FRESH_BREAKOUT' }, {}).adjustment, 0);
+  assert.equal(SimulationEngine.getMomentumCatalystAdjustment({
+    ...base,
+    indicators:{ ...base.indicators, newsImpact:{ ...base.indicators.newsImpact, publishedAt:'2026-07-10T04:00:00.000Z' } },
+  }, {}).adjustment, 0);
 });
 
 function globallyConfirmedLong(overrides = {}) {

@@ -329,6 +329,15 @@ test('portfolio modal provides the latest five trading days instead of a calenda
   assert.doesNotMatch(source, /No transactions today/);
 });
 
+test('portfolio shows day-wise net P&L for only the latest ten trading days', () => {
+  const { source } = loadDashboardApp();
+  assert.match(source, /portfolio\/day-pnl\?limit=10/);
+  assert.match(source, /Object\.entries\(summary\.dayPnl\)/);
+  assert.match(source, /\.slice\(0, 10\)/);
+  assert.match(source, /Day Wise Net P&L · Last 10 Trading Days/);
+  assert.doesNotMatch(source, /Last 10 Realized Trades/);
+});
+
 test('intraday Sharekhan volume updates table stockData volume', () => {
   const { source } = loadDashboardApp();
   const helper = findFunctionByContracts(source, [

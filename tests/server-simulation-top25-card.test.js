@@ -28,8 +28,20 @@ test('desktop has a dedicated server simulation Top 25 setup card', () => {
   assert.match(dashboard, /\{ col: 'serverrank', dir: 1 \}/);
 });
 
+test('combined setup view keeps one profitability-ranked leader per setup on desktop and mobile', () => {
+  assert.match(proxy, /selectTopCandidatesBySetup/);
+  assert.match(proxy, /combinedRank:index \+ 1/);
+  assert.match(proxy, /profitabilityReason/);
+  assert.match(dashboard, /'Combined Top Setups'/);
+  assert.match(dashboard, /function getServerCombinedSetupRows\(\)/);
+  assert.match(dashboard, /selectServerCombinedSetupsCard\(\)/);
+  assert.match(mobileController, /<option value="combined_top">Combined Top Setups<\/option>/);
+  assert.match(mobile, /combined_top: \(a, b\) => n\(a\.combinedRank\) - n\(b\.combinedRank\)/);
+  assert.match(mobile, /Profitability ranking/);
+});
+
 test('Top 25 Trade cells show server rank and entry selection reason', () => {
-  assert.match(dashboard, /class="simulation-rank-badge">Server #/);
+  assert.match(dashboard, /`Server #\$\{Number\(serverCandidate\.serverRank\) \|\| '--'\}`/);
   assert.match(dashboard, /serverCandidate\.selectionReason/);
   assert.match(dashboard, /class="simulation-selection-reason \$\{serverCandidate\.selected \? 'selected' : ''\}"/);
   assert.match(css, /\.simulation-selection-reason\.selected/);
@@ -42,7 +54,7 @@ test('Top 25 refreshes over SSE only while its card is active', () => {
   assert.match(simulationRoutes, /deps\.buildServerSimulationAnalysisPayload\('server-analysis-stream'\)/);
   assert.match(simulationRoutes, /payload\.candidates\.slice\(0, 25\)/);
   assert.match(dashboard, /new EventSource\(SIMULATION_ANALYSIS_STREAM_ENDPOINT\)/);
-  assert.match(dashboard, /activeSetupCard !== 'simulation_top25' \|\| currentView !== 'stocks'/);
+  assert.match(dashboard, /!isServerSimulationCardActive\(\) \|\| currentView !== 'stocks'/);
   assert.match(dashboard, /function disconnectServerSimulationTop25Stream\(\)/);
   assert.match(remixServer, /'\/simulation\/analysis\/stream'/);
 });
@@ -50,9 +62,9 @@ test('Top 25 refreshes over SSE only while its card is active', () => {
 test('mobile exposes the same server Top 25 view with card-scoped SSE', () => {
   assert.match(mobileController, /<option value="simulation_top25">Server Simulation Top 25<\/option>/);
   assert.match(mobile, /new EventSource\('\/simulation\/analysis\/stream'\)/);
-  assert.match(mobile, /state\.setupFilter !== 'simulation_top25' \|\| !mobileSetupsViewActive\(\)/);
+  assert.match(mobile, /serverSimulationFilterActive\(\)/);
   assert.match(mobile, /disconnectServerSimulationStream\(\)/);
-  assert.match(mobile, /\.slice\(0, activeFilter === 'simulation_top25' \? 25 : 24\)/);
-  assert.match(mobile, /<b>Entry selection:<\/b>/);
+  assert.match(mobile, /\.slice\(0, serverFilter \? 25 : 24\)/);
+  assert.match(mobile, /activeFilter === 'combined_top' \? 'Profitability ranking' : 'Entry selection'/);
   assert.match(mobile, /Server #\$\{n\(c\.serverRank\) \|\| index \+ 1\}/);
 });

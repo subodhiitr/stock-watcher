@@ -22,7 +22,7 @@ test('desktop settings uses an accessible full-height side panel', () => {
 });
 
 test('settings panel renders and persists a switch for every simulation setup', () => {
-  assert.equal(TradeRules.SIMULATION_SETUP_DEFINITIONS.length, 15);
+  assert.equal(TradeRules.SIMULATION_SETUP_DEFINITIONS.length, 17);
   assert.ok(TradeRules.SIMULATION_SETUP_DEFINITIONS.every(definition => (
     definition.type
     && definition.key
@@ -62,7 +62,11 @@ test('setup definitions identify their specialist configuration keys', () => {
   ));
 
   assert.ok(keysFor('RANGEBOUND').includes('SIMULATION_RANGEBOUND_MIN_RANGE_PCT'));
+  assert.ok(keysFor('RANGEBOUND').includes('SIMULATION_RANGEBOUND_MAX_SPREAD_PCT'));
   assert.ok(keysFor('MOMENTUM_RUNNER').includes('SIMULATION_RUNNER_MIN_SCORE'));
+  assert.ok(keysFor('BULL_FLAG_CONTINUATION').includes('SIMULATION_BULL_FLAG_MIN_DAY_GAIN_PCT'));
+  assert.ok(keysFor('GAP_AND_GO').includes('SIMULATION_GAP_AND_GO_MIN_GAP_PCT'));
+  assert.ok(keysFor('MOMENTUM_RUNNER').includes('SIMULATION_MOMENTUM_CATALYST_MAX_SCORE_ADJUSTMENT'));
   assert.ok(keysFor('VWAP_TREND_CONTINUATION').includes('SIMULATION_VWAP_CONT_MIN_REL_VOL'));
   assert.ok(!keysFor('TOP_GAINER_CONTINUATION').includes('SIMULATION_TOP_GAINER_PULLBACK_MIN_DAY_GAIN_PCT'));
 });

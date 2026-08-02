@@ -40,6 +40,7 @@ const os    = require('os');
 const crypto = require('crypto');
 const { fork } = require('child_process');
 const { Worker } = require('worker_threads');
+const { mapWithConcurrency } = require('./server/concurrency');
 const Backtest = require('./backtest_simulation');
 const SimulationEngine = require('./simulation_engine');
 const TradeRules = require('./trade_rules');
@@ -56,7 +57,7 @@ const { KiteConnect } = require('kiteconnect');
 const KiteClient = require('./zerodha-kite-client');
 const SharekhanClient = require('./sharekhan-client');
 const { buildYahooShapeFromCandles, fetchSharekhanIntraday } = require('./sharekhan-intraday');
-const { SharekhanTickerPool } = require('./sharekhan-ticker');
+const { SharekhanTickerPool, normalizeSharekhanMarketDepth } = require('./sharekhan-ticker');
 const ConfirmationPoller = require('./zerodha-confirmation-poller');
 const {
   applyLocalCors,
@@ -214,6 +215,7 @@ let simulationSnapshotsForTests = null;
 let simulationUniverseSymbols = null;
 const intradayLiveCache = new Map();
 const sharekhanDailyContextCache = new Map();
+const sharekhanMarketDepthCache = new Map();
 let intradayLiveRefreshTimer = null;
 let intradayLiveRefreshInFlight = false;
 let intradayLiveRefreshActive = false;
@@ -1409,6 +1411,9 @@ function buildIntradaySignalMaterialSignature(signal) {
     staleReason: signal.staleReason || signal.freshness?.reason || '',
     priceTimeMs: Number(signal.priceTimeMs) || 0,
     dataSource: signal.dataSource || signal.freshness?.dataSource || '',
+    depthSpreadPct: Number.isFinite(Number(signal.marketDepth?.spreadPct)) ? +Number(signal.marketDepth.spreadPct).toFixed(4) : null,
+    depthImbalance: Number.isFinite(Number(signal.marketDepth?.imbalance)) ? +Number(signal.marketDepth.imbalance).toFixed(4) : null,
+    depthCapturedAtMs: Number(signal.marketDepth?.capturedAtMs) || 0,
   });
 }
 
@@ -2132,6 +2137,11 @@ function refreshSimulationMarketContextIfStale() {
 
 function handleSharekhanTickerTick(tick) {
   const code = Number(tick?.scripCode);
+  const symbol = sharekhanTicker?.getSymbol(code);
+  if (symbol) {
+    const marketDepth = normalizeSharekhanMarketDepth(tick);
+    if (marketDepth) sharekhanMarketDepthCache.set(symbol, marketDepth);
+  }
   const indexKey = sharekhanIndexCodeMap.get(code);
   if (!indexKey) return;
   if (updateSimulationIndexFromSharekhanTick(indexKey, tick)) {
@@ -2201,7 +2211,12 @@ function buildServerCandidateFromIntraday(sym, setup, settings, meta = null, asO
     : null;
   const compactPreviousCandle = compactCandidateBar(setup?.ohlc?.previousBar);
   const compactCandle = compactCandidateBar(setup?.ohlc?.latestBar);
-  const compactCandles = [compactPreviousCandle, compactCandle].filter(Boolean);
+  const compactCandles = (Array.isArray(setup?.ohlc?.recentBars) && setup.ohlc.recentBars.length
+    ? setup.ohlc.recentBars
+    : [compactPreviousCandle, compactCandle])
+    .map(compactCandidateBar)
+    .filter(Boolean)
+    .sort((left, right) => new Date(left.time) - new Date(right.time));
 
   // Compute cache age and data source for freshness tracking
   const asOfMs = asOf ? new Date(asOf).getTime() : Date.now();
@@ -2524,6 +2539,25 @@ async function buildServerSimulationAnalysisPayload(source = 'server-analysis') 
       eligibilityReasons: Array.isArray(explanation?.reasons) ? explanation.reasons : [],
     };
   });
+  const combinedCandidates = SimulationEngine.selectTopCandidatesBySetup(
+    analyzedCandidates.filter(candidate => {
+      const side = String(candidate?.side || candidate?.signal || '').toLowerCase();
+      return ['buy', 'sell'].includes(side) &&
+        !String(candidate?.blockReason || '').trim() &&
+        (!Array.isArray(candidate?.eligibilityReasons) || candidate.eligibilityReasons.length === 0);
+    })
+  ).map((candidate, index) => {
+    const profitability = SimulationEngine.getCandidateProfitabilityMetrics(candidate);
+    const profitabilityReason = profitability.winRate != null
+      ? `Historical win chance ${Number(profitability.winRate).toFixed(1)}% over ${profitability.sample} trades | expected net ${Number(profitability.expectedNetPct || 0).toFixed(3)}% | decision ${Number(profitability.decisionScore).toFixed(2)}`
+      : `Decision-based profitability score ${Number(profitability.decisionScore).toFixed(2)}; historical setup sample unavailable`;
+    return {
+      ...candidate,
+      combinedRank:index + 1,
+      profitability,
+      profitabilityReason,
+    };
+  });
   const dataQuality = buildSimulationDataQualitySummary(analyzedCandidates);
   return {
     ok: true,
@@ -2541,6 +2575,7 @@ async function buildServerSimulationAnalysisPayload(source = 'server-analysis') 
     candidateCount: analyzedCandidates.length,
     selectedCount: analyzedCandidates.filter(candidate => candidate.selected).length,
     dataQuality,
+    combinedCandidates,
     candidates: analyzedCandidates,
   };
 }
@@ -6052,23 +6087,36 @@ function chartToQuote(sym, data) {
   }
 }
 
-// Fetch a batch of NSE symbols concurrently (max CONCURRENCY at a time)
 const CONCURRENCY = 8;
+const YAHOO_QUOTE_CONCURRENCY = Math.max(1, Math.min(32, Number.parseInt(process.env.YAHOO_QUOTE_CONCURRENCY || '24', 10) || 24));
+const MOBILE_STOCK_QUOTE_CONCURRENCY = Math.min(8, YAHOO_QUOTE_CONCURRENCY);
+const YAHOO_QUOTE_CACHE_TTL_MS = 15000;
+const yahooQuoteCache = new Map();
+const yahooQuoteInFlight = new Map();
+
+async function yahooQuoteForSymbol(symbol) {
+  const sym = String(symbol || '').trim().toUpperCase();
+  if (!sym) return null;
+  const cached = yahooQuoteCache.get(sym);
+  if (cached && Date.now() - cached.savedAt < YAHOO_QUOTE_CACHE_TTL_MS) return cached.quote;
+  if (yahooQuoteInFlight.has(sym)) return yahooQuoteInFlight.get(sym);
+  const request = (async () => {
+    const data = await yahooChart(resolveNseSymbol(sym) + '.NS');
+    if (!data) return null;
+    const quote = chartToQuote(sym, data);
+    if (quote) yahooQuoteCache.set(sym, { savedAt:Date.now(), quote });
+    return quote;
+  })().finally(() => yahooQuoteInFlight.delete(sym));
+  yahooQuoteInFlight.set(sym, request);
+  return request;
+}
+
 async function yahooQuote(nseSymbols) {
   const results = {};
-  // Process in chunks of CONCURRENCY
-  for (let i = 0; i < nseSymbols.length; i += CONCURRENCY) {
-    const chunk = nseSymbols.slice(i, i + CONCURRENCY);
-    const settled = await Promise.allSettled(
-      chunk.map(sym => yahooChart(resolveNseSymbol(sym) + '.NS').then(data => ({ sym, data })))
-    );
-    for (const r of settled) {
-      if (r.status === 'fulfilled' && r.value?.data) {
-        const q = chartToQuote(r.value.sym, r.value.data);
-        if (q) results[r.value.sym] = q;
-      }
-    }
-  }
+  await mapWithConcurrency(nseSymbols, YAHOO_QUOTE_CONCURRENCY, async sym => {
+    const quote = await yahooQuoteForSymbol(sym);
+    if (quote) results[sym] = quote;
+  });
   // Return in the shape the dashboard expects: { SYMBOL: { price, change, ... } }
   return { ok: true, quotes: results };
 }
@@ -6640,6 +6688,7 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
       const ohlc = {
         previousBar,
         latestBar,
+        recentBars: rawCloses.map((_, index) => toBar(index)).filter(Boolean).slice(-6),
         session: {
           open: round2(Number(meta.regularMarketOpen) || rawOpens.find(v => Number.isFinite(Number(v))) || price),
           high: rawHighs.some(v => Number.isFinite(Number(v))) ? round2(Math.max(...compactFinite(rawHighs))) : round2(price),
@@ -6726,6 +6775,7 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
   const ohlc = {
     previousBar,
     latestBar,
+    recentBars: rawCloses.map((_, index) => toBar(index)).filter(Boolean).slice(-6),
     session: {
       open: round2(openPrice),
       high: highs.length ? round2(Math.max(...highs)) : null,
@@ -6755,6 +6805,8 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     ? dayVolume / Math.max(1, dailyContext.avgVolume20 * expectedVolumeFraction)
     : null;
   const gapPct = prevClose ? +(((openPrice - prevClose) / prevClose) * 100).toFixed(2) : null;
+  const newsImpact = freshNewsService.getCachedImpactForSymbol(sym);
+  const eventImpacts = freshNewsService.getCachedImpactsForSymbol(sym);
   let gapQuality = 'flat';
   if (gapPct != null && Math.abs(gapPct) >= 0.35) {
     if (gapPct > 0) gapQuality = price >= openPrice ? 'gap-up holding' : 'gap-up fading';
@@ -6991,6 +7043,8 @@ function buildIntradaySignal(sym, result, dailyContext = {}) {
     },
     gapPct,
     gapQuality,
+    newsImpact,
+    eventImpacts,
     prevDayHigh: dailyContext.prevDayHigh ?? null,
     prevDayLow: dailyContext.prevDayLow ?? null,
     prevDayClose: dailyContext.prevDayClose ?? null,
@@ -7111,6 +7165,7 @@ async function pushSharekhanTickerCandles(sym, candles) {
     const signal = buildIntradaySignal(sym, skResult, dailyContext);
     if (!signal) return;
     signal.dataSource = 'sharekhan-ws';
+    signal.marketDepth = sharekhanMarketDepthCache.get(cacheKey) || null;
     signal._updatedAt = now;
     intradaySignalCache[sym] = { v: signal, t: now };
     const nextValue = normalizeIntradayLiveSignal(sym, signal);
@@ -8399,20 +8454,29 @@ async function proxyRequestHandler(req, res) {
     let closed = false;
     req.on('close', () => { closed = true; });
     let loaded = 0;
-    for (let i = 0; i < symbols.length && !closed; i += CONCURRENCY) {
-      const chunk = symbols.slice(i, i + CONCURRENCY);
-      const result = await yahooQuote(chunk).catch(error => ({ ok:false, error:error.message, quotes:{} }));
-      loaded += chunk.length;
-      if (!closed && !res.writableEnded) {
+    let completedSinceFlush = 0;
+    let quoteBatch = {};
+    const flushQuotes = () => {
+      if (!closed && !res.writableEnded && (completedSinceFlush || loaded >= symbols.length)) {
         res.write(`data: ${JSON.stringify({
           ok:true,
-          quotes:result.quotes || {},
+          quotes:quoteBatch,
           loaded,
           total:symbols.length,
           done:loaded >= symbols.length,
         })}\n\n`);
       }
-    }
+      completedSinceFlush = 0;
+      quoteBatch = {};
+    };
+    await mapWithConcurrency(symbols, MOBILE_STOCK_QUOTE_CONCURRENCY, async symbol => {
+      if (closed) return;
+      const quote = await yahooQuoteForSymbol(symbol).catch(() => null);
+      loaded += 1;
+      completedSinceFlush += 1;
+      if (quote) quoteBatch[symbol] = quote;
+      if (completedSinceFlush >= MOBILE_STOCK_QUOTE_CONCURRENCY || loaded >= symbols.length) flushQuotes();
+    });
     if (!closed && !res.writableEnded) res.end();
     return;
   }
@@ -9018,6 +9082,7 @@ async function proxyRequestHandler(req, res) {
       jsonBodyErrorStatus,
       loadTradeSettingsFile,
       saveTradeSettingsFile,
+      tradeRules:TradeRules,
     }),
   ], req, res, pathname, searchParams)) return;
 

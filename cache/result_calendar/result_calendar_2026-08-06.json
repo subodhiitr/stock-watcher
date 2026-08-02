@@ -1,12 +1,12 @@
 {
   "ok": true,
   "date": "2026-08-06",
-  "savedAt": 1785437466348,
-  "builtInMs": 47402,
+  "savedAt": 1785640590228,
+  "builtInMs": 90226,
   "source": "nse-board-meetings",
-  "scanned": 3043,
-  "count": 12,
-  "symbolCount": 12,
+  "scanned": 3041,
+  "count": 13,
+  "symbolCount": 13,
   "items": [
     {
       "symbol": "AEGISLOG",
@@ -111,6 +111,18 @@
       "title": "Samvardhana Motherson International Limited has informed the Exchange about Board Meeting to be held on 06-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
       "source": "NSE",
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=MOTHERSON",
+      "eventDate": "2026-08-05T18:30:00.000Z",
+      "dateKey": "2026-08-06",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "PGEL",
+      "name": "PG Electroplast Limited",
+      "type": "Financial Results",
+      "title": "To consider and approve the financial results for the period ended Jun 30, 2026 and other business matters",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=PGEL",
       "eventDate": "2026-08-05T18:30:00.000Z",
       "dateKey": "2026-08-06",
       "status": "upcoming",

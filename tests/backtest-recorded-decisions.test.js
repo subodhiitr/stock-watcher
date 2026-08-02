@@ -33,4 +33,7 @@ test('frozen strategy settings fail closed if defaults drift', () => {
   assert.equal(settings.PORTFOLIO_CAPITAL_SOURCE, frozen.STRATEGY_ID);
   assert.equal(settings.SIMULATION_OVERRIDE_STOP_GUARD, true);
   assert.equal(settings.SIMULATION_DAILY_MAX_TRADES, 20);
+  assert.equal(settings.SIMULATION_BULL_FLAG_CONTINUATION_ENABLED, false);
+  assert.equal(settings.SIMULATION_GAP_AND_GO_ENABLED, false);
+  assert.equal(settings.SIMULATION_MOMENTUM_CATALYST_ENABLED, false);
 });

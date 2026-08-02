@@ -1690,3 +1690,15 @@ test('zero-progress re-entry is limited to one completed VWAP reclaim', () => {
     false
   );
 });
+test('combined setup leaders keep one candidate per setup ordered by profitability chance', () => {
+  const candidates = [
+    { symbol:'EARLY-A', setupType:'EARLY_MOMENTUM', decisionScore:88, score:88 },
+    { symbol:'EARLY-B', setupType:'EARLY_MOMENTUM', decisionScore:75, score:75, scoreAudit:{ expectancy:{ sample:20, winRate:70, expectedNetPct:0.4, source:'setup-score-band' } } },
+    { symbol:'BREAKOUT-A', setupType:'FRESH_BREAKOUT', decisionScore:82, score:82, scoreAudit:{ expectancy:{ sample:18, winRate:64, expectedNetPct:0.6, source:'setup-score-band' } } },
+  ];
+
+  const leaders = SimulationEngine.selectTopCandidatesBySetup(candidates);
+
+  assert.deepEqual(leaders.map(candidate => candidate.symbol), ['EARLY-A', 'BREAKOUT-A']);
+  assert.equal(SimulationEngine.getCandidateProfitabilityMetrics(leaders[1]).winRate, 64);
+});

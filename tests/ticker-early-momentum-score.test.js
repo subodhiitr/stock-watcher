@@ -35,4 +35,5 @@ test('intraday scorer awards bounded warm-up points before long indicators matur
   assert.equal(signal.entryPrice, signal.openingHigh);
   assert.ok(signal.score >= 55, `expected early score >= 55, received ${signal.score}`);
   assert.ok(signal.reasons.some(reason => /^Early /.test(reason)));
+  assert.equal(signal.ohlc.recentBars.length, 6);
 });

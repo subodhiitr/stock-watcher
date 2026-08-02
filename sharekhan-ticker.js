@@ -1,6 +1,73 @@
 'use strict';
 const WebSocketClient = require('ws');
 
+function positiveNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function normalizeDepthLevels(levels, side) {
+  if (!Array.isArray(levels)) return [];
+  const normalized = levels.map(level => {
+    if (Array.isArray(level)) {
+      const price = positiveNumber(level[0]);
+      const quantity = positiveNumber(level[1]);
+      return price && quantity ? { price, quantity } : null;
+    }
+    if (!level || typeof level !== 'object') return null;
+    const price = positiveNumber(level.price ?? level.rate ?? level[`${side}Price`] ?? level[`${side}_price`]);
+    const quantity = positiveNumber(level.quantity ?? level.qty ?? level.volume ?? level[`${side}Qty`] ?? level[`${side}Quantity`] ?? level[`${side}_qty`]);
+    return price && quantity ? { price, quantity } : null;
+  }).filter(Boolean);
+  normalized.sort((left, right) => side === 'bid' ? right.price - left.price : left.price - right.price);
+  return normalized.slice(0, 5);
+}
+
+function normalizeSharekhanMarketDepth(tick, capturedAt = Date.now()) {
+  if (!tick || typeof tick !== 'object') return null;
+  const book = tick.marketDepth || tick.market_depth || tick.depth || tick.orderBook || tick.order_book || {};
+  const bidLevels = normalizeDepthLevels(book.bids || book.bid || book.buy || book.buyOrders || tick.bids, 'bid');
+  const askLevels = normalizeDepthLevels(book.asks || book.ask || book.sell || book.sellOrders || tick.asks, 'ask');
+  const bestBidPrice = positiveNumber(tick.bestBidPrice ?? tick.bidPrice ?? tick.bestBid ?? tick.bid ?? book.bestBidPrice ?? book.bidPrice)
+    || bidLevels[0]?.price || null;
+  const bestAskPrice = positiveNumber(tick.bestAskPrice ?? tick.askPrice ?? tick.bestAsk ?? tick.ask ?? book.bestAskPrice ?? book.askPrice)
+    || askLevels[0]?.price || null;
+  const bestBidQuantity = positiveNumber(tick.bestBidQuantity ?? tick.bestBidQty ?? tick.bidQuantity ?? tick.bidQty ?? book.bestBidQuantity ?? book.bestBidQty)
+    || bidLevels[0]?.quantity || null;
+  const bestAskQuantity = positiveNumber(tick.bestAskQuantity ?? tick.bestAskQty ?? tick.askQuantity ?? tick.askQty ?? book.bestAskQuantity ?? book.bestAskQty)
+    || askLevels[0]?.quantity || null;
+  if (!bestBidPrice || !bestAskPrice || !bestBidQuantity || !bestAskQuantity) return null;
+  const summedBidQuantity = bidLevels.reduce((sum, level) => sum + level.quantity, 0);
+  const summedAskQuantity = askLevels.reduce((sum, level) => sum + level.quantity, 0);
+  const totalBidQuantity = positiveNumber(tick.totalBidQuantity ?? tick.totalBidQty ?? tick.totalBuyQuantity ?? tick.totalBuyQty ?? book.totalBidQuantity ?? book.totalBuyQuantity)
+    || summedBidQuantity || bestBidQuantity;
+  const totalAskQuantity = positiveNumber(tick.totalAskQuantity ?? tick.totalAskQty ?? tick.totalSellQuantity ?? tick.totalSellQty ?? book.totalAskQuantity ?? book.totalSellQuantity)
+    || summedAskQuantity || bestAskQuantity;
+  const combinedQuantity = totalBidQuantity + totalAskQuantity;
+  const spread = bestAskPrice - bestBidPrice;
+  const midpoint = (bestAskPrice + bestBidPrice) / 2;
+  const requestedCapturedAtMs = new Date(capturedAt).getTime();
+  const capturedAtMs = Number.isFinite(requestedCapturedAtMs) ? requestedCapturedAtMs : Date.now();
+  return {
+    bestBidPrice,
+    bestBidQuantity,
+    bestAskPrice,
+    bestAskQuantity,
+    bidLevels,
+    askLevels,
+    totalBidQuantity,
+    totalAskQuantity,
+    combinedQuantity,
+    spread,
+    spreadPct: midpoint > 0 ? spread / midpoint * 100 : null,
+    imbalance: combinedQuantity > 0 ? totalBidQuantity / combinedQuantity : null,
+    crossed: spread < 0,
+    capturedAt: new Date(capturedAtMs).toISOString(),
+    capturedAtMs,
+    source:'sharekhan-ws',
+  };
+}
+
 const BAR_MINUTES = 5;
 const MAX_CANDLES = 80; // slightly over full trading day of 5-min bars
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000; // 19800000 ms
@@ -352,6 +419,10 @@ class SharekhanTickerPool {
     const index = this._codeToTicker.get(Number(scripCode));
     return Number.isInteger(index) ? index : -1;
   }
+  getSymbol(scripCode) {
+    const tickerIndex = this._codeToTicker.get(Number(scripCode));
+    return tickerIndex == null ? '' : String(this._tickers[tickerIndex]?.scripToSymbol?.get(Number(scripCode)) || '');
+  }
 
   subscribe(scripCodes, symMap = null) {
     const maps = this._tickers.map(() => new Map());
@@ -417,4 +488,4 @@ class SharekhanTickerPool {
   }
 }
 
-module.exports = { SharekhanTicker, SharekhanTickerPool, parseTickTime };
+module.exports = { SharekhanTicker, SharekhanTickerPool, parseTickTime, normalizeSharekhanMarketDepth };

@@ -1,0 +1,48 @@
+{
+  "ok": true,
+  "date": "2026-08-02",
+  "savedAt": 1785639375036,
+  "builtInMs": 12470,
+  "source": "nse-market-wide+symbol-announcements",
+  "scanned": 319,
+  "count": 2,
+  "symbolCount": 2,
+  "items": [
+    {
+      "symbol": "DIAMONDYD",
+      "name": "DIAMONDYD",
+      "assetType": "stock",
+      "type": "Result Filing",
+      "title": "Prataap Snacks Limited has informed the Exchange regarding a press release dated August 01, 2026, titled \"Press Release on Unaudited Financial Results for the quarter ended June 30, 2026\".",
+      "source": "NSE",
+      "url": "https://nsearchives.nseindia.com/corporate/DIAMONDYD_02082026002602_Pressreleaseintimation.pdf",
+      "publishedAt": "2026-08-01T18:56:12.000Z",
+      "dateKey": "2026-08-02",
+      "resultVerdict": null,
+      "resultVerdictReason": null,
+      "newsSentiment": "Neutral",
+      "tradeImpactScore": 60,
+      "tradeImpactAbs": 60,
+      "tradeImpactReason": "Result-related event; directional impact depends on numbers"
+    },
+    {
+      "symbol": "MANYAVAR",
+      "name": "MANYAVAR",
+      "assetType": "stock",
+      "type": "Result Filing",
+      "title": "Analysts/Institutional Investor Meet/Con. Call Updates: Vedant Fashions Limited has informed the Exchange about the Transcript of the Earnings Conference Call organised and held on July 27, 2026.",
+      "source": "NSE",
+      "url": "https://nsearchives.nseindia.com/corporate/MANYAVAR_02082026001516_VFLIntimationTranscriptQ1FY27.pdf",
+      "publishedAt": "2026-08-01T18:45:31.000Z",
+      "dateKey": "2026-08-02",
+      "resultVerdict": null,
+      "resultVerdictReason": null,
+      "newsSentiment": "Neutral",
+      "tradeImpactScore": 60,
+      "tradeImpactAbs": 60,
+      "tradeImpactReason": "Result-related event; directional impact depends on numbers"
+    }
+  ],
+  "errors": [],
+  "version": 5
+}

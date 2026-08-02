@@ -142,7 +142,68 @@ function createFreshNewsService(deps = {}) {
   const fetchNSEStockAnnouncements = deps.fetchNSEStockAnnouncements || (async () => []);
   let dayCache = null;
   const buildJobs = new Map();
+  const impactByDate = new Map();
+  const impactItemsByDate = new Map();
   let cronTimer = null;
+
+  function cacheImpactEntry(entry) {
+    const bySymbol = new Map();
+    const itemsBySymbol = new Map();
+    for (const item of dedupeFreshNewsItems(Array.isArray(entry?.items) ? [...entry.items] : [])) {
+      const symbol = String(item?.symbol || '').trim().toUpperCase();
+      if (!symbol) continue;
+      const impact = {
+        symbol,
+        type:item.type || 'News',
+        title:item.title || 'News',
+        newsSentiment:item.newsSentiment || 'Neutral',
+        resultVerdict:item.resultVerdict || null,
+        resultVerdictReason:item.resultVerdictReason || null,
+        tradeImpactScore:Number(item.tradeImpactScore) || 0,
+        tradeImpactAbs:Number(item.tradeImpactAbs) || Math.abs(Number(item.tradeImpactScore) || 0),
+        tradeImpactReason:item.tradeImpactReason || '',
+        publishedAt:item.publishedAt || item.dateKey || entry?.date || null,
+        dateKey:item.dateKey || entry?.date || null,
+      };
+      if (!bySymbol.has(symbol)) bySymbol.set(symbol, impact);
+      if (!itemsBySymbol.has(symbol)) itemsBySymbol.set(symbol, []);
+      itemsBySymbol.get(symbol).push(impact);
+    }
+    if (entry?.date) {
+      impactByDate.set(entry.date, bySymbol);
+      impactItemsByDate.set(entry.date, itemsBySymbol);
+    }
+    return bySymbol;
+  }
+
+  function getCachedImpactForSymbol(symbol, now = new Date()) {
+    const normalized = String(symbol || '').trim().toUpperCase();
+    if (!normalized) return null;
+    let strongest = null;
+    for (const dateKey of freshNewsRefreshDateKeys(now)) {
+      let bySymbol = impactByDate.get(dateKey);
+      if (!bySymbol) bySymbol = cacheImpactEntry(readDay(dateKey) || { date:dateKey, items:[] });
+      const impact = bySymbol.get(normalized);
+      if (impact && (!strongest || Number(impact.tradeImpactAbs) > Number(strongest.tradeImpactAbs))) strongest = impact;
+    }
+    return strongest;
+  }
+
+  function getCachedImpactsForSymbol(symbol, now = new Date()) {
+    const normalized = String(symbol || '').trim().toUpperCase();
+    if (!normalized) return { result:null, news:null };
+    const categorized = { result:null, news:null };
+    for (const dateKey of freshNewsRefreshDateKeys(now)) {
+      if (!impactItemsByDate.has(dateKey)) cacheImpactEntry(readDay(dateKey) || { date:dateKey, items:[] });
+      for (const impact of impactItemsByDate.get(dateKey)?.get(normalized) || []) {
+        const category = /result|earnings|financial/i.test(`${impact.type || ''} ${impact.title || ''}`) ? 'result' : 'news';
+        if (!categorized[category] || Number(impact.tradeImpactAbs) > Number(categorized[category].tradeImpactAbs)) {
+          categorized[category] = impact;
+        }
+      }
+    }
+    return categorized;
+  }
 
   function loadDashboardStockUniverse() {
     const rows = [];
@@ -306,6 +367,7 @@ function createFreshNewsService(deps = {}) {
         entry.symbolCount = new Set(entry.items.map(item => item.symbol)).size;
         writeDay(entry);
       }
+      cacheImpactEntry(entry);
       return entry;
     } catch(e) {
       console.warn(`[fresh-news-cache] Day read error ${targetDate}:`, e.message);
@@ -317,6 +379,7 @@ function createFreshNewsService(deps = {}) {
     try {
       ensureDir(cacheDir);
       const dayEntry = { ...entry, version:CACHE_VERSION };
+      cacheImpactEntry(dayEntry);
       fs.writeFileSync(dayFile(dayEntry.date), JSON.stringify(dayEntry, null, 2), 'utf8');
       const index = loadIndex();
       index.days[dayEntry.date] = dayMeta(dayEntry);
@@ -608,6 +671,8 @@ function createFreshNewsService(deps = {}) {
 
   return {
     fetchFreshStockNews,
+    getCachedImpactForSymbol,
+    getCachedImpactsForSymbol,
     refreshCache,
     startCron,
     handleRoute,

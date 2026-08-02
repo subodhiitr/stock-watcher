@@ -139,6 +139,59 @@ test('rangebound entries are allowed only from 10:00 through 14:45 IST', () => {
   );
 });
 
+test('rangebound liquidity gates reject wide spreads and weak bid imbalance', () => {
+  const at = '2026-07-30T08:50:00.000Z';
+  const settings = {
+    SIMULATION_RANGEBOUND_MAX_SPREAD_PCT:0.15,
+    SIMULATION_RANGEBOUND_MIN_BOOK_IMBALANCE:0.5,
+  };
+  const candidate = rangeboundCandidate();
+  candidate.__snapshotAt = at;
+  candidate.indicators.marketDepth = {
+    bestBidPrice:100,
+    bestAskPrice:100.05,
+    totalBidQuantity:600,
+    totalAskQuantity:400,
+    capturedAt:at,
+    source:'sharekhan-ws',
+  };
+  assert.equal(SimulationEngine.getRangeboundInfo(candidate, settings, at).ok, true);
+
+  candidate.indicators.marketDepth.bestAskPrice = 100.3;
+  assert.match(SimulationEngine.getRangeboundInfo(candidate, settings, at).reason, /spread/);
+
+  candidate.indicators.marketDepth.bestAskPrice = 100.05;
+  candidate.indicators.marketDepth.totalBidQuantity = 200;
+  candidate.indicators.marketDepth.totalAskQuantity = 800;
+  assert.match(SimulationEngine.getRangeboundInfo(candidate, settings, at).reason, /bid imbalance/);
+});
+
+test('rangebound depth is opportunistic by default and strict when required', () => {
+  const at = '2026-07-30T08:50:00.000Z';
+  const candidate = rangeboundCandidate();
+  candidate.__snapshotAt = at;
+  assert.equal(SimulationEngine.getRangeboundInfo(candidate, {}, at).ok, true);
+  assert.match(
+    SimulationEngine.getRangeboundInfo(candidate, { SIMULATION_RANGEBOUND_REQUIRE_LIVE_DEPTH:true }, at).reason,
+    /depth unavailable/
+  );
+
+  candidate.indicators.marketDepth = {
+    bestBidPrice:100,
+    bestAskPrice:100.05,
+    totalBidQuantity:600,
+    totalAskQuantity:400,
+    capturedAt:'2026-07-30T08:49:30.000Z',
+  };
+  assert.match(
+    SimulationEngine.getRangeboundInfo(candidate, {
+      SIMULATION_RANGEBOUND_REQUIRE_LIVE_DEPTH:true,
+      SIMULATION_RANGEBOUND_MAX_DEPTH_AGE_SEC:15,
+    }, at).reason,
+    /depth stale/
+  );
+});
+
 test('desktop and mobile setup selectors expose Rangebound', () => {
   const dashboard = fs.readFileSync(path.join(__dirname, '..', 'dashboard-app.js'), 'utf8');
   const dashboardCss = fs.readFileSync(path.join(__dirname, '..', 'dashboard.css'), 'utf8');

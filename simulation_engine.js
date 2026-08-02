@@ -68,6 +68,8 @@
     if (setupType === 'OPENING_FLUSH_VWAP_RECLAIM') return 0;
     if (setupType === 'TOP_GAINER_PULLBACK_RECLAIM') return 0;
     if (setupType === 'TOP_GAINER_CONTINUATION') return 0;
+    if (setupType === 'GAP_AND_GO') return 0;
+    if (setupType === 'BULL_FLAG_CONTINUATION') return 0;
     if (setupType === 'EARLY_MOMENTUM') return 0;
     if (setupType === 'MOMENTUM_RUNNER') return 0;
     if (setupType === 'VWAP_TREND_CONTINUATION') return 1;
@@ -204,9 +206,10 @@
     return getCandidateCandles(candidate).at(-1) || null;
   }
 
-  function getRangeboundInfo(candidate, settings = {}) {
+  function getRangeboundInfo(candidate, settings = {}, at = null) {
     settings = withDefaults(settings);
     const source = candidate?.indicators?.rangebound || candidate?.rangebound || {};
+    const depth = candidate?.indicators?.marketDepth || candidate?.marketDepth || {};
     const price = getCandidatePrice(candidate);
     const lower = Number(source.lower);
     const upper = Number(source.upper);
@@ -228,8 +231,55 @@
     const wideEnough = Number.isFinite(rangePct) && rangePct >= minRangePct;
     const oscillating = lowerTouches >= minTouches && upperTouches >= minTouches && midpointCrosses >= minCrosses;
     const atLower = Number.isFinite(lowerDistancePct) && lowerDistancePct >= -0.1 && lowerDistancePct <= maxLowerDistancePct;
+    const liquidityGateEnabled = settings.SIMULATION_RANGEBOUND_LIQUIDITY_GATE_ENABLED !== false;
+    const requireLiveDepth = settings.SIMULATION_RANGEBOUND_REQUIRE_LIVE_DEPTH === true;
+    const configuredDepthAgeSec = Number(settings.SIMULATION_RANGEBOUND_MAX_DEPTH_AGE_SEC);
+    const configuredSpreadPct = Number(settings.SIMULATION_RANGEBOUND_MAX_SPREAD_PCT);
+    const configuredBookImbalance = Number(settings.SIMULATION_RANGEBOUND_MIN_BOOK_IMBALANCE);
+    const configuredCombinedDepthQty = Number(settings.SIMULATION_RANGEBOUND_MIN_COMBINED_DEPTH_QTY);
+    const maxDepthAgeSec = Math.max(1, Number.isFinite(configuredDepthAgeSec) ? configuredDepthAgeSec : 15);
+    const maxSpreadPct = Math.max(0, Number.isFinite(configuredSpreadPct) ? configuredSpreadPct : 0.15);
+    const minBookImbalance = Math.max(0, Math.min(1, Number.isFinite(configuredBookImbalance) ? configuredBookImbalance : 0.5));
+    const minCombinedDepthQty = Math.max(0, Number.isFinite(configuredCombinedDepthQty) ? configuredCombinedDepthQty : 1);
+    const bestBidPrice = Number(depth.bestBidPrice);
+    const bestAskPrice = Number(depth.bestAskPrice);
+    const totalBidQuantity = Number(depth.totalBidQuantity ?? depth.bestBidQuantity);
+    const totalAskQuantity = Number(depth.totalAskQuantity ?? depth.bestAskQuantity);
+    const combinedDepthQty = Number.isFinite(Number(depth.combinedQuantity))
+      ? Number(depth.combinedQuantity)
+      : totalBidQuantity + totalAskQuantity;
+    const midpoint = (bestBidPrice + bestAskPrice) / 2;
+    const spreadPct = Number.isFinite(Number(depth.spreadPct))
+      ? Number(depth.spreadPct)
+      : (midpoint > 0 ? (bestAskPrice - bestBidPrice) / midpoint * 100 : null);
+    const bookImbalance = Number.isFinite(Number(depth.imbalance))
+      ? Number(depth.imbalance)
+      : (combinedDepthQty > 0 ? totalBidQuantity / combinedDepthQty : null);
+    const depthCapturedAtMs = Number(depth.capturedAtMs) || new Date(depth.capturedAt || 0).getTime();
+    const referenceAtMs = new Date(at || candidate?.__snapshotAt || candidate?.snapshotAt || Date.now()).getTime();
+    const depthAgeSec = Number.isFinite(depthCapturedAtMs) && depthCapturedAtMs > 0 && Number.isFinite(referenceAtMs)
+      ? Math.max(0, (referenceAtMs - depthCapturedAtMs) / 1000)
+      : null;
+    const depthAvailable = bestBidPrice > 0 && bestAskPrice >= bestBidPrice && totalBidQuantity > 0 && totalAskQuantity > 0
+      && Number.isFinite(spreadPct) && Number.isFinite(bookImbalance) && Number.isFinite(combinedDepthQty);
+    const depthFresh = depthAvailable && depthAgeSec != null && depthAgeSec <= maxDepthAgeSec;
+    let liquidityReason = '';
+    let liquidityOk = true;
+    let liquidityApplied = false;
+    if (liquidityGateEnabled && depthFresh) {
+      liquidityApplied = true;
+      if (spreadPct > maxSpreadPct) liquidityReason = `rangebound spread ${round3(spreadPct)}% > ${round3(maxSpreadPct)}%`;
+      else if (combinedDepthQty < minCombinedDepthQty) liquidityReason = `rangebound combined depth ${Math.round(combinedDepthQty)} < ${Math.round(minCombinedDepthQty)}`;
+      else if (bookImbalance < minBookImbalance) liquidityReason = `rangebound bid imbalance ${round3(bookImbalance)} < ${round3(minBookImbalance)}`;
+      liquidityOk = !liquidityReason;
+    } else if (liquidityGateEnabled && requireLiveDepth) {
+      liquidityOk = false;
+      liquidityReason = depthAvailable
+        ? `rangebound market depth stale at ${depthAgeSec == null ? '--' : round2(depthAgeSec)}s (max ${round2(maxDepthAgeSec)}s)`
+        : 'rangebound live bid/ask depth unavailable';
+    }
     const detected = settings.SIMULATION_RANGEBOUND_ENABLED !== false && completeWindow && validBounds && wideEnough && oscillating;
-    const ok = detected && atLower;
+    const ok = detected && atLower && liquidityOk;
     let reason = 'rangebound lower boundary reached';
     if (settings.SIMULATION_RANGEBOUND_ENABLED === false) reason = 'rangebound setup disabled';
     else if (!completeWindow) reason = `rangebound window ${Number.isFinite(windowMin) ? round2(windowMin) : '--'}m < ${round2(requiredWindowMin)}m`;
@@ -237,6 +287,7 @@
     else if (!wideEnough) reason = `rangebound width ${Number.isFinite(rangePct) ? round2(rangePct) : '--'}% < ${round2(minRangePct)}%`;
     else if (!oscillating) reason = `rangebound oscillation needs ${minTouches} touches/side and ${minCrosses} midpoint crosses`;
     else if (!atLower) reason = `rangebound price ${Number.isFinite(lowerDistancePct) ? round3(lowerDistancePct) : '--'}% above lower boundary (max ${round3(maxLowerDistancePct)}%)`;
+    else if (!liquidityOk) reason = liquidityReason;
     return {
       ok,
       detected,
@@ -249,6 +300,22 @@
       lowerTouches,
       upperTouches,
       midpointCrosses,
+      liquidity: {
+        enabled:liquidityGateEnabled,
+        required:requireLiveDepth,
+        applied:liquidityApplied,
+        ok:liquidityOk,
+        reason:liquidityReason,
+        bestBidPrice:Number.isFinite(bestBidPrice) ? bestBidPrice : null,
+        bestAskPrice:Number.isFinite(bestAskPrice) ? bestAskPrice : null,
+        totalBidQuantity:Number.isFinite(totalBidQuantity) ? totalBidQuantity : null,
+        totalAskQuantity:Number.isFinite(totalAskQuantity) ? totalAskQuantity : null,
+        combinedDepthQty:Number.isFinite(combinedDepthQty) ? combinedDepthQty : null,
+        spreadPct:Number.isFinite(spreadPct) ? round3(spreadPct) : null,
+        bookImbalance:Number.isFinite(bookImbalance) ? round3(bookImbalance) : null,
+        depthAgeSec:Number.isFinite(depthAgeSec) ? round2(depthAgeSec) : null,
+        source:depth.source || null,
+      },
       reason,
     };
   }
@@ -716,6 +783,102 @@
     const ok = !reason;
     if (ok) candidate.__setupEntryTrigger = flagLow;
     return { ok, reason, breakdown, flagLow, flagHigh, consolidationWidthPct, lowerHighs, dayChange, vwapExtensionPct, freshVolume };
+  }
+
+  function getBullFlagContinuationInfo(candidate, settings = {}, at = null) {
+    settings = withDefaults(settings);
+    if (!settings.SIMULATION_BULL_FLAG_CONTINUATION_ENABLED) return { ok:false, reason:'bull-flag continuation disabled' };
+    const side = candidate?.side || candidate?.signal || 'buy';
+    const indicators = candidate?.indicators || {};
+    const price = getCandidatePrice(candidate);
+    const vwap = Number(indicators.vwap);
+    const dayChange = getCandidateDayChange(candidate);
+    const minGain = Number(settings.SIMULATION_BULL_FLAG_MIN_DAY_GAIN_PCT) || 2;
+    const maxGain = Number(settings.SIMULATION_BULL_FLAG_MAX_DAY_GAIN_PCT) || 6;
+    const minConsolidation = Math.max(2, Math.floor(Number(settings.SIMULATION_BULL_FLAG_MIN_CONSOLIDATION_CANDLES) || 2));
+    const completed = getCompletedCandles(candidate, candidate?.previousCandidate, at, 5);
+    const breakout = completed.at(-1) || null;
+    const consolidation = completed.slice(-(minConsolidation + 1), -1);
+    const pole = completed.at(-(minConsolidation + 2)) || null;
+    const flagLow = consolidation.length === minConsolidation ? Math.min(...consolidation.map(bar => bar.low)) : null;
+    const flagHigh = consolidation.length === minConsolidation ? Math.max(...consolidation.map(bar => bar.high)) : null;
+    const consolidationWidthPct = Number.isFinite(flagLow) && flagLow > 0 && Number.isFinite(flagHigh) ? (flagHigh - flagLow) / flagLow * 100 : null;
+    const higherLows = consolidation.length === minConsolidation && consolidation.every((bar, index) => index === 0 || bar.low >= consolidation[index - 1].low * 0.999);
+    const bullishBreak = !!breakout && Number.isFinite(flagHigh) && breakout.close > flagHigh && breakout.close > breakout.open;
+    const vwapExtensionPct = Number.isFinite(price) && Number.isFinite(vwap) && vwap > 0 ? (price - vwap) / vwap * 100 : null;
+    const maxWidth = Number(settings.SIMULATION_BULL_FLAG_MAX_CONSOLIDATION_WIDTH_PCT) || 1.2;
+    const poleGainPct = pole && Number(pole.open) > 0 ? (Number(pole.close) - Number(pole.open)) / Number(pole.open) * 100 : null;
+    const consolidationAvgVolume = consolidation.length && consolidation.every(bar => Number.isFinite(Number(bar.volume)))
+      ? consolidation.reduce((sum, bar) => sum + Number(bar.volume), 0) / consolidation.length
+      : null;
+    const poleVolumeMultiple = pole && Number.isFinite(Number(pole.volume)) && Number.isFinite(consolidationAvgVolume) && consolidationAvgVolume > 0
+      ? Number(pole.volume) / consolidationAvgVolume
+      : null;
+    const minPoleGain = Number(settings.SIMULATION_BULL_FLAG_MIN_POLE_GAIN_PCT) || 0.5;
+    const minPoleVolumeMultiple = Number(settings.SIMULATION_BULL_FLAG_MIN_POLE_VOLUME_MULTIPLE) || 1.2;
+    const maxVwapExtension = Number(settings.SIMULATION_BULL_FLAG_MAX_VWAP_EXTENSION_PCT) || 0.8;
+    const shock = getVolumeShockInfo(candidate);
+    const ratio3m = Number(shock.volumeRatio3m);
+    const ratio5m = Number(shock.volumeRatio5m);
+    const freshVolume = (Number.isFinite(ratio3m) && ratio3m >= 1) || (Number.isFinite(ratio5m) && ratio5m >= 1);
+    const priorAboveVwap = String(candidate?.previousCandidate?.side || candidate?.previousCandidate?.signal || '').toLowerCase() !== 'sell' &&
+      Number(candidate?.previousCandidate?.price) > Number(candidate?.previousCandidate?.indicators?.vwap);
+    let reason = '';
+    if (side === 'sell') reason = 'bull-flag continuation is long-only';
+    else if (!Number.isFinite(dayChange) || dayChange < minGain || dayChange > maxGain) reason = `bull-flag day gain ${Number.isFinite(dayChange) ? round2(dayChange) : '--'}% outside ${round2(minGain)}-${round2(maxGain)}%`;
+    else if (!priorAboveVwap) reason = 'bull flag needs a prior above-VWAP advance';
+    else if (!pole || poleGainPct == null || poleGainPct < minPoleGain) reason = `bull flag pole gain ${poleGainPct == null ? '--' : round2(poleGainPct)}% < ${round2(minPoleGain)}%`;
+    else if (poleVolumeMultiple == null || poleVolumeMultiple < minPoleVolumeMultiple) reason = `bull flag pole volume ${poleVolumeMultiple == null ? '--' : round2(poleVolumeMultiple)}x < ${round2(minPoleVolumeMultiple)}x consolidation volume`;
+    else if (consolidation.length < minConsolidation || consolidationWidthPct == null || consolidationWidthPct > maxWidth || !higherLows) reason = `bull flag needs ${minConsolidation} tight higher-low consolidation candles`;
+    else if (!bullishBreak) reason = 'bull flag needs a completed bullish close above the flag high';
+    else if (!Number.isFinite(price) || price < flagHigh) reason = 'bull flag breakout must hold above the flag high';
+    else if (vwapExtensionPct == null || vwapExtensionPct < 0 || vwapExtensionPct > maxVwapExtension) reason = `bull-flag VWAP extension ${vwapExtensionPct == null ? '--' : round2(vwapExtensionPct)}% exceeds ${round2(maxVwapExtension)}%`;
+    else if (!freshVolume) reason = 'bull flag needs fresh 3m/5m volume';
+    const ok = !reason;
+    if (ok) candidate.__setupEntryTrigger = flagHigh;
+    return { ok, reason, pole, poleGainPct, poleVolumeMultiple, breakout, flagLow, flagHigh, consolidationWidthPct, higherLows, dayChange, vwapExtensionPct, freshVolume };
+  }
+
+  function getGapAndGoInfo(candidate, settings = {}, at = null) {
+    settings = withDefaults(settings);
+    if (!settings.SIMULATION_GAP_AND_GO_ENABLED) return { ok:false, reason:'gap-and-go disabled' };
+    const side = String(candidate?.side || candidate?.signal || '').toLowerCase();
+    const buy = side !== 'sell';
+    const indicators = candidate?.indicators || {};
+    const price = getCandidatePrice(candidate);
+    const open = Number(candidate?.open ?? indicators.open ?? indicators.ohlc?.session?.open);
+    const gapPct = Number(indicators.gapPct ?? candidate?.gapPct);
+    const gapMagnitude = Math.abs(gapPct);
+    const prevDayHigh = Number(indicators.prevDayHigh);
+    const prevDayLow = Number(indicators.prevDayLow);
+    const relVol = getRelativeVolume(candidate);
+    const shock = getVolumeShockInfo(candidate);
+    const ratio3m = Number(shock.volumeRatio3m);
+    const ratio5m = Number(shock.volumeRatio5m);
+    const minGap = Number(settings.SIMULATION_GAP_AND_GO_MIN_GAP_PCT) || 0.75;
+    const maxGap = Number(settings.SIMULATION_GAP_AND_GO_MAX_GAP_PCT) || 4;
+    const cutoffMin = Number(settings.SIMULATION_GAP_AND_GO_ENTRY_CUTOFF_MIN) || (10 * 60 + 30);
+    const mins = TradeRules.getIstMinutes(at || candidate?.__snapshotAt || candidate?.snapshotAt);
+    const directionOk = buy ? gapPct > 0 : gapPct < 0;
+    const level = buy ? prevDayHigh : prevDayLow;
+    const levelOk = Number.isFinite(open) && Number.isFinite(level) && (buy ? open > level : open < level);
+    const holdOk = Number.isFinite(price) && Number.isFinite(open) && (buy ? price >= open : price <= open);
+    const quality = String(indicators.gapQuality || '').toLowerCase();
+    const qualityOk = buy ? quality === 'gap-up holding' : quality === 'gap-down weak';
+    const volumeOk = relVol != null && relVol >= Number(settings.SIMULATION_GAP_AND_GO_MIN_REL_VOL || 1.5) && (
+      (Number.isFinite(ratio3m) && ratio3m >= Number(settings.SIMULATION_GAP_AND_GO_MIN_VOLUME_RATIO_3M || 1)) ||
+      (Number.isFinite(ratio5m) && ratio5m >= Number(settings.SIMULATION_GAP_AND_GO_MIN_VOLUME_RATIO_5M || 1))
+    );
+    let reason = '';
+    if (!['buy', 'sell'].includes(side)) reason = 'gap-and-go needs a directional signal';
+    else if (!Number.isFinite(gapMagnitude) || gapMagnitude < minGap || gapMagnitude > maxGap || !directionOk) reason = `gap-and-go opening gap ${Number.isFinite(gapPct) ? round2(gapPct) : '--'}% outside directional ${round2(minGap)}-${round2(maxGap)}%`;
+    else if (!levelOk) reason = buy ? 'gap-up open must clear previous-day high' : 'gap-down open must clear previous-day low';
+    else if (Number.isFinite(mins) && mins >= cutoffMin) reason = `gap-and-go blocked after ${String(Math.floor(cutoffMin / 60)).padStart(2, '0')}:${String(cutoffMin % 60).padStart(2, '0')} IST`;
+    else if (!holdOk || !qualityOk) reason = buy ? 'gap-up must hold the opening price' : 'gap-down must remain below the opening price';
+    else if (!volumeOk) reason = 'gap-and-go needs high relative volume and a fresh 3m/5m impulse';
+    const ok = !reason;
+    if (ok) candidate.__setupEntryTrigger = open;
+    return { ok, reason, gapPct, gapMagnitude, open, prevDayHigh, prevDayLow, relVol, ratio3m, ratio5m, levelOk, holdOk, volumeOk };
   }
 
   function getTopLoserBearFlagInfo(candidate, settings = {}, at = null) {
@@ -1439,6 +1602,37 @@
     };
   }
 
+  function getMomentumCatalystAdjustment(candidate, settings = {}) {
+    settings = withDefaults(settings);
+    const setupType = String(candidate?.derivedSetupType || candidate?.setupType || '').toUpperCase();
+    if (!settings.SIMULATION_MOMENTUM_CATALYST_ENABLED || !['EARLY_MOMENTUM', 'MOMENTUM_RUNNER', 'LONG_MOMENTUM'].includes(setupType)) {
+      return { adjustment:0, applied:false, reason:'' };
+    }
+    const impact = candidate?.newsImpact || candidate?.indicators?.newsImpact;
+    const impactScore = Number(impact?.tradeImpactScore);
+    const minAbsImpact = Math.max(0, Number(settings.SIMULATION_MOMENTUM_CATALYST_MIN_ABS_IMPACT) || 60);
+    if (!Number.isFinite(impactScore) || Math.abs(impactScore) < minAbsImpact) return { adjustment:0, applied:false, reason:'' };
+    const publishedMs = new Date(impact?.publishedAt || impact?.dateKey || 0).getTime();
+    const snapshotMs = new Date(candidate?.__snapshotAt || candidate?.snapshotAt || Date.now()).getTime();
+    const ageHours = Number.isFinite(publishedMs) && publishedMs > 0 && Number.isFinite(snapshotMs)
+      ? Math.max(0, (snapshotMs - publishedMs) / 3600000)
+      : null;
+    const maxAgeHours = Math.max(1, Number(settings.SIMULATION_MOMENTUM_CATALYST_MAX_AGE_HOURS) || 48);
+    if (ageHours == null || ageHours > maxAgeHours) return { adjustment:0, applied:false, ageHours, reason:'catalyst is stale or undated' };
+    const side = String(candidate?.side || candidate?.signal || 'buy').toLowerCase();
+    const directionalImpact = side === 'sell' ? -impactScore : impactScore;
+    const maxAdjustment = Math.max(0, Number(settings.SIMULATION_MOMENTUM_CATALYST_MAX_SCORE_ADJUSTMENT) || 5);
+    const adjustment = round2(Math.max(-maxAdjustment, Math.min(maxAdjustment, directionalImpact / 100 * maxAdjustment)));
+    return {
+      adjustment,
+      applied:adjustment !== 0,
+      ageHours:round2(ageHours),
+      impactScore,
+      sentiment:impact.newsSentiment || null,
+      reason:impact.tradeImpactReason || impact.title || 'fresh directional catalyst',
+    };
+  }
+
   function applyDecisionScore(candidate, expectancyModel, settings = {}) {
     settings = withDefaults(settings);
     if (!candidate) return candidate;
@@ -1449,10 +1643,11 @@
     const expectancyAdjustment = expectancy
       ? Math.max(-maxAdjustment, Math.min(maxAdjustment, Number(expectancy.expectedNetPct) * 40))
       : 0;
+    const catalyst = getMomentumCatalystAdjustment(candidate, settings);
     const baseDecisionScore = quality.evidence >= 5
       ? rawScore * 0.65 + Number(quality.score) * 0.35
       : rawScore;
-    candidate.decisionScore = Math.max(0, Math.min(100, round2(baseDecisionScore + expectancyAdjustment)));
+    candidate.decisionScore = Math.max(0, Math.min(100, round2(baseDecisionScore + expectancyAdjustment + catalyst.adjustment)));
     candidate.scoreAudit = {
       schemaVersion:1,
       rawScore,
@@ -1460,6 +1655,7 @@
       independentEvidenceCount:quality.evidence,
       components:quality.components,
       expectancy:expectancy ? { ...expectancy, adjustment:round2(expectancyAdjustment) } : null,
+      catalyst,
       decisionScore:candidate.decisionScore,
     };
     return candidate;
@@ -1506,11 +1702,16 @@
     'SIMULATION_LONG_WEAK_MARKET_RUNNER_PROFIT_LOCK_PCT', 'SIMULATION_LONG_FLAT_MARKET_ABS_PCT',
     'SIMULATION_GAIN_MILESTONE_ENABLED', 'SIMULATION_GAIN_MILESTONES_PCT',
     'SIMULATION_MOMENTUM_RUNNER_MAX_VWAP_EXTENSION_PCT', 'SIMULATION_MOMENTUM_RUNNER_MAX_CONFIRMATION_AGE_MIN',
+    'SIMULATION_MOMENTUM_CATALYST_ENABLED', 'SIMULATION_MOMENTUM_CATALYST_MIN_ABS_IMPACT',
+    'SIMULATION_MOMENTUM_CATALYST_MAX_SCORE_ADJUSTMENT', 'SIMULATION_MOMENTUM_CATALYST_MAX_AGE_HOURS',
     'SIMULATION_RUNNER_MIN_CHANGE_5M_PCT', 'SIMULATION_RUNNER_ALLOW_CONFIRMED_VWAP_RECLAIM',
     'SIMULATION_RUNNER_REQUIRE_SECTOR_ALIGNMENT_OR_RS', 'SIMULATION_RUNNER_MIN_STRONG_RS_PCT',
     'SIMULATION_RUNNER_CHASE_MAX_DAY_GAIN_PCT', 'SIMULATION_RUNNER_CHASE_MAX_IMPULSE_AGE_MIN',
     'SIMULATION_RUNNER_MAX_BELOW_RECENT_HIGH_PCT', 'SIMULATION_RUNNER_MAX_RECENT_HIGH_AGE_MIN',
     'SIMULATION_RANGEBOUND_ENABLED', 'SIMULATION_RANGEBOUND_WINDOW_MIN',
+    'SIMULATION_RANGEBOUND_LIQUIDITY_GATE_ENABLED', 'SIMULATION_RANGEBOUND_REQUIRE_LIVE_DEPTH',
+    'SIMULATION_RANGEBOUND_MAX_DEPTH_AGE_SEC', 'SIMULATION_RANGEBOUND_MAX_SPREAD_PCT',
+    'SIMULATION_RANGEBOUND_MIN_BOOK_IMBALANCE', 'SIMULATION_RANGEBOUND_MIN_COMBINED_DEPTH_QTY',
     'SIMULATION_RANGEBOUND_ENTRY_START_MIN', 'SIMULATION_RANGEBOUND_ENTRY_CUTOFF_MIN',
     'SIMULATION_RANGEBOUND_MIN_RANGE_PCT',
     'SIMULATION_RANGEBOUND_MAX_LOWER_DISTANCE_PCT', 'SIMULATION_RANGEBOUND_MIN_TOUCHES_PER_SIDE',
@@ -1519,6 +1720,10 @@
     'SIMULATION_RANGEBOUND_MIN_GROSS_TO_COST_MULTIPLE', 'SIMULATION_RANGEBOUND_MAX_NIFTY_DECLINE_PCT',
     'SIMULATION_RANGEBOUND_MIN_BREADTH_PCT', 'SIMULATION_RANGEBOUND_MIN_SECTOR_PCT',
     'SIMULATION_RANGEBOUND_MIN_RS_PCT',
+    'SIMULATION_GAP_AND_GO_ENABLED', 'SIMULATION_GAP_AND_GO_MIN_GAP_PCT',
+    'SIMULATION_GAP_AND_GO_MAX_GAP_PCT', 'SIMULATION_GAP_AND_GO_ENTRY_CUTOFF_MIN',
+    'SIMULATION_GAP_AND_GO_MIN_REL_VOL', 'SIMULATION_GAP_AND_GO_MIN_VOLUME_RATIO_3M',
+    'SIMULATION_GAP_AND_GO_MIN_VOLUME_RATIO_5M',
     'SIMULATION_FRAGMENTED_MARKET_FILTER_ENABLED', 'SIMULATION_FRAGMENTED_MARKET_FLAT_NIFTY_ABS_PCT',
     'SIMULATION_FRAGMENTED_MARKET_MAX_BANK_PCT', 'SIMULATION_FRAGMENTED_MARKET_MAX_SMALLCAP_PCT',
     'SIMULATION_DOMINANT_LEADER_MAX_SECTOR_RANK',
@@ -1533,6 +1738,10 @@
     'SIMULATION_EARLY_MOMENTUM_MIN_REL_VOL', 'SIMULATION_EARLY_MOMENTUM_MIN_VOLUME_RATIO_3M',
     'SIMULATION_EARLY_MOMENTUM_MIN_VOLUME_RATIO_5M', 'SIMULATION_EARLY_MOMENTUM_ENTRY_CUTOFF_MIN',
     'SIMULATION_EARLY_MOMENTUM_REQUIRE_SECTOR_ALIGNMENT_OR_RS', 'SIMULATION_EARLY_MOMENTUM_MIN_STRONG_RS_PCT',
+    'SIMULATION_BULL_FLAG_CONTINUATION_ENABLED', 'SIMULATION_BULL_FLAG_MIN_DAY_GAIN_PCT',
+    'SIMULATION_BULL_FLAG_MAX_DAY_GAIN_PCT', 'SIMULATION_BULL_FLAG_MIN_CONSOLIDATION_CANDLES',
+    'SIMULATION_BULL_FLAG_MAX_CONSOLIDATION_WIDTH_PCT', 'SIMULATION_BULL_FLAG_MIN_POLE_GAIN_PCT',
+    'SIMULATION_BULL_FLAG_MIN_POLE_VOLUME_MULTIPLE', 'SIMULATION_BULL_FLAG_MAX_VWAP_EXTENSION_PCT',
     'SIMULATION_SHORT_REQUIRE_COMPLETED_CANDLE', 'SIMULATION_SHORT_REQUIRE_FRESH_VOLUME_AFTER_CONFIRMATION',
     'SIMULATION_SHORT_MIN_POST_CONFIRM_VOLUME_RATIO_3M', 'SIMULATION_SHORT_MIN_POST_CONFIRM_VOLUME_RATIO_5M',
     'SIMULATION_SHORT_MAX_CONFIRM_LOWER_WICK_RATIO', 'SIMULATION_SHORT_LATE_DEEP_DECLINE_GUARD_ENABLED',
@@ -1605,6 +1814,10 @@
       volumeRatio5m:Number.isFinite(Number(shock.volumeRatio5m)) ? Number(shock.volumeRatio5m) : null,
       change5m:Number.isFinite(Number(shock.change5m)) ? Number(shock.change5m) : null,
       dayChange:getCandidateDayChange(candidate),
+      gapPct:Number.isFinite(Number(indicators.gapPct)) ? Number(indicators.gapPct) : null,
+      gapQuality:indicators.gapQuality || null,
+      newsImpact:indicators.newsImpact || candidate?.newsImpact || null,
+      marketDepth:indicators.marketDepth || candidate?.marketDepth || null,
       topGainerRank:Number.isFinite(Number(candidate?.topGainerRank ?? indicators.topGainerRank))
         ? Number(candidate?.topGainerRank ?? indicators.topGainerRank)
         : null,
@@ -2005,11 +2218,13 @@
     const extensionPct = Number.isFinite(price) && Number.isFinite(vwap) && price > 0 && vwap > 0
       ? Math.abs(price - vwap) / price * 100
       : null;
-    if (getRangeboundInfo(candidate, settings).detected) return 'RANGEBOUND';
+    if (getRangeboundInfo(candidate, settings, at).detected) return 'RANGEBOUND';
     if (getOpeningFlushReversalInfo(candidate, settings, at, context).ok) return 'OPENING_FLUSH_VWAP_RECLAIM';
+    if (getGapAndGoInfo(candidate, settings, at).ok) return 'GAP_AND_GO';
     if (getEarlyMomentumInfo(candidate, settings, at, context).ok) return 'EARLY_MOMENTUM';
     if (getTopGainerPullbackReclaimInfo(candidate, settings, at).ok) return 'TOP_GAINER_PULLBACK_RECLAIM';
     if (getTopGainerContinuationInfo(candidate, settings, at).ok) return 'TOP_GAINER_CONTINUATION';
+    if (getBullFlagContinuationInfo(candidate, settings, at).ok) return 'BULL_FLAG_CONTINUATION';
     if (getTopLoserBearFlagInfo(candidate, settings, at).ok) return 'TOP_LOSER_BEAR_FLAG';
     if (getBearFlagContinuationInfo(candidate, settings, at).ok) return 'BEAR_FLAG_CONTINUATION';
     if (indicators.volumeShock?.isShock) return 'VOLUME_SHOCK_BREAKOUT';
@@ -2105,8 +2320,12 @@
       if (mins != null && mins >= cutoffMin) {
         return `rangebound entries blocked after ${String(Math.floor(cutoffMin / 60)).padStart(2, '0')}:${String(cutoffMin % 60).padStart(2, '0')} IST`;
       }
-      const rangeboundInfo = getRangeboundInfo(candidate, settings);
+      const rangeboundInfo = getRangeboundInfo(candidate, settings, at);
       if (!rangeboundInfo.ok) return rangeboundInfo.reason;
+    }
+    if (setupType === 'GAP_AND_GO') {
+      const gapAndGoInfo = getGapAndGoInfo(candidate, settings, at);
+      if (!gapAndGoInfo.ok) return gapAndGoInfo.reason || 'not a qualified gap-and-go setup';
     }
     const earlyMomentumInfo = getEarlyMomentumInfo(candidate, settings, at, context);
     if (setupType === 'EARLY_MOMENTUM' && !earlyMomentumInfo.ok) {
@@ -2167,6 +2386,10 @@
     if (setupType === 'TOP_GAINER_PULLBACK_RECLAIM') {
       const reclaimInfo = getTopGainerPullbackReclaimInfo(candidate, settings, at);
       if (!reclaimInfo.ok) return reclaimInfo.reason || 'not a qualified top-gainer pullback reclaim';
+    }
+    if (setupType === 'BULL_FLAG_CONTINUATION') {
+      const bullFlagInfo = getBullFlagContinuationInfo(candidate, settings, at);
+      if (!bullFlagInfo.ok) return bullFlagInfo.reason || 'not a qualified bull-flag continuation';
     }
     if (setupType === 'BEAR_FLAG_CONTINUATION') {
       const bearFlagInfo = getBearFlagContinuationInfo(candidate, settings, at);
@@ -2420,6 +2643,49 @@
     return Math.abs(Number(b.score) || 0) - Math.abs(Number(a.score) || 0);
   }
 
+  function getCandidateProfitabilityMetrics(candidate) {
+    const expectancy = candidate?.scoreAudit?.expectancy || null;
+    const sample = Number(expectancy?.sample);
+    const winRate = Number(expectancy?.winRate);
+    const expectedNetPct = Number(expectancy?.expectedNetPct);
+    const decisionScore = getCandidateDecisionScore(candidate);
+    const hasExpectancy = Number.isFinite(sample) && sample > 0 && Number.isFinite(winRate);
+    return {
+      chanceScore:hasExpectancy ? winRate : decisionScore,
+      decisionScore,
+      expectedNetPct:Number.isFinite(expectedNetPct) ? expectedNetPct : null,
+      winRate:hasExpectancy ? winRate : null,
+      sample:hasExpectancy ? sample : 0,
+      source:hasExpectancy ? String(expectancy.source || 'historical-expectancy') : 'decision-score',
+    };
+  }
+
+  function compareCandidatesByProfitability(a, b) {
+    const profitabilityA = getCandidateProfitabilityMetrics(a);
+    const profitabilityB = getCandidateProfitabilityMetrics(b);
+    const chanceDiff = profitabilityB.chanceScore - profitabilityA.chanceScore;
+    if (chanceDiff) return chanceDiff;
+    const netDiff = Number(profitabilityB.expectedNetPct ?? -Infinity) - Number(profitabilityA.expectedNetPct ?? -Infinity);
+    if (Number.isFinite(netDiff) && netDiff) return netDiff;
+    const decisionDiff = profitabilityB.decisionScore - profitabilityA.decisionScore;
+    if (decisionDiff) return decisionDiff;
+    const potentialDiff = Number(b?.cost?.netPct ?? -Infinity) - Number(a?.cost?.netPct ?? -Infinity);
+    if (Number.isFinite(potentialDiff) && potentialDiff) return potentialDiff;
+    return Math.abs(Number(b?.score) || 0) - Math.abs(Number(a?.score) || 0);
+  }
+
+  function selectTopCandidatesBySetup(candidates = []) {
+    const configuredSetups = new Set((TradeRules.SIMULATION_SETUP_DEFINITIONS || []).map(definition => definition.type));
+    const leaders = new Map();
+    for (const candidate of Array.isArray(candidates) ? candidates : []) {
+      const setupType = String(candidate?.derivedSetupType || candidate?.setupType || '').toUpperCase();
+      if (!configuredSetups.has(setupType)) continue;
+      const current = leaders.get(setupType);
+      if (!current || compareCandidatesByProfitability(candidate, current) < 0) leaders.set(setupType, candidate);
+    }
+    return [...leaders.values()].sort(compareCandidatesByProfitability);
+  }
+
   function selectSimulationEntryCandidates(candidates, at, settings, context = {}) {
     settings = withDefaults(settings);
     for (const candidate of Array.isArray(candidates) ? candidates : []) {
@@ -2488,17 +2754,23 @@
         const pullbackInfo = getTopGainerPullbackReclaimInfo(candidate, settings, at);
         const topGainerInfo = getTopGainerContinuationInfo(candidate, settings, at);
         const openingFlushInfo = getOpeningFlushReversalInfo(candidate, settings, at, context);
+        const gapAndGoInfo = getGapAndGoInfo(candidate, settings, at);
+        const bullFlagInfo = getBullFlagContinuationInfo(candidate, settings, at);
         const topLoserInfo = getTopLoserBearFlagInfo(candidate, settings, at);
         const bearFlagInfo = getBearFlagContinuationInfo(candidate, settings, at);
         candidate.derivedSetupType = openingFlushInfo.ok
           ? 'OPENING_FLUSH_VWAP_RECLAIM'
+          : (gapAndGoInfo.ok
+          ? 'GAP_AND_GO'
           : (pullbackInfo.ok
           ? 'TOP_GAINER_PULLBACK_RECLAIM'
           : (topGainerInfo.ok
             ? 'TOP_GAINER_CONTINUATION'
-            : (topLoserInfo.ok
-              ? 'TOP_LOSER_BEAR_FLAG'
-              : (bearFlagInfo.ok ? 'BEAR_FLAG_CONTINUATION' : (candidate.derivedSetupType || candidate.setupType || deriveSetupType(candidate, settings, at, context))))));
+            : (bullFlagInfo.ok
+              ? 'BULL_FLAG_CONTINUATION'
+              : (topLoserInfo.ok
+                ? 'TOP_LOSER_BEAR_FLAG'
+                : (bearFlagInfo.ok ? 'BEAR_FLAG_CONTINUATION' : (candidate.derivedSetupType || candidate.setupType || deriveSetupType(candidate, settings, at, context))))))));
         applySectorPriority(candidate, sectorPriorityStats, context, settings);
         return applyDecisionScore(candidate, expectancyModel, settings);
       })
@@ -3850,6 +4122,8 @@
     annotateTopGainerRanks,
     getTopGainerContinuationInfo,
     getTopGainerPullbackReclaimInfo,
+    getGapAndGoInfo,
+    getBullFlagContinuationInfo,
     getBearFlagContinuationInfo,
     getTopLoserBearFlagInfo,
     getOpeningFlushReversalInfo,
@@ -3864,6 +4138,7 @@
     buildNetExpectancyModel,
     resolveCandidateExpectancy,
     getIndependentQualityScore,
+    getMomentumCatalystAdjustment,
     applyDecisionScore,
     getCandidateDecisionScore,
     getNegativeExpectancyBlockReason,
@@ -3895,6 +4170,9 @@
     getSetupBlockReason,
     isReplayCandidateEligible,
     compareCandidates,
+    getCandidateProfitabilityMetrics,
+    compareCandidatesByProfitability,
+    selectTopCandidatesBySetup,
     selectSimulationEntryCandidates,
     estimateZerodhaIntradayCharges,
     applyAdverseSlippage,

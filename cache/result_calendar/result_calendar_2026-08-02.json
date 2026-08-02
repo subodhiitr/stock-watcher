@@ -1,10 +1,10 @@
 {
   "ok": true,
   "date": "2026-08-02",
-  "savedAt": 1785437466348,
-  "builtInMs": 47394,
+  "savedAt": 1785640590228,
+  "builtInMs": 90214,
   "source": "nse-board-meetings",
-  "scanned": 3043,
+  "scanned": 3041,
   "count": 1,
   "symbolCount": 1,
   "items": [
@@ -17,7 +17,7 @@
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=PERSISTENT",
       "eventDate": "2026-08-01T18:30:00.000Z",
       "dateKey": "2026-08-02",
-      "status": "upcoming",
+      "status": "today",
       "period": null
     }
   ],

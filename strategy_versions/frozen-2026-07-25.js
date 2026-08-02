@@ -10,6 +10,9 @@ const EXPECTED_SETTINGS_SHA256 = '0b961e2cc96296d4a1f51d89508b4fa2bfa36c7f365a75
 const OVERRIDES = Object.freeze({
   MAX_POSITION_EXPOSURE: 100000,
   SIMULATION_AUTO_MANUAL_EXITS: true,
+  SIMULATION_BULL_FLAG_CONTINUATION_ENABLED: false,
+  SIMULATION_GAP_AND_GO_ENABLED: false,
+  SIMULATION_MOMENTUM_CATALYST_ENABLED: false,
   SIMULATION_DAILY_MAX_TRADES: 20,
   SIMULATION_ENABLE_ETF: false,
   SIMULATION_MARKET_REGIME_NIFTY_PCT: 0.25,
@@ -53,7 +56,18 @@ const OVERRIDES = Object.freeze({
 });
 
 function stableSettingsJson(settings) {
-  const frozenKeys = Object.keys(TradeRules.DEFAULT_SETTINGS).sort();
+  const postFreezeRangeboundLiquidityKeys = new Set([
+    'SIMULATION_RANGEBOUND_LIQUIDITY_GATE_ENABLED',
+    'SIMULATION_RANGEBOUND_REQUIRE_LIVE_DEPTH',
+    'SIMULATION_RANGEBOUND_MAX_DEPTH_AGE_SEC',
+    'SIMULATION_RANGEBOUND_MAX_SPREAD_PCT',
+    'SIMULATION_RANGEBOUND_MIN_BOOK_IMBALANCE',
+    'SIMULATION_RANGEBOUND_MIN_COMBINED_DEPTH_QTY',
+  ]);
+  const frozenKeys = Object.keys(TradeRules.DEFAULT_SETTINGS)
+    .filter(key => !postFreezeRangeboundLiquidityKeys.has(key))
+    .filter(key => !['SIMULATION_BULL_FLAG_', 'SIMULATION_GAP_AND_GO_', 'SIMULATION_MOMENTUM_CATALYST_'].some(prefix => key.startsWith(prefix)))
+    .sort();
   return JSON.stringify(Object.fromEntries(frozenKeys.map(key => [key, settings[key]])));
 }
 

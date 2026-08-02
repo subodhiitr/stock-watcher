@@ -24,5 +24,13 @@ test('mobile settings exposes ETF simulation and refreshes setups after save', (
   const controller = fs.readFileSync(path.join(__dirname, '..', 'my-remix-app', 'app', 'actions', 'controller.tsx'), 'utf8');
   const mobile = fs.readFileSync(path.join(__dirname, '..', 'mobile-app.js'), 'utf8');
   assert.match(controller, /name="SIMULATION_ENABLE_ETF" type="checkbox"/);
-  assert.match(mobile, /state\.overrides = payload\.overrides \|\| next;[\s\S]*?await loadSetups\(\)/);
+  assert.match(controller, /id="mobile-setup-settings-list"/);
+  assert.match(mobile, /function renderMobileSetupSettings\(\)/);
+  assert.match(mobile, /const claimedKeys = new Set\(\)/);
+  assert.match(mobile, /definition\.settingPrefixes/);
+  assert.match(mobile, /data-setup-setting="true"/);
+  assert.match(mobile, /applyTradeSettingsPayload\(settings\)/);
+  assert.match(mobile, /const next = \{ \...\(state\.overrides \|\| \{}\) \};/);
+  assert.match(mobile, /if \(value == null \|\| value === defaultValue\) delete next\[el\.name\]/);
+  assert.match(mobile, /applyTradeSettingsPayload\(\{ \...payload, overrides:payload\.overrides \|\| next \}\);[\s\S]*?await loadSetups\(\)/);
 });

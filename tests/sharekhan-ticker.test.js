@@ -23,7 +23,29 @@ test('buildYahooShapeFromCandles returns correct Yahoo-shape', () => {
   assert.equal(result.meta.previousClose, null);
 });
 
-const { parseTickTime } = require('../sharekhan-ticker');
+const { parseTickTime, normalizeSharekhanMarketDepth } = require('../sharekhan-ticker');
+
+test('normalizes Sharekhan best prices, quantities and depth imbalance', () => {
+  const capturedAt = Date.parse('2026-08-01T04:30:00.000Z');
+  const depth = normalizeSharekhanMarketDepth({
+    bestBidPrice:100,
+    bestBidQty:600,
+    bestAskPrice:100.05,
+    bestAskQty:400,
+    marketDepth:{
+      bids:[{ price:100, quantity:600 }, { price:99.95, quantity:300 }],
+      asks:[{ price:100.05, quantity:400 }, { price:100.1, quantity:200 }],
+    },
+  }, capturedAt);
+
+  assert.equal(depth.bestBidPrice, 100);
+  assert.equal(depth.bestAskPrice, 100.05);
+  assert.equal(depth.totalBidQuantity, 900);
+  assert.equal(depth.totalAskQuantity, 600);
+  assert.equal(depth.imbalance, 0.6);
+  assert.ok(depth.spreadPct > 0.049 && depth.spreadPct < 0.051);
+  assert.equal(depth.capturedAtMs, capturedAt);
+});
 
 test('parseTickTime floors to 5-min bar start (unix seconds)', () => {
   // "06/30/2026 09:32:45" IST = 04:02:45 UTC → bar start 04:00:00 UTC

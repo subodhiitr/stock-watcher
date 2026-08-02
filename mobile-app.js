@@ -7,6 +7,9 @@
     liveQuotes: new Map(),
     settings: {},
     overrides: {},
+    settingDefaults: {},
+    settingDescriptions: {},
+    setupDefinitions: [],
     brokerMode: 'paper',
     brokerStatus: null,
     brokerPortfolio: { loading: false, ok: false, data: null, error: '' },
@@ -19,7 +22,7 @@
     sectorTrend: {},
     sectorTrendStreamed: false,
     setupFilter: localStorage.getItem('intradayx.mobile.setupFilter') || 'tradeable',
-    serverSimulationCandidates: { loaded:false, at:'', candidates:[], error:'' },
+    serverSimulationCandidates: { loaded:false, at:'', candidates:[], combinedCandidates:[], error:'' },
     serverSimulationStream: null,
     liveStream: null,
     liveStreamKey: '',
@@ -653,6 +656,93 @@
     }
   }
 
+  function setupEventBadges(candidate = {}) {
+    const indicators = candidate.indicators || {};
+    const categorized = indicators.eventImpacts || candidate.eventImpacts || {};
+    const fallback = indicators.newsImpact || candidate.newsImpact || null;
+    const impacts = [categorized.result, categorized.news];
+    if (!impacts.some(Boolean) && fallback) impacts.push(fallback);
+    return impacts.filter(Boolean).map(item => {
+      const eventText = `${item.type || ''} ${item.title || ''}`;
+      const isResult = /result|earnings|financial/i.test(eventText);
+      const isDividend = /dividend/i.test(eventText);
+      const verdict = String(item.resultVerdict || item.newsSentiment || '').toLowerCase();
+      const score = n(item.tradeImpactScore);
+      const polarity = verdict === 'positive' || (!verdict && score > 0)
+        ? 'positive'
+        : verdict === 'negative' || (!verdict && score < 0) ? 'negative' : '';
+      if (!polarity) return '';
+      const label = isResult ? 'Result' : isDividend ? 'Div' : 'News';
+      const title = `${item.type || label}: ${item.title || ''}${item.tradeImpactReason ? ` · ${item.tradeImpactReason}` : ''}`;
+      return `<span class="setup-event-badge ${polarity}" title="${escapeHTML(title)}">${label} ${polarity === 'positive' ? '+' : '-'}</span>`;
+    }).filter(Boolean).join('');
+  }
+
+  function setupCategoryLabel(candidate = {}) {
+    const setupType = resolvedSetupType(candidate).toUpperCase();
+    if (['EARLY_MOMENTUM', 'MOMENTUM_RUNNER', 'LONG_MOMENTUM', 'VOLUME_SHOCK_BREAKOUT'].includes(setupType)) return 'Momentum';
+    if (setupType === 'GAP_AND_GO') return 'Gap and Go';
+    if (setupType === 'BULL_FLAG_CONTINUATION') return 'Bull Flag';
+    if (setupType === 'RANGEBOUND') return 'Rangebound Scalping';
+    if (['FRESH_BREAKOUT', 'TOP_GAINER_CONTINUATION'].includes(setupType)) return 'Breakout';
+    if (['TOP_GAINER_PULLBACK_RECLAIM', 'OPENING_FLUSH_VWAP_RECLAIM', 'VWAP_PULLBACK_OR_HOLD'].includes(setupType)) return 'Pullback / Reclaim';
+    if (setupType === 'VWAP_TREND_CONTINUATION') return 'Trend Continuation';
+    if (setupType === 'BREAKDOWN') return 'Breakdown Short';
+    if (['BEAR_FLAG_CONTINUATION', 'TOP_LOSER_BEAR_FLAG'].includes(setupType)) return 'Bear Flag Short';
+    if (setupType === 'VWAP_REJECTION') return 'VWAP Rejection';
+    return setupType.replace(/_/g, ' ') || 'Unclassified';
+  }
+
+  function compactVolume(value) {
+    const volume = Math.max(0, n(value));
+    if (!volume) return '--';
+    if (volume >= 10000000) return `${fmt(volume / 10000000)}Cr`;
+    if (volume >= 100000) return `${fmt(volume / 100000)}L`;
+    if (volume >= 1000) return `${fmt(volume / 1000)}K`;
+    return String(Math.round(volume));
+  }
+
+  function setupSpecificIndicator(candidate = {}) {
+    const setupType = resolvedSetupType(candidate).toUpperCase();
+    const indicators = candidate.indicators || {};
+    const price = n(candidate.price || candidate.quote?.price || indicators.price);
+    const dayChange = candidate.quote?.change ?? indicators.dayChange;
+    const relVolume = indicators.relVolumeTimeAdjusted ?? indicators.relVolume;
+    const finite = value => value != null && Number.isFinite(Number(value));
+    if (setupType === 'RANGEBOUND') {
+      const range = indicators.rangebound || candidate.rangebound || {};
+      if (finite(range.lower) && finite(range.upper)) {
+        return `Range ${fmt(range.lower)}-${fmt(range.upper)}${finite(range.rangePct) ? ` · ${fmt(range.rangePct)}% wide` : ''}`;
+      }
+    }
+    if (setupType === 'GAP_AND_GO' && finite(indicators.gapPct ?? candidate.gapPct)) {
+      const quality = String(indicators.gapQuality || candidate.gapQuality || '').replace(/-/g, ' ');
+      return `Opening gap ${pct(indicators.gapPct ?? candidate.gapPct)}${quality ? ` · ${quality}` : ''}`;
+    }
+    if (['EARLY_MOMENTUM', 'MOMENTUM_RUNNER', 'LONG_MOMENTUM', 'VOLUME_SHOCK_BREAKOUT', 'BULL_FLAG_CONTINUATION', 'BEAR_FLAG_CONTINUATION', 'TOP_LOSER_BEAR_FLAG'].includes(setupType)) {
+      const parts = [];
+      if (finite(indicators.rsi ?? indicators.rsi7)) parts.push(`RSI ${fmt(indicators.rsi ?? indicators.rsi7)}`);
+      if (finite(relVolume)) parts.push(`Rel volume ${fmt(relVolume)}x`);
+      if (parts.length) return parts.join(' · ');
+    }
+    if (setupType === 'BREAKDOWN') {
+      const levels = [
+        ['Opening low', indicators.openingLow],
+        ['Previous-day low', indicators.prevDayLow],
+        ['5-day low', indicators.low5],
+        ['20-day low', indicators.low20],
+      ].filter(([, value]) => finite(value) && price < Number(value));
+      if (levels.length) {
+        const [label, value] = levels.sort((left, right) => Number(left[1]) - Number(right[1]))[0];
+        return `Break level ${label} ${fmt(value)}`;
+      }
+    }
+    const vwap = Number(indicators.vwap);
+    if (finite(vwap) && vwap > 0 && price > 0) return `VWAP distance ${pct((price - vwap) / vwap * 100)}`;
+    if (finite(dayChange)) return `Day move ${pct(dayChange)}`;
+    return '';
+  }
+
   function renderSetups() {
     if (state.setupsLoading) {
       setText('setup-count', 'Loading');
@@ -677,6 +767,7 @@
     const runnerTypes = new Set(['VOLUME_SHOCK_BREAKOUT', 'MOMENTUM_RUNNER', 'VWAP_TREND_CONTINUATION', 'FRESH_BREAKOUT']);
     const filters = {
       simulation_top25: () => true,
+      combined_top: () => true,
       tradeable: isTradeable,
       gainers: c => changeOf(c) > 0,
       losers: c => changeOf(c) < 0,
@@ -686,6 +777,8 @@
       opening_flush: c => setupOf(c) === 'OPENING_FLUSH_VWAP_RECLAIM',
       top_gainer_pullback: c => setupOf(c) === 'TOP_GAINER_PULLBACK_RECLAIM',
       top_gainer_continuation: c => setupOf(c) === 'TOP_GAINER_CONTINUATION',
+      gap_and_go: c => setupOf(c) === 'GAP_AND_GO',
+      bull_flag: c => setupOf(c) === 'BULL_FLAG_CONTINUATION',
       vwap_continuation: c => setupOf(c) === 'VWAP_TREND_CONTINUATION',
       breakdown: c => setupOf(c) === 'BREAKDOWN',
       bear_flags: c => ['BEAR_FLAG_CONTINUATION', 'TOP_LOSER_BEAR_FLAG'].includes(setupOf(c)),
@@ -695,6 +788,7 @@
     };
     const sorters = {
       simulation_top25: (a, b) => n(a.serverRank) - n(b.serverRank),
+      combined_top: (a, b) => n(a.combinedRank) - n(b.combinedRank),
       gainers: (a, b) => changeOf(b) - changeOf(a) || Math.abs(n(b.score)) - Math.abs(n(a.score)),
       losers: (a, b) => changeOf(a) - changeOf(b) || Math.abs(n(b.score)) - Math.abs(n(a.score)),
       favorites: (a, b) => Math.abs(n(b.score)) - Math.abs(n(a.score)),
@@ -703,6 +797,8 @@
       OPENING_FLUSH_VWAP_RECLAIM: 0,
       TOP_GAINER_PULLBACK_RECLAIM: 0,
       TOP_GAINER_CONTINUATION: 0,
+      GAP_AND_GO: 0,
+      BULL_FLAG_CONTINUATION: 0,
       EARLY_MOMENTUM: 0,
       MOMENTUM_RUNNER: 0,
       RANGEBOUND: 1,
@@ -718,17 +814,20 @@
     })[setupOf(setup)] ?? 9;
     const priorityScoreSort = (a, b) => setupPriority(a) - setupPriority(b) || Math.abs(n(b.score)) - Math.abs(n(a.score));
     const activeFilter = filters[state.setupFilter] ? state.setupFilter : 'tradeable';
-    const setupCandidates = activeFilter === 'simulation_top25'
-      ? state.serverSimulationCandidates.candidates
-      : state.candidates;
+    const serverFilter = ['simulation_top25', 'combined_top'].includes(activeFilter);
+    const setupCandidates = activeFilter === 'combined_top'
+      ? state.serverSimulationCandidates.combinedCandidates
+      : activeFilter === 'simulation_top25'
+        ? state.serverSimulationCandidates.candidates
+        : state.candidates;
     const cards = setupCandidates
       .map(withLiveQuote)
       .filter(filters[activeFilter])
       .sort(sorters[activeFilter] || priorityScoreSort)
-      .slice(0, activeFilter === 'simulation_top25' ? 25 : 24);
+      .slice(0, serverFilter ? 25 : 24);
     const selector = $('setup-filter-select');
     if (selector) selector.value = activeFilter;
-    const serverSnapshotTime = activeFilter === 'simulation_top25' && state.serverSimulationCandidates.at
+    const serverSnapshotTime = serverFilter && state.serverSimulationCandidates.at
       ? formatTradeTime(state.serverSimulationCandidates.at)
       : '';
     setText('setup-count', `${cards.length} shown${serverSnapshotTime ? ` · ${serverSnapshotTime}` : ''}`);
@@ -750,47 +849,54 @@
       const volume = n(indicators.volume || indicators.dayVolume);
       const rr = n(indicators.rr || indicators.riskReward);
       const status = indicators.entryStatus || c.entryStatus || (c.selected ? 'Ready' : 'Watching');
-      const reason = activeFilter === 'simulation_top25'
-        ? c.selectionReason
+      const reason = serverFilter
+        ? (activeFilter === 'combined_top' ? c.profitabilityReason : c.selectionReason)
         : c.blockReason || (Array.isArray(c.eligibilityReasons) ? c.eligibilityReasons[0] : '') || (Array.isArray(indicators.reasons) ? indicators.reasons[0] : '');
       const health = state.healthScores[sym];
       const healthLabel = Number.isFinite(Number(health)) ? `${health}/100` : 'Loading…';
+      const profitability = c.profitability || {};
+      const profitabilityLabel = Number.isFinite(Number(profitability.winRate))
+        ? `${fmt(profitability.winRate)}% win · ${n(profitability.sample)} trades`
+        : `Decision ${fmt(c.decisionScore ?? c.score)}`;
+      const eventBadges = setupEventBadges(c);
+      const setupCategory = setupCategoryLabel(c);
+      const setupIndicator = setupSpecificIndicator(c);
       return `
         <article class="setup-card ${c.selected ? 'selected' : ''} ${lockedTrade ? 'is-locked' : ''} ${opening ? 'is-opening' : ''}">
           <div class="setup-head">
             <div>
-              <strong>${sym}</strong>
-              <span>${activeFilter === 'simulation_top25' ? `Server #${n(c.serverRank) || index + 1}` : `#${index + 1} priority`}</span>
+              <button type="button" class="stock-detail-link setup-symbol-link" data-detail-symbol="${sym}" title="Open ${sym} stock details" aria-label="Open ${sym} stock details"><strong>${sym}</strong></button>
+              <span>${activeFilter === 'combined_top' ? `Combined #${n(c.combinedRank) || index + 1}` : activeFilter === 'simulation_top25' ? `Server #${n(c.serverRank) || index + 1}` : `#${index + 1} priority`}</span>
               <span>${resolvedSetupType(c)} · ${side.toUpperCase()} · ${Math.abs(n(c.score))}</span>
             </div>
             <button type="button" ${disabled} data-setup="${sym}">${opening ? 'Opening…' : lockedTrade ? 'Locked' : canTrade ? 'Trade' : 'Watch'}</button>
           </div>
           ${lockedTrade ? `<div class="stock-lock broker-status--${brokerState}"><b>Locked · Entry ${fmt(lockedTrade.entryPrice)}</b><span>${escapeHTML(brokerStatusLabel(lockedTrade.broker || { status:'open' }))}</span></div>` : ''}
           <div class="setup-trade-row">
-            <span><small>Price</small><b>${fmt(price)}</b></span>
-            <span class="${cls(change)}"><small>Change</small><b>${pct(change)}</b></span>
+            <button type="button" class="setup-chart-trigger" data-chart-symbol="${sym}" aria-label="Open ${sym} 5 or 15 minute intraday chart" title="Open 5/15 min intraday chart">
+              <small>Price / Change</small><b>${fmt(price)} <em class="${cls(change)}">${pct(change)}</em></b>
+              ${eventBadges ? `<span class="setup-event-badges">${eventBadges}</span>` : ''}
+            </button>
             <span><small>Target</small><b>${target ? fmt(target) : '--'}</b></span>
             <span><small>Score</small><b>${Math.abs(n(c.score))}</b></span>
+            <span title="Volume ${volume ? volume.toLocaleString('en-IN') : '--'}"><small>Volume</small><b>${compactVolume(volume)}</b></span>
           </div>
           <div class="setup-metrics">
-            <span>Score <b>${Math.abs(n(c.score))}</b></span>
             <span>Status <b>${status}</b></span>
+            <span>Category <b>${escapeHTML(setupCategory)}</b></span>
             <span>Entry <b>${fmt(entry)}</b></span>
             <span>Stop <b>${stop ? fmt(stop) : '--'}</b></span>
-            <span>Target <b>${target ? fmt(target) : '--'}</b></span>
             <span>R:R <b>${rr ? fmt(rr) : '--'}</b></span>
-            <span>Price <b>${fmt(price)}</b></span>
-            <span class="${cls(change)}">Chg <b>${pct(change)}</b></span>
             <span>VWAP <b>${vwap ? fmt(vwap) : '--'}</b></span>
-            <span>Volume <b>${volume ? volume.toLocaleString('en-IN') : '--'}</b></span>
             <span>Sector <b>${c.sector || '--'}</b></span>
             <span>Net potential <b>${Number.isFinite(Number(c.cost?.netPct)) ? `${fmt(c.cost.netPct)}%` : '--'}</b></span>
+            ${activeFilter === 'combined_top' ? `<span>Profitability <b>${escapeHTML(profitabilityLabel)}</b></span>` : ''}
             <span>Health <b data-health-symbol="${sym}" class="${Number(health) >= 80 ? 'positive' : Number.isFinite(Number(health)) && Number(health) < 50 ? 'negative' : ''}">${healthLabel}</b></span>
           </div>
-          ${activeFilter === 'simulation_top25' ? `<p class="setup-reason ${c.selected ? 'selected' : ''}"><b>Entry selection:</b> ${escapeHTML(reason || '--')}</p>` : reason ? `<p class="setup-reason">${escapeHTML(reason)}</p>` : ''}
+          ${serverFilter || reason || setupIndicator ? `<p class="setup-reason ${serverFilter && c.selected ? 'selected' : ''}">${serverFilter ? `<b>${activeFilter === 'combined_top' ? 'Profitability ranking' : 'Entry selection'}:</b> ${escapeHTML(reason || '--')}` : escapeHTML(reason || '')}${setupIndicator ? `<span class="setup-specific-indicator">${reason || serverFilter ? ' · ' : ''}${escapeHTML(setupIndicator)}</span>` : ''}</p>` : ''}
         </article>
       `;
-    }).join('') : `<div class="empty">${activeFilter === 'simulation_top25' && state.serverSimulationCandidates.error ? escapeHTML(state.serverSimulationCandidates.error) : 'No actionable setups'}</div>`;
+    }).join('') : `<div class="empty">${serverFilter && state.serverSimulationCandidates.error ? escapeHTML(state.serverSimulationCandidates.error) : 'No actionable setups'}</div>`;
     syncDirectionalActionLabels();
     if (cards.length) connectHealthStream(cards);
     updateManualSymbolOptions();
@@ -1086,8 +1192,84 @@
     }
   }
 
+  function formatMobileSetupSettingLabel(key, definition) {
+    const prefix = [...(definition?.settingPrefixes || [])]
+      .sort((left, right) => right.length - left.length)
+      .find(candidate => key.startsWith(candidate));
+    return String(prefix ? key.slice(prefix.length) : key)
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, letter => letter.toUpperCase())
+      .replace(/\bPct\b/g, '%')
+      .replace(/\bVwap\b/g, 'VWAP')
+      .replace(/\bRsi\b/g, 'RSI')
+      .replace(/\bRs\b/g, 'RS')
+      .replace(/\bAtr\b/g, 'ATR');
+  }
+
+  function renderMobileSetupSettings() {
+    const container = $('mobile-setup-settings-list');
+    if (!container) return;
+    const defaults = state.settingDefaults || {};
+    const descriptions = state.settingDescriptions || {};
+    const definitions = Array.isArray(state.setupDefinitions) ? state.setupDefinitions : [];
+    if (!definitions.length || !Object.keys(defaults).length) {
+      container.innerHTML = '<div class="empty">Setup configuration unavailable</div>';
+      return;
+    }
+    const claimedKeys = new Set();
+    const sections = definitions.map((definition, index) => {
+      const prefixes = definition.settingPrefixes || [];
+      const excludedPrefixes = definition.excludePrefixes || [];
+      const configurationKeys = Object.keys(defaults).filter(key => (
+        key !== definition.key &&
+        !claimedKeys.has(key) &&
+        prefixes.some(prefix => key.startsWith(prefix)) &&
+        !excludedPrefixes.some(prefix => key.startsWith(prefix))
+      ));
+      configurationKeys.forEach(key => claimedKeys.add(key));
+      claimedKeys.add(definition.key);
+      const keys = [definition.key, ...configurationKeys];
+      const fields = keys.map(key => {
+        const defaultValue = defaults[key];
+        const value = state.overrides?.[key] ?? state.settings?.[key] ?? defaultValue;
+        const overridden = Object.prototype.hasOwnProperty.call(state.overrides || {}, key);
+        const label = key === definition.key ? `Enable ${definition.label}` : formatMobileSetupSettingLabel(key, definition);
+        const description = key === definition.key ? definition.description : descriptions[key];
+        const kind = typeof defaultValue === 'boolean' ? 'boolean' : (typeof defaultValue === 'number' || defaultValue == null ? 'number' : 'text');
+        const defaultAttribute = defaultValue == null ? '' : String(defaultValue);
+        const checked = value === true || value === 1 || value === '1' || value === 'true';
+        const control = kind === 'boolean'
+          ? `<input name="${escapeHTML(key)}" type="checkbox" data-setup-setting="true" data-setting-kind="boolean" data-default="${escapeHTML(defaultAttribute)}" ${checked ? 'checked' : ''}>`
+          : `<input name="${escapeHTML(key)}" type="${kind}" data-setup-setting="true" data-setting-kind="${kind}" data-default="${escapeHTML(defaultAttribute)}" ${kind === 'number' ? 'step="any"' : ''} value="${value == null ? '' : escapeHTML(String(value))}">`;
+        return `
+          <label class="${kind === 'boolean' ? 'check-row mobile-setup-toggle' : ''}">
+            <span>${escapeHTML(label)}${overridden ? '<em class="mobile-setting-override">custom</em>' : ''}</span>
+            ${control}
+            ${description ? `<small>${escapeHTML(description)}</small>` : ''}
+          </label>`;
+      }).join('');
+      return `
+        <details class="mobile-setup-settings" ${index === 0 ? 'open' : ''}>
+          <summary><span>${escapeHTML(definition.label)}</span><small>${escapeHTML(definition.side || '')} · ${keys.length} settings</small></summary>
+          <div class="mobile-setup-description">${escapeHTML(definition.description || '')}</div>
+          <div class="mobile-setup-settings-grid">${fields}</div>
+        </details>`;
+    });
+    container.innerHTML = sections.join('');
+  }
+
+  function applyTradeSettingsPayload(payload = {}) {
+    state.overrides = payload.overrides || {};
+    state.settings = payload.effective || payload.defaults || state.settings;
+    state.settingDefaults = payload.defaults || state.settingDefaults;
+    state.settingDescriptions = payload.descriptions || state.settingDescriptions;
+    state.setupDefinitions = payload.setupDefinitions || state.setupDefinitions;
+  }
+
   function renderSettings() {
     setText('settings-state', Object.keys(state.overrides || {}).length ? 'Overrides active' : 'Defaults');
+    renderMobileSetupSettings();
     const form = $('settings-form');
     if (!form) return;
     for (const el of form.elements) {
@@ -1387,10 +1569,14 @@
       .slice()
       .sort((a, b) => n(a.serverRank) - n(b.serverRank))
       .slice(0, 25);
+    const combinedCandidates = (Array.isArray(payload.combinedCandidates) ? payload.combinedCandidates : [])
+      .slice()
+      .sort((a, b) => n(a.combinedRank) - n(b.combinedRank));
     state.serverSimulationCandidates = {
       loaded:true,
       at:String(payload.at || ''),
       candidates,
+      combinedCandidates,
       error:'',
     };
     state.setupsLoaded = true;
@@ -1402,6 +1588,10 @@
     if (!state.serverSimulationStream) return;
     state.serverSimulationStream.close();
     state.serverSimulationStream = null;
+  }
+
+  function serverSimulationFilterActive() {
+    return ['simulation_top25', 'combined_top'].includes(state.setupFilter);
   }
 
   async function loadServerSimulationCandidatesFallback() {
@@ -1417,7 +1607,7 @@
   }
 
   function connectServerSimulationStream() {
-    if (state.setupFilter !== 'simulation_top25' || !mobileSetupsViewActive()) {
+    if (!serverSimulationFilterActive() || !mobileSetupsViewActive()) {
       disconnectServerSimulationStream();
       return;
     }
@@ -1429,7 +1619,7 @@
     const stream = new EventSource('/simulation/analysis/stream');
     state.serverSimulationStream = stream;
     stream.onmessage = event => {
-      if (state.setupFilter !== 'simulation_top25' || !mobileSetupsViewActive()) {
+      if (!serverSimulationFilterActive() || !mobileSetupsViewActive()) {
         disconnectServerSimulationStream();
         return;
       }
@@ -1440,7 +1630,7 @@
       } catch (_) {}
     };
     stream.onerror = () => {
-      if (state.setupFilter !== 'simulation_top25' || !mobileSetupsViewActive()) disconnectServerSimulationStream();
+      if (!serverSimulationFilterActive() || !mobileSetupsViewActive()) disconnectServerSimulationStream();
     };
   }
 
@@ -1727,7 +1917,7 @@
         renderHeader();
       }),
       run(api('/trade-settings'), settings => {
-        state.overrides = settings.overrides || {};
+        applyTradeSettingsPayload(settings);
         renderSettings();
       }),
       run(api('/dashboard-market'), market => {
@@ -2253,7 +2443,7 @@
         const view = tab.dataset.view;
         document.querySelectorAll('.tab').forEach(item => item.classList.toggle('active', item === tab));
         document.querySelectorAll('.view').forEach(item => item.classList.toggle('active', item.id === `view-${view}`));
-        if (view === 'setups' && state.setupFilter === 'simulation_top25') {
+        if (view === 'setups' && serverSimulationFilterActive()) {
           renderSetups();
           connectServerSimulationStream();
         } else {
@@ -2271,7 +2461,7 @@
       state.setupSelectionAt = now;
       localStorage.setItem('intradayx.mobile.setupFilter', state.setupFilter);
       renderSetups();
-      if (state.setupFilter === 'simulation_top25') connectServerSimulationStream();
+      if (serverSimulationFilterActive()) connectServerSimulationStream();
       else {
         disconnectServerSimulationStream();
         loadSetups();
@@ -2281,7 +2471,7 @@
     $('setup-filter-select')?.addEventListener('change', updateSetupSelection);
     $('setup-refresh-btn')?.addEventListener('click', event => {
       event.preventDefault();
-      if (state.setupFilter === 'simulation_top25') {
+      if (serverSimulationFilterActive()) {
         disconnectServerSimulationStream();
         connectServerSimulationStream();
       } else loadSetups();
@@ -2449,17 +2639,28 @@
     $('settings-form').addEventListener('submit', async event => {
       event.preventDefault();
       const saveButton = $('settings-save');
-      const next = {};
+      const next = { ...(state.overrides || {}) };
       for (const el of event.currentTarget.elements) {
         if (!el.name) continue;
-        if (el.type === 'checkbox') next[el.name] = el.checked ? 1 : 0;
-        else if (String(el.value).trim() !== '') next[el.name] = Number(el.value);
+        const kind = el.dataset.settingKind || (el.type === 'checkbox' ? 'boolean' : 'number');
+        const value = kind === 'boolean'
+          ? el.checked
+          : (kind === 'number' ? (String(el.value).trim() === '' ? null : Number(el.value)) : String(el.value));
+        if (el.dataset.setupSetting === 'true') {
+          const defaultValue = kind === 'boolean'
+            ? el.dataset.default === 'true'
+            : (kind === 'number' ? (el.dataset.default === '' ? null : Number(el.dataset.default)) : el.dataset.default);
+          if (value == null || value === defaultValue) delete next[el.name];
+          else next[el.name] = value;
+        } else if (value != null) {
+          next[el.name] = value;
+        }
       }
       if (saveButton) saveButton.disabled = true;
       setSettingsStatus('Saving settings…');
       try {
         const payload = await api('/trade-settings', { method: 'POST', body: JSON.stringify({ overrides: next }) });
-        state.overrides = payload.overrides || next;
+        applyTradeSettingsPayload({ ...payload, overrides:payload.overrides || next });
         renderSettings();
         await loadSetups();
         setSettingsStatus('Settings saved successfully', false, true);
@@ -2474,7 +2675,7 @@
       setSettingsStatus('Clearing overrides…');
       try {
         const payload = await api('/trade-settings', { method: 'POST', body: JSON.stringify({ overrides: {} }) });
-        state.overrides = payload.overrides || {};
+        applyTradeSettingsPayload(payload);
         renderSettings();
         setSettingsStatus('Overrides cleared successfully', false, true);
       } catch (e) { setSettingsStatus(e.message || 'Could not clear overrides', true); }
