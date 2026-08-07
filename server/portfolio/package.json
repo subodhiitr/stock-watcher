@@ -1,0 +1,5 @@
+{
+  "name": "@stock-watcher/portfolio-domain",
+  "private": true,
+  "type": "module"
+}

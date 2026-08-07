@@ -1,6 +1,9 @@
 {
   "name": "stock-watcher",
   "private": true,
+  "engines": {
+    "node": ">=24.3.0"
+  },
   "scripts": {
     "dev": "npm-run-all --parallel dev:ui dev:proxy",
     "dev:ui": "npm --prefix my-remix-app run dev -- --external-proxy",
@@ -10,15 +13,38 @@
     "dev:split:ui": "npm --prefix my-remix-app run dev -- --external-proxy",
     "proxy": "node --max-http-header-size=65536 ticker_proxy.js",
     "start": "npm --prefix my-remix-app run start",
-    "typecheck": "npm --prefix my-remix-app run typecheck",
-    "test": "node --test"
+    "typecheck": "npm-run-all --parallel typecheck:ui typecheck:portfolio",
+    "typecheck:ui": "npm --prefix my-remix-app run typecheck",
+    "typecheck:portfolio": "tsc -p server/portfolio/tsconfig.json",
+    "test": "node --test",
+    "test:portfolio": "node --test tests/portfolio/exact-values.test.ts tests/portfolio/portfolio.test.ts tests/portfolio/events.test.ts tests/portfolio/exact-values.property.test.ts tests/portfolio/portfolio.property.test.ts tests/portfolio/portfolio.model.test.ts tests/portfolio/architecture.test.ts",
+    "test:portfolio:persistence": "node --test tests/portfolio/persistence/initialization.test.ts tests/portfolio/persistence/repository.test.ts tests/portfolio/persistence/transactions.test.ts tests/portfolio/persistence/persistence.property.test.ts tests/portfolio/persistence/architecture.test.ts",
+    "test:portfolio:contracts": "tsc -p server/portfolio/tsconfig.contracts.json",
+    "benchmark:portfolio": "node --expose-gc benchmark/portfolio-domain.ts",
+    "benchmark:portfolio:persistence": "node --expose-gc benchmark/portfolio-persistence.ts",
+    "verify:portfolio": "npm-run-all typecheck:portfolio test:portfolio test:portfolio:contracts benchmark:portfolio",
+    "verify:portfolio:persistence": "npm-run-all typecheck:portfolio test:portfolio:persistence test:portfolio:contracts benchmark:portfolio:persistence",
+    "test:portfolio:u03": "node --test tests/portfolio/strategy/strategy-config.test.ts tests/portfolio/strategy/strategy-config.property.test.ts tests/portfolio/strategy/market-data.test.ts tests/portfolio/strategy/eligibility.test.ts tests/portfolio/strategy/signal-scoring.test.ts tests/portfolio/strategy/regime.test.ts tests/portfolio/strategy/corporate-action.test.ts tests/portfolio/strategy/backtest.test.ts tests/portfolio/strategy/strategy-version.test.ts tests/portfolio/strategy/ai-advisory.test.ts tests/portfolio/strategy/resilience.test.ts tests/portfolio/strategy/presets.property.test.ts tests/portfolio/strategy/strategy.model.test.ts",
+    "typecheck:portfolio:u03": "tsc -p server/portfolio/tsconfig.json --noEmit",
+    "bench:portfolio:u03": "node --expose-gc benchmark/portfolio-strategy.ts",
+    "test:portfolio:u04": "node --test tests/portfolio/rebalancing/architecture.test.ts tests/portfolio/rebalancing/planning-gate.test.ts tests/portfolio/rebalancing/ideal-target.test.ts tests/portfolio/rebalancing/executable-target.test.ts tests/portfolio/rebalancing/cost-tax.test.ts tests/portfolio/rebalancing/cadence-turnover.test.ts tests/portfolio/rebalancing/interim-authorization.test.ts tests/portfolio/rebalancing/rebalance-plan.test.ts tests/portfolio/rebalancing/optimizer.test.ts tests/portfolio/rebalancing/edge-cases.test.ts tests/portfolio/rebalancing/rebalancing.property.test.ts tests/portfolio/rebalancing/rebalancing.model.test.ts",
+    "bench:portfolio:u04": "node --expose-gc benchmark/portfolio-rebalancing.ts",
+    "verify:portfolio:u04": "npm-run-all typecheck:portfolio test:portfolio:u04 test:portfolio:contracts bench:portfolio:u04",
+    "test:portfolio:u05": "node --test tests/portfolio/execution/architecture.test.ts tests/portfolio/execution/canonical-codec.test.ts tests/portfolio/execution/approval.test.ts tests/portfolio/execution/execution-order.test.ts tests/portfolio/execution/execution-run.test.ts tests/portfolio/execution/execution-gate.test.ts tests/portfolio/execution/persistence.test.ts tests/portfolio/execution/placement.test.ts tests/portfolio/execution/status-fill.test.ts tests/portfolio/execution/cancellation.test.ts tests/portfolio/execution/reconciliation.test.ts tests/portfolio/execution/kill-switch-recovery.test.ts tests/portfolio/execution/broker-contract.test.ts tests/portfolio/execution/execution.property.test.ts tests/portfolio/execution/execution.model.test.ts tests/portfolio/execution/fault-injection.test.ts",
+    "bench:portfolio:u05": "node --expose-gc benchmark/portfolio-execution.ts",
+    "verify:portfolio:u05": "npm-run-all typecheck:portfolio test:portfolio:u05 test:portfolio:contracts bench:portfolio:u05"
   },
   "devDependencies": {
-    "npm-run-all": "^4.1.5"
+    "@types/node": "24.10.1",
+    "@types/better-sqlite3": "9.6.0",
+    "fast-check": "4.8.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "6.0.3"
   },
   "dependencies": {
     "axios": "^1.18.1",
     "better-sqlite3": "^12.11.1",
+    "headroom-ai": "^0.22.4",
     "kiteconnect": "^5.3.0",
     "sharekhan-api": "github:Sharekhan-API/shareconnectnodejs"
   }
