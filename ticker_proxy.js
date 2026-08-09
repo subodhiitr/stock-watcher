@@ -56,6 +56,7 @@ const { loadSharekhanCredentials, saveSharekhanAccessToken, saveSharekhanTokens 
 const { KiteConnect } = require('kiteconnect');
 const KiteClient = require('./zerodha-kite-client');
 const SharekhanClient = require('./sharekhan-client');
+const { extendStrategicHistoryWithProxy } = require('./server/portfolio/application/api/strategic-history-proxy.cjs');
 const { buildYahooShapeFromCandles, fetchSharekhanIntraday } = require('./sharekhan-intraday');
 const { SharekhanTickerPool, normalizeSharekhanMarketDepth } = require('./sharekhan-ticker');
 const ConfirmationPoller = require('./zerodha-confirmation-poller');
@@ -79,6 +80,8 @@ const { handleStrategyAdvisorRoute } = require('./server/routes/strategy-advisor
 const { createResultCalendarService } = require('./server/result-calendar');
 const { createIntradayCandlesService } = require('./server/intraday-candles');
 const { createFreshNewsService } = require('./server/fresh-news');
+const { selectDetailedResearchPool } = require('./server/portfolio/application/api/research-prescreen.cjs');
+const { calculateRoeFromMarketData, extractNseXbrlRoe } = require('./server/portfolio/adapters/api/roe-calculation.cjs');
 const { createSetupEfficiencyService } = require('./server/setup-efficiency');
 const { createExitQualityService } = require('./server/exit-quality');
 const { createStrategyAdvisorFileService } = require('./server/strategy-advisor');
@@ -125,6 +128,22 @@ const exitQualityService = createExitQualityService({
   resolveDayClose:resolveSimulationDayClosePrice,
 });
 let strategyAdvisorService = null;
+let portfolioHttpRuntime = null;
+
+async function initializePortfolioHttpRuntime() {
+  if (portfolioHttpRuntime) return portfolioHttpRuntime;
+  const { createPortfolioHttpRuntime } = await import('./server/portfolio/composition/http-runtime.ts');
+  portfolioHttpRuntime = createPortfolioHttpRuntime({
+      marketQuotes: async symbols => yahooQuote(symbols),
+      marketAnalysis: portfolioMarketAnalysis,
+    });
+  return portfolioHttpRuntime;
+}
+
+function closePortfolioHttpRuntime() {
+  try { portfolioHttpRuntime?.close(); } catch (_) {}
+  portfolioHttpRuntime = null;
+}
 
 const ENV_FILE = path.join(__dirname, '.env');
 if (fs.existsSync(ENV_FILE)) {
@@ -173,7 +192,6 @@ const LIVE_CACHE_STALE_AGE_MS = 5 * 60 * 1000;           // 5 min: beyond this a
 const SHAREKHAN_DAILY_CONTEXT_TTL_MS = 10 * 60 * 1000;   // 10 minutes: avoid daily Yahoo refetch on every WS tick
 const REPLAY_CACHE_MAX     = 30;
 const REPLAY_DEEP_SWEEP_TIME_IST = '15:50';
-const REPLAY_DEEP_SWEEP_SCHEDULE_ENABLED = process.env.REPLAY_DEEP_SWEEP_SCHEDULE === '1';
 const REPLAY_DEEP_SWEEP_STARTUP_ENABLED = process.env.REPLAY_DEEP_SWEEP_STARTUP === '1';
 const replayResultCache    = new Map();
 const replayJobs           = new Map();
@@ -3077,7 +3095,6 @@ async function runSimulationSchedulerTick() {
           setupType:intent.setupType,
           score:intent.score,
           decisionScore:intent.decisionScore ?? intent.entryContext?.decisionScore ?? null,
-          rangeboundAdmission:intent.entryContext?.rangeboundAdmission || null,
           scoreAudit:intent.entryContext?.scoreAudit || null,
           settingsFingerprint:intent.entryContext?.settingsFingerprint || null,
         })),
@@ -5222,11 +5239,17 @@ async function fetchResultMetricsFromXbrl(url) {
     'BasicEarningsLossPerShare',
     'BasicEarningsPerShare',
   ]);
+  const roe = extractNseXbrlRoe(xr.body);
   return {
     revenueCr: inrToCrore(revenue?.value),
     profitBeforeTaxCr: inrToCrore(pbt?.value),
     profitAfterTaxCr: inrToCrore(pat?.value),
     eps: eps?.value ?? null,
+    annualizedRoe: roe?.roe ?? null,
+    roePeriodDays: roe?.periodDays ?? null,
+    roeUsesAverageEquity: roe?.usedAverageEquity ?? null,
+    roePeriodStart: roe?.periodStart ?? null,
+    roePeriodEnd: roe?.periodEnd ?? null,
   };
 }
 
@@ -5424,11 +5447,13 @@ async function fetchNSEStockAnnouncements(symbol) {
     }).filter(x => x.title);
   } catch(e) {
     console.warn(`[stock-news] NSE announcements failed for ${symbol}:`, e.message);
-    return [];
+    const failed = [];
+    failed.coverageError = e.message;
+    return failed;
   }
 }
 
-async function fetchNSELatestResult(symbol) {
+async function fetchNSELatestResult(symbol, options = {}) {
   try {
     const rows = await nseJsonWithRetry(`/api/corporates-financial-results?index=equities&symbol=${encodeURIComponent(symbol)}&period=Quarterly`, 'results');
     const latest = pickLatestByDate(rows, ['filingDate', 'broadCastDate', 'toDate']);
@@ -5454,6 +5479,11 @@ async function fetchNSELatestResult(symbol) {
       revenueGrowthPct: null,
       patGrowthPct: null,
       epsGrowthPct: null,
+      annualizedRoe: null,
+      roePeriodDays: null,
+      roeUsesAverageEquity: null,
+      roePeriodStart: null,
+      roePeriodEnd: null,
     };
     if (latest.xbrl) {
       try {
@@ -5467,13 +5497,15 @@ async function fetchNSELatestResult(symbol) {
             const bd = ['filingDate', 'broadCastDate', 'toDate'].map(f => parseNSEDate(b?.[f])).find(Boolean);
             return (bd?.getTime() || 0) - (ad?.getTime() || 0);
           });
-        const previous = candidates[0] ? await fetchResultMetricsFromXbrl(candidates[0].xbrl).catch(() => ({})) : {};
-        const verdict = classifyResultVerdict(metrics, previous);
-        result.resultVerdict = verdict.verdict;
-        result.resultVerdictReason = verdict.reason;
-        result.revenueGrowthPct = verdict.revenueGrowthPct;
-        result.patGrowthPct = verdict.patGrowthPct;
-        result.epsGrowthPct = verdict.epsGrowthPct;
+        if (options.includeGrowth !== false) {
+          const previous = candidates[0] ? await fetchResultMetricsFromXbrl(candidates[0].xbrl).catch(() => ({})) : {};
+          const verdict = classifyResultVerdict(metrics, previous);
+          result.resultVerdict = verdict.verdict;
+          result.resultVerdictReason = verdict.reason;
+          result.revenueGrowthPct = verdict.revenueGrowthPct;
+          result.patGrowthPct = verdict.patGrowthPct;
+          result.epsGrowthPct = verdict.epsGrowthPct;
+        }
       } catch(e) {
         console.warn(`[stock-news] result XBRL parse failed for ${symbol}:`, e.message);
       }
@@ -5885,10 +5917,6 @@ function scheduleNextDeepSweep() {
 }
 
 function startReplayDeepSweepScheduler() {
-  if (!REPLAY_DEEP_SWEEP_SCHEDULE_ENABLED) {
-    console.log('[replay-deep-sweep] Automatic scheduler disabled; set REPLAY_DEEP_SWEEP_SCHEDULE=1 to enable');
-    return;
-  }
   scheduleNextDeepSweep();
   if (!REPLAY_DEEP_SWEEP_STARTUP_ENABLED) {
     console.log('[replay-deep-sweep] Startup catch-up disabled; set REPLAY_DEEP_SWEEP_STARTUP=1 to enable');
@@ -7719,8 +7747,16 @@ async function yahooSummary(nseSymbols) {
             const priceToBook   = stats.priceToBook?.raw ?? null;
             const dividendYield = detail.dividendYield?.raw ?? detail.trailingAnnualDividendYield?.raw ?? null;
             const roe           = fin.returnOnEquity?.raw ?? null;
+            const roa           = fin.returnOnAssets?.raw ?? null;
+            const operatingMargin = fin.operatingMargins?.raw ?? null;
+            const profitMargin  = fin.profitMargins?.raw ?? null;
+            const revenueGrowth = fin.revenueGrowth?.raw ?? null;
+            const earningsGrowth = fin.earningsGrowth?.raw ?? null;
             const totalDebt     = fin.totalDebt?.raw ?? null;
             const totalEquity   = fin.totalStockholdersEquity?.raw ?? null;
+            const debtToEquity  = fin.debtToEquity?.raw ?? null;
+            const operatingCashflow = fin.operatingCashflow?.raw ?? null;
+            const freeCashflow  = fin.freeCashflow?.raw ?? null;
             const epsGrowth     = fin.earningsGrowth?.raw ?? null;
             const peg           = stats.pegRatio?.raw ?? null;
             const priceTarget   = fin.targetMeanPrice?.raw ?? fin.targetMedianPrice?.raw ?? null;
@@ -7732,11 +7768,18 @@ async function yahooSummary(nseSymbols) {
             const high52        = detail.fiftyTwoWeekHigh?.raw ?? null;
             const low52         = detail.fiftyTwoWeekLow?.raw ?? null;
             const forwardEps    = stats.forwardEps?.raw ?? null;
+            const calculatedRoeResult = calculateRoeFromMarketData({
+              trailingEps, sharesOutstanding:sharesOut, totalEquity, marketCap, priceToBook,
+            });
+            const calculatedRoe = calculatedRoeResult?.roe ?? null;
 
             
             return { sym, data: { trailingEps, forwardEps, trailingPE, forwardPE, marketCap, priceToBook,
-              dividendYield, fiftyDayAvg, twoHundredDayAvg, high52, low52, roe, totalDebt, totalEquity,
-              epsGrowth, peg, priceTarget, sharesOutstanding: sharesOut, sector, industry } };
+              dividendYield, fiftyDayAvg, twoHundredDayAvg, high52, low52, roe, roa, operatingMargin, profitMargin,
+              revenueGrowth, earningsGrowth, totalDebt, totalEquity, debtToEquity, operatingCashflow, freeCashflow,
+              epsGrowth, peg, priceTarget, sharesOutstanding: sharesOut, sector, industry, calculatedRoe,
+              calculatedRoeBasis:calculatedRoeResult?.basis ?? null,
+              _researchFundamentalsVersion:3 } };
           }
 
           // Fallback: parse v8/chart meta
@@ -7753,8 +7796,10 @@ async function yahooSummary(nseSymbols) {
               dividendYield: meta.dividendYield ?? null,
               fiftyDayAvg: meta.fiftyDayAverage ?? null, twoHundredDayAvg: meta.twoHundredDayAverage ?? null,
               high52: meta.fiftyTwoWeekHigh ?? null, low52: meta.fiftyTwoWeekLow ?? null,
-              roe: null, totalDebt: null, totalEquity: null, epsGrowth: null,
-              peg: null, priceTarget: null, sharesOutstanding: null, sector: null, industry: null } };
+              roe: null, roa:null, operatingMargin:null, profitMargin:null, revenueGrowth:null, earningsGrowth:null,
+              totalDebt: null, totalEquity: null, debtToEquity:null, operatingCashflow:null, freeCashflow:null, epsGrowth: null,
+              peg: null, priceTarget: null, sharesOutstanding: null, sector: null, industry: null,
+              calculatedRoe:null, calculatedRoeBasis:null, _researchFundamentalsVersion:3 } };
           }
 
           console.warn(`[summary] ${sym} no parseable data`);
@@ -7770,6 +7815,540 @@ async function yahooSummary(nseSymbols) {
     }
   }
   return { ok: true, metas: results };
+}
+
+const portfolioResearchHistoryCache = new Map();
+const portfolioMarketAnalysisCache = new Map();
+const portfolioStrategicHistoryCache = new Map();
+const portfolioNseRoeCache = new Map();
+const PORTFOLIO_RESEARCH_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const PORTFOLIO_MARKET_ANALYSIS_CACHE_TTL_MS = 5 * 60 * 1000;
+const PORTFOLIO_NSE_ROE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const PORTFOLIO_RESEARCH_MIN_POOL = 160;
+const PORTFOLIO_RESEARCH_MAX_POOL = 200;
+
+function portfolioYahooSymbol(symbol) {
+  const value = String(symbol || '').trim().toUpperCase();
+  return value.startsWith('^') || value.endsWith('.NS') ? value : `${value}.NS`;
+}
+
+async function fetchPortfolioResearchHistory(symbol) {
+  const cacheKey = String(symbol || '').trim().toUpperCase();
+  const cached = portfolioResearchHistoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.savedAt < PORTFOLIO_RESEARCH_CACHE_TTL_MS) return cached.data;
+  const path = `/v8/finance/chart/${encodeURIComponent(portfolioYahooSymbol(cacheKey))}?interval=1d&range=2y&includePrePost=false&events=div%2Csplits`;
+  let response = await httpsGet({ hostname: 'query1.finance.yahoo.com', path, method: 'GET', timeout: 15000, headers: YAHOO_HEADERS });
+  if (response.status !== 200) {
+    response = await httpsGet({ hostname: 'query2.finance.yahoo.com', path, method: 'GET', timeout: 15000, headers: YAHOO_HEADERS });
+  }
+  if (response.status !== 200) return null;
+  const result = JSON.parse(response.body)?.chart?.result?.[0];
+  const timestamps = result?.timestamp || [];
+  const quote = result?.indicators?.quote?.[0] || {};
+  const adjusted = result?.indicators?.adjclose?.[0]?.adjclose || quote.close || [];
+  const rows = timestamps.map((timestamp, index) => ({
+    timestamp,
+    close: Number(adjusted[index]),
+    volume: Number(quote.volume?.[index]),
+  })).filter(row => Number.isFinite(row.close) && row.close > 0);
+  if (rows.length < 40) return null;
+  const latest = rows.at(-1);
+  const rowBeforeDays = (days) => {
+    const target = latest.timestamp - days * 86400;
+    return rows.reduce((best, row) => Math.abs(row.timestamp - target) < Math.abs(best.timestamp - target) ? row : best, rows[0]);
+  };
+  const oneMonth = rowBeforeDays(30);
+  const threeMonth = rowBeforeDays(90);
+  const sixMonth = rowBeforeDays(180);
+  const dailyReturns = [];
+  for (let index = 1; index < rows.length; index++) {
+    const prior = rows[index - 1]?.close;
+    const current = rows[index]?.close;
+    if (prior > 0 && current > 0) dailyReturns.push((current / prior) - 1);
+  }
+  const recentReturns = dailyReturns.slice(-60);
+  const mean = recentReturns.reduce((total, value) => total + value, 0) / Math.max(1, recentReturns.length);
+  const variance = recentReturns.reduce((total, value) => total + ((value - mean) ** 2), 0) / Math.max(1, recentReturns.length);
+  const downside = recentReturns.filter(value => value < 0);
+  const downsideDeviation = Math.sqrt(downside.reduce((total, value) => total + (value ** 2), 0) / Math.max(1, downside.length)) * Math.sqrt(252);
+  let peak = rows[Math.max(0, rows.length - 252)]?.close || latest.close;
+  let maxDrawdown = 0;
+  for (const row of rows.slice(-252)) {
+    peak = Math.max(peak, row.close);
+    maxDrawdown = Math.max(maxDrawdown, peak > 0 ? (peak - row.close) / peak : 0);
+  }
+  const recent200 = rows.slice(-200);
+  const average200 = recent200.reduce((total, row) => total + row.close, 0) / recent200.length;
+  const tradedValues = rows.slice(-20).map(row => row.close * (Number.isFinite(row.volume) ? row.volume : 0)).sort((left, right) => left - right);
+  const medianTradedValue = tradedValues[Math.floor(tradedValues.length / 2)] || 0;
+  const data = {
+    price: latest.close,
+    listingHistoryDays: Math.max(0, Math.round((latest.timestamp - rows[0].timestamp) / 86400)),
+    median20dTradedValueLakh: medianTradedValue / 100000,
+    m3m1: threeMonth.close > 0 ? (oneMonth.close / threeMonth.close) - 1 : null,
+    m6m1: sixMonth.close > 0 ? (oneMonth.close / sixMonth.close) - 1 : null,
+    trend: average200 > 0 ? (latest.close / average200) - 1 : null,
+    volatility60d: Math.sqrt(variance) * Math.sqrt(252),
+    maxDrawdown,
+    downsideDeviation,
+    dailyReturns: dailyReturns.slice(-252),
+  };
+  portfolioResearchHistoryCache.set(cacheKey, { savedAt: Date.now(), data });
+  return data;
+}
+
+function portfolioBenchmarkYahooSymbol(symbol) {
+  const normalized = String(symbol || '').trim().toUpperCase();
+  if (normalized === 'NIFTY50' || normalized === 'NIFTY50TR') return '^NSEI';
+  if (normalized === 'NIFTY500' || normalized === 'NIFTY500TR') return '^CRSLDX';
+  return portfolioYahooSymbol(normalized);
+}
+
+async function fetchPortfolioStrategicHistory(symbol) {
+  const cacheKey = String(symbol || '').trim().toUpperCase();
+  const cached = portfolioStrategicHistoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.savedAt < PORTFOLIO_RESEARCH_CACHE_TTL_MS) return cached.data;
+  const yahooSymbol = portfolioBenchmarkYahooSymbol(cacheKey);
+  const path = `/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?interval=1d&range=10y&includePrePost=false&events=div%2Csplits`;
+  let response = await httpsGet({ hostname:'query1.finance.yahoo.com', path, method:'GET', timeout:15000, headers:YAHOO_HEADERS });
+  if (response.status !== 200) response = await httpsGet({ hostname:'query2.finance.yahoo.com', path, method:'GET', timeout:15000, headers:YAHOO_HEADERS });
+  if (response.status !== 200) return null;
+  const result = JSON.parse(response.body)?.chart?.result?.[0];
+  const timestamps = result?.timestamp || [];
+  const quote = result?.indicators?.quote?.[0] || {};
+  const adjusted = result?.indicators?.adjclose?.[0]?.adjclose || quote.close || [];
+  const observations = timestamps.map((timestamp, index) => ({
+    sessionDate:new Date(Number(timestamp) * 1000).toISOString().slice(0, 10),
+    adjustedLevel:Number(adjusted[index]),
+  })).filter(item => /^\d{4}-\d{2}-\d{2}$/.test(item.sessionDate) && Number.isFinite(item.adjustedLevel) && item.adjustedLevel > 0);
+  if (observations.length < 300) return null;
+  const data = Object.freeze(observations);
+  portfolioStrategicHistoryCache.set(cacheKey, { savedAt:Date.now(), data });
+  return data;
+}
+
+function portfolioBeta(assetReturns, benchmarkReturns) {
+  const length = Math.min(assetReturns?.length || 0, benchmarkReturns?.length || 0, 252);
+  if (length < 20) return null;
+  const asset = assetReturns.slice(-length);
+  const benchmark = benchmarkReturns.slice(-length);
+  const assetMean = asset.reduce((total, value) => total + value, 0) / length;
+  const benchmarkMean = benchmark.reduce((total, value) => total + value, 0) / length;
+  let covariance = 0;
+  let benchmarkVariance = 0;
+  for (let index = 0; index < length; index++) {
+    covariance += (asset[index] - assetMean) * (benchmark[index] - benchmarkMean);
+    benchmarkVariance += (benchmark[index] - benchmarkMean) ** 2;
+  }
+  return benchmarkVariance > 0 ? covariance / benchmarkVariance : null;
+}
+
+function portfolioResearchNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function parsePortfolioCsvLine(line) {
+  const values = [];
+  let value = '';
+  let quoted = false;
+  for (let index = 0; index < line.length; index++) {
+    const character = line[index];
+    if (character === '"' && quoted && line[index + 1] === '"') {
+      value += '"';
+      index++;
+    } else if (character === '"') quoted = !quoted;
+    else if (character === ',' && !quoted) {
+      values.push(value.trim());
+      value = '';
+    } else value += character;
+  }
+  values.push(value.trim());
+  return values;
+}
+
+async function portfolioOfficialIndexCsv(indexUniverse) {
+  const filename = ({
+    NIFTY500: 'ind_nifty500list.csv',
+    NIFTY50: 'ind_nifty50list.csv',
+  })[String(indexUniverse).toUpperCase()];
+  if (!filename) return [];
+  try {
+    const response = await httpsGet({
+      hostname: 'www.niftyindices.com',
+      path: `/IndexConstituent/${filename}`,
+      method: 'GET',
+      timeout: 15000,
+      headers: YAHOO_HEADERS,
+    });
+    if (response.status !== 200) return [];
+    const lines = String(response.body || '').replace(/^\uFEFF/u, '').split(/\r?\n/u).filter(Boolean);
+    const header = parsePortfolioCsvLine(lines.shift() || '');
+    const symbolIndex = header.indexOf('Symbol');
+    const nameIndex = header.indexOf('Company Name');
+    if (symbolIndex < 0) return [];
+    return lines.map(line => {
+      const values = parsePortfolioCsvLine(line);
+      return {
+        sym: String(values[symbolIndex] || '').trim().toUpperCase(),
+        name: values[nameIndex] || values[symbolIndex] || '',
+        officialCsvFallback: true,
+      };
+    }).filter(item => item.sym);
+  } catch (error) {
+    console.warn(`[portfolio-research] official constituent CSV: ${error.message}`);
+    return [];
+  }
+}
+
+async function portfolioIndexSymbols(indexUniverse) {
+  const index = ({ NIFTY500: 'NIFTY 500', NIFTY50: 'NIFTY 50' })[String(indexUniverse).toUpperCase()] || indexUniverse;
+  const cacheKey = String(index).toUpperCase();
+  const cached = nseIdxCache[cacheKey];
+  if (cached && Date.now() - cached.savedAt < NSE_IDX_CACHE_TTL) return cached.symbols;
+  try {
+    const payload = await nseJsonWithRetry(`/api/equity-stockIndices?index=${encodeURIComponent(index)}`, `portfolio universe ${index}`);
+    const symbols = (payload?.data || []).map(item => ({
+      sym: String(item.symbol || '').trim().toUpperCase(),
+      name: item.meta?.companyName || item.symbol || '',
+      price: Number(item.lastPrice) || null,
+      high52: Number(item.yearHigh) || null,
+      low52: Number(item.yearLow) || null,
+      volume: Number(item.totalTradedVolume) || null,
+    })).filter(item => item.sym);
+    if (symbols.length) {
+      nseIdxCache[cacheKey] = { symbols, savedAt: Date.now() };
+      saveNseIdxCache();
+      return symbols;
+    }
+  } catch (error) {
+    console.warn(`[portfolio-research] universe ${index}: ${error.message}`);
+  }
+  if (cached?.symbols?.length) return cached.symbols;
+  const officialCsv = await portfolioOfficialIndexCsv(indexUniverse);
+  if (officialCsv.length) {
+    nseIdxCache[cacheKey] = { symbols: officialCsv, savedAt: Date.now() };
+    saveNseIdxCache();
+    console.warn(`[portfolio-research] using official Nifty Indices CSV (${officialCsv.length}) because NSE JSON membership is unavailable`);
+    return officialCsv;
+  }
+  const localFallback = loadDashboardStockUniverse().map(item => ({
+    sym: String(item.sym || item.symbol || '').trim().toUpperCase(),
+    name: item.name || item.companyName || item.sym || item.symbol || '',
+    price: Number(item.price) || null,
+    high52: Number(item.high52 || item.yearHigh) || null,
+    low52: Number(item.low52 || item.yearLow) || null,
+    volume: Number(item.volume) || null,
+    researchUniverseFallback: true,
+  })).filter(item => item.sym);
+  if (localFallback.length) {
+    console.warn(`[portfolio-research] using maintained local universe (${localFallback.length}) because ${index} membership is unavailable`);
+  }
+  return localFallback;
+}
+
+async function portfolioFundamentals(symbols) {
+  const now = Date.now();
+  const metas = {};
+  const stale = [];
+  for (const symbol of symbols) {
+    const cached = fundCache[symbol];
+    if (cached && now - cached.savedAt < FUND_CACHE_TTL && cached.data?._researchFundamentalsVersion === 3) metas[symbol] = cached.data;
+    else stale.push(symbol);
+  }
+  if (stale.length) {
+    const fetched = await yahooSummary(stale);
+    for (const [symbol, data] of Object.entries(fetched.metas || {})) {
+      metas[symbol] = data;
+      fundCache[symbol] = { data, savedAt: now };
+    }
+    saveFundCache();
+  }
+  return metas;
+}
+
+async function portfolioNseRoeFallbacks(symbols, analysisAsOf) {
+  const output = {};
+  const stale = [];
+  for (const symbol of symbols) {
+    const cached = portfolioNseRoeCache.get(symbol);
+    if (cached && Date.now() - cached.savedAt < PORTFOLIO_NSE_ROE_CACHE_TTL_MS) {
+      if (cached.data) output[symbol] = cached.data;
+    } else stale.push(symbol);
+  }
+  for (let index = 0; index < stale.length; index += 6) {
+    const chunk = stale.slice(index, index + 6);
+    const settled = await Promise.allSettled(chunk.map(async symbol => ({
+      symbol,
+      result:await fetchNSELatestResult(symbol, { includeGrowth:false }),
+    })));
+    for (const item of settled) {
+      if (item.status !== 'fulfilled') continue;
+      const { symbol, result } = item.value;
+      const publishedAtMs = Date.parse(result?.publishedAt || '');
+      const roe = portfolioResearchNumber(result?.annualizedRoe);
+      const data = result && Number.isFinite(publishedAtMs) && publishedAtMs <= analysisAsOf.getTime()
+        && roe !== null && Math.abs(roe) <= 5
+        ? Object.freeze({
+            roe,
+            publishedAt:result.publishedAt,
+            periodStart:result.roePeriodStart,
+            periodEnd:result.roePeriodEnd,
+            periodDays:result.roePeriodDays,
+            usesAverageEquity:result.roeUsesAverageEquity === true,
+            consolidated:result.consolidated || null,
+          })
+        : null;
+      portfolioNseRoeCache.set(symbol, { savedAt:Date.now(), data });
+      if (data) output[symbol] = data;
+    }
+    if (index + 6 < stale.length) await new Promise(resolve => setTimeout(resolve, 150));
+  }
+  return output;
+}
+
+async function portfolioMarketAnalysis(request) {
+  const analysisAsOf = new Date();
+  const members = await portfolioIndexSymbols(request.indexUniverse);
+  if (!members.length) throw new Error(`No constituents available for ${request.indexUniverse}`);
+  const memberBySymbol = new Map(members.map(item => [item.sym, item]));
+  const usedOfficialCsvFallback = members.some(item => item.officialCsvFallback === true);
+  const usedLocalUniverseFallback = members.some(item => item.researchUniverseFallback === true);
+  for (const symbol of request.includeSymbols || []) {
+    const normalized = String(symbol).trim().toUpperCase();
+    if (normalized && !memberBySymbol.has(normalized)) memberBySymbol.set(normalized, { sym: normalized, name: normalized });
+  }
+  const allSymbols = [...memberBySymbol.keys()];
+  const analysisCacheKey = JSON.stringify({
+    indexUniverse: request.indexUniverse,
+    benchmark: request.benchmark,
+    includeSymbols: [...(request.includeSymbols || [])].map(symbol => String(symbol).toUpperCase()).sort(),
+    targetHoldings: request.targetHoldings,
+    strategicBenchmarks: request.strategicBenchmarks || null,
+  });
+  const cachedAnalysis = portfolioMarketAnalysisCache.get(analysisCacheKey);
+  if (cachedAnalysis && Date.now() - cachedAnalysis.savedAt < PORTFOLIO_MARKET_ANALYSIS_CACHE_TTL_MS) return cachedAnalysis.data;
+  const screeningQuoteResult = await yahooQuote(allSymbols);
+  const quoteResult = screeningQuoteResult;
+  const benchmarkSymbol = ({ NIFTY50: '^NSEI', NIFTY500: '^CRSLDX' })[String(request.benchmark).toUpperCase()] || '^NSEI';
+  const historyTask = (async () => {
+    const histories = {};
+    for (let index = 0; index < allSymbols.length; index += 24) {
+      const chunk = allSymbols.slice(index, index + 24);
+      const settled = await Promise.allSettled(chunk.map(async symbol => ({ symbol, history: await fetchPortfolioResearchHistory(symbol) })));
+      for (const result of settled) {
+        if (result.status === 'fulfilled' && result.value.history) histories[result.value.symbol] = result.value.history;
+      }
+    }
+    return histories;
+  })();
+  const strategicHistoryTask = request.strategicBenchmarks
+    ? Promise.all([
+        fetchPortfolioStrategicHistory(request.strategicBenchmarks.riskBenchmark),
+        fetchPortfolioStrategicHistory(request.strategicBenchmarks.defensiveBenchmark),
+        String(request.strategicBenchmarks.defensiveBenchmark).trim().toUpperCase() === 'GILT5YBEES'
+          ? fetchPortfolioStrategicHistory('LICNETFGSC') : Promise.resolve(null),
+      ]).then(([risk, defensive, defensiveProxyHistory]) => {
+        if (!risk || !defensive) return undefined;
+        const extended = defensiveProxyHistory
+          ? extendStrategicHistoryWithProxy(defensive, defensiveProxyHistory)
+          : Object.freeze({ history:defensive, extendedCount:0 });
+        return Object.freeze({
+          source:'YAHOO_RESEARCH', adjustment:'ADJUSTED_CLOSE', retrievedAt:analysisAsOf.toISOString(),
+          riskBenchmark:request.strategicBenchmarks.riskBenchmark,
+          defensiveBenchmark:request.strategicBenchmarks.defensiveBenchmark,
+          risk, defensive:extended.history,
+          ...(extended.extendedCount > 0 ? { defensiveProxy:Object.freeze({
+            symbol:'LICNETFGSC', yahooSymbol:'LICNETFGSC.NS',
+            purpose:'PRE_INCEPTION_HISTORY_EXTENSION',
+            primaryHistoryStartsOn:defensive[0]?.sessionDate || null,
+            extendedObservations:extended.extendedCount,
+          }) } : {}),
+        });
+      })
+    : Promise.resolve(undefined);
+  const [benchmarkHistory, histories, strategicBenchmarkHistory] = await Promise.all([
+    fetchPortfolioResearchHistory(benchmarkSymbol),
+    historyTask,
+    strategicHistoryTask,
+  ]);
+  const localMetadata = new Map(loadDashboardStockUniverse().map(item => [
+    String(item.sym || item.symbol || '').trim().toUpperCase(),
+    item,
+  ]));
+  const sectors = Object.fromEntries(allSymbols.map(symbol => [
+    symbol,
+    memberBySymbol.get(symbol)?.sector || localMetadata.get(symbol)?.sector || '',
+  ]));
+  const detailedPool = selectDetailedResearchPool({
+    symbols:allSymbols,
+    quotes:quoteResult.quotes || {},
+    histories,
+    sectors,
+    includeSymbols:request.includeSymbols || [],
+    targetHoldings:Number(request.targetHoldings || 25),
+    minimumPool:PORTFOLIO_RESEARCH_MIN_POOL,
+    maxPool:PORTFOLIO_RESEARCH_MAX_POOL,
+  });
+  const analysisSymbols = detailedPool.symbols;
+  const catalystScanTask = freshNewsService.fetchFreshStockNews(analysisSymbols, {
+    maxSymbols:analysisSymbols.length,
+    limit:100,
+  }).catch(error => ({ ok:false, error:error.message, scanned:0 }));
+  const [fundamentals, catalystScan] = await Promise.all([
+    portfolioFundamentals(analysisSymbols),
+    catalystScanTask,
+  ]);
+  const nseRoeFallbacks = await portfolioNseRoeFallbacks(
+    analysisSymbols.filter(symbol => portfolioResearchNumber(fundamentals[symbol]?.roe ?? fundamentals[symbol]?.calculatedRoe) === null),
+    analysisAsOf,
+  );
+  const calendarFromDate = new Date(analysisAsOf.getTime() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const resultCalendar = resultCalendarService.readCache(analysisSymbols, { fromDate:calendarFromDate, days:14, maxSymbols:400 });
+  const preliminaryCandidates = analysisSymbols
+    .map(symbol => [symbol, histories[symbol]])
+    .filter(([, history]) => history)
+    .map(([symbol, history]) => {
+    const quote = quoteResult.quotes?.[symbol] || {};
+    const fundamental = fundamentals[symbol] || {};
+    const yahooReturnOnEquity = portfolioResearchNumber(fundamental.roe);
+    const yahooCalculatedRoe = portfolioResearchNumber(fundamental.calculatedRoe);
+    const nseRoeFallback = nseRoeFallbacks[symbol] || null;
+    const returnOnEquity = yahooReturnOnEquity ?? yahooCalculatedRoe ?? portfolioResearchNumber(nseRoeFallback?.roe);
+    const returnOnAssets = portfolioResearchNumber(fundamental.roa);
+    const operatingMargin = portfolioResearchNumber(fundamental.operatingMargin);
+    const profitMargin = portfolioResearchNumber(fundamental.profitMargin);
+    const newsSignals = freshNewsService.getCachedResearchSignalsForSymbol(symbol, analysisAsOf) || {};
+    const upcomingResult = resultCalendar.resultCalendarBySymbol?.[symbol]?.[0] || null;
+    const upcomingResultAt = Date.parse(upcomingResult?.eventDate || upcomingResult?.dateKey || '');
+    const upcomingResultDays = Number.isFinite(upcomingResultAt)
+      ? Math.max(0, (upcomingResultAt - analysisAsOf.getTime()) / (24 * 60 * 60 * 1000)) : null;
+    const debtCoverage = Number(fundamental.totalDebt) > 0 && Number(fundamental.totalEquity) > 0
+      ? Number(fundamental.totalEquity) / Number(fundamental.totalDebt)
+      : Number(fundamental.totalDebt) === 0 && Number(fundamental.totalEquity) > 0 ? 10 : null;
+    const cashFlowQuality = Number(fundamental.operatingCashflow) > 0 && Number.isFinite(Number(fundamental.freeCashflow))
+      ? Number(fundamental.freeCashflow) / Number(fundamental.operatingCashflow) : null;
+    const volatilityAdjusted = Number(history.volatility60d) > 0 ? Number(history.m6m1) / Number(history.volatility60d) : null;
+    return {
+      symbol,
+      name: memberBySymbol.get(symbol)?.name || symbol,
+      sector: fundamental.sector ?? null,
+      price: Number(quote.price) || Number(history.price),
+      prevClose: Number(quote.prevClose) || undefined,
+      listingHistoryDays: history.listingHistoryDays,
+      median20dTradedValueLakh: history.median20dTradedValueLakh,
+      marketTimestamp: analysisAsOf.toISOString(),
+      metrics: {
+        m3m1: history.m3m1,
+        m6m1: history.m6m1,
+        relativeStrength: benchmarkHistory && Number.isFinite(history.m6m1) && Number.isFinite(benchmarkHistory.m6m1)
+          ? history.m6m1 - benchmarkHistory.m6m1 : null,
+        trend: history.trend,
+        earningsMomentum: portfolioResearchNumber(fundamental.earningsGrowth ?? fundamental.epsGrowth),
+        liquidity: Math.log1p(history.median20dTradedValueLakh),
+        volatilityAdjusted,
+        returnOnEquity,
+        returnOnAssets,
+        earningsStability: null,
+        debtCoverage,
+        cashFlowQuality,
+        trailingPE: portfolioResearchNumber(fundamental.trailingPE),
+        forwardPE: portfolioResearchNumber(fundamental.forwardPE),
+        priceToBook: portfolioResearchNumber(fundamental.priceToBook),
+        promoterPledge: null,
+        operatingMargin,
+        profitMargin,
+        revenueGrowth: portfolioResearchNumber(newsSignals.revenueGrowth ?? fundamental.revenueGrowth),
+        patGrowth: portfolioResearchNumber(newsSignals.patGrowth ?? fundamental.earningsGrowth),
+        epsGrowth: portfolioResearchNumber(newsSignals.epsGrowth ?? fundamental.epsGrowth),
+        resultImpact: portfolioResearchNumber(newsSignals.resultImpact),
+        sectorRelativeStrength: null,
+        sectorBreadth: null,
+        catalystImpact: portfolioResearchNumber(newsSignals.catalystImpact),
+        volatility60d: history.volatility60d,
+        maxDrawdown: history.maxDrawdown,
+        downsideDeviation: history.downsideDeviation,
+        beta: benchmarkHistory ? portfolioBeta(history.dailyReturns, benchmarkHistory.dailyReturns) : null,
+        liquidityRisk: -Math.log1p(history.median20dTradedValueLakh),
+        leverageRisk: portfolioResearchNumber(fundamental.debtToEquity),
+        eventRisk: resultCalendar.cachedDays > 0
+          ? Math.max(portfolioResearchNumber(newsSignals.eventRisk) || 0, upcomingResultDays === null ? 0 : 0.5 * Math.max(0, 1 - upcomingResultDays / 14))
+          : portfolioResearchNumber(newsSignals.eventRisk),
+      },
+      evidence: [
+        returnOnEquity === null
+          ? 'ROE unavailable from Yahoo and NSE XBRL'
+          : yahooReturnOnEquity !== null
+            ? `ROE ${(returnOnEquity * 100).toFixed(1)}% (Yahoo reported)`
+            : yahooCalculatedRoe !== null
+              ? `ROE ${(returnOnEquity * 100).toFixed(1)}% (calculated from Yahoo TTM EPS × shares / ${fundamental.calculatedRoeBasis === 'TTM_EPS_SHARES_OVER_REPORTED_EQUITY' ? 'reported equity' : 'market cap ÷ P/B'})`
+              : `ROE ${(returnOnEquity * 100).toFixed(1)}% (NSE XBRL annualized ${nseRoeFallback.periodDays}-day PAT / ${nseRoeFallback.usesAverageEquity ? 'average' : 'closing'} equity; published ${String(nseRoeFallback.publishedAt).slice(0, 10)})`,
+        operatingMargin === null ? 'Operating margin unavailable from Yahoo' : `Operating margin ${(operatingMargin * 100).toFixed(1)}%`,
+        ...(Array.isArray(newsSignals.evidence) ? newsSignals.evidence : []),
+        `Catalyst scan coverage ${Number(newsSignals.scanCoveragePct || 0).toFixed(1)}%`,
+        upcomingResult ? `Upcoming result event ${upcomingResult.dateKey || String(upcomingResult.eventDate).slice(0, 10)}` : null,
+      ].filter(Boolean),
+      catalystScanCoveragePct:Number(newsSignals.scanCoveragePct) || 0,
+    };
+  });
+  const sectorStats = new Map();
+  for (const candidate of preliminaryCandidates) {
+    if (!candidate.sector) continue;
+    const current = sectorStats.get(candidate.sector) || { returns:[], advances:0, observed:0 };
+    if (Number.isFinite(candidate.metrics.m6m1)) current.returns.push(candidate.metrics.m6m1);
+    if (Number.isFinite(candidate.metrics.m3m1)) {
+      current.observed += 1;
+      if (candidate.metrics.m3m1 > 0) current.advances += 1;
+    }
+    sectorStats.set(candidate.sector, current);
+  }
+  const candidates = preliminaryCandidates.map(candidate => {
+    const stats = candidate.sector ? sectorStats.get(candidate.sector) : null;
+    const sectorReturn = stats?.returns?.length
+      ? stats.returns.reduce((total, value) => total + value, 0) / stats.returns.length : null;
+    return {
+      ...candidate,
+      metrics: {
+        ...candidate.metrics,
+        sectorRelativeStrength: Number.isFinite(sectorReturn) && Number.isFinite(benchmarkHistory?.m6m1)
+          ? sectorReturn - benchmarkHistory.m6m1 : null,
+        sectorBreadth: stats?.observed > 0 ? stats.advances / stats.observed : null,
+      },
+      evidence: [
+        ...candidate.evidence,
+        Number.isFinite(sectorReturn) ? `${candidate.sector} analyzed-pool 6M-1M return ${(sectorReturn * 100).toFixed(1)}%` : null,
+      ].filter(Boolean),
+    };
+  });
+  const catalystScanCoveragePct = candidates.length
+    ? Math.round((candidates.filter(candidate => candidate.catalystScanCoveragePct === 100).length / candidates.length) * 1000) / 10
+    : 0;
+  const snapshot = Object.freeze({
+    source: 'YAHOO_RESEARCH',
+    indexUniverse: request.indexUniverse,
+    benchmark: request.benchmark,
+    asOf: analysisAsOf.toISOString(),
+    researchModelVersion: 'SIX_FACTOR_RESEARCH_V2',
+    constituentCount: members.length,
+    analyzedCount: candidates.length,
+    catalystScanCoveragePct,
+    ...(strategicBenchmarkHistory ? { strategicBenchmarkHistory } : {}),
+    candidates: Object.freeze(candidates),
+    warnings: Object.freeze([
+      `Normalized momentum, 20-day liquidity, low-risk and sector-diversified pre-screen covered all ${members.length} constituents; ${candidates.length} were selected for detailed analysis.`,
+      `Historical pre-screen coverage: ${Object.keys(histories).length}/${allSymbols.length} symbols; detailed pool target ${detailedPool.target} plus mandatory existing holdings.`,
+      ...(usedOfficialCsvFallback ? ['NSE JSON membership was unavailable; discovery used the official Nifty Indices constituent CSV.'] : []),
+      ...(usedLocalUniverseFallback ? ['NSE index membership was unavailable; candidate discovery used the maintained local stock universe.'] : []),
+      'Six-factor model: momentum 35%, quality 20%, earnings/results 15%, sector strength 10%, verified catalysts 10%, low risk 10%.',
+      'Exchange disclosures are publication-time filtered; unavailable components are neutralized rather than inferred.',
+      `Verified NSE catalyst scan coverage: ${catalystScanCoveragePct}% of detailed candidates across a 30-day filing lookback.`,
+      ...(catalystScan.ok === false ? [`Catalyst refresh failed and cached coverage was used: ${catalystScan.error}`] : []),
+      ...(resultCalendar.missingDays > 0 ? [`Upcoming-result risk calendar is missing ${resultCalendar.missingDays} of ${resultCalendar.days + 1} requested days.`] : []),
+      ...(request.strategicBenchmarks && !strategicBenchmarkHistory ? ['Strategic rebalance benchmark history is incomplete; trend-timed approval will fail closed.'] : []),
+      ...(strategicBenchmarkHistory?.defensiveProxy ? [`${request.strategicBenchmarks.defensiveBenchmark} pre-inception history is extended with rebased Indian government-securities proxy ${strategicBenchmarkHistory.defensiveProxy.symbol}; recent observations remain the configured benchmark.`] : []),
+    ]),
+  });
+  portfolioMarketAnalysisCache.set(analysisCacheKey, { savedAt: Date.now(), data: snapshot });
+  return snapshot;
 }
 
 // Indices via v8/chart
@@ -7800,11 +8379,17 @@ async function yahooIndices() {
 //  HTTP SERVER
 // ══════════════════════════════════════════════════════════
 async function proxyRequestHandler(req, res) {
+  const parsedRequestUrl = new URL(req.url, `http://localhost:${PORT}`);
+  if (parsedRequestUrl.pathname.startsWith('/api/portfolio')) {
+    if (rejectUnsafeNonLocalRequest(req, res)) return;
+    const runtime = await initializePortfolioHttpRuntime();
+    if (await runtime.handle(req, res, parsedRequestUrl.pathname)) return;
+  }
   applyLocalCors(req, res);
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   if (rejectUnsafeNonLocalRequest(req, res)) return;
 
-  const { pathname, searchParams } = new URL(req.url, `http://localhost:${PORT}`);
+  const { pathname, searchParams } = parsedRequestUrl;
   if (pathname === PAPER_TRADES_ALIAS_PATH || pathname === PAPER_TRADES_ALIAS_STREAM_PATH) {
     res.setHeader('X-Deprecated-Route', PAPER_TRADES_DEPRECATION_WARNING);
   }
@@ -7934,7 +8519,14 @@ async function proxyRequestHandler(req, res) {
       const payload = await nseJsonWithRetry(`/api/equity-stockIndices?index=${encodeURIComponent(index)}`, `index symbols ${index}`);
       const items = payload?.data || [];
       const symbols = items
-        .map(item => ({ sym: (item.symbol||'').trim().toUpperCase(), name: item.meta?.companyName || item.symbol || '' }))
+        .map(item => ({
+          sym: (item.symbol||'').trim().toUpperCase(),
+          name: item.meta?.companyName || item.symbol || '',
+          price: Number(item.lastPrice) || null,
+          high52: Number(item.yearHigh) || null,
+          low52: Number(item.yearLow) || null,
+          volume: Number(item.totalTradedVolume) || null,
+        }))
         .filter(s => s.sym);
       nseIdxCache[cacheKey] = { symbols, savedAt: Date.now() };
       saveNseIdxCache();
@@ -8548,7 +9140,7 @@ async function proxyRequestHandler(req, res) {
       const stale = [];
       for (const sym of symbols) {
         const entry = fundCache[sym];
-        if (entry && (now - entry.savedAt) < FUND_CACHE_TTL) {
+        if (entry && (now - entry.savedAt) < FUND_CACHE_TTL && entry.data?._researchFundamentalsVersion === 3) {
           send({ sym, data: entry.data });
         } else {
           stale.push(sym);
@@ -8910,7 +9502,7 @@ async function proxyRequestHandler(req, res) {
       const stale = [];
       for (const sym of symbols) {
         const entry = fundCache[sym];
-        if (entry && (now - entry.savedAt) < FUND_CACHE_TTL) {
+        if (entry && (now - entry.savedAt) < FUND_CACHE_TTL && entry.data?._researchFundamentalsVersion === 3) {
           metas[sym] = entry.data;
         } else {
           stale.push(sym);
@@ -9141,6 +9733,7 @@ async function initializeProxy() {
     initDb();
     proxyDbReady = true;
     console.log('[db] SQLite initialized');
+    await initializePortfolioHttpRuntime();
     setupEfficiencyService.start();
     exitQualityService.start();
 
@@ -9455,6 +10048,7 @@ if (require.main === module) {
 
 module.exports = {
   initializeProxy,
+  closePortfolioHttpRuntime,
   proxyRequestHandler,
   startProxyServer,
   rememberTrade,
