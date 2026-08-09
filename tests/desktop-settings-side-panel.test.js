@@ -9,6 +9,7 @@ const SimulationEngine = require('../simulation_engine');
 
 const root = path.join(__dirname, '..');
 const dashboard = fs.readFileSync(path.join(root, 'dashboard-app.js'), 'utf8');
+const mobile = fs.readFileSync(path.join(root, 'mobile-app.js'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'nse_midcap_dashboard.html'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'dashboard.css'), 'utf8');
 
@@ -63,12 +64,22 @@ test('setup definitions identify their specialist configuration keys', () => {
 
   assert.ok(keysFor('RANGEBOUND').includes('SIMULATION_RANGEBOUND_MIN_RANGE_PCT'));
   assert.ok(keysFor('RANGEBOUND').includes('SIMULATION_RANGEBOUND_MAX_SPREAD_PCT'));
+  assert.ok(keysFor('RANGEBOUND').includes('SIMULATION_RANGEBOUND_MAX_POSITION_EXPOSURE'));
+  assert.equal(defaults.SIMULATION_RANGEBOUND_MAX_POSITION_EXPOSURE, 200000);
   assert.ok(keysFor('MOMENTUM_RUNNER').includes('SIMULATION_RUNNER_MIN_SCORE'));
   assert.ok(keysFor('BULL_FLAG_CONTINUATION').includes('SIMULATION_BULL_FLAG_MIN_DAY_GAIN_PCT'));
   assert.ok(keysFor('GAP_AND_GO').includes('SIMULATION_GAP_AND_GO_MIN_GAP_PCT'));
   assert.ok(keysFor('MOMENTUM_RUNNER').includes('SIMULATION_MOMENTUM_CATALYST_MAX_SCORE_ADJUSTMENT'));
   assert.ok(keysFor('VWAP_TREND_CONTINUATION').includes('SIMULATION_VWAP_CONT_MIN_REL_VOL'));
   assert.ok(!keysFor('TOP_GAINER_CONTINUATION').includes('SIMULATION_TOP_GAINER_PULLBACK_MIN_DAY_GAIN_PCT'));
+});
+
+test('Rangebound exposure cap is an explicit currency control on desktop and mobile', () => {
+  assert.match(dashboard, /function isSetupExposureSetting\(key\)/);
+  assert.match(dashboard, /MAX_POSITION_EXPOSURE\$\/\.test\(key\)/);
+  assert.match(dashboard, /isSetupExposureSetting\(key\) \? '1000' : 'any'/);
+  assert.match(mobile, /MAX_POSITION_EXPOSURE\$\/\.test\(key\) \? `\$\{clean\} \(₹\)`/);
+  assert.match(mobile, /step="1000" min="10000" inputmode="numeric"/);
 });
 
 test('simulation eligibility honors each setup enable flag', () => {

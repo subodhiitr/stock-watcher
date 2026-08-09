@@ -1,13 +1,25 @@
 {
   "ok": true,
   "date": "2026-08-08",
-  "savedAt": 1785640590228,
-  "builtInMs": 90230,
+  "savedAt": 1786072594908,
+  "builtInMs": 94906,
   "source": "nse-board-meetings",
-  "scanned": 3041,
-  "count": 3,
-  "symbolCount": 3,
+  "scanned": 3045,
+  "count": 4,
+  "symbolCount": 4,
   "items": [
+    {
+      "symbol": "ABFRL",
+      "name": "Aditya Birla Fashion and Retail Limited",
+      "type": "Financial Results",
+      "title": "To consider and approve the Unaudited Standalone and Consolidated Financial Results of the Company for the quarter ended June 30, 2026",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=ABFRL",
+      "eventDate": "2026-08-07T18:30:00.000Z",
+      "dateKey": "2026-08-08",
+      "status": "upcoming",
+      "period": null
+    },
     {
       "symbol": "ANANTRAJ",
       "name": "Anant Raj Limited",

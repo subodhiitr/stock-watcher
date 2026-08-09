@@ -3897,7 +3897,7 @@ function formatSettingValue(value, key) {
   if (value == null || value === '') return '--';
   const n = Number(value);
   if (!Number.isFinite(n)) return String(value);
-  if (key === 'PORTFOLIO_INITIAL_CAPITAL' || key === 'MAX_POSITION_EXPOSURE') return moneyINR(n);
+  if (key === 'PORTFOLIO_INITIAL_CAPITAL' || /MAX_POSITION_EXPOSURE$/.test(key)) return moneyINR(n);
   if (/_PCT$/.test(key)) return `${n.toLocaleString('en-IN', { maximumFractionDigits: 3 })}%`;
   if (/_MIN$/.test(key)) return `${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })} min`;
   return n.toLocaleString('en-IN', { maximumFractionDigits: 3 });
@@ -4109,9 +4109,14 @@ function formatSetupSettingLabel(key, definition) {
     .replace(/\bRsi\b/g, 'RSI')
     .replace(/\bRs\b/g, 'RS')
     .replace(/\bAtr\b/g, 'ATR');
+  if (isSetupExposureSetting(key)) return `${clean} (₹)`;
   if (isSetupClockSetting(key)) return clean.replace(/ Min$/, ' Time');
   if (/_MIN$/.test(key)) return clean.replace(/ Min$/, ' (Minutes)');
   return clean;
+}
+
+function isSetupExposureSetting(key) {
+  return /MAX_POSITION_EXPOSURE$/.test(key);
 }
 
 function isSetupClockSetting(key) {
@@ -4214,7 +4219,9 @@ function renderSetupSettingsModal() {
     } else if (isSetupClockSetting(key)) {
       control = `<input class="setup-setting-input time" type="time" value="${escapeHTML(formatSetupClockValue(value))}" onchange="setSetupTimeSettingOverride('${escapeHTML(key)}', this.value)">`;
     } else {
-      control = `<input class="setup-setting-input" type="number" step="any" value="${Number.isFinite(Number(value)) ? escapeHTML(String(value)) : ''}" placeholder="${defaultValue == null ? 'Not set' : ''}" onchange="setSetupNumberSettingOverride('${escapeHTML(key)}', this.value)">`;
+      const step = isSetupExposureSetting(key) ? '1000' : 'any';
+      const min = isSetupExposureSetting(key) ? ' min="10000"' : '';
+      control = `<input class="setup-setting-input" type="number" step="${step}"${min} value="${Number.isFinite(Number(value)) ? escapeHTML(String(value)) : ''}" placeholder="${defaultValue == null ? 'Not set' : ''}" onchange="setSetupNumberSettingOverride('${escapeHTML(key)}', this.value)">`;
     }
     return `
       <div class="setup-setting-field">

@@ -1,12 +1,12 @@
 {
   "ok": true,
   "date": "2026-08-10",
-  "savedAt": 1785640590228,
-  "builtInMs": 90235,
+  "savedAt": 1786072594908,
+  "builtInMs": 94908,
   "source": "nse-board-meetings",
-  "scanned": 3041,
-  "count": 6,
-  "symbolCount": 6,
+  "scanned": 3045,
+  "count": 11,
+  "symbolCount": 10,
   "items": [
     {
       "symbol": "ARE&M",
@@ -15,6 +15,30 @@
       "title": "AMARA RAJA ENERGY & MOBILITY LIMITED has informed the Exchange about Board Meeting to be held on 10-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
       "source": "NSE",
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=ARE%26M",
+      "eventDate": "2026-08-09T18:30:00.000Z",
+      "dateKey": "2026-08-10",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "BHARATFORG",
+      "name": "Bharat Forge Limited",
+      "type": "Financial Results",
+      "title": "BHARAT FORGE LTD has informed the Exchange about Board Meeting to be held on 10-Aug-2026 to consider and approve the Quarterly Unaudited Financial results of the Company for the period ended June 2026 and Fund raising.",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=BHARATFORG",
+      "eventDate": "2026-08-09T18:30:00.000Z",
+      "dateKey": "2026-08-10",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "BHARATFORG",
+      "name": "Bharat Forge Limited",
+      "type": "Fund Raising",
+      "title": "To consider Fund Raising",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=BHARATFORG",
       "eventDate": "2026-08-09T18:30:00.000Z",
       "dateKey": "2026-08-10",
       "status": "upcoming",
@@ -57,6 +81,18 @@
       "period": null
     },
     {
+      "symbol": "IDEA",
+      "name": "Vodafone Idea Limited",
+      "type": "Financial Results",
+      "title": "Vodafone Idea Limited has informed the Exchange about Board Meeting to be held on 10-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=IDEA",
+      "eventDate": "2026-08-09T18:30:00.000Z",
+      "dateKey": "2026-08-10",
+      "status": "upcoming",
+      "period": null
+    },
+    {
       "symbol": "NAUKRI",
       "name": "Info Edge (India) Limited",
       "type": "Financial Results",
@@ -75,6 +111,30 @@
       "title": "Triveni Turbine Limited has informed the Exchange about Board Meeting to be held on 10-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
       "source": "NSE",
       "url": "https://www.nseindia.com/get-quotes/equity?symbol=TRITURBINE",
+      "eventDate": "2026-08-09T18:30:00.000Z",
+      "dateKey": "2026-08-10",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "WOCKPHARMA",
+      "name": "Wockhardt Limited",
+      "type": "Financial Results",
+      "title": "WOCKHARDT LIMITED has informed the Exchange about Board Meeting to be held on 10-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=WOCKPHARMA",
+      "eventDate": "2026-08-09T18:30:00.000Z",
+      "dateKey": "2026-08-10",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "ZEEL",
+      "name": "Zee Entertainment Enterprises Limited",
+      "type": "Financial Results",
+      "title": "Zee Entertainment Enterprises Limited has informed the Exchange about Board Meeting to be held on 10-Aug-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=ZEEL",
       "eventDate": "2026-08-09T18:30:00.000Z",
       "dateKey": "2026-08-10",
       "status": "upcoming",

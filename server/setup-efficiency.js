@@ -87,6 +87,13 @@ function buildPositionFact(positionId, rows) {
     sourceUpdatedAt,
     legs:legs.length,
     score:Math.abs(Number(root.score) || 0),
+    decisionScore:Number.isFinite(Number(root.decisionScore ?? root.entryContext?.decisionScore))
+      ? Number(root.decisionScore ?? root.entryContext?.decisionScore)
+      : null,
+    rangeboundAdmission:setupType === 'RANGEBOUND' && root.entryContext?.rangeboundAdmission
+      && typeof root.entryContext.rangeboundAdmission === 'object'
+      ? { ...root.entryContext.rangeboundAdmission }
+      : null,
     exposure:round(exposure),
     pnl:round(pnl),
     grossPnl:round(grossPnl),

@@ -155,7 +155,10 @@ test('rangebound liquidity gates reject wide spreads and weak bid imbalance', ()
     capturedAt:at,
     source:'sharekhan-ws',
   };
-  assert.equal(SimulationEngine.getRangeboundInfo(candidate, settings, at).ok, true);
+  const accepted = SimulationEngine.getRangeboundInfo(candidate, settings, at);
+  assert.equal(accepted.ok, true);
+  assert.equal(accepted.liquidity.available, true);
+  assert.equal(accepted.liquidity.fresh, true);
 
   candidate.indicators.marketDepth.bestAskPrice = 100.3;
   assert.match(SimulationEngine.getRangeboundInfo(candidate, settings, at).reason, /spread/);
@@ -164,6 +167,95 @@ test('rangebound liquidity gates reject wide spreads and weak bid imbalance', ()
   candidate.indicators.marketDepth.totalBidQuantity = 200;
   candidate.indicators.marketDepth.totalAskQuantity = 800;
   assert.match(SimulationEngine.getRangeboundInfo(candidate, settings, at).reason, /bid imbalance/);
+});
+
+test('rangebound entry intents persist admission metrics needed by Strategy Advisor', () => {
+  const at = '2026-07-30T08:50:00.000Z';
+  const candidate = rangeboundCandidate();
+  Object.assign(candidate, {
+    target:101,
+    stop:99.75,
+    __snapshotAt:at,
+  });
+  candidate.indicators.marketDepth = {
+    bestBidPrice:100,
+    bestAskPrice:100.05,
+    totalBidQuantity:600,
+    totalAskQuantity:400,
+    capturedAt:at,
+    source:'sharekhan-ws',
+  };
+  const intents = SimulationEngine.getSimulationEntryIntents([candidate], at, {
+    SIMULATION_RANGEBOUND_MIN_SCORE:1,
+    SIMULATION_RANGEBOUND_MIN_BREADTH_PCT:25,
+    SIMULATION_RANGEBOUND_MIN_NET_PROFIT_PCT:0.4,
+    SIMULATION_RANGEBOUND_MIN_GROSS_TO_COST_MULTIPLE:1.5,
+    SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED:false,
+    SIMULATION_SECTOR_PRIORITY_ENABLED:false,
+  }, {
+    cashAvailable:100000,
+    portfolioEquity:500000,
+    openExposure:0,
+    openSymbols:new Set(),
+    openPositionCounts:new Map(),
+    market:{ breadth:{ advancePct:30 }, indices:{ nifty50:{ change:-0.1 } } },
+    sectorTrend:{ Retail:-0.5 },
+  });
+
+  assert.equal(intents.length, 1);
+  assert.deepEqual(intents[0].entryContext.rangeboundAdmission, {
+    schemaVersion:1,
+    lowerBoundDistancePct:0.05,
+    stopDistancePct:0.3,
+    decisionScore:intents[0].decisionScore,
+    modeledNetProfitPct:0.79,
+    modeledGrossProfitPct:0.95,
+    modeledCostPct:0.16,
+    grossToCostMultiple:5.938,
+    liveDepthAvailable:true,
+    liveDepthFresh:true,
+    liquidityGateApplied:true,
+    spreadPct:0.05,
+    bookImbalance:0.6,
+    combinedDepthQty:1000,
+    depthAgeSec:0,
+    depthSource:'sharekhan-ws',
+  });
+});
+
+test('rangebound uses its dedicated exposure cap without raising the shared setup cap', () => {
+  const at = '2026-07-30T08:50:00.000Z';
+  const candidate = rangeboundCandidate();
+  Object.assign(candidate, { target:101, stop:99.75, __snapshotAt:at });
+  const settings = {
+    PORTFOLIO_INITIAL_CAPITAL:1000000,
+    MAX_POSITION_EXPOSURE:100000,
+    TRADE_RISK_PCT:1,
+    SIMULATION_MAX_GROSS_EXPOSURE_PCT:80,
+    SIMULATION_RANGEBOUND_MAX_POSITION_EXPOSURE:200000,
+    SIMULATION_RANGEBOUND_MIN_SCORE:1,
+    SIMULATION_RANGEBOUND_MIN_BREADTH_PCT:25,
+    SIMULATION_RANGEBOUND_MIN_NET_PROFIT_PCT:0.4,
+    SIMULATION_RANGEBOUND_MIN_GROSS_TO_COST_MULTIPLE:1.5,
+    SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED:false,
+    SIMULATION_SECTOR_PRIORITY_ENABLED:false,
+  };
+  const intents = SimulationEngine.getSimulationEntryIntents([candidate], at, settings, {
+    cashAvailable:1000000,
+    portfolioEquity:1000000,
+    openExposure:0,
+    openSymbols:new Set(),
+    openPositionCounts:new Map(),
+    market:{ breadth:{ advancePct:30 }, indices:{ nifty50:{ change:-0.1 } } },
+    sectorTrend:{ Retail:-0.5 },
+  });
+
+  assert.equal(intents.length, 1);
+  assert.equal(intents[0].setupType, 'RANGEBOUND');
+  assert.ok(intents[0].qty * intents[0].price > 199000);
+  assert.ok(intents[0].qty * intents[0].price <= 200000);
+  assert.equal(intents[0].entryContext.maxPositionExposure, 200000);
+  assert.equal(settings.MAX_POSITION_EXPOSURE, 100000);
 });
 
 test('rangebound depth is opportunistic by default and strict when required', () => {

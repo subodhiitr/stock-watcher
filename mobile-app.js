@@ -1196,7 +1196,7 @@
     const prefix = [...(definition?.settingPrefixes || [])]
       .sort((left, right) => right.length - left.length)
       .find(candidate => key.startsWith(candidate));
-    return String(prefix ? key.slice(prefix.length) : key)
+    const clean = String(prefix ? key.slice(prefix.length) : key)
       .replace(/_/g, ' ')
       .toLowerCase()
       .replace(/\b\w/g, letter => letter.toUpperCase())
@@ -1205,6 +1205,7 @@
       .replace(/\bRsi\b/g, 'RSI')
       .replace(/\bRs\b/g, 'RS')
       .replace(/\bAtr\b/g, 'ATR');
+    return /MAX_POSITION_EXPOSURE$/.test(key) ? `${clean} (₹)` : clean;
   }
 
   function renderMobileSetupSettings() {
@@ -1239,9 +1240,12 @@
         const kind = typeof defaultValue === 'boolean' ? 'boolean' : (typeof defaultValue === 'number' || defaultValue == null ? 'number' : 'text');
         const defaultAttribute = defaultValue == null ? '' : String(defaultValue);
         const checked = value === true || value === 1 || value === '1' || value === 'true';
+        const numberAttributes = kind === 'number' && /MAX_POSITION_EXPOSURE$/.test(key)
+          ? 'step="1000" min="10000" inputmode="numeric"'
+          : (kind === 'number' ? 'step="any"' : '');
         const control = kind === 'boolean'
           ? `<input name="${escapeHTML(key)}" type="checkbox" data-setup-setting="true" data-setting-kind="boolean" data-default="${escapeHTML(defaultAttribute)}" ${checked ? 'checked' : ''}>`
-          : `<input name="${escapeHTML(key)}" type="${kind}" data-setup-setting="true" data-setting-kind="${kind}" data-default="${escapeHTML(defaultAttribute)}" ${kind === 'number' ? 'step="any"' : ''} value="${value == null ? '' : escapeHTML(String(value))}">`;
+          : `<input name="${escapeHTML(key)}" type="${kind}" data-setup-setting="true" data-setting-kind="${kind}" data-default="${escapeHTML(defaultAttribute)}" ${numberAttributes} value="${value == null ? '' : escapeHTML(String(value))}">`;
         return `
           <label class="${kind === 'boolean' ? 'check-row mobile-setup-toggle' : ''}">
             <span>${escapeHTML(label)}${overridden ? '<em class="mobile-setting-override">custom</em>' : ''}</span>
