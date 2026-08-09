@@ -3,7 +3,7 @@
 ## Project Information
 - **Project Type**: Brownfield
 - **Start Date**: 2026-07-02T07:39:06Z
-- **Current Stage**: CONSTRUCTION - U05 Code Generation
+- **Current Stage**: CONSTRUCTION - U09 Integrated Quality and Delivery Implemented
 
 ## Workspace State
 - **Existing Code**: Yes
@@ -11,7 +11,7 @@
 - **Build System**: npm
 - **Project Structure**: Monolith / Single-repository application with Remix UI, Node proxy, and test suite
 - **Reverse Engineering Needed**: Yes
-- **Workspace Root**: C:\data\project\stock-watcher
+- **Workspace Root**: C:\workspace\stock-watcher-g1
 
 ## Extension Configuration
 | Extension | Enabled | Decided At |
@@ -49,9 +49,9 @@
 
 ## Current Status
 - **Lifecycle Phase**: CONSTRUCTION
-- **Current Stage**: U05 Execution and Reconciliation Code Generation Part 2
-- **Next Stage**: Execute the approved U05 Code Generation plan
-- **Status**: U01 through U04 are complete. U05 design and Code Generation Part 1 are complete and approved; implementation is in progress.
+- **Current Stage**: U09 integrated quality and delivery implementation complete; release review ready
+- **Next Stage**: Release/approval decision
+- **Status**: U01 through U09 are implemented. Root and Remix/UI production dependency audits are clean, broader compatibility is green, and the portfolio workspace now supports guarded first-run administrator setup.
 - **U03 Code Generation Part 2 Approval**: Complete on 2026-08-02; 121/121 U03 tests pass, portfolio type checking and declaration generation pass, benchmark verified, and the repository compatibility suite has 717/721 passing with only four established unrelated legacy failures
 - **U02 Functional Design Plan**: `aidlc-docs/construction/plans/u02-portfolio-persistence-functional-design-plan.md`
 - **U02 Functional Design Decisions**: Recommended option A selected for all eight questions under the autopilot unavailable-user fallback
@@ -151,8 +151,35 @@
 
 ## Current Construction Unit
 
-- **Unit**: U05 Execution and Reconciliation
-- **Current Stage**: Infrastructure Design complete; Code Generation planning next
+- **Unit**: U09 Integrated Quality and Delivery
+- **Current Stage**: Implementation complete; release gate evidence green
+- **U09 Plan**: `aidlc-docs/construction/plans/u09-integrated-quality-delivery-implementation-plan.md`
+- **U09 Summary**: `aidlc-docs/construction/u09-integrated-quality-delivery/implementation-summary.md`
+- **U09 Local Gate**: `verify:portfolio:u09` passes strict typechecks, declaration contracts, Remix Doctor, 339/339 portfolio tests, 2/2 UI tests, 4/4 focused U09 tests, all 39 story-evidence assignments, U05 execution capacity, and U09 supported-scale capacity
+- **U09 Capacity**: 100 portfolios, 1,000 instruments, ten years/2,520,000 daily observations, interactive p95 below 1 ms, yielded processing below 11 ms per chunk, and 100/100 portfolio jobs complete
+- **U09 Delivery**: Pinned least-privilege GitHub Actions, locked installs, clean production audits, deterministic CycloneDX SBOMs, build verification, guarded first-run administrator setup, and no-real-broker safety checks are wired
+- **U09 Release Evidence**: External production audits refreshed on 2026-08-08; root and Remix/UI both pass `npm audit --omit=dev` with 0 vulnerabilities
+- **U09 Dependency Advisory Notes**: Root and Remix/UI advisories were remediated through explicit lockfile-backed overrides for the transitive advisory paths.
+- **U09 Broader Compatibility**: 888/888 passing after making the dated SQLite snapshot consumer tests self-contained with temporary fixture databases and adding guarded portfolio first-run bootstrap coverage
+- **U08 Status**: Complete
+- **U08 Plan**: `aidlc-docs/construction/plans/u08-react-portfolio-workspace-implementation-plan.md`
+- **U08 Summary**: `aidlc-docs/construction/u08-react-portfolio-workspace/implementation-summary.md`
+- **U08 Scope**: Dedicated routes; typed client; cancellation and stale-response protection; sign-in, creation, selection, safety and archive flows; overview, holdings, strategy, rebalance, performance, and operations panels; accessible focus and semantic controls
+- **U08 Validation**: 2/2 focused tests and UI typecheck pass; live HTTP smoke returns the protected workspace with CSP/frame denial and no legacy dashboard assets
+- **U08 Compatibility Validation**: Full repository suite is 888/888 after dated snapshot fixtures and first-run bootstrap coverage
+- **U07 Status**: Complete
+- **U07 Plan**: `aidlc-docs/construction/plans/u07-api-runtime-basic-implementation-plan.md`
+- **U07 Summary**: `aidlc-docs/construction/u07-api-runtime/basic-implementation.md`
+- **U07 Scope**: Protected API contracts plus migration 003, parameterized SQLite security adapters, secure sessions/logout, brute-force alerts, durable idempotency/rate limits, object authorization, focused routes, composition root, proxy/Remix registration, and graceful lifecycle
+- **U07 Validation**: 11/11 full focused tests, 23/23 persistence tests, strict portfolio/UI TypeScript, declaration contracts, and live HTTP integration pass
+- **U06 Status**: Complete
+- **U06 Basic Plan**: `aidlc-docs/construction/plans/u06-operations-security-recovery-basic-implementation-plan.md`
+- **U06 Basic Summary**: `aidlc-docs/construction/u06-operations-security-recovery/basic-implementation.md`
+- **U06 Basic Scope**: Lease-protected job orchestration, restart classification, health aggregation, audit-gated verified backups, restore preflight, incident evidence, ports, exports, and tests
+- **U06 Basic Validation**: 11/11 focused tests, strict TypeScript, declaration contracts, 33/33 core compatibility, and 56/56 U05 compatibility pass
+- **U06 Full Summary**: `aidlc-docs/construction/u06-operations-security-recovery/full-implementation.md`
+- **U06 Full Scope**: Migration 004; durable job leases; component health; operations alerts; verified backup receipts; append-only incidents; hash-chained audit decisions; owner-mediated backup coverage; database health audit validation; privileged operations API; and explicit Operations UI
+- **U06 Full Validation**: 15/15 U06 focused tests, strict portfolio TypeScript, declaration contracts, U07 full API/runtime compatibility, persistence compatibility, and UI typecheck pass
 - **U01 Status**: Complete
 - **U02 Status**: Complete
 - **U03 Status**: Complete
@@ -179,7 +206,7 @@
 - **U04 Code Generation Part 2 Completion**: Complete on 2026-08-02; 55/55 plan steps checked, 76/76 focused tests pass, strict typecheck and declaration generation pass, 117/117 rule evidence entries and 100/100 NFR traceability are verified, all 11 benchmark gates pass, portfolio suites remain green, and the full repository suite is 795/799 with the same four unrelated legacy failures as the 717/721 baseline
 - **U04 Post-Implementation Review**: A critical planner-wiring finding was corrected before approval. Drift bands, preferred holds, hold-rank buffers, after-drag replacement hurdles, paired-entrant suppression, hard-constraint precedence, interim precedence, and optimizer exclusion are now enforced by the real planning path and covered end-to-end.
 - **U04 Code Generation Approval**: Option B selected on 2026-08-02 under autopilot mode after independent verification and final code review found no remaining blocking issue
-- **U05 Status**: Functional Design, NFR Requirements, NFR Design, and Infrastructure Design complete and approved; Code Generation remains
+- **U05 Status**: Complete
 - **U05 Functional Design Plan**: `aidlc-docs/construction/plans/u05-execution-reconciliation-functional-design-plan.md`
 - **U05 Functional Design Artifacts**: `business-logic-model.md`, `business-rules.md`, and `domain-entities.md`
 - **U05 Functional Design Validation**: 7 primary stories and 5 supporting stories covered; 124 unique rules across 12 subsystems; 24 conservative autonomous decisions; deterministic approval, execution, order, fill, cancellation, reconciliation, kill-switch, and recovery state machines; PBT-01 properties and brownfield U01/U02/U04/legacy broker fit defined
@@ -209,7 +236,14 @@
 - **U05 Code Generation Plan**: `aidlc-docs/construction/plans/u05-execution-reconciliation-code-generation-plan.md`
 - **U05 Code Generation Plan Scope**: 64 dependency-safe steps; 14 modified existing files; 36 new runtime files; 18 test, benchmark, and summary files; all 7 primary and 5 supporting stories, 124 functional rules, and 134 NFRs traced
 - **U05 Code Generation Plan Review**: Independent review found and corrected the U05 identifier count, mutation-contract/repository ordering, and multi-entity mutation-to-event matching algorithm; final review found no blocking issue
-- **U05 Code Generation Part 1 Approval**: Option B selected on 2026-08-06 under autopilot mode; Part 2 implementation is in progress
+- **U05 Code Generation Part 1 Approval**: Option B selected on 2026-08-06 under autopilot mode
+- **U05 Code Summary**: `aidlc-docs/construction/u05-execution-reconciliation/code/code-summary.md`
+- **U05 Code Generation Completion**: Complete on 2026-08-07; 64/64 plan steps and all eight completion gates checked; actual brownfield paths reconciled with the plan
+- **U05 Focused Validation**: 56/56 focused tests pass; strict portfolio TypeScript and declaration-contract generation pass
+- **U05 Evidence Validation**: 124/124 functional rules and 134/134 NFRs are derived from the approved documents and reference existing executable owners
+- **U05 Benchmark Validation**: 7/7 execution benchmark gates pass for approval, 250-order conversion/hash, transitions, fill accounting, boundary reconciliation, 10,000-fill recovery, and 100-portfolio isolation
+- **U05 Compatibility Validation**: U01 33/33, U02 23/23, U03 121/121, and U04 76/76 pass; full repository suite is 854/857 with three established unrelated snapshot-fixture failures and no U05 failure
+- **U05 Security Validation**: Live execution remains default-disabled and uncertified; tests have no credential or real-broker capability. `npm audit` reports five pre-existing root dependency findings (three high, two moderate) outside the U05 dependency surface for later repository-wide remediation
 - **U03 Functional Design Plan**: `aidlc-docs/construction/plans/u03-strategy-data-research-functional-design-plan.md`
 - **U03 Functional Design Artifacts**: `business-logic-model.md`, `business-rules.md`, and `domain-entities.md`
 - **U03 Functional Design Validation**: 11 primary stories covered; 140 unique business rules (10 subsystems: SR, SV, MD, UE, SC, RM, CA, BT, AI, DF); algorithms, state machines, 32 PBT properties, and extension compliance present

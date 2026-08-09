@@ -55,6 +55,23 @@ function eventMatchesPersistedState(
         && row.policy_identity === event.payload.allocationPolicyId
     case 'PortfolioArchived':
       return row.status === event.payload.status
+    case 'HoldingImported': {
+      const holding = database.prepare(`
+        SELECT h.total_quantity, l.acquired_on, l.unit_cost_minor_units, l.source_reference_id
+        FROM holdings h
+        JOIN holding_lots l ON l.holding_id = h.holding_id
+        WHERE h.portfolio_id = ? AND h.holding_id = ? AND h.instrument_id = ? AND l.lot_id = ?
+      `).get(
+        event.portfolioId,
+        event.payload.holdingId,
+        event.payload.instrumentId,
+        event.payload.lotId,
+      ) as { total_quantity: string; acquired_on: string; unit_cost_minor_units: string; source_reference_id: string } | undefined
+      return holding?.total_quantity === event.payload.quantity
+        && holding.acquired_on === event.payload.acquiredOn
+        && holding.unit_cost_minor_units === event.payload.unitCostMinorUnits
+        && holding.source_reference_id === event.payload.sourceReferenceId
+    }
     case 'PortfolioModeChanged':
       return row.operating_mode === event.payload.mode
     case 'StrategyAllocationChanged':

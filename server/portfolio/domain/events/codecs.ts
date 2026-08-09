@@ -8,11 +8,15 @@ import {
   parseCorrelationId,
   parseEventId,
   parseEvidenceId,
+  parseHoldingId,
+  parseHoldingLotId,
+  parseInstrumentId,
   parsePortfolioId,
 } from '../shared/identifiers.ts'
 import { parseMoney, serializeMoney } from '../shared/money.ts'
 import { createPortfolioStateVersion } from '../shared/state-version.ts'
 import { parseInstant } from '../shared/time.ts'
+import { parseLocalDate } from '../shared/time.ts'
 import { isOperatingMode } from '../portfolio/evidence.ts'
 import {
   freezeDomainEvent,
@@ -157,6 +161,39 @@ export function parseDomainEvent(serialized: string): DomainResult<PortfolioDoma
         priorMode: payload.priorMode,
         mode: payload.mode,
         evidenceIds,
+      },
+    }))
+  }
+
+  if (value.type === 'HoldingImported') {
+    const holdingId = parseHoldingId(payload.holdingId)
+    const lotId = parseHoldingLotId(payload.lotId)
+    const instrumentId = parseInstrumentId(payload.instrumentId)
+    const acquiredOn = parseLocalDate(payload.acquiredOn)
+    if (
+      !holdingId.ok
+      || !lotId.ok
+      || !instrumentId.ok
+      || !acquiredOn.ok
+      || typeof payload.quantity !== 'string'
+      || !/^[1-9][0-9]*$/u.test(payload.quantity)
+      || typeof payload.unitCostMinorUnits !== 'string'
+      || !/^(0|[1-9][0-9]*)$/u.test(payload.unitCostMinorUnits)
+      || typeof payload.sourceReferenceId !== 'string'
+      || payload.sourceReferenceId.length < 1
+      || payload.sourceReferenceId.length > 128
+    ) return invalidEvent('payload')
+    return success(freezeDomainEvent({
+      ...envelope.value,
+      type: value.type,
+      payload: {
+        holdingId: holdingId.value,
+        lotId: lotId.value,
+        instrumentId: instrumentId.value,
+        quantity: payload.quantity,
+        acquiredOn: acquiredOn.value,
+        unitCostMinorUnits: payload.unitCostMinorUnits,
+        sourceReferenceId: payload.sourceReferenceId,
       },
     }))
   }

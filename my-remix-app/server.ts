@@ -18,9 +18,10 @@ const proxyUrl = process.env.PROXY_URL || (useExternalProxy ? 'http://localhost:
 const proxyReconnectWindowMs = 5 * 60 * 1000
 const proxyReconnectMaxDelayMs = 10 * 1000
 const require = createRequire(import.meta.url)
-const { initializeProxy, proxyRequestHandler } = require('../ticker_proxy.js') as {
+const { initializeProxy, proxyRequestHandler, closePortfolioHttpRuntime } = require('../ticker_proxy.js') as {
   initializeProxy: () => Promise<void>
   proxyRequestHandler: http.RequestListener
+  closePortfolioHttpRuntime: () => void
 }
 
 const remixRequestListener = createRequestListener(async (request) => {
@@ -198,6 +199,7 @@ function shutdown() {
   }
 
   shuttingDown = true
+  closePortfolioHttpRuntime()
   server.close(() => process.exit(0))
   server.closeAllConnections()
 }

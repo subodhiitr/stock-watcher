@@ -6,6 +6,9 @@ import type {
   CorrelationId,
   EventId,
   EvidenceId,
+  HoldingId,
+  HoldingLotId,
+  InstrumentId,
   PortfolioId,
 } from '../shared/identifiers.ts'
 import type { Money } from '../shared/money.ts'
@@ -65,9 +68,23 @@ export type StrategyAllocationChanged = DomainEventEnvelope & Readonly<{
   }>
 }>
 
+export type HoldingImported = DomainEventEnvelope & Readonly<{
+  type: 'HoldingImported'
+  payload: Readonly<{
+    holdingId: HoldingId
+    lotId: HoldingLotId
+    instrumentId: InstrumentId
+    quantity: string
+    acquiredOn: string
+    unitCostMinorUnits: string
+    sourceReferenceId: string
+  }>
+}>
+
 export type PortfolioDomainEvent =
   | PortfolioCreated
   | PortfolioArchived
+  | HoldingImported
   | PortfolioModeChanged
   | StrategyAllocationChanged
 

@@ -68,7 +68,7 @@ export function createTemporaryDatabasePath(): Readonly<{
 }
 
 export function removeTemporaryDirectory(directory: string): void {
-  fs.rmSync(directory, { recursive: true, force: true })
+  fs.rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
 }
 
 export function makePortfolio(

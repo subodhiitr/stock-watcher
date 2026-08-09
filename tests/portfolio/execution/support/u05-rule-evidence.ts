@@ -1,168 +1,41 @@
+import fs from 'node:fs'
+
 export type U05RuleEvidence = Readonly<{
   ruleId: string
   description: string
   coveredIn: string
 }>
 
-function subsystem(
-  prefix: string,
-  descriptions: readonly string[],
-  coveredIn: string,
-): readonly U05RuleEvidence[] {
-  return descriptions.map((description, index) => Object.freeze({
-    ruleId: `${prefix}-${String(index + 1).padStart(3, '0')}`,
-    description,
-    coveredIn,
-  }))
-}
+const RULE_OWNERS = Object.freeze({
+  BND: 'tests/portfolio/execution/canonical-codec.test.ts, tests/portfolio/execution/architecture.test.ts, tests/portfolio/execution/persistence.test.ts',
+  APR: 'tests/portfolio/execution/approval.test.ts, tests/portfolio/execution/execution.property.test.ts',
+  CNV: 'tests/portfolio/execution/execution-run.test.ts, tests/portfolio/execution/execution.property.test.ts',
+  GAT: 'tests/portfolio/execution/execution-gate.test.ts, tests/portfolio/execution/placement.test.ts',
+  IDM: 'tests/portfolio/execution/canonical-codec.test.ts, tests/portfolio/execution/placement.test.ts, tests/portfolio/execution/persistence.test.ts, tests/portfolio/execution/fault-injection.test.ts',
+  ORD: 'tests/portfolio/execution/execution-order.test.ts, tests/portfolio/execution/placement.test.ts, tests/portfolio/execution/cancellation.test.ts, tests/portfolio/execution/status-fill.test.ts',
+  FIL: 'tests/portfolio/execution/status-fill.test.ts, tests/portfolio/execution/execution.property.test.ts, tests/portfolio/execution/persistence.test.ts',
+  REC: 'tests/portfolio/execution/reconciliation.test.ts, tests/portfolio/execution/kill-switch-recovery.test.ts, tests/portfolio/execution/fault-injection.test.ts',
+  BRK: 'tests/portfolio/execution/broker-contract.test.ts, tests/portfolio/execution/architecture.test.ts',
+  KIL: 'tests/portfolio/execution/kill-switch-recovery.test.ts, tests/portfolio/execution/cancellation.test.ts',
+  AUD: 'tests/portfolio/execution/persistence.test.ts, tests/portfolio/execution/fault-injection.test.ts, tests/portfolio/execution/architecture.test.ts',
+  ABU: 'tests/portfolio/execution/architecture.test.ts, tests/portfolio/execution/broker-contract.test.ts',
+} as const)
 
-export const U05_RULE_EVIDENCE: readonly U05RuleEvidence[] = Object.freeze([
-  ...subsystem('BND', [
-    'Canonical execution identifiers are validated and ordered deterministically',
-    'Approval bindings pin immutable plan lineage',
-    'Policy lineage binds one strategy version and hash',
-    'Quote bindings pin a single verified snapshot',
-    'Execution windows are bound to one Asia Kolkata session',
-    'Broker mappings are immutable across placement and reconciliation',
-    'Run and order lineage stays within one portfolio scope',
-    'Reconciliation snapshots remain immutable facts',
-    'Kill switch scope is explicit and bounded',
-    'Residual work records retain causal order lineage',
-  ], 'canonical-codec.test.ts, architecture.test.ts, persistence.test.ts'),
-  ...subsystem('APR', [
-    'Pending approvals can become fully approved',
-    'Pending approvals can become partially approved',
-    'Pending approvals can be rejected with a reason',
-    'Approval subsets must include mandatory orders',
-    'Non proposed logical keys are forbidden in approvals',
-    'Approval idempotency conflicts are rejected',
-    'Approval bindings expire fail closed',
-    'Corporate action evidence can stale an approval',
-    'Active runs block duplicate approval decisions',
-    'Kill switches block approval decisions',
-  ], 'approval.test.ts, execution.property.test.ts'),
-  ...subsystem('CNV', [
-    'Approved actions convert into execution orders',
-    'Sell conversions sort before buy conversions',
-    'Sequence numbers are stable and deterministic',
-    'Approved quantity ceilings are preserved exactly',
-    'Run creation consumes the approval once',
-    'Policy snapshot identity must match the approved binding',
-    'Pre execution reconciliation must be current',
-    'Run replay by approval id is idempotent',
-    'Conversion rejects missing approved actions',
-    'Order creation preserves logical order keys',
-  ], 'execution-run.test.ts, execution.property.test.ts'),
-  ...subsystem('GAT', [
-    'Portfolio status gates execute before all other checks',
-    'Live enablement defaults fail closed',
-    'Broker readiness blocks uncertified live execution',
-    'Approval revalidation checks exact lineage and expiry',
-    'Fresh matched reconciliation is required before execution',
-    'Kill switch precedence blocks placement',
-    'Execution window checks date and time coherently',
-    'Quote freshness blocks stale price usage',
-    'Pre trade risk fails on any blocking dimension',
-    'Buy affordability blocks negative cash outcomes',
-  ], 'execution-gate.test.ts, placement.test.ts'),
-  ...subsystem('IDM', [
-    'Approval decision replay uses decision hash idempotency',
-    'Order intent replay uses intent hash idempotency',
-    'Placement attempts retain idempotent submission identity',
-    'Fill facts deduplicate by fill id and content hash',
-    'Cancellation requests deduplicate by order and idempotency key',
-    'Execution runs replay by approval identity',
-    'Dry run request hashes remain stable',
-    'Paper broker placement replay remains stable',
-    'Recovery classification is repeatable across cold restarts',
-    'Reconciliation fact inserts are idempotent by snapshot id',
-  ], 'canonical-codec.test.ts, placement.test.ts, persistence.test.ts, fault-injection.test.ts'),
-  ...subsystem('ORD', [
-    'Orders start in planned state',
-    'Intent recording freezes canonical payloads',
-    'Submission can begin only from an intent recorded state',
-    'Acknowledged placement records broker references',
-    'Definite not sent outcomes safely retry',
-    'Rejected placements become terminal',
-    'Unknown placements require recovery',
-    'Order open transitions follow acknowledged placement',
-    'Terminal state transitions are guarded',
-    'Cancellation eligibility is restricted to live submitted states',
-  ], 'execution-order.test.ts, placement.test.ts'),
-  ...subsystem('FIL', [
-    'Fill progression is monotone and bounded by ceiling',
-    'Duplicate fills are detected before accounting',
-    'Sell fills release delivery reservations exactly once',
-    'Buy fills release cash reservations exactly once',
-    'Partial fills keep the order live',
-    'Full fills become terminal filled',
-    'Status checks detect broker fill mismatches',
-    'Broker filled without local fills escalates to unknown',
-    'Cancellation and fill races resolve conservatively',
-    'Exact charges remain in accounting deltas',
-    'Independent oracle matches runtime fill replay totals',
-    'Malformed fill payloads are rejected fail closed',
-  ], 'status-fill.test.ts, execution.property.test.ts, fault-injection.test.ts'),
-  ...subsystem('REC', [
-    'Snapshot coherence accepts a valid cursor shortcut',
-    'Snapshot coherence rejects endpoint skew beyond ten seconds',
-    'Comparison with no differences matches cleanly',
-    'Rounding only differences can match with rounding',
-    'Unknown orders force unknown reconciliation state',
-    'Mapping blocked differences force blocked reconciliation state',
-    'Missing fills can be applied before final result',
-    'External snapshot identity must match the requested snapshot id',
-    'Snapshot facts never overwrite prior immutable content',
-    'Unknown orders can resolve to concrete terminal states',
-    'Read only recovery keeps ambiguous orders unresolved',
-    'Mismatch differences require explicit recovery path',
-  ], 'reconciliation.test.ts, kill-switch-recovery.test.ts, execution.property.test.ts'),
-  ...subsystem('BRK', [
-    'Paper broker contract uses normalized deterministic responses',
-    'Dry run broker never misrepresents success',
-    'Disabled live Zerodha facade is inert and uncertified',
-    'Disabled live Sharekhan facade is inert and uncertified',
-    'Reviewed Zerodha placement normalization is safe',
-    'Reviewed Sharekhan placement normalization is safe',
-    'Scripted broker covers buy only scenarios',
-    'Scripted broker covers rejection and ambiguity scenarios',
-    'Broker resilience returns definite not sent on safe placement failures',
-    'Broker contracts perform no live network IO in tests',
-  ], 'broker-contract.test.ts, fault-injection.test.ts'),
-  ...subsystem('KIL', [
-    'Kill switch activation closes the dispatch fence first',
-    'Kill switch activation is idempotent for the same scope',
-    'Kill switch captures unresolved admissions for containment',
-    'Kill switch cancellation commands cover cancellable orders',
-    'Kill switch reset requires explicit eligibility evidence',
-    'Reset never auto resumes live execution',
-    'Global and portfolio kill scopes are preserved',
-    'Cancellation gaps keep activation incomplete',
-    'Recovery required orders remain contained after activation',
-    'Reset preserves immutable activation history',
-  ], 'kill-switch-recovery.test.ts, cancellation.test.ts'),
-  ...subsystem('AUD', [
-    'Execution evidence payload kinds stay in the approved allowlist',
-    'Persisted execution events serialize canonically',
-    'Execution event parsing rejects non canonical payloads',
-    'Aggregate mutations require one matching evidence payload',
-    'Fact inserts require one matching evidence payload',
-    'Execution audit chains verify across appended events',
-    'Backup fingerprints include execution tables',
-    'Recovery and reconciliation evidence remain redacted',
-    'Covered evidence tables enumerate all declared rules',
-    'Execution public surfaces remain explicit with no wildcard exports',
-  ], 'canonical-codec.test.ts, persistence.test.ts, architecture.test.ts'),
-  ...subsystem('ABU', [
-    'Missing broker data fails closed',
-    'Unknown placement certainty blocks progress',
-    'Disconnected broker reads do not imply success',
-    'Malformed provider payloads are rejected',
-    'Incoherent snapshots block finalization',
-    'Publication mismatches roll back synchronously',
-    'Crash boundaries preserve recovery classification safety',
-    'Repeated cold recovery remains deterministic',
-    'Legacy route and credential imports remain forbidden',
-    'Ambient randomness and wall clock globals are forbidden in runtime execution code',
-  ], 'fault-injection.test.ts, architecture.test.ts'),
-])
+const rulesDocument = fs.readFileSync(new URL(
+  '../../../../aidlc-docs/construction/u05-execution-reconciliation/functional-design/business-rules.md',
+  import.meta.url,
+), 'utf8')
+
+const parsedRules = [...rulesDocument.matchAll(
+  /^\| ((?:BND|APR|CNV|GAT|IDM|ORD|FIL|REC|BRK|KIL|AUD|ABU)-\d{3}) \| ([^|]+?) \|/gmu,
+)]
+
+export const U05_RULE_EVIDENCE: readonly U05RuleEvidence[] = Object.freeze(parsedRules.map((match) => {
+  const ruleId = match[1]
+  const description = match[2]?.trim()
+  if (!ruleId || !description) throw new Error('Malformed U05 functional-rule row')
+  const subsystemName = ruleId.slice(0, 3) as keyof typeof RULE_OWNERS
+  const coveredIn = RULE_OWNERS[subsystemName]
+  if (!coveredIn) throw new Error(`Missing executable owner for ${ruleId}`)
+  return Object.freeze({ ruleId, description, coveredIn })
+}))

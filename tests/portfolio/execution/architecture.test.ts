@@ -140,9 +140,13 @@ test('U05 public surfaces are explicit and evidence tables are complete', () => 
   assert.equal(new Set(U05_RULE_EVIDENCE.map((entry) => entry.ruleId)).size, 124)
   assert.ok(U05_RULE_EVIDENCE.every((entry) =>
     entry.ruleId.length > 0 && entry.description.length > 0 && entry.coveredIn.length > 0))
+  assert.ok(U05_RULE_EVIDENCE.every((entry) => entry.coveredIn.split(', ').every((owner) =>
+    fs.existsSync(path.join(workspaceRoot, owner)))), 'every U05 rule owner must exist')
 
   assert.equal(U05_NFR_EVIDENCE.length, 134)
   assert.equal(new Set(U05_NFR_EVIDENCE.map((entry) => entry.nfrId)).size, 134)
   assert.ok(U05_NFR_EVIDENCE.every((entry) =>
     entry.nfrId.length > 0 && entry.description.length > 0 && entry.coveredIn.length > 0))
+  assert.ok(U05_NFR_EVIDENCE.every((entry) => entry.coveredIn.split(', ').every((owner) =>
+    fs.existsSync(path.join(workspaceRoot, owner)))), 'every U05 NFR owner must exist')
 })

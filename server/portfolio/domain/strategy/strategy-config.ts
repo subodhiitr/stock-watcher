@@ -90,6 +90,21 @@ export type RebalancePolicy = Readonly<{
   }>
 }>
 
+export type StrategicRebalancePolicy = Readonly<{
+  enabled: true
+  mode: 'OBSERVE' | 'PAPER'
+  riskBenchmark: string
+  defensiveBenchmark: string
+  primaryHorizonMonths: 1 | 3 | 12
+  confirmationHorizonMonths?: 1 | 3 | 12
+  baselineLookbackMonths: number
+  minimumBaselineObservations: number
+  permittedRebalanceFraction: number
+  negativeTrendBuyFraction: number
+  maximumDelayCalendarDays: number
+  staleAfterHours: number
+}>
+
 export type ExecutionPolicy = Readonly<{
   product: 'CNC'
   defaultOrderType: DefaultOrderType
@@ -125,6 +140,7 @@ export type StrategyConfig = Readonly<{
   construction: ConstructionPolicy
   regime: RegimePolicy
   rebalance: RebalancePolicy
+  strategicRebalance?: StrategicRebalancePolicy
   execution: ExecutionPolicy
   risk: RiskPolicy
   tax: TaxPolicy
@@ -372,6 +388,57 @@ function validateAutomation(automation: unknown): DomainResult<AutomationPolicy>
   return success(Object.freeze({ allowedMode: allowedMode as StrategyMode }))
 }
 
+function validateStrategicRebalance(value: unknown): DomainResult<StrategicRebalancePolicy | undefined> {
+  if (value === undefined) return success(undefined)
+  if (typeof value !== 'object' || value === null) {
+    return failure(domainFailure('INVALID_STRATEGY_CONFIG', { field: 'strategicRebalance' }))
+  }
+  const policy = value as Record<string, unknown>
+  if (policy['enabled'] !== true || !['OBSERVE', 'PAPER'].includes(String(policy['mode']))) {
+    return failure(domainFailure('INVALID_STRATEGY_CONFIG', { field: 'strategicRebalance.mode' }))
+  }
+  const primary = policy['primaryHorizonMonths']
+  const confirmation = policy['confirmationHorizonMonths']
+  const allowedHorizons = [1, 3, 12]
+  const riskBenchmark = policy['riskBenchmark']
+  const defensiveBenchmark = policy['defensiveBenchmark']
+  const baselineLookbackMonths = policy['baselineLookbackMonths']
+  const minimumBaselineObservations = policy['minimumBaselineObservations']
+  const permittedRebalanceFraction = policy['permittedRebalanceFraction']
+  const negativeTrendBuyFraction = policy['negativeTrendBuyFraction']
+  const maximumDelayCalendarDays = policy['maximumDelayCalendarDays']
+  const staleAfterHours = policy['staleAfterHours']
+  if (
+    typeof riskBenchmark !== 'string' || riskBenchmark.trim() === ''
+    || typeof defensiveBenchmark !== 'string' || defensiveBenchmark.trim() === ''
+    || riskBenchmark.trim().toUpperCase() === defensiveBenchmark.trim().toUpperCase()
+    || !allowedHorizons.includes(primary as number)
+    || (confirmation !== undefined && (!allowedHorizons.includes(confirmation as number) || confirmation === primary))
+    || !Number.isSafeInteger(baselineLookbackMonths) || (baselineLookbackMonths as number) <= (primary as number)
+    || !Number.isSafeInteger(minimumBaselineObservations) || (minimumBaselineObservations as number) <= 0
+    || typeof permittedRebalanceFraction !== 'number' || permittedRebalanceFraction < 0 || permittedRebalanceFraction > 1
+    || typeof negativeTrendBuyFraction !== 'number' || negativeTrendBuyFraction < 0 || negativeTrendBuyFraction > permittedRebalanceFraction
+    || !Number.isSafeInteger(maximumDelayCalendarDays) || (maximumDelayCalendarDays as number) <= 0
+    || typeof staleAfterHours !== 'number' || !Number.isFinite(staleAfterHours) || staleAfterHours <= 0
+  ) {
+    return failure(domainFailure('INVALID_STRATEGY_CONFIG', { field: 'strategicRebalance' }))
+  }
+  return success(Object.freeze({
+    enabled: true as const,
+    mode: policy['mode'] as 'OBSERVE' | 'PAPER',
+    riskBenchmark: riskBenchmark.trim(),
+    defensiveBenchmark: defensiveBenchmark.trim(),
+    primaryHorizonMonths: primary as 1 | 3 | 12,
+    ...(confirmation === undefined ? {} : { confirmationHorizonMonths: confirmation as 1 | 3 | 12 }),
+    baselineLookbackMonths: baselineLookbackMonths as number,
+    minimumBaselineObservations: minimumBaselineObservations as number,
+    permittedRebalanceFraction,
+    negativeTrendBuyFraction,
+    maximumDelayCalendarDays: maximumDelayCalendarDays as number,
+    staleAfterHours,
+  }))
+}
+
 function validateTax(tax: unknown): DomainResult<TaxPolicy> {
   if (typeof tax !== 'object' || tax === null) {
     return failure(domainFailure('INVALID_STRATEGY_CONFIG', { field: 'tax' }))
@@ -509,6 +576,8 @@ export function createStrategyConfig(
 
   const automationResult = validateAutomation(obj['automation'])
   if (!automationResult.ok) return automationResult
+  const strategicRebalanceResult = validateStrategicRebalance(obj['strategicRebalance'])
+  if (!strategicRebalanceResult.ok) return strategicRebalanceResult
 
   // Validate factor weights (SR-002, SR-003)
   const factorData = obj['factor']
@@ -575,6 +644,7 @@ export function createStrategyConfig(
     }),
     regime: regimeResult.value,
     rebalance: rebalanceResult.value,
+    ...(strategicRebalanceResult.value === undefined ? {} : { strategicRebalance: strategicRebalanceResult.value }),
     execution: execResult.value,
     risk: riskResult.value,
     tax: taxResult.value,

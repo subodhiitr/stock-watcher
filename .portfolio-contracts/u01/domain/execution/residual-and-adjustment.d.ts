@@ -1,0 +1,32 @@
+import { type DomainResult } from '../errors/result.ts';
+import type { IntegrityHash } from '../portfolio/evidence.ts';
+import type { AdjustmentProposalId, EvidenceId, ExecutionRunId, OrderId, ReconciliationRunId, ResidualWorkId } from '../shared/identifiers.ts';
+import type { Quantity } from '../shared/quantity.ts';
+import type { Instant } from '../shared/time.ts';
+import type { AccountingDelta } from './fill-accounting.ts';
+export type ResidualWorkReason = 'PARTIAL_FILL' | 'REJECTED' | 'CANCELLED' | 'EXPIRED' | 'PRICE_STALE' | 'CASH_REDUCED' | 'RECOVERY_REQUIRED';
+export type ResidualWork = Readonly<{
+    residualWorkId: ResidualWorkId;
+    executionRunId: ExecutionRunId;
+    orderId: OrderId;
+    remainingQuantity: Quantity;
+    reason: ResidualWorkReason;
+    requiresReplan: true;
+    createdAt: Instant;
+}>;
+export type AdjustmentProposalState = 'PROPOSED' | 'APPROVED' | 'REJECTED' | 'APPLIED';
+export type AdjustmentProposal = Readonly<{
+    adjustmentProposalId: AdjustmentProposalId;
+    reconciliationRunId: ReconciliationRunId;
+    differences: readonly IntegrityHash[];
+    proposedAccountingDelta: AccountingDelta;
+    authorizationEvidenceId?: EvidenceId;
+    state: AdjustmentProposalState;
+    contentHash: IntegrityHash;
+    stateVersion: number;
+}>;
+export declare function createResidualWork(residualWorkId: ResidualWorkId, executionRunId: ExecutionRunId, orderId: OrderId, remainingQuantity: Quantity, reason: ResidualWorkReason, createdAt: Instant): DomainResult<ResidualWork>;
+export declare function createAdjustmentProposal(adjustmentProposalId: AdjustmentProposalId, reconciliationRunId: ReconciliationRunId, differences: readonly IntegrityHash[], proposedAccountingDelta: AccountingDelta, contentHash: IntegrityHash): DomainResult<AdjustmentProposal>;
+export declare function approveAdjustment(proposal: AdjustmentProposal, authorizationEvidenceId: EvidenceId, nextVersion: number): DomainResult<AdjustmentProposal>;
+export declare function rejectAdjustment(proposal: AdjustmentProposal, nextVersion: number): DomainResult<AdjustmentProposal>;
+export declare function applyAdjustment(proposal: AdjustmentProposal, nextVersion: number): DomainResult<AdjustmentProposal>;

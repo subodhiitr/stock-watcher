@@ -8,11 +8,27 @@ import {
 } from '../failures.ts'
 import { INITIAL_SCHEMA_MIGRATION } from './001-initial-schema.ts'
 import { EXECUTION_SCHEMA_MIGRATION } from './002-execution-schema.ts'
+import { API_SECURITY_SCHEMA_MIGRATION } from './003-api-security-schema.ts'
+import { OPERATIONS_SCHEMA_MIGRATION } from './004-operations-schema.ts'
+import { STRATEGY_REBALANCE_RUNTIME_MIGRATION } from './005-strategy-rebalance-runtime.ts'
+import { PERFORMANCE_OBSERVATIONS_MIGRATION } from './006-performance-observations.ts'
+import { MANUAL_PAPER_EXITS_MIGRATION } from './007-manual-paper-exits.ts'
+import { STRATEGIC_REBALANCING_REGIME_MIGRATION } from './008-strategic-rebalancing-regime.ts'
+import { REBALANCE_EXIT_HISTORY_MIGRATION } from './009-rebalance-exit-history.ts'
+import { BROKER_PORTFOLIO_RECONCILIATION_MIGRATION } from './010-broker-portfolio-reconciliation.ts'
 import type { MigrationDefinition } from './types.ts'
 
 export const MIGRATIONS: readonly MigrationDefinition[] = Object.freeze([
   INITIAL_SCHEMA_MIGRATION,
   EXECUTION_SCHEMA_MIGRATION,
+  API_SECURITY_SCHEMA_MIGRATION,
+  OPERATIONS_SCHEMA_MIGRATION,
+  STRATEGY_REBALANCE_RUNTIME_MIGRATION,
+  PERFORMANCE_OBSERVATIONS_MIGRATION,
+  MANUAL_PAPER_EXITS_MIGRATION,
+  STRATEGIC_REBALANCING_REGIME_MIGRATION,
+  REBALANCE_EXIT_HISTORY_MIGRATION,
+  BROKER_PORTFOLIO_RECONCILIATION_MIGRATION,
 ])
 
 const LEDGER_SQL = `

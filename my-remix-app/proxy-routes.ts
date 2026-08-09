@@ -1,6 +1,6 @@
 import * as http from 'node:http'
 
-const proxyPathPrefixes = ['/broker', '/borker', '/exit-quality', '/nse', '/ollama', '/openai', '/paper-trades', '/setup-efficiency', '/strategy-advisor', '/simulation', '/simulation-replay', '/stream', '/trade-execution', '/yahoo']
+const proxyPathPrefixes = ['/api/portfolio', '/broker', '/borker', '/exit-quality', '/nse', '/ollama', '/openai', '/paper-trades', '/setup-efficiency', '/strategy-advisor', '/simulation', '/simulation-replay', '/stream', '/trade-execution', '/yahoo']
 const proxyPaths = new Set([
   '/broker-mode',
   '/broker-refresh-token',

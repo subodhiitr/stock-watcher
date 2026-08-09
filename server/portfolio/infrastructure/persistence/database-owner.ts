@@ -8,8 +8,12 @@ import { failure, success } from '../../domain/errors/result.ts'
 import { SqlitePortfolioRepository } from '../../adapters/persistence/portfolio-repository.ts'
 import { SqlitePortfolioUnitOfWork } from '../../adapters/persistence/unit-of-work.ts'
 import { SqliteExecutionUnitOfWork } from '../../adapters/persistence/execution-unit-of-work.ts'
+import { SqlitePortfolioApiStore } from '../../adapters/api/sqlite-api-store.ts'
+import { SqliteOperationsRepository } from '../../adapters/persistence/operations-repository.ts'
+import type { PortfolioApiStore } from '../../ports/api/api-store.ts'
 import type { PortfolioRepository, PortfolioUnitOfWork } from '../../ports/index.ts'
 import type { ExecutionUnitOfWork } from '../../ports/execution/execution-unit-of-work.ts'
+import type { OperationsRepositoryPort } from '../../ports/operations/operations-port.ts'
 import { parseInstant } from '../../domain/shared/time.ts'
 import type { PortfolioDatabaseConfiguration } from './configuration.ts'
 import {
@@ -37,6 +41,7 @@ const BACKUP_TABLES = Object.freeze([
   'strategy_assignments',
   'holdings',
   'holding_lots',
+  'portfolio_broker_reconciliations',
   'domain_events',
   'event_dispatch',
   'execution_approvals',
@@ -52,6 +57,21 @@ const BACKUP_TABLES = Object.freeze([
   'execution_adjustment_proposals',
   'execution_domain_events',
   'execution_event_dispatch',
+  'portfolio_principals',
+  'portfolio_memberships',
+  'portfolio_sessions',
+  'portfolio_idempotency',
+  'portfolio_rate_limits',
+  'portfolio_security_alerts',
+  'portfolio_job_runs',
+  'portfolio_component_health',
+  'portfolio_operations_alerts',
+  'portfolio_backup_receipts',
+  'portfolio_incident_events',
+  'portfolio_audit_events',
+  'portfolio_rebalance_plans',
+  'portfolio_rebalance_plan_events',
+  'portfolio_strategic_rebalance_observations',
 ] as const)
 
 function databaseFingerprint(database: Database.Database): string {
@@ -76,6 +96,8 @@ export interface PortfolioDatabaseOwner {
   readonly portfolios: PortfolioRepository
   readonly unitOfWork: PortfolioUnitOfWork
   readonly executionUnitOfWork: ExecutionUnitOfWork
+  readonly apiStore: PortfolioApiStore
+  readonly operations: OperationsRepositoryPort
   health(): PersistenceResult<PortfolioDatabaseHealth>
   backupTo(destination: string): Promise<PersistenceResult<PortfolioBackupReceipt>>
   close(): PersistenceResult<void>
@@ -92,6 +114,8 @@ class SqlitePortfolioDatabaseOwner implements PortfolioDatabaseOwner {
   public readonly portfolios: PortfolioRepository
   public readonly unitOfWork: PortfolioUnitOfWork
   public readonly executionUnitOfWork: ExecutionUnitOfWork
+  public readonly apiStore: PortfolioApiStore
+  public readonly operations: OperationsRepositoryPort
 
   constructor(
     database: Database.Database,
@@ -115,6 +139,12 @@ class SqlitePortfolioDatabaseOwner implements PortfolioDatabaseOwner {
       () => !this.#closed && !this.#backingUp,
     )
     this.executionUnitOfWork = new SqliteExecutionUnitOfWork(
+      database,
+      configuration.now,
+      () => !this.#closed && !this.#backingUp,
+    )
+    this.apiStore = new SqlitePortfolioApiStore(database, () => !this.#closed && !this.#backingUp)
+    this.operations = new SqliteOperationsRepository(
       database,
       configuration.now,
       () => !this.#closed && !this.#backingUp,

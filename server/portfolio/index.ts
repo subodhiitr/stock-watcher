@@ -606,6 +606,69 @@ export {
   composeTrustedExecutionBroker,
   isLiveExecutionMode,
 } from './execution.ts'
+
+// U07 basic protected API boundary. Runtime transport and concrete adapters are deferred.
+export { SecurePortfolioApi, portfolioHtmlSecurityHeaders } from './api.ts'
+export type {
+  AuthenticatedSession,
+  AuthenticatedRateLimiter,
+  MutationIdempotencyPort,
+  PortfolioApiAccess,
+  PortfolioApiClock,
+  PortfolioApiContext,
+  PortfolioApiHandler,
+  PortfolioApiRequest,
+  PortfolioApiResponse,
+  PortfolioApiSecurityPolicy,
+  PortfolioAuthorizer,
+  RequestSchema,
+  RequestSchemaResult,
+  SecurePortfolioResource,
+  SessionAuthenticator,
+} from './api.ts'
+
+// U06 operations, security, recovery, and audit.
+export {
+  BackupRecoveryService,
+  HEALTH_STATES,
+  INCIDENT_SEVERITIES,
+  IncidentService,
+  JOB_CRITICALITIES,
+  JOB_RUN_STATES,
+  JobCoordinator,
+  OperationsHealthService,
+  SqliteOperationsRepository,
+  createJobDefinition,
+} from './operations.ts'
+export type {
+  AuditDecisionRecord,
+  AuditIntegrityPort,
+  AuditIntegrityResult,
+  BackupOperationsPort,
+  BackupReceipt,
+  ComponentHealth,
+  HealthProbePort,
+  HealthState,
+  IncidentRecord,
+  IncidentRepositoryPort,
+  IncidentSeverity,
+  JobCriticality,
+  JobDefinition,
+  JobLease,
+  JobLeasePort,
+  JobProgress,
+  JobRunOutcome,
+  JobRunState,
+  OperationalTask,
+  OperationsClockPort,
+  OperationsFailureCode,
+  OperationsAlert,
+  OperationsDashboard,
+  OperationsHealth,
+  OperationsRepositoryPort,
+  OperationsResult,
+  OperationsTrigger,
+} from './operations.ts'
 export type {
   ActivateKillSwitchCommand,
   AdjustmentProposal,

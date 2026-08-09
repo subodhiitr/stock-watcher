@@ -5,6 +5,7 @@ import type { Money } from '../shared/money.ts'
 import type { PortfolioStateVersion } from '../shared/state-version.ts'
 import type { ModeTransitionEvidence, OperatingMode } from './evidence.ts'
 import type { StrategyAllocationPolicy } from './strategy-allocation.ts'
+import type { Holding } from './holding.ts'
 
 export type CreatePortfolioCommand = Readonly<{
   portfolioId: PortfolioId
@@ -39,9 +40,17 @@ export type ReplaceStrategyAllocationCommand = Readonly<{
   eventId: EventId
 }>
 
+export type ImportHoldingCommand = Readonly<{
+  portfolioId: PortfolioId
+  holding: Holding
+  context: CommandContext
+  eventId: EventId
+}>
+
 export type PortfolioCommand =
   | ArchivePortfolioCommand
   | ChangePortfolioModeCommand
+  | ImportHoldingCommand
   | ReplaceStrategyAllocationCommand
 
 export type Transition<T> = Readonly<{

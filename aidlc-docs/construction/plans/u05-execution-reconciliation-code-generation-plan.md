@@ -92,16 +92,17 @@ This document is the only execution plan for U05 Code Generation. Part 2 must fo
 - `server\portfolio\application\execution\kill-switch-service.ts`
 - `server\portfolio\application\execution\execution-coordinator.ts`
 - `server\portfolio\infrastructure\persistence\migrations\002-execution-schema.ts`
-- `server\portfolio\adapters\persistence\execution\execution-codecs.ts`
-- `server\portfolio\adapters\persistence\execution\execution-repositories.ts`
-- `server\portfolio\adapters\persistence\execution\execution-statements.ts`
-- `server\portfolio\adapters\broker\paper-broker-adapter.ts`
-- `server\portfolio\adapters\broker\dry-run-broker-adapter.ts`
-- `server\portfolio\adapters\broker\zerodha-broker-adapter.ts`
-- `server\portfolio\adapters\broker\sharekhan-broker-adapter.ts`
-- `server\portfolio\infrastructure\execution\broker-resilience-governor.ts`
-- `server\portfolio\execution-composition.ts`
-- `server\portfolio\execution-index.ts`
+- `server\portfolio\adapters\persistence\execution-codecs.ts`
+- `server\portfolio\adapters\persistence\execution-event-ledger.ts`
+- `server\portfolio\adapters\persistence\execution-repositories.ts`
+- `server\portfolio\adapters\persistence\execution-statement-catalog.ts`
+- `server\portfolio\adapters\persistence\execution-unit-of-work.ts`
+- `server\portfolio\adapters\broker\paper-broker.ts`
+- `server\portfolio\adapters\broker\dry-run-broker.ts`
+- `server\portfolio\adapters\broker\disabled-live-facades.ts`
+- `server\portfolio\adapters\broker\broker-resilience-governor.ts`
+- `server\portfolio\application\execution\trusted-composition.ts`
+- `server\portfolio\execution.ts`
 
 ### Create Tests, Benchmark, and Documentation
 
@@ -218,46 +219,46 @@ This document is the only execution plan for U05 Code Generation. Part 2 must fo
 
 ### Broker Adapters, Resilience, and Composition
 
-- [ ] **Step 39: Implement deterministic paper broker.** Use injected clock/seed/fill policy, shadow account state, normalized statuses/fills, no credentials, and no network. **Coverage**: US-021, BRK-003/004, DET-010, SAFE-009.
-- [ ] **Step 40: Implement dry-run broker.** Render byte-stable normalized requests, return `DRY_RUN_RECORDED`, and produce no acknowledgement, fill, reservation, or accounting effect. **Coverage**: BRK-004/005, SAFE-010.
-- [ ] **Step 41: Implement disabled Zerodha facade.** Normalize only injected reviewed client results, map unknown states closed, remain uncertified, and expose no credential loading or implicit retry. **Coverage**: BRK-007/009/010.
-- [ ] **Step 42: Implement disabled Sharekhan facade.** Require explicit reviewed delivery mapping, reject intraday/default product ambiguity, normalize exact values, and remain uncertified. **Coverage**: BRK-008..010.
-- [ ] **Step 43: Implement broker resilience governor.** Add independent deadlines, in-flight bulkheads, safe-read retries, circuits, bounded seedable jitter, and placement-certainty preservation. **Coverage**: AVAIL-004..006, RSC-004..008.
-- [ ] **Step 44: Implement trusted execution composition.** Select paper/dry-run/test capabilities explicitly; require opaque unconstructable live capability and certification for live; default every live gate false. **Coverage**: US-022/026, BRK-002..006, SAFE-001/011.
-- [ ] **Step 45: Create the U05 public entry point and extend root exports.** Export reviewed contracts/services/non-live factories explicitly with no side effects, SQL, raw client types, credentials, or wildcard barrels. **Coverage**: MAINT/SEC.
+- [x] **Step 39: Implement deterministic paper broker.** Use injected clock/seed/fill policy, shadow account state, normalized statuses/fills, no credentials, and no network. **Coverage**: US-021, BRK-003/004, DET-010, SAFE-009.
+- [x] **Step 40: Implement dry-run broker.** Render byte-stable normalized requests, return `DRY_RUN_RECORDED`, and produce no acknowledgement, fill, reservation, or accounting effect. **Coverage**: BRK-004/005, SAFE-010.
+- [x] **Step 41: Implement disabled Zerodha facade.** Normalize only injected reviewed client results, map unknown states closed, remain uncertified, and expose no credential loading or implicit retry. **Coverage**: BRK-007/009/010.
+- [x] **Step 42: Implement disabled Sharekhan facade.** Require explicit reviewed delivery mapping, reject intraday/default product ambiguity, normalize exact values, and remain uncertified. **Coverage**: BRK-008..010.
+- [x] **Step 43: Implement broker resilience governor.** Add independent deadlines, in-flight bulkheads, safe-read retries, circuits, bounded seedable jitter, and placement-certainty preservation. **Coverage**: AVAIL-004..006, RSC-004..008.
+- [x] **Step 44: Implement trusted execution composition.** Select paper/dry-run/test capabilities explicitly; require opaque unconstructable live capability and certification for live; default every live gate false. **Coverage**: US-022/026, BRK-002..006, SAFE-001/011.
+- [x] **Step 45: Create the U05 public entry point and extend root exports.** Export reviewed contracts/services/non-live factories explicitly with no side effects, SQL, raw client types, credentials, or wildcard barrels. **Coverage**: MAINT/SEC.
 
 ### Verification Support and Focused Tests
 
-- [ ] **Step 46: Create deterministic fixtures and scripted broker.** Cover buy-only, sell-only, mixed, no-trade, zero affordability, rejection, ambiguity, race fill, mismatch, external change, kill/reset, and restart. **Coverage**: TEST-001..007.
-- [ ] **Step 47: Create arbitraries, independent oracle, and model commands.** Generate linked valid/invalid data and state commands with replayable seeds/paths and bounded shrink-safe fixtures. **Coverage**: PBT-001..012.
-- [ ] **Step 48: Create rule and NFR evidence tables.** Add exactly 124 unique functional-rule rows and 134 unique NFR rows with named executable owners. **Coverage**: all U05 rules/NFRs.
-- [ ] **Step 49: Test canonical codecs and exact identifiers.** Cover hostile values, round trips, domain separation, broker decimals, and stable ordering. **Coverage**: BND, DET, PBT-001..003/007.
-- [ ] **Step 50: Test approval, run, order, and gate examples.** Cover complete state graphs, precedence, binding changes, idempotency, sell-before-buy, quantity ceilings, and zero affordability. **Coverage**: APR/CNV/GAT/IDM/ORD.
-- [ ] **Step 51: Test migration, repositories, transactions, events, backup, and recovery indexes.** Use temporary databases only and inject failure at every write boundary. **Coverage**: BND/AUD, REL-002/011/012, TEST-003.
-- [ ] **Step 52: Test placement, polling, fill accounting, and cancellation races.** Prove intent-before-submit, four-way certainty, two-second first checks, unique fills, exact lots/cash, and reconciled cancellation. **Coverage**: IDM/ORD/FIL, PERF-011/012/015.
-- [ ] **Step 53: Test reconciliation, residuals, adjustments, kill switches, and recovery.** Prove ten-second skew/cursor coherence, immutable differences, no snapshot overwrite, containment, read-only recovery, and ambiguity persistence. **Coverage**: REC/KIL, SAFE-012..015, REL-013/014.
-- [ ] **Step 54: Run broker contract and architecture tests.** Apply one normalized contract suite to paper, dry-run, scripted, and disabled live facades; scan forbidden imports, credentials, network paths, legacy routes, and runtime-to-test edges. **Coverage**: BRK/ABU, SEC/MAINT/TEST.
-- [ ] **Step 55: Run property and state-model suites.** Execute required round trips, permutation invariants, isolation, idempotency, reservation/fill/reconciliation/kill/recovery models, oracle comparisons, and permanent counterexamples. **Coverage**: PBT-001..012.
-- [ ] **Step 56: Run deterministic fault and restart drills.** Inject transaction failures, deadlines, disconnects, malformed results, crash boundaries, publication failure, and repeated cold recovery. **Coverage**: REL, AVAIL, RSC, TEST-005.
+- [x] **Step 46: Create deterministic fixtures and scripted broker.** Cover buy-only, sell-only, mixed, no-trade, zero affordability, rejection, ambiguity, race fill, mismatch, external change, kill/reset, and restart. **Coverage**: TEST-001..007.
+- [x] **Step 47: Create arbitraries, independent oracle, and model commands.** Generate linked valid/invalid data and state commands with replayable seeds/paths and bounded shrink-safe fixtures. **Coverage**: PBT-001..012.
+- [x] **Step 48: Create rule and NFR evidence tables.** Add exactly 124 unique functional-rule rows and 134 unique NFR rows with named executable owners. **Coverage**: all U05 rules/NFRs.
+- [x] **Step 49: Test canonical codecs and exact identifiers.** Cover hostile values, round trips, domain separation, broker decimals, and stable ordering. **Coverage**: BND, DET, PBT-001..003/007.
+- [x] **Step 50: Test approval, run, order, and gate examples.** Cover complete state graphs, precedence, binding changes, idempotency, sell-before-buy, quantity ceilings, and zero affordability. **Coverage**: APR/CNV/GAT/IDM/ORD.
+- [x] **Step 51: Test migration, repositories, transactions, events, backup, and recovery indexes.** Use temporary databases only and inject failure at every write boundary. **Coverage**: BND/AUD, REL-002/011/012, TEST-003.
+- [x] **Step 52: Test placement, polling, fill accounting, and cancellation races.** Prove intent-before-submit, four-way certainty, two-second first checks, unique fills, exact lots/cash, and reconciled cancellation. **Coverage**: IDM/ORD/FIL, PERF-011/012/015.
+- [x] **Step 53: Test reconciliation, residuals, adjustments, kill switches, and recovery.** Prove ten-second skew/cursor coherence, immutable differences, no snapshot overwrite, containment, read-only recovery, and ambiguity persistence. **Coverage**: REC/KIL, SAFE-012..015, REL-013/014.
+- [x] **Step 54: Run broker contract and architecture tests.** Apply one normalized contract suite to paper, dry-run, scripted, and disabled live facades; scan forbidden imports, credentials, network paths, legacy routes, and runtime-to-test edges. **Coverage**: BRK/ABU, SEC/MAINT/TEST.
+- [x] **Step 55: Run property and state-model suites.** Execute required round trips, permutation invariants, isolation, idempotency, reservation/fill/reconciliation/kill/recovery models, oracle comparisons, and permanent counterexamples. **Coverage**: PBT-001..012.
+- [x] **Step 56: Run deterministic fault and restart drills.** Inject transaction failures, deadlines, disconnects, malformed results, crash boundaries, publication failure, and repeated cold recovery. **Coverage**: REL, AVAIL, RSC, TEST-005.
 
 ### Benchmark, Configuration, and Final Verification
 
-- [ ] **Step 57: Create execution benchmark harness.** Measure approval, 250-order conversion/hash, transitions, representative/worst fill, boundary reconciliation, 10,000-fill recovery, and 100-portfolio isolation against approved thresholds. **Coverage**: CAP/PERF/RSC.
-- [ ] **Step 58: Update TypeScript and npm configuration.** Include the benchmark and add `test:portfolio:u05`, `bench:portfolio:u05`, and `verify:portfolio:u05` without adding dependencies. **Coverage**: MAINT-006..010, TEST-008..010.
-- [ ] **Step 59: Extend root architecture guards.** Assert 124/134 evidence counts, U05 import boundaries, explicit exports, no legacy routes/credential loaders/live SDK in non-live code, and no test/benchmark runtime imports. **Coverage**: ABU, SEC, MAINT.
-- [ ] **Step 60: Run focused U05 tests.** Require all U05 example, contract, property, model, fault, migration, and architecture tests to pass.
-- [ ] **Step 61: Run strict type and declaration checks.** Require `typecheck:portfolio` and `test:portfolio:contracts` to pass with no casts that bypass U05 contracts.
-- [ ] **Step 62: Run U05 benchmarks.** Require every measurable U05 threshold to pass and report p50/p95/max, growth, heap, and event-loop evidence where specified.
-- [ ] **Step 63: Run portfolio and full compatibility verification.** Run U01-U04 suites and the full repository suite; accept only the same four established unrelated legacy failures and no changed failure signature.
-- [ ] **Step 64: Create the implementation summary and finalize workflow state.** Record modified/created files, story/rule/NFR evidence, test/benchmark results, safety guarantees, extension compliance, known unrelated baseline failures, and mark U05 Code Generation complete only after review.
+- [x] **Step 57: Create execution benchmark harness.** Measure approval, 250-order conversion/hash, transitions, representative/worst fill, boundary reconciliation, 10,000-fill recovery, and 100-portfolio isolation against approved thresholds. **Coverage**: CAP/PERF/RSC.
+- [x] **Step 58: Update TypeScript and npm configuration.** Include the benchmark and add `test:portfolio:u05`, `bench:portfolio:u05`, and `verify:portfolio:u05` without adding dependencies. **Coverage**: MAINT-006..010, TEST-008..010.
+- [x] **Step 59: Extend root architecture guards.** Assert 124/134 evidence counts, U05 import boundaries, explicit exports, no legacy routes/credential loaders/live SDK in non-live code, and no test/benchmark runtime imports. **Coverage**: ABU, SEC, MAINT.
+- [x] **Step 60: Run focused U05 tests.** Require all U05 example, contract, property, model, fault, migration, and architecture tests to pass.
+- [x] **Step 61: Run strict type and declaration checks.** Require `typecheck:portfolio` and `test:portfolio:contracts` to pass with no casts that bypass U05 contracts.
+- [x] **Step 62: Run U05 benchmarks.** Require every measurable U05 threshold to pass and report p50/p95/max, growth, heap, and event-loop evidence where specified.
+- [x] **Step 63: Run portfolio and full compatibility verification.** Run U01-U04 suites and the full repository suite; accept only the same four established unrelated legacy failures and no changed failure signature.
+- [x] **Step 64: Create the implementation summary and finalize workflow state.** Record modified/created files, story/rule/NFR evidence, test/benchmark results, safety guarantees, extension compliance, known unrelated baseline failures, and mark U05 Code Generation complete only after review.
 
 ## Completion Gates
 
-- [ ] All 64 Part 2 steps are checked.
-- [ ] All seven primary and five supporting stories are traced.
-- [ ] All 124 functional rules and 134 NFRs have unique executable evidence.
-- [ ] Live execution is default-disabled, uncertified, credential-free in tests, and unreachable from caller-selected data.
-- [ ] No broker call, timer, Promise, or wait occurs inside a U02 transaction.
-- [ ] No persistent user database, credential file, legacy trade route, or real order is touched.
-- [ ] Focused tests, strict typing, declarations, and benchmarks pass.
-- [ ] Portfolio compatibility remains green and the full suite adds no failure beyond the established four unrelated failures.
+- [x] All 64 Part 2 steps are checked.
+- [x] All seven primary and five supporting stories are traced.
+- [x] All 124 functional rules and 134 NFRs have unique executable evidence.
+- [x] Live execution is default-disabled, uncertified, credential-free in tests, and unreachable from caller-selected data.
+- [x] No broker call, timer, Promise, or wait occurs inside a U02 transaction.
+- [x] No persistent user database, credential file, legacy trade route, or real order is touched.
+- [x] Focused tests, strict typing, declarations, and benchmarks pass.
+- [x] Portfolio compatibility remains green and the full suite adds no failure beyond the established four unrelated failures.

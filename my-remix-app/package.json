@@ -1,18 +1,24 @@
 {
   "name": "my-remix-app",
+  "version": "0.0.0-private",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "node --max-http-header-size=65536 --watch --import remix/node-tsx server.ts",
     "start": "node --max-http-header-size=65536 --import remix/node-tsx server.ts",
     "test": "node --import remix/node-tsx --test",
-    "typecheck": "tsc --noEmit"
+    "test:portfolio": "node --import remix/node-tsx --test app/actions/portfolio/controller.test.tsx app/portfolio/market/valuation.test.ts app/portfolio/state/request-coordinator.test.ts",
+    "typecheck": "tsc --noEmit",
+    "doctor": "remix doctor"
   },
   "engines": {
     "node": ">=24.3.0"
   },
   "dependencies": {
     "remix": "^3.0.0-beta.4"
+  },
+  "overrides": {
+    "esbuild": "0.28.1"
   },
   "devDependencies": {
     "@types/node": "latest",

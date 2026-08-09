@@ -1,0 +1,75 @@
+import { type DomainResult } from '../errors/result.ts';
+import type { DataVersionId, InstrumentId, StrategyVersionId } from '../shared/identifiers.ts';
+import type { RiskFlag } from './eligibility-result.ts';
+export type MomentumComponents = Readonly<{
+    m3m1: number;
+    m6m1: number;
+    relativeStrength: number;
+    trend: number;
+    earningsMomentum: number;
+    liquidity: number;
+    volatilityAdjusted: number;
+}>;
+export type QualityComponents = Readonly<{
+    returnOnEquity: number;
+    returnOnAssets: number;
+    earningsStability: number;
+    debtCoverage: number;
+    cashFlowQuality: number;
+    promoterPledge: number;
+}>;
+export type BfsiQualityComponents = Readonly<{
+    npaRatio: number;
+    capitalAdequacy: number;
+    netInterestMargin: number;
+    returnOnAssets: number;
+    lcrRatio: number;
+    promoterPledge: number;
+}>;
+export type RiskComponents = Readonly<{
+    volatility60d: number;
+    maxDrawdown: number;
+    downsideDeviation: number;
+    beta: number;
+    liquidityRisk: number;
+}>;
+export type SignalSnapshot = Readonly<{
+    instrumentId: InstrumentId;
+    strategyVersionId: StrategyVersionId;
+    dataVersionId: DataVersionId;
+    asOf: string;
+    isBfsi: boolean;
+    momentumComponents: MomentumComponents;
+    qualityComponents: QualityComponents | BfsiQualityComponents;
+    riskComponents: RiskComponents;
+    momentumScore: number;
+    qualityScore: number;
+    riskScore: number;
+    compositeScore: number;
+    convictionMultiplier: number;
+    rank: number;
+    riskFlags: readonly RiskFlag[];
+    degradedAdvisoryContext: boolean;
+    missingComponentsNeutralized: boolean;
+    computedAt: string;
+}>;
+export declare function createSignalSnapshot(params: {
+    instrumentId: InstrumentId;
+    strategyVersionId: StrategyVersionId;
+    dataVersionId: DataVersionId;
+    asOf: string;
+    isBfsi: boolean;
+    momentumComponents: MomentumComponents;
+    qualityComponents: QualityComponents | BfsiQualityComponents;
+    riskComponents: RiskComponents;
+    momentumScore: number;
+    qualityScore: number;
+    riskScore: number;
+    compositeScore: number;
+    convictionMultiplier: number;
+    rank: number;
+    riskFlags?: readonly RiskFlag[];
+    degradedAdvisoryContext?: boolean;
+    missingComponentsNeutralized?: boolean;
+    computedAt: string;
+}): DomainResult<SignalSnapshot>;

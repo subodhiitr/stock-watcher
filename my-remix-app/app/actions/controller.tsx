@@ -421,9 +421,6 @@ export default createController(routes, {
         'no-cache',
       )
     },
-    portfolio() {
-      return dashboardResponse({ action: 'portfolio' })
-    },
     replay() {
       return dashboardResponse({ action: 'replay' })
     },

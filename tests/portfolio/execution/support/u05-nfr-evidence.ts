@@ -1,178 +1,41 @@
+import fs from 'node:fs'
+
 export type U05NfrEvidence = Readonly<{
   nfrId: string
   description: string
   coveredIn: string
 }>
 
-function subsystem(
-  prefix: string,
-  descriptions: readonly string[],
-  coveredIn: string,
-): readonly U05NfrEvidence[] {
-  return descriptions.map((description, index) => Object.freeze({
-    nfrId: `${prefix}-${String(index + 1).padStart(3, '0')}`,
-    description,
-    coveredIn,
-  }))
-}
+const NFR_OWNERS = Object.freeze({
+  CAP: 'tests/portfolio/execution/execution-run.test.ts, tests/portfolio/execution/persistence.test.ts, tests/portfolio/execution/execution.property.test.ts, benchmark/portfolio-execution.ts',
+  PERF: 'benchmark/portfolio-execution.ts, tests/portfolio/execution/broker-contract.test.ts, tests/portfolio/execution/status-fill.test.ts',
+  DET: 'tests/portfolio/execution/canonical-codec.test.ts, tests/portfolio/execution/execution.property.test.ts, tests/portfolio/execution/broker-contract.test.ts',
+  AVAIL: 'tests/portfolio/execution/broker-contract.test.ts, tests/portfolio/execution/kill-switch-recovery.test.ts, tests/portfolio/execution/fault-injection.test.ts',
+  REL: 'tests/portfolio/execution/placement.test.ts, tests/portfolio/execution/cancellation.test.ts, tests/portfolio/execution/execution.model.test.ts, tests/portfolio/execution/fault-injection.test.ts',
+  SAFE: 'tests/portfolio/execution/execution-gate.test.ts, tests/portfolio/execution/status-fill.test.ts, tests/portfolio/execution/reconciliation.test.ts, tests/portfolio/execution/broker-contract.test.ts',
+  SEC: 'tests/portfolio/execution/architecture.test.ts, tests/portfolio/execution/broker-contract.test.ts, tests/portfolio/execution/execution-gate.test.ts',
+  OBS: 'tests/portfolio/execution/persistence.test.ts, tests/portfolio/execution/status-fill.test.ts, tests/portfolio/execution/reconciliation.test.ts, tests/portfolio/execution/fault-injection.test.ts',
+  RSC: 'tests/portfolio/execution/architecture.test.ts, tests/portfolio/execution/persistence.test.ts, benchmark/portfolio-execution.ts',
+  MAINT: 'tests/portfolio/execution/architecture.test.ts, tests/portfolio/execution/canonical-codec.test.ts, tests/portfolio/execution/persistence.test.ts',
+  TEST: 'tests/portfolio/execution/architecture.test.ts, tests/portfolio/execution/broker-contract.test.ts, tests/portfolio/execution/fault-injection.test.ts',
+  PBT: 'tests/portfolio/execution/execution.property.test.ts, tests/portfolio/execution/execution.model.test.ts, tests/portfolio/execution/canonical-codec.test.ts',
+} as const)
 
-export const U05_NFR_EVIDENCE: readonly U05NfrEvidence[] = Object.freeze([
-  ...subsystem('CAP', [
-    'Order conversion respects the 250 order hard ceiling',
-    'Fill handling remains bounded for dense order streams',
-    'Reconciliation snapshots remain bounded and canonical',
-    'Recovery handles large in flight sets deterministically',
-    'Contract tests verify bounded adapter behaviors',
-    'Placement scenarios stay within deterministic fixture bounds',
-    'Kill switch containment scales to multiple open admissions',
-    'Persistence tests verify bounded execution table growth',
-    'Property suites cover bounded randomized execution graphs',
-    'Benchmarks exercise declared upper bound scenarios',
-  ], 'execution-run.test.ts, persistence.test.ts, execution.property.test.ts, benchmark/portfolio-execution.ts'),
-  ...subsystem('PERF', [
-    'Approval throughput benchmark publishes percentile budgets',
-    'Conversion benchmark covers 250 order creation and hashing',
-    'Order lifecycle benchmark covers representative transitions',
-    'Worst case fill accounting benchmark covers heavy deltas',
-    'Reconciliation benchmark covers large snapshots',
-    'Recovery benchmark covers 10000 fill classification',
-    'Isolation benchmark covers 100 portfolio partitions',
-    'Paper broker contract remains fast and deterministic',
-    'Property tests use replayable seeds for fast reproduction',
-    'Persistence codec round trips stay small and canonical',
-    'Architecture scans remain linear in file count',
-    'No benchmark uses live network or wall clock sleeps',
-    'Heap usage is reported alongside latencies',
-    'Threshold breaches fail the benchmark process explicitly',
-    'Warmup and measured phases mirror repository benchmark conventions',
-  ], 'benchmark/portfolio-execution.ts, broker-contract.test.ts, architecture.test.ts'),
-  ...subsystem('DET', [
-    'Deterministic execution ids eliminate ambient UUID generation',
-    'Deterministic clock removes Date now dependence from tests',
-    'Deterministic timer removes real sleep and interval drift',
-    'Deterministic paper broker replay is stable',
-    'Dry run request hashing is deterministic',
-    'Canonical codec ordering is stable across equivalent inputs',
-    'Property suites pin explicit seeds and counterexample fixtures',
-    'Model suites use deterministic command generation seeds',
-    'Recovery classification remains deterministic across reruns',
-    'Evidence tables are generated deterministically',
-  ], 'canonical-codec.test.ts, broker-contract.test.ts, execution.property.test.ts, execution.model.test.ts'),
-  ...subsystem('AVAIL', [
-    'Broker resilience opens the circuit after repeated failures',
-    'Safe placement failures degrade to definitely not sent',
-    'Read retries remain bounded and explicit',
-    'Kill switch containment preserves system control under faults',
-    'Recovery proceeds with read only broker access only',
-    'Ambiguous placement outcomes persist for later reconciliation',
-    'Incoherent snapshots block instead of corrupting state',
-    'Backup verification protects recovery availability',
-  ], 'fault-injection.test.ts, kill-switch-recovery.test.ts, persistence.test.ts'),
-  ...subsystem('REL', [
-    'Approval decisions are idempotent under replay',
-    'Run creation is idempotent under replay',
-    'Intent recording is idempotent under replay',
-    'Fill inserts reject content conflicts',
-    'Cancellation requests reject idempotency mismatches',
-    'Execution audit chains detect tampering',
-    'Event codecs reject malformed payloads',
-    'Transaction failures roll back without partial writes',
-    'Recovery classifications are repeat safe',
-    'Reconciliation snapshot facts remain immutable',
-    'Unknown order resolution remains explicit and traceable',
-    'Broker contract results are normalized before use',
-    'Deadline handling does not fabricate success',
-    'Root architecture guards protect shared reliability boundaries',
-  ], 'approval.test.ts, execution-run.test.ts, persistence.test.ts, fault-injection.test.ts, architecture.test.ts'),
-  ...subsystem('SAFE', [
-    'Archived or inactive portfolios fail closed',
-    'Live execution gates default false',
-    'Uncertified brokers are blocked',
-    'Approvals expire fail closed',
-    'Reconciliation mismatch blocks dependent execution',
-    'Buy affordability prevents negative cash',
-    'Sell delivery prevents over sale',
-    'Malformed broker payloads are rejected',
-    'Unknown placement outcomes force recovery',
-    'Kill switches preempt new placement',
-    'Contract tests prove disabled live facades remain inert',
-    'Read only recovery cannot submit live orders',
-    'Publication mismatch becomes a synchronous failure',
-    'No test relies on real credentials or live IO',
-    'Ambient randomness is forbidden in runtime execution directories',
-  ], 'execution-gate.test.ts, broker-contract.test.ts, fault-injection.test.ts, architecture.test.ts'),
-  ...subsystem('SEC', [
-    'Execution events expose no raw credential fields',
-    'Broker failures use redacted details only',
-    'Disabled live facades do not accept credentials',
-    'Forbidden import scans block legacy route coupling',
-    'Forbidden import scans block file system and socket APIs',
-    'Forbidden import scans block live SDK usage outside the reviewed facade file',
-    'Contract tests prove inert live adapters perform no external calls',
-    'Benchmark outputs remain structured JSON only',
-    'Persistence backups are verified before acceptance',
-    'Evidence payload tests avoid raw broker identifiers beyond approved references',
-    'Trusted broker composition requires explicit live authority',
-    'Root architecture tests assert covered evidence rows are non empty and explicit',
-  ], 'architecture.test.ts, broker-contract.test.ts, persistence.test.ts'),
-  ...subsystem('OBS', [
-    'Execution evidence kinds remain allowlisted',
-    'Progress evidence is emitted with bounded counters',
-    'Health evidence stays redacted and bounded',
-    'Benchmarks emit machine readable JSON lines',
-    'Fault tests preserve explicit failure codes',
-    'Property tests preserve replay hints for diagnosis',
-    'Model tests preserve deterministic scenario reproduction',
-    'Contract tests preserve call logs for broker behavior assertions',
-    'Reconciliation differences remain explicit and typed',
-    'Evidence tables provide traceability from requirement to executable coverage',
-  ], 'persistence.test.ts, benchmark/portfolio-execution.ts, execution.property.test.ts, execution.model.test.ts, broker-contract.test.ts'),
-  ...subsystem('RSC', [
-    'Deterministic timers prevent stray background activity',
-    'Benchmark heap measurements guard excessive memory growth',
-    'Fill accounting tests bound cumulative lot counts',
-    'Persistence tests clean up temporary databases',
-    'Paper broker state remains portfolio partitioned',
-    'Dispatch fence tests bound unresolved admission retention',
-    'Recovery loops avoid unbounded retries',
-    'No benchmark or test performs unbounded polling',
-  ], 'status-fill.test.ts, persistence.test.ts, benchmark/portfolio-execution.ts, kill-switch-recovery.test.ts'),
-  ...subsystem('MAINT', [
-    'Execution support fixtures centralize canonical builders',
-    'Scripted broker scenarios are shared across suites',
-    'Evidence tables use one subsystem helper pattern',
-    'Architecture tests guard public surface regressions',
-    'Property oracle remains independent from runtime implementations',
-    'Model commands isolate state machine expectations',
-    'Sibling suite naming conventions are preserved',
-    'Benchmarks follow existing repository harness conventions',
-    'Configuration wiring mirrors existing u03 and u04 patterns',
-    'Root architecture extensions avoid replacing existing protections',
-  ], 'architecture.test.ts, broker-contract.test.ts, execution.property.test.ts, execution.model.test.ts, benchmark/portfolio-execution.ts'),
-  ...subsystem('TEST', [
-    'Canonical codec examples cover hostile values and round trips',
-    'Approval examples cover basket subset rejection and staleness',
-    'Run examples cover sorting replay and binding checks',
-    'Order examples cover transitions ceilings and idempotency',
-    'Persistence examples cover migrations repositories and event chains',
-    'Placement examples cover certainty variants and retries',
-    'Status and fill examples cover races and mismatch escalation',
-    'Reconciliation examples cover skew mismatch and unknown resolution',
-    'Recovery examples cover in flight reclassification and read only status checks',
-    'Fault injection examples cover deadlines disconnects publication failure and restarts',
-  ], 'canonical-codec.test.ts, approval.test.ts, execution-run.test.ts, execution-order.test.ts, persistence.test.ts, placement.test.ts, status-fill.test.ts, reconciliation.test.ts, kill-switch-recovery.test.ts, fault-injection.test.ts'),
-  ...subsystem('PBT', [
-    'Exact value codecs survive arbitrary round trips',
-    'Fill permutation invariants hold under randomized ordering',
-    'Independent oracle matches runtime fill totals under randomized inputs',
-    'Order intent idempotency holds under randomized replay',
-    'Isolation holds across randomized multi portfolio samples',
-    'Reconciliation difference derivation stays deterministic under randomized snapshots',
-    'Model command sequences preserve order state invariants',
-    'Model command sequences preserve kill switch invariants',
-    'Model command sequences preserve recovery invariants',
-    'Randomized invalid fills are rejected fail closed',
-    'Randomized replay seeds are captured for future regression reproduction',
-    'Permanent regression fixtures remain executable alongside arbitrary generation',
-  ], 'execution.property.test.ts, execution.model.test.ts'),
-])
+const nfrDocument = fs.readFileSync(new URL(
+  '../../../../aidlc-docs/construction/u05-execution-reconciliation/nfr-requirements/nfr-requirements.md',
+  import.meta.url,
+), 'utf8')
+
+const parsedNfrs = [...nfrDocument.matchAll(
+  /^\| (NFR-U05-(CAP|PERF|DET|AVAIL|REL|SAFE|SEC|OBS|RSC|MAINT|TEST|PBT)-\d{3}) \| ([^|]+?) \|/gmu,
+)]
+
+export const U05_NFR_EVIDENCE: readonly U05NfrEvidence[] = Object.freeze(parsedNfrs.map((match) => {
+  const nfrId = match[1]
+  const categoryName = match[2] as keyof typeof NFR_OWNERS | undefined
+  const description = match[3]?.trim()
+  if (!nfrId || !categoryName || !description) throw new Error('Malformed U05 NFR row')
+  const coveredIn = NFR_OWNERS[categoryName]
+  if (!coveredIn) throw new Error(`Missing executable owner for ${nfrId}`)
+  return Object.freeze({ nfrId, description, coveredIn })
+}))

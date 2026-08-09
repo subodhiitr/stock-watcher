@@ -137,16 +137,17 @@ test('migration model is idempotent and rejects generated checksum divergence', 
     (checksum) => {
       const database = new Database(':memory:')
       try {
+        const latestMigrationId = MIGRATIONS.at(-1)?.id
         assert.equal(must(migrateDatabase(
           database,
           TEST_INSTANT,
           'test',
-        )), 2)
+        )), latestMigrationId)
         assert.equal(must(migrateDatabase(
           database,
           TEST_INSTANT,
           'test',
-        )), 2)
+        )), latestMigrationId)
         database.prepare(
           'UPDATE schema_migrations SET checksum = ? WHERE id = 1',
         ).run(checksum)

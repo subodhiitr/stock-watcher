@@ -31,6 +31,12 @@ import { SqlitePortfolioUnitOfWork } from '../../adapters/persistence/unit-of-wo
 
 const SEED_VERSION = 1
 const PAPER_PORTFOLIO_SEED_KEY = 'seed:portfolio:paper-default'
+const STRATEGIC_VERSION_ID = 'strategy-version:adaptive-momentum-quality:v2-strategic'
+const STRATEGIC_VERSION_PAYLOAD = Object.freeze({
+  horizon: 'MEDIUM', rebalanceCadence: 'MONTHLY',
+  signals: Object.freeze(['MOMENTUM', 'QUALITY', 'STRATEGIC_RELATIVE_TREND']),
+  strategicRebalancePolicyVersion: 'STRATEGIC_REBALANCE_V1',
+})
 
 const STRATEGIES = Object.freeze([
   {
@@ -92,6 +98,19 @@ function insertSeedRegistry(
   `).run(seedKey, entityType, entityId, SEED_VERSION, createdAt)
 }
 
+function ensureStrategicStrategyVersion(database: Database.Database, now: Instant): void {
+  const payload = canonicalJson(STRATEGIC_VERSION_PAYLOAD)
+  database.prepare(`
+    INSERT OR IGNORE INTO strategy_versions (
+      strategy_version_id, strategy_id, semantic_version,
+      canonical_payload, payload_sha256, status, created_at, seed_key
+    ) VALUES (?, 'strategy:adaptive-momentum-quality', '2.0.0', ?, ?, 'ACTIVE', ?, NULL)
+  `).run(
+    value(parseStrategyVersionId(STRATEGIC_VERSION_ID)), payload,
+    createHash('sha256').update(payload).digest('hex'), now,
+  )
+}
+
 export function seedPortfolioDatabase(
   database: Database.Database,
   now: Instant,
@@ -118,7 +137,12 @@ export function seedPortfolioDatabase(
     ) {
       return failure(persistenceFailure('SEED_IDENTITY_CONFLICT'))
     }
-    return success(undefined)
+    try {
+      ensureStrategicStrategyVersion(database, now)
+      return success(undefined)
+    } catch {
+      return failure(persistenceFailure('PAPER_PORTFOLIO_SEED_FAILED'))
+    }
   }
 
   const unitOfWork = new SqlitePortfolioUnitOfWork(database, () => now)
@@ -232,6 +256,13 @@ export function seedPortfolioDatabase(
       return failure(persistenceFailure('PAPER_PORTFOLIO_SEED_FAILED'))
     }
   })
+  if (result.ok) {
+    try {
+      ensureStrategicStrategyVersion(database, now)
+    } catch {
+      return failure(persistenceFailure('PAPER_PORTFOLIO_SEED_FAILED'))
+    }
+  }
   return result.ok
     ? success(undefined)
     : failure(persistenceFailure('PAPER_PORTFOLIO_SEED_FAILED', {

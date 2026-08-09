@@ -1,0 +1,16 @@
+import { type Money } from '../../domain/shared/money.ts';
+import { type Quantity } from '../../domain/shared/quantity.ts';
+import { type Weight } from '../../domain/shared/weight.ts';
+import { type Instant } from '../../domain/shared/time.ts';
+import { type PersistenceResult } from '../../infrastructure/persistence/failures.ts';
+export declare function encodeNonNegativeBigInt(value: bigint): string;
+export declare function decodeNonNegativeBigInt(value: unknown): PersistenceResult<bigint>;
+export declare function encodeMoney(value: Money): string;
+export declare function decodeMoney(value: unknown): PersistenceResult<Money>;
+export declare function encodeQuantity(value: Quantity): string;
+export declare function decodeQuantity(value: unknown): PersistenceResult<Quantity>;
+export declare function encodeWeight(value: Weight): number;
+export declare function decodeWeight(value: unknown): PersistenceResult<Weight>;
+export declare function decodeInstant(value: unknown): PersistenceResult<Instant>;
+export declare function canonicalJson(value: unknown): string;
+export declare function sha256(value: string | Buffer): string;

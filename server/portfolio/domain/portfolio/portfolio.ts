@@ -9,6 +9,7 @@ import {
   type PortfolioArchived,
   type PortfolioCreated,
   type PortfolioDomainEvent,
+  type HoldingImported,
   type PortfolioModeChanged,
   type StrategyAllocationChanged,
 } from '../events/domain-events.ts'
@@ -33,6 +34,7 @@ import { compareInstants, type Instant } from '../shared/time.ts'
 import type {
   ArchivePortfolioCommand,
   ChangePortfolioModeCommand,
+  ImportHoldingCommand,
   CreatePortfolioCommand,
   ReplaceStrategyAllocationCommand,
   Transition,
@@ -58,6 +60,7 @@ import {
   createPortfolioName,
   type PortfolioName,
 } from './portfolio-name.ts'
+import { createHolding } from './holding.ts'
 
 export { createPortfolioName } from './portfolio-name.ts'
 export type { PortfolioName } from './portfolio-name.ts'
@@ -329,6 +332,63 @@ export class Portfolio {
         priorStatus: 'ACTIVE',
         status: 'ARCHIVED',
         effectiveAt: command.context.effectiveAt,
+      },
+    })
+    return success(Portfolio.transition(this.stateVersion, next, [event], true))
+  }
+
+  importHolding(command: ImportHoldingCommand): DomainResult<Transition<Portfolio>> {
+    const scopeFailure = validateCommandScope(
+      this.#snapshot,
+      command.portfolioId,
+      command.context,
+      command.eventId,
+    )
+    if (scopeFailure !== undefined) return failure(scopeFailure)
+    if (this.status === 'ARCHIVED') {
+      return failure(domainFailure('PORTFOLIO_ARCHIVED', {
+        field: 'status',
+        retryability: 'NEVER',
+      }))
+    }
+    if (this.holdings.some((holding) => holding.instrumentId === command.holding.instrumentId)) {
+      return failure(domainFailure('DUPLICATE_POSITION_ID', { field: 'instrumentId' }))
+    }
+    const nextVersion = nextPortfolioStateVersion(this.stateVersion)
+    if (!nextVersion.ok) return nextVersion
+    const holding = createHolding(command.holding)
+    if (
+      !holding.ok
+      || holding.value.portfolioId !== this.portfolioId
+      || holding.value.stateVersion !== nextVersion.value
+      || holding.value.lots.length !== 1
+    ) {
+      return failure(domainFailure('INVALID_HOLDING_SCOPE', { field: 'holding' }))
+    }
+    const lot = holding.value.lots[0]
+    if (lot === undefined || lot.sourceReference.kind !== 'IMPORT') {
+      return failure(domainFailure('INVALID_LOT_SCOPE', { field: 'sourceReference' }))
+    }
+    const holdings = Object.freeze([...this.holdings, holding.value])
+    const nextSnapshot = {
+      ...this.#snapshot,
+      holdings,
+      stateVersion: nextVersion.value,
+    }
+    const integrity = validatePortfolioIntegrity(nextSnapshot)
+    if (!integrity.ok) return integrity
+    const next = Portfolio.fromTransition(this.#snapshot, nextSnapshot)
+    const event: HoldingImported = freezeDomainEvent({
+      ...createEnvelope(this.portfolioId, nextVersion.value, command.context, command.eventId),
+      type: 'HoldingImported',
+      payload: {
+        holdingId: holding.value.holdingId,
+        lotId: lot.lotId,
+        instrumentId: holding.value.instrumentId,
+        quantity: holding.value.totalQuantity.shares.toString(),
+        acquiredOn: lot.acquiredOn,
+        unitCostMinorUnits: lot.unitCost.minorUnits.toString(),
+        sourceReferenceId: lot.sourceReference.referenceId,
       },
     })
     return success(Portfolio.transition(this.stateVersion, next, [event], true))

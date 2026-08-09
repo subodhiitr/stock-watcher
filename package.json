@@ -1,5 +1,6 @@
 {
   "name": "stock-watcher",
+  "version": "0.0.0-private",
   "private": true,
   "engines": {
     "node": ">=24.3.0"
@@ -32,11 +33,27 @@
     "verify:portfolio:u04": "npm-run-all typecheck:portfolio test:portfolio:u04 test:portfolio:contracts bench:portfolio:u04",
     "test:portfolio:u05": "node --test tests/portfolio/execution/architecture.test.ts tests/portfolio/execution/canonical-codec.test.ts tests/portfolio/execution/approval.test.ts tests/portfolio/execution/execution-order.test.ts tests/portfolio/execution/execution-run.test.ts tests/portfolio/execution/execution-gate.test.ts tests/portfolio/execution/persistence.test.ts tests/portfolio/execution/placement.test.ts tests/portfolio/execution/status-fill.test.ts tests/portfolio/execution/cancellation.test.ts tests/portfolio/execution/reconciliation.test.ts tests/portfolio/execution/kill-switch-recovery.test.ts tests/portfolio/execution/broker-contract.test.ts tests/portfolio/execution/execution.property.test.ts tests/portfolio/execution/execution.model.test.ts tests/portfolio/execution/fault-injection.test.ts",
     "bench:portfolio:u05": "node --expose-gc benchmark/portfolio-execution.ts",
-    "verify:portfolio:u05": "npm-run-all typecheck:portfolio test:portfolio:u05 test:portfolio:contracts bench:portfolio:u05"
+    "verify:portfolio:u05": "npm-run-all typecheck:portfolio test:portfolio:u05 test:portfolio:contracts bench:portfolio:u05",
+    "test:portfolio:u06": "node --test tests/portfolio/operations/architecture.test.ts tests/portfolio/operations/basic-operations.test.ts tests/portfolio/operations/full-operations.test.ts",
+    "verify:portfolio:u06": "npm-run-all typecheck:portfolio test:portfolio:u06 test:portfolio:contracts",
+    "test:portfolio:u07": "node --test tests/portfolio/api/architecture.test.ts tests/portfolio/api/secure-handler.test.ts",
+    "verify:portfolio:u07": "npm-run-all typecheck:portfolio test:portfolio:u07 test:portfolio:contracts",
+    "test:portfolio:u07:full": "node --test tests/portfolio/api/architecture.test.ts tests/portfolio/api/secure-handler.test.ts tests/portfolio/api/http-runtime.test.ts",
+    "verify:portfolio:u07:full": "npm-run-all typecheck:portfolio typecheck:ui test:portfolio:u07:full test:portfolio:persistence test:portfolio:contracts",
+    "test:portfolio:u08": "npm --prefix my-remix-app run test:portfolio",
+    "verify:portfolio:u08": "npm-run-all typecheck:ui test:portfolio:u08",
+    "test:portfolio:u09": "node --test tests/portfolio/u09/integrated-acceptance.test.ts tests/portfolio/u09/restore-drill.test.ts tests/portfolio/u09/delivery-safety.test.ts tests/portfolio/u09/story-evidence.test.ts",
+    "test:portfolio:all": "node --test \"tests/portfolio/**/*.test.ts\"",
+    "bench:portfolio:u09:integrated": "node --expose-gc benchmark/portfolio-integrated.ts",
+    "bench:portfolio:u09": "npm-run-all bench:portfolio:u05 bench:portfolio:u09:integrated",
+    "build:portfolio": "npm-run-all typecheck:portfolio typecheck:ui test:portfolio:contracts check:portfolio:remix",
+    "check:portfolio:remix": "npm --prefix my-remix-app run doctor",
+    "sbom:portfolio": "node scripts/generate-portfolio-sbom.mjs",
+    "verify:portfolio:u09": "npm-run-all build:portfolio test:portfolio:all test:portfolio:u08 test:portfolio:u09 bench:portfolio:u09"
   },
   "devDependencies": {
-    "@types/node": "24.10.1",
     "@types/better-sqlite3": "9.6.0",
+    "@types/node": "24.10.1",
     "fast-check": "4.8.0",
     "npm-run-all": "^4.1.5",
     "typescript": "6.0.3"
@@ -46,6 +63,19 @@
     "better-sqlite3": "^12.11.1",
     "headroom-ai": "^0.22.4",
     "kiteconnect": "^5.3.0",
+    "qrcode": "^1.5.4",
     "sharekhan-api": "github:Sharekhan-API/shareconnectnodejs"
+  },
+  "overrides": {
+    "minimatch@3.1.5": {
+      "brace-expansion": "1.1.18"
+    },
+    "minimatch@5.1.9": {
+      "brace-expansion": "2.1.4"
+    },
+    "mocha": {
+      "js-yaml": "4.3.1",
+      "serialize-javascript": "7.0.7"
+    }
   }
 }

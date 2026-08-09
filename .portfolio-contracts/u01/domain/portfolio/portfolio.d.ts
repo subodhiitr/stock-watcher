@@ -1,0 +1,44 @@
+import { type DomainResult } from '../errors/result.ts';
+import { type PortfolioId } from '../shared/identifiers.ts';
+import { type Money } from '../shared/money.ts';
+import { type PortfolioStateVersion } from '../shared/state-version.ts';
+import { type Instant } from '../shared/time.ts';
+import type { ArchivePortfolioCommand, ChangePortfolioModeCommand, CreatePortfolioCommand, ReplaceStrategyAllocationCommand, Transition } from './commands.ts';
+import { type OperatingMode } from './evidence.ts';
+import type { Holding } from './holding.ts';
+import { type PortfolioStatus } from './integrity.ts';
+import { type StrategyAllocationPolicy } from './strategy-allocation.ts';
+import { type PortfolioName } from './portfolio-name.ts';
+export { createPortfolioName } from './portfolio-name.ts';
+export type { PortfolioName } from './portfolio-name.ts';
+export type PortfolioSnapshot = Readonly<{
+    portfolioId: PortfolioId;
+    name: PortfolioName;
+    baseCurrency: 'INR';
+    createdAt: Instant;
+    status: PortfolioStatus;
+    mode: OperatingMode;
+    cash: Money;
+    allocationPolicy: StrategyAllocationPolicy;
+    holdings: readonly Holding[];
+    stateVersion: PortfolioStateVersion;
+}>;
+export declare class Portfolio {
+    #private;
+    private constructor();
+    static create(command: CreatePortfolioCommand): DomainResult<Transition<Portfolio>>;
+    static rehydrate(snapshot: PortfolioSnapshot): Portfolio;
+    get portfolioId(): PortfolioId;
+    get stateVersion(): PortfolioStateVersion;
+    get status(): PortfolioStatus;
+    get mode(): OperatingMode;
+    get allocationPolicy(): StrategyAllocationPolicy;
+    get cash(): Money;
+    get holdings(): readonly Holding[];
+    snapshot(): PortfolioSnapshot;
+    archive(command: ArchivePortfolioCommand): DomainResult<Transition<Portfolio>>;
+    changeMode(command: ChangePortfolioModeCommand): DomainResult<Transition<Portfolio>>;
+    replaceStrategyAllocation(command: ReplaceStrategyAllocationCommand): DomainResult<Transition<Portfolio>>;
+    private static fromTransition;
+    private static transition;
+}

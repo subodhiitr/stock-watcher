@@ -126,6 +126,28 @@ export const MEDIUM_HORIZON_PRESET: PresetDescriptor = buildPreset(
   'adaptive-momentum-quality', '1.0.0', MEDIUM_HORIZON_RAW,
 )
 
+export const STRATEGIC_MEDIUM_HORIZON_PRESET: PresetDescriptor = buildPreset(
+  'adaptive-momentum-quality-strategic',
+  '2.0.0',
+  {
+    ...MEDIUM_HORIZON_RAW,
+    strategicRebalance: {
+      enabled: true,
+      mode: 'PAPER',
+      riskBenchmark: 'NIFTY500TR',
+      defensiveBenchmark: 'GILT5YBEES',
+      primaryHorizonMonths: 12,
+      confirmationHorizonMonths: 3,
+      baselineLookbackMonths: 120,
+      minimumBaselineObservations: 60,
+      permittedRebalanceFraction: 0.5,
+      negativeTrendBuyFraction: 0,
+      maximumDelayCalendarDays: 93,
+      staleAfterHours: 36,
+    },
+  },
+)
+
 export const LONG_HORIZON_PRESET: PresetDescriptor = buildPreset(
   'long-horizon-quality-compounders', '1.0.0', LONG_HORIZON_RAW,
 )
@@ -133,5 +155,6 @@ export const LONG_HORIZON_PRESET: PresetDescriptor = buildPreset(
 export const STRATEGY_PRESETS: readonly PresetDescriptor[] = Object.freeze([
   SHORT_HORIZON_PRESET,
   MEDIUM_HORIZON_PRESET,
+  STRATEGIC_MEDIUM_HORIZON_PRESET,
   LONG_HORIZON_PRESET,
 ])
