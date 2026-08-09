@@ -91,6 +91,42 @@ test('reconciliation aggregates partial exits once per closed position and advan
   service.stop();
 });
 
+test('reconciliation exposes persisted Rangebound admission metrics', async () => {
+  const sqlite = db.initDb(':memory:');
+  const rangeboundAdmission = {
+    schemaVersion:1,
+    lowerBoundDistancePct:0.05,
+    stopDistancePct:0.3,
+    decisionScore:44.5,
+    modeledNetProfitPct:0.79,
+    modeledGrossProfitPct:0.95,
+    modeledCostPct:0.16,
+    grossToCostMultiple:5.938,
+    liveDepthAvailable:true,
+    liveDepthFresh:true,
+    liquidityGateApplied:true,
+  };
+  db.saveTrade(closedTrade({
+    id:'rangebound-position',
+    setupType:'RANGEBOUND',
+    decisionScore:44.5,
+    entryContext:{ decisionScore:44.5, rangeboundAdmission },
+  }));
+  const service = efficiency.createSetupEfficiencyService({
+    db,
+    now:() => NOW,
+    logger:{ warn() {} },
+  });
+
+  const result = await service.reconcile('rangebound-admission-test');
+  assert.equal(result.ok, true);
+  const fact = db.listSetupEfficiencyFacts()[0];
+  assert.equal(fact.decisionScore, 44.5);
+  assert.deepEqual(fact.rangeboundAdmission, rangeboundAdmission);
+  service.stop();
+  sqlite.close();
+});
+
 test('service uses a non-blocking startup task and enforces an hourly minimum interval', () => {
   const source = efficiency.createSetupEfficiencyService.toString();
   assert.match(source, /setImmediate\(\(\) =>/);

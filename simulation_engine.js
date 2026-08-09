@@ -303,6 +303,8 @@
       liquidity: {
         enabled:liquidityGateEnabled,
         required:requireLiveDepth,
+        available:depthAvailable,
+        fresh:depthFresh,
         applied:liquidityApplied,
         ok:liquidityOk,
         reason:liquidityReason,
@@ -1716,7 +1718,8 @@
     'SIMULATION_RANGEBOUND_MIN_RANGE_PCT',
     'SIMULATION_RANGEBOUND_MAX_LOWER_DISTANCE_PCT', 'SIMULATION_RANGEBOUND_MIN_TOUCHES_PER_SIDE',
     'SIMULATION_RANGEBOUND_MIN_MIDPOINT_CROSSES', 'SIMULATION_RANGEBOUND_MIN_SCORE',
-    'SIMULATION_RANGEBOUND_POSITION_MULTIPLIER', 'SIMULATION_RANGEBOUND_MIN_NET_PROFIT_PCT',
+    'SIMULATION_RANGEBOUND_POSITION_MULTIPLIER', 'SIMULATION_RANGEBOUND_MAX_POSITION_EXPOSURE',
+    'SIMULATION_RANGEBOUND_MIN_NET_PROFIT_PCT',
     'SIMULATION_RANGEBOUND_MIN_GROSS_TO_COST_MULTIPLE', 'SIMULATION_RANGEBOUND_MAX_NIFTY_DECLINE_PCT',
     'SIMULATION_RANGEBOUND_MIN_BREADTH_PCT', 'SIMULATION_RANGEBOUND_MIN_SECTOR_PCT',
     'SIMULATION_RANGEBOUND_MIN_RS_PCT',
@@ -3830,6 +3833,13 @@
           ? Math.max(0.1, Math.min(1, Number(effectiveSettings.SIMULATION_LONG_NEGATIVE_5M_RECLAIM_POSITION_MULTIPLIER) || 0.5))
           : 1;
         const effectiveSetupPositionMultiplier = Math.min(setupPositionMultiplier, negativeMomentumReclaimMultiplier);
+        const rangeboundMaxExposure = Number(effectiveSettings.SIMULATION_RANGEBOUND_MAX_POSITION_EXPOSURE);
+        const setupMaxExposure = setupType === 'RANGEBOUND' && Number.isFinite(rangeboundMaxExposure) && rangeboundMaxExposure > 0
+          ? rangeboundMaxExposure
+          : maxExposure;
+        const sizingMaxExposure = setupType === 'RANGEBOUND' && Number.isFinite(setupMaxExposure)
+          ? setupMaxExposure / effectiveSetupPositionMultiplier
+          : maxExposure;
         const fullSizing = setupType === 'MOMENTUM_RUNNER'
           ? getSuggestedQty(
               candidate,
@@ -3846,7 +3856,7 @@
           side,
           price,
           remainingCash,
-          Number.isFinite(maxExposure) ? maxExposure : null,
+          Number.isFinite(sizingMaxExposure) ? sizingMaxExposure : null,
           effectiveSettings,
           positionMultiplier * effectiveSetupPositionMultiplier
         );
@@ -3854,6 +3864,9 @@
         let qty = Number.isFinite(explicitQtyRaw) && explicitQtyRaw > 0
           ? Math.floor(explicitQtyRaw)
           : (Number.isFinite(computedQty) && computedQty > 0 ? computedQty : 0);
+        if (setupType === 'RANGEBOUND' && Number.isFinite(setupMaxExposure) && setupMaxExposure > 0 && Number.isFinite(price) && price > 0) {
+          qty = Math.min(qty, Math.floor(setupMaxExposure / price));
+        }
         const riskPerShare = Number(sizing?.riskPerShare) || Math.abs(Number(plan.stop) - price);
         if (remainingHeatRisk != null && riskPerShare > 0) qty = Math.min(qty, Math.floor(remainingHeatRisk / riskPerShare));
         const sector = String(candidate?.sector || 'UNKNOWN');
@@ -3881,6 +3894,38 @@
         const snapshotAt = candidate.__snapshotAt || candidate.snapshotAt || rawEntryContext.snapshotAt || at || null;
         const snapshotId = candidate.__snapshotId || candidate.snapshotId || rawEntryContext.snapshotId || null;
         const snapshotSource = candidate.__snapshotSource || candidate.snapshotSource || rawEntryContext.snapshotSource || null;
+        const rangeboundInfo = setupType === 'RANGEBOUND'
+          ? getRangeboundInfo(candidate, effectiveSettings, snapshotAt || at)
+          : null;
+        const modeledGrossPct = Number(candidate?.cost?.targetPct);
+        const modeledNetPct = Number(candidate?.cost?.netPct);
+        const modeledCostPct = Math.max(0, Number(candidate?.cost?.costPct) || 0)
+          + Math.max(0, Number(candidate?.cost?.slippagePct) || 0);
+        const stopDistancePct = Number.isFinite(price) && price > 0 && Number.isFinite(stop)
+          ? Math.abs(price - stop) / price * 100
+          : null;
+        const rangeboundAdmission = rangeboundInfo ? {
+          schemaVersion:1,
+          lowerBoundDistancePct:Number.isFinite(Number(rangeboundInfo.lowerDistancePct))
+            ? round3(rangeboundInfo.lowerDistancePct)
+            : null,
+          stopDistancePct:Number.isFinite(stopDistancePct) ? round3(stopDistancePct) : null,
+          decisionScore:round2(getCandidateDecisionScore(candidate)),
+          modeledNetProfitPct:Number.isFinite(modeledNetPct) ? round3(modeledNetPct) : null,
+          modeledGrossProfitPct:Number.isFinite(modeledGrossPct) ? round3(modeledGrossPct) : null,
+          modeledCostPct:modeledCostPct > 0 ? round3(modeledCostPct) : null,
+          grossToCostMultiple:Number.isFinite(modeledGrossPct) && modeledCostPct > 0
+            ? round3(modeledGrossPct / modeledCostPct)
+            : null,
+          liveDepthAvailable:rangeboundInfo.liquidity?.available === true,
+          liveDepthFresh:rangeboundInfo.liquidity?.fresh === true,
+          liquidityGateApplied:rangeboundInfo.liquidity?.applied === true,
+          spreadPct:rangeboundInfo.liquidity?.spreadPct ?? null,
+          bookImbalance:rangeboundInfo.liquidity?.bookImbalance ?? null,
+          combinedDepthQty:rangeboundInfo.liquidity?.combinedDepthQty ?? null,
+          depthAgeSec:rangeboundInfo.liquidity?.depthAgeSec ?? null,
+          depthSource:rangeboundInfo.liquidity?.source || null,
+        } : undefined;
         return {
           symbol: candidate.symbol,
           side,
@@ -3903,6 +3948,7 @@
               : undefined,
             initialPositionMultiplier:setupType === 'MOMENTUM_RUNNER' ? runnerInitialMultiplier : undefined,
             entryPositionMultiplier:round3(positionMultiplier * effectiveSetupPositionMultiplier),
+            maxPositionExposure:Number.isFinite(setupMaxExposure) ? round2(setupMaxExposure) : null,
             negativeMomentumReclaimSizeReduced:negativeMomentumReclaimMultiplier < 1,
             snapshotId,
             snapshotAt,
@@ -3910,6 +3956,7 @@
             snapshotAgeMin: candidate.__snapshotAgeMin ?? rawEntryContext.snapshotAgeMin ?? null,
             candidateScore: Number.isFinite(Number(candidate.score)) ? Number(candidate.score) : null,
             decisionScore:getCandidateDecisionScore(candidate),
+            rangeboundAdmission,
             scoreAudit:candidate.scoreAudit || null,
             indicatorSnapshot:buildIndicatorAuditSnapshot(candidate),
             settingsSnapshot,

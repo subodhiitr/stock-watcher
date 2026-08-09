@@ -27,6 +27,14 @@ test('heavy replay worker failures never fall back inside the live proxy', () =>
   assert.match(source, /REPLAY_DEEP_SWEEP_STARTUP === '1'/);
 });
 
+test('automatic deep sweeps require explicit opt-in while manual jobs remain available', () => {
+  assert.match(source, /REPLAY_DEEP_SWEEP_SCHEDULE_ENABLED = process\.env\.REPLAY_DEEP_SWEEP_SCHEDULE === '1'/);
+  const schedulerStart = source.indexOf('function startReplayDeepSweepScheduler()');
+  const schedulerBody = source.slice(schedulerStart, schedulerStart + 700);
+  assert.match(schedulerBody, /if \(!REPLAY_DEEP_SWEEP_SCHEDULE_ENABLED\)[\s\S]*return;[\s\S]*scheduleNextDeepSweep\(\)/);
+  assert.match(source, /\['report', 'sweep', 'autotune', 'deep_sweep'\]\.includes\(mode\)/);
+});
+
 test('live symbol metadata never decompresses retained replay snapshots', () => {
   const start = source.indexOf('function getSimulationSymbolMetaIndex()');
   const end = source.indexOf('\nfunction buildSectorTrendFromCandidates', start);

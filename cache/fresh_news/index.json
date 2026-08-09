@@ -1,62 +1,8 @@
 {
   "version": 5,
-  "savedAt": 1785639375038,
+  "savedAt": 1786128254517,
   "partitioned": true,
   "days": {
-    "2026-07-03": {
-      "date": "2026-07-03",
-      "savedAt": 1783333047584,
-      "builtInMs": 43159,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 320,
-      "count": 52,
-      "symbolCount": 47
-    },
-    "2026-07-04": {
-      "date": "2026-07-04",
-      "savedAt": 1783227672255,
-      "builtInMs": 13338,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 320,
-      "count": 14,
-      "symbolCount": 13
-    },
-    "2026-07-05": {
-      "date": "2026-07-05",
-      "savedAt": 1783227712380,
-      "builtInMs": 40119,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 320,
-      "count": 3,
-      "symbolCount": 2
-    },
-    "2026-07-06": {
-      "date": "2026-07-06",
-      "savedAt": 1783419451808,
-      "builtInMs": 67937,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 320,
-      "count": 46,
-      "symbolCount": 37
-    },
-    "2026-07-07": {
-      "date": "2026-07-07",
-      "savedAt": 1783505820054,
-      "builtInMs": 24521,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 31,
-      "symbolCount": 30
-    },
-    "2026-07-08": {
-      "date": "2026-07-08",
-      "savedAt": 1783592321972,
-      "builtInMs": 40466,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 34,
-      "symbolCount": 28
-    },
     "2026-07-09": {
       "date": "2026-07-09",
       "savedAt": 1783678716415,
@@ -248,8 +194,8 @@
     },
     "2026-07-31": {
       "date": "2026-07-31",
-      "savedAt": 1785639352288,
-      "builtInMs": 38563,
+      "savedAt": 1785752198654,
+      "builtInMs": 20046,
       "source": "nse-market-wide+symbol-announcements",
       "scanned": 319,
       "count": 72,
@@ -257,21 +203,75 @@
     },
     "2026-08-01": {
       "date": "2026-08-01",
-      "savedAt": 1785639362557,
-      "builtInMs": 10260,
+      "savedAt": 1785665816585,
+      "builtInMs": 24073,
       "source": "nse-market-wide+symbol-announcements",
       "scanned": 319,
-      "count": 38,
-      "symbolCount": 31
+      "count": 32,
+      "symbolCount": 26
     },
     "2026-08-02": {
       "date": "2026-08-02",
-      "savedAt": 1785639375036,
-      "builtInMs": 12470,
+      "savedAt": 1785665867560,
+      "builtInMs": 50964,
       "source": "nse-market-wide+symbol-announcements",
       "scanned": 319,
-      "count": 2,
-      "symbolCount": 2
+      "count": 10,
+      "symbolCount": 9
+    },
+    "2026-08-03": {
+      "date": "2026-08-03",
+      "savedAt": 1785838602025,
+      "builtInMs": 25415,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 319,
+      "count": 61,
+      "symbolCount": 38
+    },
+    "2026-08-04": {
+      "date": "2026-08-04",
+      "savedAt": 1785924989284,
+      "builtInMs": 11966,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 319,
+      "count": 72,
+      "symbolCount": 44
+    },
+    "2026-08-05": {
+      "date": "2026-08-05",
+      "savedAt": 1786011401796,
+      "builtInMs": 21511,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 319,
+      "count": 57,
+      "symbolCount": 40
+    },
+    "2026-08-06": {
+      "date": "2026-08-06",
+      "savedAt": 1786097798935,
+      "builtInMs": 14824,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 319,
+      "count": 62,
+      "symbolCount": 44
+    },
+    "2026-08-07": {
+      "date": "2026-08-07",
+      "savedAt": 1786097784103,
+      "builtInMs": 84103,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 319,
+      "count": 58,
+      "symbolCount": 50
+    },
+    "2026-08-08": {
+      "date": "2026-08-08",
+      "savedAt": 1786128254513,
+      "builtInMs": 75940,
+      "source": "nse-market-wide+symbol-announcements",
+      "scanned": 319,
+      "count": 0,
+      "symbolCount": 0
     }
   }
 }
