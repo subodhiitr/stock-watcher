@@ -192,6 +192,7 @@ const LIVE_CACHE_STALE_AGE_MS = 5 * 60 * 1000;           // 5 min: beyond this a
 const SHAREKHAN_DAILY_CONTEXT_TTL_MS = 10 * 60 * 1000;   // 10 minutes: avoid daily Yahoo refetch on every WS tick
 const REPLAY_CACHE_MAX     = 30;
 const REPLAY_DEEP_SWEEP_TIME_IST = '15:50';
+const REPLAY_DEEP_SWEEP_SCHEDULE_ENABLED = process.env.REPLAY_DEEP_SWEEP_SCHEDULE === '1';
 const REPLAY_DEEP_SWEEP_STARTUP_ENABLED = process.env.REPLAY_DEEP_SWEEP_STARTUP === '1';
 const replayResultCache    = new Map();
 const replayJobs           = new Map();
@@ -3095,6 +3096,7 @@ async function runSimulationSchedulerTick() {
           setupType:intent.setupType,
           score:intent.score,
           decisionScore:intent.decisionScore ?? intent.entryContext?.decisionScore ?? null,
+		  rangeboundAdmission:intent.entryContext?.rangeboundAdmission || null,
           scoreAudit:intent.entryContext?.scoreAudit || null,
           settingsFingerprint:intent.entryContext?.settingsFingerprint || null,
         })),
@@ -5917,6 +5919,10 @@ function scheduleNextDeepSweep() {
 }
 
 function startReplayDeepSweepScheduler() {
+  if (!REPLAY_DEEP_SWEEP_SCHEDULE_ENABLED) {
+    console.log('[replay-deep-sweep] Automatic scheduler disabled; set REPLAY_DEEP_SWEEP_SCHEDULE=1 to enable');
+    return;
+  }
   scheduleNextDeepSweep();
   if (!REPLAY_DEEP_SWEEP_STARTUP_ENABLED) {
     console.log('[replay-deep-sweep] Startup catch-up disabled; set REPLAY_DEEP_SWEEP_STARTUP=1 to enable');
