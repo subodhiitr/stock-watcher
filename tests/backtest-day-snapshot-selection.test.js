@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Backtest = require('../backtest_simulation.js');
+const { withSnapshotFixture } = require('./fixtures/sqlite-snapshot-fixture');
 
 test('dated replay selects the requested SQLite trading day without a file fallback', () => {
   const selected = Backtest.parseArgs(['--day', '2026-07-24']);
@@ -9,11 +10,13 @@ test('dated replay selects the requested SQLite trading day without a file fallb
 });
 
 test('dated snapshot loading does not load and filter every available day', async () => {
-  const startedAt = Date.now();
-  const snapshots = await Backtest.readSnapshots(null, '2026-07-24');
-  const elapsedMs = Date.now() - startedAt;
+  await withSnapshotFixture(['2026-07-24', '2026-07-31'], async () => {
+    const startedAt = Date.now();
+    const snapshots = await Backtest.readSnapshots(null, '2026-07-24');
+    const elapsedMs = Date.now() - startedAt;
 
-  assert.ok(snapshots.length > 0);
-  assert.ok(snapshots.every(snapshot => Backtest.istDateKey(snapshot.at) === '2026-07-24'));
-  assert.ok(elapsedMs < 10000, `expected one-day snapshot loading under 10s, got ${elapsedMs}ms`);
+    assert.ok(snapshots.length > 0);
+    assert.ok(snapshots.every(snapshot => Backtest.istDateKey(snapshot.at) === '2026-07-24'));
+    assert.ok(elapsedMs < 10000, `expected one-day snapshot loading under 10s, got ${elapsedMs}ms`);
+  });
 });

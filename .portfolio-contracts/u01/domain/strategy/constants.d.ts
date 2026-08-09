@@ -1,0 +1,27 @@
+export declare const MAX_UNIVERSE_SIZE = 1000;
+export declare const MAX_FACTOR_COMPONENTS_MOMENTUM = 7;
+export declare const MAX_FACTOR_COMPONENTS_QUALITY = 6;
+export declare const MAX_FACTOR_COMPONENTS_RISK = 5;
+export declare const WEIGHT_SCALE_PPM = 1000000;
+export declare const WEIGHT_SUM_TOLERANCE_PPM = 10;
+export declare const WINSORIZATION_SIGMA = 3;
+export declare const CONVICTION_MIN = 0.8;
+export declare const CONVICTION_MAX = 1.2;
+export declare const DEFAULT_REGIME_CONFIRMATION_WEAKENING = 2;
+export declare const DEFAULT_REGIME_CONFIRMATION_STRENGTHENING = 5;
+export declare const MIN_BACKTEST_YEARS = 5;
+export declare const MIN_TRADING_DAYS_PER_YEAR = 252;
+export declare const MIN_WALKFORWARD_FOLDS = 3;
+export declare const DATA_COMPLETENESS_THRESHOLD_PCT = 98;
+export declare const AI_PERMITTED_OPERATIONS: readonly ["SUMMARIZE", "CLASSIFY", "EXTRACT", "COMPARE", "EXPLAIN", "PRIORITIZE_REVIEW"];
+export declare const AI_ADVISORY_CONSTANTS: Readonly<{
+    canInfluenceState: false;
+    canDetermineOrderQuantity: false;
+    canAlterParameters: false;
+}>;
+export declare const MAX_VERSION_STRING_LENGTH = 20;
+export declare const MAX_BENCHMARK_SYMBOL_LENGTH = 50;
+export declare const DEFAULT_CB_FAILURE_THRESHOLD = 5;
+export declare const DEFAULT_CB_COOLDOWN_MS = 60000;
+export declare const DEFAULT_PROVIDER_DEADLINE_MS = 30000;
+export declare const DEFAULT_MAX_RETRIES = 3;

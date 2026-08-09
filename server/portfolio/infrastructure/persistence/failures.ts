@@ -1,0 +1,78 @@
+import {
+  createSafeContext,
+  type SafeContextValue,
+} from '../../domain/errors/safe-context.ts'
+import type { DomainFailure } from '../../domain/errors/failure.ts'
+import type { DomainResult } from '../../domain/errors/result.ts'
+
+export const PERSISTENCE_FAILURE_CODES = [
+  'PERSISTENCE_OWNER_REQUIRED',
+  'PERSISTENCE_NOT_OPEN',
+  'NESTED_TRANSACTION_FORBIDDEN',
+  'ASYNC_TRANSACTION_FORBIDDEN',
+  'PERSISTENCE_CAPABILITY_LEAK',
+  'INVALID_DATABASE_PATH',
+  'PROTECTED_DATABASE_PATH',
+  'ENCRYPTION_AT_REST_REQUIRED',
+  'INVALID_ENCRYPTION_ATTESTATION',
+  'DATABASE_ATTACHMENT_FORBIDDEN',
+  'PROTECTED_DATABASE_ACCESS',
+  'INVALID_SQLITE_CONFIGURATION',
+  'DATABASE_INTEGRITY_FAILED',
+  'DATABASE_BUSY',
+  'DATABASE_CLOSING',
+  'INVALID_MIGRATION_REGISTRY',
+  'MIGRATION_CHECKSUM_MISMATCH',
+  'SCHEMA_VERSION_MISMATCH',
+  'MIGRATION_FAILED',
+  'MIGRATION_HISTORY_DIVERGED',
+  'MIGRATION_BACKUP_REQUIRED',
+  'MIGRATION_IRREVERSIBLE',
+  'PAPER_PORTFOLIO_SEED_FAILED',
+  'SEED_IDENTITY_CONFLICT',
+  'INVALID_PERSISTED_EXACT_VALUE',
+  'INVALID_PERSISTED_VALUE',
+  'ACTIVE_PORTFOLIO_NAME_CONFLICT',
+  'PERSISTENCE_DUPLICATE',
+  'INVALID_PORTFOLIO_INSERT',
+  'PERSISTENCE_VERSION_CONFLICT',
+  'PORTFOLIO_NOT_FOUND',
+  'PORTFOLIO_REHYDRATION_FAILED',
+  'CROSS_PORTFOLIO_PERSISTENCE',
+  'PERSISTENCE_ATOMICITY_FAILED',
+  'PERSISTENCE_OPERATION_FAILED',
+  'POST_COMMIT_EVENT_VIOLATION',
+  'PERSISTED_EVENT_MISMATCH',
+  'AUDIT_CHAIN_BROKEN',
+  'AUDIT_EVENT_IMMUTABLE',
+  'TEST_DATABASE_ISOLATION_FAILED',
+  'UNSAFE_DATABASE_BACKUP',
+  'INVALID_BACKUP_DESTINATION',
+  'BACKUP_VERIFICATION_FAILED',
+] as const
+
+export type PersistenceFailureCode = (typeof PERSISTENCE_FAILURE_CODES)[number]
+export type PersistenceFailure = DomainFailure<PersistenceFailureCode>
+export type PersistenceResult<T> = DomainResult<T, PersistenceFailure>
+
+export function persistenceFailure(
+  code: PersistenceFailureCode,
+  options: Readonly<{
+    retryability?: PersistenceFailure['retryability']
+    field?: string
+    context?: Readonly<Record<string, SafeContextValue | undefined>>
+  }> = {},
+): PersistenceFailure {
+  const value: {
+    code: PersistenceFailureCode
+    retryability: PersistenceFailure['retryability']
+    field?: string
+    context: PersistenceFailure['context']
+  } = {
+    code,
+    retryability: options.retryability ?? 'NEVER',
+    context: createSafeContext(options.context),
+  }
+  if (options.field !== undefined) value.field = options.field
+  return Object.freeze(value)
+}

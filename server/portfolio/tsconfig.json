@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "lib": ["ES2024"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "isolatedModules": true,
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "useUnknownInCatchVariables": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": [
+    "./**/*.ts",
+    "../../tests/portfolio/**/*.ts",
+    "../../benchmark/portfolio-domain.ts",
+    "../../benchmark/portfolio-persistence.ts",
+    "../../benchmark/portfolio-strategy.ts",
+    "../../benchmark/portfolio-rebalancing.ts",
+    "../../benchmark/portfolio-execution.ts"
+  ],
+  "exclude": ["../../.portfolio-contracts"]
+}

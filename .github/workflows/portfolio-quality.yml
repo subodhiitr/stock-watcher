@@ -1,0 +1,53 @@
+name: Portfolio quality gate
+
+on:
+  pull_request:
+    paths:
+      - 'server/portfolio/**'
+      - 'tests/portfolio/**'
+      - 'benchmark/portfolio-*.ts'
+      - 'my-remix-app/app/portfolio/**'
+      - 'my-remix-app/app/actions/portfolio/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'my-remix-app/package.json'
+      - 'my-remix-app/package-lock.json'
+      - '.github/workflows/portfolio-quality.yml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portfolio-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install Node.js
+        uses: actions/setup-node@1e60f620b9541d951f57b788e1f2342a8e6ab8bc
+        with:
+          node-version: '24.3.0'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            my-remix-app/package-lock.json
+      - name: Install locked dependencies
+        run: |
+          npm.cmd ci
+          npm.cmd --prefix my-remix-app ci
+      - name: Run blocking portfolio gate
+        run: npm.cmd run verify:portfolio:u09
+      - name: Audit locked production dependencies
+        run: |
+          npm.cmd audit --package-lock-only --omit=dev --audit-level=critical
+          npm.cmd --prefix my-remix-app audit --package-lock-only --omit=dev --audit-level=critical
+      - name: Generate CycloneDX SBOMs
+        run: npm.cmd run sbom:portfolio

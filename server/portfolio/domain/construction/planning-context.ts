@@ -1,0 +1,146 @@
+import type { Holding } from '../portfolio/holding.ts'
+import type { IntegrityHash, OperatingMode } from '../portfolio/evidence.ts'
+import type { RegimeCategory } from '../strategy/regime-state.ts'
+import type { PortfolioStateVersion } from '../shared/state-version.ts'
+import type {
+  ActorId,
+  CalendarSessionId,
+  CostScheduleVersionId,
+  DataVersionId,
+  InstrumentId,
+  PortfolioId,
+  RebalanceRunId,
+  StrategyVersionId,
+  TaxRuleVersionId,
+  TurnoverSnapshotId,
+} from '../shared/identifiers.ts'
+import type { Instant, LocalDate } from '../shared/time.ts'
+import type { Money } from '../shared/money.ts'
+import type { Quantity } from '../shared/quantity.ts'
+import type { ScaledRate } from '../shared/scaled-rate.ts'
+import type { Weight } from '../shared/weight.ts'
+
+export type PlanningIntent = 'ROUTINE' | 'INTERIM_EXCEPTION'
+
+export type InterimReasonFamily =
+  | 'HARD_RISK_EXIT'
+  | 'MANDATORY_ELIGIBILITY_FAILURE'
+  | 'VERIFIED_CORPORATE_ACTION'
+  | 'CONFIRMED_REGIME_EXPOSURE_REDUCTION'
+
+export type InterimAuthorization = Readonly<{
+  reasonFamily: InterimReasonFamily
+  sourceIds: readonly string[]
+  verifiedAt: Instant
+  verifiedBy: ActorId
+  exposureDeltaOnly: boolean
+  advisoryEvidenceExcluded: true
+}>
+
+export type MarketCapBucket = 'LARGE_CAP' | 'MID_CAP' | 'SMALL_CAP'
+
+export type PlanningCandidate = Readonly<{
+  instrumentId: InstrumentId
+  eligibilityStatus: 'ELIGIBLE' | 'INELIGIBLE' | 'HOLD_ELIGIBLE' | 'FORCED_REVIEW'
+  hardRiskFlag: boolean
+  mandatoryEligibilityFailure: boolean
+  corporateActionBlocked: boolean
+  corporateActionVerified: boolean
+  rank: number
+  compositeScorePpm: bigint
+  convictionMultiplier: ScaledRate
+  realizedVolatility: ScaledRate
+  sectorId?: string
+  groupId?: string
+  marketCapBucket?: MarketCapBucket
+  price: Money
+  liquidityCapacity: Money
+  currentHolding?: Holding
+  availableDeliveryQuantity: Quantity
+  acquiredOn?: LocalDate
+}>
+
+export type ConstructionConstraintSet = Readonly<{
+  targetHoldings: number
+  maxHoldings: number
+  maxStockWeight: Weight
+  maxSectorWeight: Weight
+  maxGroupWeight: Weight
+  maxSmallCapWeight: Weight
+  maxLiquidityParticipation: ScaledRate
+  cashBufferFloor: Weight
+  regimeExposureCap: Weight
+  turnoverBudgetCeiling: ScaledRate
+  minimumOrderValue: Money
+  replacementScoreGap: ScaledRate
+  preferredMinimumHoldDays: number
+  absoluteDriftBand: Weight
+  relativeDriftBand: ScaledRate
+}>
+
+export type CadencePolicySnapshot = Readonly<{
+  strategyHorizon: 'SHORT' | 'MEDIUM' | 'LONG'
+  routineFrequency: 'BIWEEKLY' | 'MONTHLY' | 'QUARTERLY'
+  driftReviewFrequency: 'WEEKLY' | 'MONTHLY'
+  nextRoutineDecisionDate: LocalDate
+  nextDriftReviewDate: LocalDate
+  preferredMinimumHoldDays: number
+}>
+
+export type PlanningTurnoverWindow = Readonly<{
+  windowKind: 'ROLLING_30_DAY' | 'CALENDAR_MONTH' | 'CALENDAR_QUARTER' | 'CALENDAR_YEAR'
+  budgetLimit: ScaledRate
+  consumedBeforePlan: ScaledRate
+}>
+
+export type PlanningTiming = Readonly<{
+  calendarSessionId: CalendarSessionId
+  decisionSessionDate: LocalDate
+  decisionReadyAt: Instant
+  eligibleExecutionDate: LocalDate
+  eligibleExecutionWindowStart: string
+  eligibleExecutionWindowEnd: string
+  timeZone: 'Asia/Kolkata'
+  finalized: boolean
+  sameSessionExecutionAllowed: boolean
+}>
+
+export type NormalizedPlanningContext = Readonly<{
+  portfolioId: PortfolioId
+  rebalanceRunId: RebalanceRunId
+  planningIntent: PlanningIntent
+  asOf: LocalDate
+  createdAt: Instant
+  portfolioStatus: 'ACTIVE' | 'ARCHIVED'
+  portfolioMode: OperatingMode
+  portfolioSnapshotVersion: PortfolioStateVersion
+  cash: Money
+  holdings: readonly Holding[]
+  candidates: readonly PlanningCandidate[]
+  strategyVersionId: StrategyVersionId
+  strategyConfigHash: IntegrityHash
+  dataVersionId: DataVersionId
+  evaluationAsOf: LocalDate
+  regimeCategory: RegimeCategory
+  reconciliationSnapshotId: string
+  costScheduleVersionId: CostScheduleVersionId
+  taxRuleVersionId: TaxRuleVersionId
+  turnoverSnapshotId: TurnoverSnapshotId
+  turnoverWindows: readonly PlanningTurnoverWindow[]
+  constraints: ConstructionConstraintSet
+  cadence: CadencePolicySnapshot
+  timing: PlanningTiming
+  interimAuthorization?: InterimAuthorization
+  planInputHash?: IntegrityHash
+}>
+
+export type ActionIntentMarker = Readonly<{
+  instrumentId: InstrumentId
+  intent: 'BUY' | 'SELL' | 'REDUCE' | 'HOLD' | 'REPLACE'
+  mandatory: boolean
+}>
+
+export type FrozenPlanningInput = Readonly<{
+  context: NormalizedPlanningContext
+  actionIntents: readonly ActionIntentMarker[]
+}>

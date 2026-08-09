@@ -1,0 +1,24 @@
+import { type DomainResult } from '../errors/result.ts';
+import { type PortfolioId } from '../shared/identifiers.ts';
+import type { Money } from '../shared/money.ts';
+import type { PortfolioStateVersion } from '../shared/state-version.ts';
+import { type Instant } from '../shared/time.ts';
+import { type Holding } from './holding.ts';
+import { type OperatingMode } from './evidence.ts';
+import { type StrategyAllocationPolicy } from './strategy-allocation.ts';
+import { type PortfolioName } from './portfolio-name.ts';
+export type PortfolioStatus = 'ACTIVE' | 'ARCHIVED';
+export type PortfolioIntegrityState = Readonly<{
+    portfolioId: PortfolioId;
+    name: PortfolioName;
+    baseCurrency: 'INR';
+    createdAt: Instant;
+    status: PortfolioStatus;
+    mode: OperatingMode;
+    cash: Money;
+    allocationPolicy: StrategyAllocationPolicy;
+    holdings: readonly Holding[];
+    stateVersion: PortfolioStateVersion;
+}>;
+export declare function validatePortfolioIntegrity(state: PortfolioIntegrityState): DomainResult<void>;
+export declare function validateTargetedTransition(prior: PortfolioIntegrityState, next: PortfolioIntegrityState): DomainResult<void>;
