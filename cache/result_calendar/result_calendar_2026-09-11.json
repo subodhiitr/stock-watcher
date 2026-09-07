@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "date": "2026-09-11",
+  "savedAt": 1788751044433,
+  "builtInMs": 144389,
+  "source": "nse-board-meetings",
+  "scanned": 3185,
+  "count": 1,
+  "symbolCount": 1,
+  "items": [
+    {
+      "symbol": "LALITHAA",
+      "name": "Lalithaa Jewellery Mart Limited",
+      "type": "Financial Results",
+      "title": "To consider and approve the financial results for the period ended Jun 30, 2026 and other business matters",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=LALITHAA",
+      "eventDate": "2026-09-10T18:30:00.000Z",
+      "dateKey": "2026-09-11",
+      "status": "upcoming",
+      "period": null
+    }
+  ],
+  "version": 3
+}

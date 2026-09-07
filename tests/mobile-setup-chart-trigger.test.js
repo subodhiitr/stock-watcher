@@ -20,10 +20,18 @@ test('setup price and change card opens the existing 5m or 15m candle overlay', 
   assert.match(css, /\.setup-chart-trigger \{[^}]*cursor: pointer/);
 });
 
+test("today's position entry price opens the existing 5-minute candle overlay", () => {
+  assert.match(app, /<span>Entry<\/span><button type="button" class="setup-chart-trigger trade-entry-chart-trigger" data-chart-symbol="\$\{sym\}"/);
+  assert.match(app, /aria-label="Open \$\{sym\} 5-minute candle chart"/);
+  assert.match(app, /const chartCard = event\.target\.closest\('\[data-chart-symbol\]'\);/);
+  assert.match(app, /openCandleOverlay\(chartCard\.dataset\.chartSymbol\)/);
+  assert.match(app, /async function openCandleOverlay\(symbol, interval = '5m'\)/);
+});
+
 test('mobile cache versions include the chart-trigger assets', () => {
-  assert.match(controller, /mobile\.css\?v=20260801-20/);
-  assert.match(controller, /mobile-app\.js\?v=20260801-60/);
-  assert.match(serviceWorker, /intradayx-mobile-v64/);
-  assert.match(serviceWorker, /mobile\.css\?v=20260801-20/);
-  assert.match(serviceWorker, /mobile-app\.js\?v=20260801-60/);
+  assert.match(controller, /mobile\.css\?v=20260905-32/);
+  assert.match(controller, /mobile-app\.js\?v=20260905-78/);
+  assert.match(serviceWorker, /intradayx-mobile-v83/);
+  assert.match(serviceWorker, /mobile\.css\?v=20260905-32/);
+  assert.match(serviceWorker, /mobile-app\.js\?v=20260905-78/);
 });

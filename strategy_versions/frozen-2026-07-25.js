@@ -31,6 +31,7 @@ const OVERRIDES = Object.freeze({
   SIMULATION_GAIN_MILESTONES_PCT: '0.5,1,1.5,2',
   SIMULATION_EXIT_MIN_HOLD_MIN: 12,
   SIMULATION_FRAGMENTED_MARKET_FILTER_ENABLED: false,
+  SIMULATION_PARTIAL_EXITS_ENABLED: true,
   SIMULATION_MIN_GROSS_TO_COST_MULTIPLE: 0,
   SIMULATION_MIN_NET_PROFIT_PCT: 1,
   SIMULATION_MIN_SCORE: 65,
@@ -56,7 +57,8 @@ const OVERRIDES = Object.freeze({
 });
 
 function stableSettingsJson(settings) {
-  const postFreezeRangeboundKeys = new Set([
+  const postFreezeKeys = new Set([
+    'SIMULATION_PARTIAL_EXITS_ENABLED',
     'SIMULATION_RANGEBOUND_LIQUIDITY_GATE_ENABLED',
     'SIMULATION_RANGEBOUND_REQUIRE_LIVE_DEPTH',
     'SIMULATION_RANGEBOUND_MAX_DEPTH_AGE_SEC',
@@ -66,7 +68,7 @@ function stableSettingsJson(settings) {
     'SIMULATION_RANGEBOUND_MAX_POSITION_EXPOSURE',
   ]);
   const frozenKeys = Object.keys(TradeRules.DEFAULT_SETTINGS)
-    .filter(key => !postFreezeRangeboundKeys.has(key))
+    .filter(key => !postFreezeKeys.has(key))
     .filter(key => !['SIMULATION_BULL_FLAG_', 'SIMULATION_GAP_AND_GO_', 'SIMULATION_MOMENTUM_CATALYST_'].some(prefix => key.startsWith(prefix)))
     .sort();
   return JSON.stringify(Object.fromEntries(frozenKeys.map(key => [key, settings[key]])));

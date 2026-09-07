@@ -87,6 +87,38 @@ test('fresh-news service exposes separate result and news or dividend impacts', 
   }
 });
 
+test('fresh-news service includes fraud or irregularity allegation announcements', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'stock-watcher-news-risk-'));
+  const date = '2026-08-24';
+  const title = 'BLS International Services Limited categorically rejects allegations of involvement in visa irregularities appearing in media reports';
+  const service = createFreshNewsService({
+    cacheFile:path.join(root, 'legacy.json'),
+    cacheDir:root,
+    indexFile:path.join(root, 'index.json'),
+    dashboardAppPath:path.join(root, 'missing-dashboard.js'),
+    classifyNewsItem:() => 'News',
+    classifyNewsTradeImpact:() => ({ newsSentiment:'Negative', tradeImpactScore:-80, tradeImpactAbs:80 }),
+    fetchNSEAllAnnouncements:async () => [{
+      symbol:'BLS',
+      title,
+      source:'NSE',
+      publishedAt:`${date}T07:34:27.000Z`,
+    }],
+    fetchNSEAllResults:async () => [],
+    fetchNSEAllCorporateActions:async () => [],
+    fetchNSEAllBoardMeetings:async () => [],
+    fetchNSEStockAnnouncements:async () => [],
+  });
+  try {
+    const result = await service.fetchFreshStockNews([{ symbol:'BLS', name:'BLS International Services' }], { date });
+    assert.equal(result.items.length, 1);
+    assert.equal(result.items[0].symbol, 'BLS');
+    assert.equal(result.items[0].title, title);
+  } finally {
+    fs.rmSync(root, { recursive:true, force:true });
+  }
+});
+
 test('research catalyst coverage records a verified no-event scan as neutral data', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'stock-watcher-catalyst-coverage-'));
   const asOf = new Date('2026-07-16T06:00:00.000Z');

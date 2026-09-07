@@ -1,0 +1,1892 @@
+[
+  {
+    "symbol": "ANTELOPUS",
+    "sector": "Energy",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ANTELOPUS/",
+    "status": 200,
+    "sectorFound": "Oil, Gas & Consumable Fuels",
+    "marketCapCr": 3366,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Energy"
+  },
+  {
+    "symbol": "HDIL",
+    "sector": "Realty",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/HDIL/",
+    "status": 200,
+    "sectorFound": "Realty",
+    "marketCapCr": 69.7,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VAML",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VAML/",
+    "status": 200,
+    "sectorFound": "Metals & Mining",
+    "marketCapCr": 171177,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Commodities"
+  },
+  {
+    "symbol": "INDOMIM",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/INDOMIM/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 48039,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "BLEL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/BLEL/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 1917,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "E2E",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/E2E/",
+    "status": 200,
+    "sectorFound": "Information Technology",
+    "marketCapCr": 12366,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "NAICL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/NAICL/",
+    "status": 404,
+    "sectorFound": "",
+    "marketCapCr": null,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "JINDWORLD",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/JINDWORLD/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 5766,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Consumer Discretionary\n              \n                BSE 1000"
+  },
+  {
+    "symbol": "PRIORITY",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/PRIORITY/",
+    "status": 200,
+    "sectorFound": "Consumer Durables",
+    "marketCapCr": 435,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ESDS",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ESDS/",
+    "status": 200,
+    "sectorFound": "Information Technology",
+    "marketCapCr": 10647,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "AASTHA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/AASTHA/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 345,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "ACGL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ACGL/",
+    "status": 200,
+    "sectorFound": "Automobile and Auto Components",
+    "marketCapCr": 1094,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Consumer Discretionary"
+  },
+  {
+    "symbol": "ADDIND",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ADDIND/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 85.7,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ADVIKCA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ADVIKCA/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 68.2,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "AGL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/AGL/",
+    "status": 200,
+    "sectorFound": "Services",
+    "marketCapCr": 1342,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ALFREDHE",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ALFREDHE/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 223,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ALPINETEX",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ALPINETEX/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 221,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "ALUFLUOR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ALUFLUOR/",
+    "status": 200,
+    "sectorFound": "Chemicals",
+    "marketCapCr": 390,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "AMAL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/AMAL/",
+    "status": 200,
+    "sectorFound": "Chemicals",
+    "marketCapCr": 919,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Commodities"
+  },
+  {
+    "symbol": "AMARJOTHI",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/AMARJOTHI/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 109,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ANDREWYU",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ANDREWYU/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 1366,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Fast Moving Consumer Goods\n              \n                BSE CPSE"
+  },
+  {
+    "symbol": "ANNAPURNA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ANNAPURNA/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 306,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ANSALBU",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ANSALBU/",
+    "status": 200,
+    "sectorFound": "Realty",
+    "marketCapCr": 59.5,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "APOORVA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/APOORVA/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 50.9,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ARCL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ARCL/",
+    "status": 200,
+    "sectorFound": "Chemicals",
+    "marketCapCr": 180,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ARDEE",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ARDEE/",
+    "status": 200,
+    "sectorFound": "Metals & Mining",
+    "marketCapCr": 1754,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "ARYAMAN",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ARYAMAN/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 760,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ASIANTNE",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ASIANTNE/",
+    "status": 200,
+    "sectorFound": "Services",
+    "marketCapCr": 24.3,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ASSAMENT",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ASSAMENT/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 120,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "AUGMONT",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/AUGMONT/",
+    "status": 200,
+    "sectorFound": "Metals & Mining",
+    "marketCapCr": 8237,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "AUSTENG",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/AUSTENG/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 43.4,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "AVANCE",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/AVANCE/",
+    "status": 200,
+    "sectorFound": "Information Technology",
+    "marketCapCr": 163,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "AXTEL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/AXTEL/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 637,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Industrials"
+  },
+  {
+    "symbol": "AZADIND",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/AZADIND/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 488,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "BENARAS",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/BENARAS/",
+    "status": 200,
+    "sectorFound": "Consumer Services",
+    "marketCapCr": 1326,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Consumer Discretionary"
+  },
+  {
+    "symbol": "BLUECLOUDS",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/BLUECLOUDS/",
+    "status": 200,
+    "sectorFound": "Information Technology",
+    "marketCapCr": 1835,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "BPLPHARMA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/BPLPHARMA/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 1057,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "BRAHMINFRA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/BRAHMINFRA/",
+    "status": 200,
+    "sectorFound": "Construction",
+    "marketCapCr": 475,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "BRIGHTBR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/BRIGHTBR/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 145,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "CFEL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/CFEL/",
+    "status": 200,
+    "sectorFound": "Services",
+    "marketCapCr": 81.3,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "CGVAK",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/CGVAK/",
+    "status": 200,
+    "sectorFound": "Information Technology",
+    "marketCapCr": 74.8,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "CHEMCRUX",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/CHEMCRUX/",
+    "status": 200,
+    "sectorFound": "Chemicals",
+    "marketCapCr": 122,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "CMLL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/CMLL/",
+    "status": 200,
+    "sectorFound": "Oil, Gas & Consumable Fuels",
+    "marketCapCr": 3289,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "CMRGREEN",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/CMRGREEN/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 5002,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "COMPEAU",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/COMPEAU/",
+    "status": 200,
+    "sectorFound": "Automobile and Auto Components",
+    "marketCapCr": 229,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "CORDELIA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/CORDELIA/",
+    "status": 200,
+    "sectorFound": "Consumer Services",
+    "marketCapCr": 7522,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "CPL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/CPL/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 374,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "CRAVATEX",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/CRAVATEX/",
+    "status": 200,
+    "sectorFound": "Services",
+    "marketCapCr": 85,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "CSM",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/CSM/",
+    "status": 200,
+    "sectorFound": "Information Technology",
+    "marketCapCr": 487,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO"
+  },
+  {
+    "symbol": "DEEP",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/DEEP/",
+    "status": 200,
+    "sectorFound": "Chemicals",
+    "marketCapCr": 84.6,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "DHATRE",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/DHATRE/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 47.2,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "DHOOTTRANS",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/DHOOTTRANS/",
+    "status": 200,
+    "sectorFound": "Automobile and Auto Components",
+    "marketCapCr": 33049,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "EASTWEST",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/EASTWEST/",
+    "status": 200,
+    "sectorFound": "Services",
+    "marketCapCr": 30.1,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ECORECO",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ECORECO/",
+    "status": 200,
+    "sectorFound": "Utilities",
+    "marketCapCr": 886,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Utilities"
+  },
+  {
+    "symbol": "EKI",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/EKI/",
+    "status": 200,
+    "sectorFound": "Services",
+    "marketCapCr": 205,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "EMPIND",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/EMPIND/",
+    "status": 200,
+    "sectorFound": "Diversified",
+    "marketCapCr": 717,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ENKEIWHEL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ENKEIWHEL/",
+    "status": 200,
+    "sectorFound": "Automobile and Auto Components",
+    "marketCapCr": 701,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "FERMENTA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/FERMENTA/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 1467,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Healthcare"
+  },
+  {
+    "symbol": "FREDUN",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/FREDUN/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 2432,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "GAJA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/GAJA/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 2272,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "GKB",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/GKB/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 32.2,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "GYFTR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/GYFTR/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 1402,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "HAMPTON",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/HAMPTON/",
+    "status": 200,
+    "sectorFound": "Realty",
+    "marketCapCr": 216,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "HAZOOR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/HAZOOR/",
+    "status": 200,
+    "sectorFound": "Construction",
+    "marketCapCr": 518,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Industrials"
+  },
+  {
+    "symbol": "HBPOR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/HBPOR/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 62.8,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "HINDADH",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/HINDADH/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 190,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "HINDALUMI",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/HINDALUMI/",
+    "status": 200,
+    "sectorFound": "Metals & Mining",
+    "marketCapCr": 61.4,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "HORIZONIND",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/HORIZONIND/",
+    "status": 200,
+    "sectorFound": "Realty",
+    "marketCapCr": 15893,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "HRYNSHP",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/HRYNSHP/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 62.5,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "INDOKEM",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/INDOKEM/",
+    "status": 200,
+    "sectorFound": "Chemicals",
+    "marketCapCr": 1745,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "IPRINGLTD",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/IPRINGLTD/",
+    "status": 200,
+    "sectorFound": "Automobile and Auto Components",
+    "marketCapCr": 203,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ISTLTD",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ISTLTD/",
+    "status": 200,
+    "sectorFound": "Automobile and Auto Components",
+    "marketCapCr": 763,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ITL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ITL/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 117,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "JENBURPH",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/JENBURPH/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 458,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "JNPR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/JNPR/",
+    "status": 200,
+    "sectorFound": "Power",
+    "marketCapCr": 15084,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "JYOTIRES",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/JYOTIRES/",
+    "status": 200,
+    "sectorFound": "Chemicals",
+    "marketCapCr": 1042,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Commodities"
+  },
+  {
+    "symbol": "KAMANWALA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/KAMANWALA/",
+    "status": 200,
+    "sectorFound": "Realty",
+    "marketCapCr": 23.4,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "KANCOTEA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/KANCOTEA/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 28.1,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "KDGREEN",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/KDGREEN/",
+    "status": 200,
+    "sectorFound": "Consumer Durables",
+    "marketCapCr": 512,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "KJMCFIN",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/KJMCFIN/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 30.2,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "KMCSHIL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/KMCSHIL/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 2255,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Healthcare"
+  },
+  {
+    "symbol": "KNACK",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/KNACK/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 2292,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "KSE",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/KSE/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 576,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Fast Moving Consumer Goods"
+  },
+  {
+    "symbol": "KUSUMGAR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/KUSUMGAR/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 5997,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "LADDERUP",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/LADDERUP/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 54.5,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "LAKSHMIMIL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/LAKSHMIMIL/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 530,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "LALITHAA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/LALITHAA/",
+    "status": 200,
+    "sectorFound": "Consumer Durables",
+    "marketCapCr": 17166,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "LANCER",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/LANCER/",
+    "status": 200,
+    "sectorFound": "Services",
+    "marketCapCr": 484,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Services"
+  },
+  {
+    "symbol": "LASERPOWER",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/LASERPOWER/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 4150,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "LCL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/LCL/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 6144,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "LEAPIND",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/LEAPIND/",
+    "status": 200,
+    "sectorFound": "Services",
+    "marketCapCr": 6620,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "LKPSEC",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/LKPSEC/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 126,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "LOTUSCHO",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/LOTUSCHO/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 809,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Fast Moving Consumer Goods"
+  },
+  {
+    "symbol": "LUMINO",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/LUMINO/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 3487,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO"
+  },
+  {
+    "symbol": "MAKERSL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/MAKERSL/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 112,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "MANIPALHOS",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/MANIPALHOS/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 95391,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "MEDICAPQ",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/MEDICAPQ/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 32.8,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "MIIL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/MIIL/",
+    "status": 200,
+    "sectorFound": "Realty",
+    "marketCapCr": 1558,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "MILKYMIST",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/MILKYMIST/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 19433,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "MKEXIM",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/MKEXIM/",
+    "status": 200,
+    "sectorFound": "Consumer Services",
+    "marketCapCr": 251,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "MLKFOOD",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/MLKFOOD/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 214,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "MOHITE",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/MOHITE/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 56.1,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "MOLBIO",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/MOLBIO/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 13374,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "MSL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/MSL/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 156,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "MUKESHB",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/MUKESHB/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 93.4,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "MVELECTRO",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/MVELECTRO/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 1991,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "NICCOPAR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/NICCOPAR/",
+    "status": 200,
+    "sectorFound": "Consumer Services",
+    "marketCapCr": 372,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "NTCIND",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/NTCIND/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 193,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ODYCORP",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ODYCORP/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 66.8,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ONEGLOBAL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ONEGLOBAL/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 1060,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ONIXSOLAR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ONIXSOLAR/",
+    "status": 200,
+    "sectorFound": "Metals & Mining",
+    "marketCapCr": 1487,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "OPTIFIN",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/OPTIFIN/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 111,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "ORIRAIL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/ORIRAIL/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 877,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Industrials"
+  },
+  {
+    "symbol": "PACIFICI",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/PACIFICI/",
+    "status": 200,
+    "sectorFound": "Consumer Durables",
+    "marketCapCr": 99.1,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "PANCHMAHQ",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/PANCHMAHQ/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 578,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "PANORAMA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/PANORAMA/",
+    "status": 200,
+    "sectorFound": "Media, Entertainment & Publication",
+    "marketCapCr": 1235,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "PARNAXLAB",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/PARNAXLAB/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 155,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "PBMPOLY",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/PBMPOLY/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 42,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "PERMAGN",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/PERMAGN/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 764,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Industrials"
+  },
+  {
+    "symbol": "PHOENXINTL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/PHOENXINTL/",
+    "status": 200,
+    "sectorFound": "Services",
+    "marketCapCr": 48.7,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "POEL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/POEL/",
+    "status": 200,
+    "sectorFound": "Chemicals",
+    "marketCapCr": 439,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "POLYSPIN",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/POLYSPIN/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 29.6,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "PRISMX",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/PRISMX/",
+    "status": 200,
+    "sectorFound": "Services",
+    "marketCapCr": 24.2,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "RAMBHAJO",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/RAMBHAJO/",
+    "status": 200,
+    "sectorFound": "Consumer Durables",
+    "marketCapCr": 1231,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "RIR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/RIR/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 1352,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Industrials"
+  },
+  {
+    "symbol": "RRECL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/RRECL/",
+    "status": 200,
+    "sectorFound": "Realty",
+    "marketCapCr": 360,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "RTSPOWR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/RTSPOWR/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 80.8,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SAB",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SAB/",
+    "status": 200,
+    "sectorFound": "Construction",
+    "marketCapCr": 279,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SAICAPI",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SAICAPI/",
+    "status": 200,
+    "sectorFound": "Services",
+    "marketCapCr": 45.4,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SAMBANDAM",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SAMBANDAM/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 52.5,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SAYAJIIND",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SAYAJIIND/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 294,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SBIFUNDS",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SBIFUNDS/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 114490,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "SEKURITIND",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SEKURITIND/",
+    "status": 200,
+    "sectorFound": "Automobile and Auto Components",
+    "marketCapCr": 1044,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Consumer Discretionary"
+  },
+  {
+    "symbol": "SGLRES",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SGLRES/",
+    "status": 200,
+    "sectorFound": "Information Technology",
+    "marketCapCr": 60.4,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SGRL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SGRL/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 910,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Healthcare"
+  },
+  {
+    "symbol": "SHANKESH",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SHANKESH/",
+    "status": 200,
+    "sectorFound": "Consumer Durables",
+    "marketCapCr": 1454,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "SHERVANI",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SHERVANI/",
+    "status": 200,
+    "sectorFound": "Realty",
+    "marketCapCr": 81.1,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SHILGRAVQ",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SHILGRAVQ/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 89,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SHIPROCKET",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SHIPROCKET/",
+    "status": 200,
+    "sectorFound": "Services",
+    "marketCapCr": 9889,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "SHIVAAGRO",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SHIVAAGRO/",
+    "status": 200,
+    "sectorFound": "Chemicals",
+    "marketCapCr": 41.4,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SHIVACEM",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SHIVACEM/",
+    "status": 200,
+    "sectorFound": "Construction Materials",
+    "marketCapCr": 471,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Commodities"
+  },
+  {
+    "symbol": "SHRADDHA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SHRADDHA/",
+    "status": 200,
+    "sectorFound": "Realty",
+    "marketCapCr": 632,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SHRJAGP",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SHRJAGP/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 548,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SHUKRAPHAR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SHUKRAPHAR/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 2289,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SIEL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SIEL/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 44.2,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SIMPLXREA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SIMPLXREA/",
+    "status": 200,
+    "sectorFound": "Realty",
+    "marketCapCr": 42.8,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SKYWAYS",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SKYWAYS/",
+    "status": 200,
+    "sectorFound": "Services",
+    "marketCapCr": 1784,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO"
+  },
+  {
+    "symbol": "SPELS",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SPELS/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 689,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Industrials"
+  },
+  {
+    "symbol": "SRIKPRIND",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SRIKPRIND/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 67.3,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "STLSTRINF",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/STLSTRINF/",
+    "status": 200,
+    "sectorFound": "Realty",
+    "marketCapCr": 16.9,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SUMEDHA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SUMEDHA/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 31.2,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SUNLOC",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SUNLOC/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 82,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SUNRAKSHAK",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SUNRAKSHAK/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 1146,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SUNSHIEL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SUNSHIEL/",
+    "status": 200,
+    "sectorFound": "Chemicals",
+    "marketCapCr": 1007,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SUNSHINE",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SUNSHINE/",
+    "status": 200,
+    "sectorFound": "Media, Entertainment & Publication",
+    "marketCapCr": 1375,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "SVGLOBAL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SVGLOBAL/",
+    "status": 200,
+    "sectorFound": "Realty",
+    "marketCapCr": 296,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SWARNSAR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SWARNSAR/",
+    "status": 200,
+    "sectorFound": "Consumer Durables",
+    "marketCapCr": 73.6,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "SYMBIOTEC",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/SYMBIOTEC/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 6928,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO"
+  },
+  {
+    "symbol": "TANAA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/TANAA/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 720,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Industrials"
+  },
+  {
+    "symbol": "TECHNOCRAF",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/TECHNOCRAF/",
+    "status": 200,
+    "sectorFound": "Utilities",
+    "marketCapCr": 1450,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "TEMPSENS",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/TEMPSENS/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 4651,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO"
+  },
+  {
+    "symbol": "TERAI",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/TERAI/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 83.5,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "TGVSL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/TGVSL/",
+    "status": 200,
+    "sectorFound": "Chemicals",
+    "marketCapCr": 1178,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "TOYAMSL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/TOYAMSL/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 35.2,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "TRANSCOR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/TRANSCOR/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 81.6,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "TRITONV",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/TRITONV/",
+    "status": 200,
+    "sectorFound": "Automobile and Auto Components",
+    "marketCapCr": 582,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "TURTLEMINT",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/TURTLEMINT/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 4243,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE IPO\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "TUTIALKA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/TUTIALKA/",
+    "status": 200,
+    "sectorFound": "Chemicals",
+    "marketCapCr": 735,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "UDAYJEW",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/UDAYJEW/",
+    "status": 200,
+    "sectorFound": "Consumer Durables",
+    "marketCapCr": 487,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "UPHOT",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/UPHOT/",
+    "status": 200,
+    "sectorFound": "Consumer Services",
+    "marketCapCr": 750,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VADILENT",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VADILENT/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 864,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VASUPRADA",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VASUPRADA/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 88.7,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VEDAVAAG",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VEDAVAAG/",
+    "status": 200,
+    "sectorFound": "Information Technology",
+    "marketCapCr": 42.6,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VEDPOWER",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VEDPOWER/",
+    "status": 200,
+    "sectorFound": "Power",
+    "marketCapCr": 13374,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VGCL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VGCL/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 121,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VIJSOLX",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VIJSOLX/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 220,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VIRAT",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VIRAT/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 615,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VISHAL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VISHAL/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 462,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VISL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VISL/",
+    "status": 200,
+    "sectorFound": "Metals & Mining",
+    "marketCapCr": 13839,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VIVOBIOT",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VIVOBIOT/",
+    "status": 200,
+    "sectorFound": "Healthcare",
+    "marketCapCr": 41.7,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VOEPL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VOEPL/",
+    "status": 200,
+    "sectorFound": "Consumer Durables",
+    "marketCapCr": 1895,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VOGL",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VOGL/",
+    "status": 200,
+    "sectorFound": "Oil, Gas & Consumable Fuels",
+    "marketCapCr": 14867,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VOITHPAPR",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VOITHPAPR/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 640,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "VTMLTD",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/VTMLTD/",
+    "status": 200,
+    "sectorFound": "Textiles",
+    "marketCapCr": 564,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Consumer Discretionary"
+  },
+  {
+    "symbol": "WARDINMOBI",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/WARDINMOBI/",
+    "status": 200,
+    "sectorFound": "Automobile and Auto Components",
+    "marketCapCr": 176,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                BSE Consumer Discretionary"
+  },
+  {
+    "symbol": "WATERBASE",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/WATERBASE/",
+    "status": 200,
+    "sectorFound": "Fast Moving Consumer Goods",
+    "marketCapCr": 201,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "WHBRADY",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/WHBRADY/",
+    "status": 200,
+    "sectorFound": "Capital Goods",
+    "marketCapCr": 123,
+    "benchmarks": ""
+  },
+  {
+    "symbol": "XTRANET",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/XTRANET/",
+    "status": 200,
+    "sectorFound": "Information Technology",
+    "marketCapCr": 1225,
+    "benchmarks": "id=\"benchmarks\">\n              Part of\n              \n                Nifty IPO"
+  },
+  {
+    "symbol": "YOGI",
+    "sector": "Custom",
+    "cap": "custom",
+    "url": "https://www.screener.in/company/YOGI/",
+    "status": 200,
+    "sectorFound": "Financial Services",
+    "marketCapCr": 736,
+    "benchmarks": ""
+  }
+]

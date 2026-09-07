@@ -3,6 +3,11 @@ import assert from 'node:assert/strict'
 
 import { shouldProxyPath } from './proxy-routes.ts'
 
+test('should proxy stock history and event chart paths', () => {
+  assert.equal(shouldProxyPath('/stock-history'), true)
+  assert.equal(shouldProxyPath('/stock-chart-events'), true)
+})
+
 test('should proxy trade execution and simulation runtime paths', () => {
   assert.equal(shouldProxyPath('/paper-trades'), true)
   assert.equal(shouldProxyPath('/paper-trades/stream'), true)

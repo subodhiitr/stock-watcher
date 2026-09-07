@@ -6,6 +6,18 @@ function sendJson(res, statusCode, payload, headers = {}) {
 }
 
 async function handleDashboardRoute(req, res, pathname, searchParams, deps) {
+  if (pathname === '/ipo-calendar') {
+    if (req.method !== 'GET') {
+      sendJson(res, 405, { error: 'Method not allowed' });
+      return true;
+    }
+    try {
+      sendJson(res, 200, await deps.ipoCalendarService.refresh(), { 'Cache-Control': 'no-cache' });
+    } catch (error) {
+      sendJson(res, 502, { error: error.message });
+    }
+    return true;
+  }
   if (pathname === '/health') {
     sendJson(res, 200, deps.buildHealthPayload());
     return true;

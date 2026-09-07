@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "date": "2026-09-10",
+  "savedAt": 1788751044433,
+  "builtInMs": 144387,
+  "source": "nse-board-meetings",
+  "scanned": 3185,
+  "count": 1,
+  "symbolCount": 1,
+  "items": [
+    {
+      "symbol": "GAJA",
+      "name": "Gaja Alternative Asset Management Limited",
+      "type": "Financial Results",
+      "title": "Gaja Alternative Asset Management Limited has informed the Exchange about Board Meeting to be held on 10-Sep-2026 to inter-alia consider and approve the Unaudited Financial results of the Company for the Quarterly ended June 2026 .",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=GAJA",
+      "eventDate": "2026-09-09T18:30:00.000Z",
+      "dateKey": "2026-09-10",
+      "status": "upcoming",
+      "period": null
+    }
+  ],
+  "version": 3
+}

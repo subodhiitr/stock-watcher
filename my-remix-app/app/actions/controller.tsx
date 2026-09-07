@@ -52,15 +52,15 @@ async function dashboardResponse(options: { view?: 'stocks' | 'etfs'; action?: '
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
 <title>NSE Midcap Dashboard</title>
-<link rel="preload" href="/dashboard.css?v=20260730-55" as="style">
-<link rel="stylesheet" href="/dashboard.css?v=20260730-55">
+<link rel="preload" href="/dashboard.css?v=20260906-62" as="style">
+<link rel="stylesheet" href="/dashboard.css?v=20260906-62">
 </head>
 <body>
 ${body}
 <script>window.__DASHBOARD_ROUTE__=${bootScript};</script>
 <script defer src="/trade_rules.js?v=20260628-25"></script>
 <script defer src="/simulation_engine.js?v=20260628-25"></script>
-<script defer src="/dashboard-app.js?v=20260801-71"></script>
+<script defer src="/dashboard-app.js?v=20260907-90"></script>
 </body>
 </html>`
 
@@ -88,7 +88,7 @@ function mobileResponse() {
 <link rel="manifest" href="/mobile-manifest.webmanifest">
 <link rel="icon" href="/mobile-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/mobile-icon-192.png">
-<link rel="stylesheet" href="/mobile.css?v=20260801-20">
+<link rel="stylesheet" href="/mobile.css?v=20260905-32">
 </head>
 <body>
 <div class="global-status" id="global-status" role="status" aria-live="assertive"></div>
@@ -173,11 +173,14 @@ function mobileResponse() {
     <label class="setup-selector-card" for="setup-filter-select">
       <span>Show stocks</span>
       <select id="setup-filter-select">
+        <option value="opportunity_research">Opportunity Research</option>
         <option value="combined_top">Combined Top Setups</option>
         <option value="simulation_top25">Server Simulation Top 25</option>
         <option value="tradeable">Tradeable</option>
         <option value="gainers">Top Gainers</option>
         <option value="losers">Top Losers</option>
+          <option value="new-ipo">New IPO</option>
+          <option value="upcoming-ipo">Upcoming IPO</option>
         <option value="favorites">Favourites</option>
         <option value="rangebound">Rangebound</option>
         <option value="opening_flush">Opening Flush VWAP Reclaim</option>
@@ -257,9 +260,12 @@ function mobileResponse() {
         <option value="favorites">Favourites</option>
         <option value="gainers">Top Gainers</option>
         <option value="losers">Top Losers</option>
+          <option value="new-ipo">New IPO</option>
+          <option value="upcoming-ipo">Upcoming IPO</option>
       </select>
     </label>
-    <div class="all-stock-list" id="all-stock-list"><div class="empty">Open All Stocks to load data</div></div>
+    <p id="all-stock-ipo-status" role="status" hidden></p>
+      <div class="all-stock-list" id="all-stock-list"><div class="empty">Open All Stocks to load data</div></div>
     <div class="pagination-bar">
       <button id="all-stock-prev" type="button">Previous</button>
       <span id="all-stock-page">Page 1</span>
@@ -301,10 +307,19 @@ function mobileResponse() {
     <div class="transaction-list news-list" id="fresh-news-list"></div>
   </section>
 </div>
+<div class="overlay" id="setup-event-overlay" hidden>
+  <section class="portfolio-sheet detail-sheet setup-event-sheet" role="dialog" aria-modal="true" aria-labelledby="setup-event-title">
+    <header class="sheet-head">
+      <div><p class="eyebrow" id="setup-event-eyebrow">Stock event</p><h2 id="setup-event-title">Event Details</h2></div>
+      <button class="icon-btn" id="setup-event-close" type="button" aria-label="Close">x</button>
+    </header>
+    <div class="stock-detail-body setup-event-body" id="setup-event-body"></div>
+  </section>
+</div>
 <div class="overlay" id="candle-overlay" hidden>
   <section class="portfolio-sheet chart-sheet" role="dialog" aria-modal="true" aria-labelledby="candle-title">
     <header class="sheet-head"><h2 id="candle-title">5m Candles</h2><button class="icon-btn" id="candle-close" type="button" aria-label="Close">x</button></header>
-    <div class="candle-interval-toolbar" role="group" aria-label="Candle interval">
+    <div class="candle-interval-toolbar" id="candle-interval-toolbar" role="group" aria-label="Candle interval">
       <button class="active" id="candle-interval-5m" type="button">5 min</button>
       <button id="candle-interval-15m" type="button">15 min</button>
     </div>
@@ -347,7 +362,7 @@ function mobileResponse() {
     <div class="transaction-list" id="portfolio-transactions"></div>
   </section>
 </div>
-<script defer src="/mobile-app.js?v=20260801-60"></script>
+<script defer src="/mobile-app.js?v=20260906-79"></script>
 </body>
 </html>`
 

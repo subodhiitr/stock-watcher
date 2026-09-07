@@ -13,11 +13,13 @@ test('proxy streams mobile stock prices and changes in quote batches', () => {
   assert.ok(start >= 0);
   assert.match(source, /const CONCURRENCY = 8;/);
   assert.match(source, /const MOBILE_STOCK_QUOTE_CONCURRENCY = Math\.min\(8, YAHOO_QUOTE_CONCURRENCY\);/);
+  assert.match(source, /const MOBILE_STOCK_QUOTE_FLUSH_SIZE = Math\.max\(MOBILE_STOCK_QUOTE_CONCURRENCY, 32\);/);
   assert.match(source, /const yahooQuoteCache = new Map\(\);/);
   assert.match(source, /if \(yahooQuoteInFlight\.has\(sym\)\) return yahooQuoteInFlight\.get\(sym\);/);
   assert.match(body, /slice\(0, 300\)/);
   assert.match(body, /await mapWithConcurrency\(symbols, MOBILE_STOCK_QUOTE_CONCURRENCY/);
   assert.match(body, /await yahooQuoteForSymbol\(symbol\)/);
+  assert.match(body, /completedSinceFlush >= MOBILE_STOCK_QUOTE_FLUSH_SIZE/);
   assert.match(body, /quotes:quoteBatch/);
   assert.match(body, /done:loaded >= symbols\.length/);
   assert.doesNotMatch(body, /for \(let i = 0; i < symbols\.length/);

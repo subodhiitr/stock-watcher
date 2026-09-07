@@ -45,3 +45,11 @@ test('All Stocks merges progressively streamed price and change quotes', () => {
   assert.match(source, /quote\.change \?\? quote\.changePct \?\? quote\.percentChange/);
   assert.match(source, /row\.quote = \{ \.\.\.\(row\.quote \|\| \{\}\), \.\.\.quote, price, change \}/);
 });
+
+test('All Stocks renders the complete universe and chunks quote streams at 300 symbols', () => {
+  assert.doesNotMatch(source, /state\.allStocks = \[\.\.\.meta\.keys\(\)\]\.slice\(0, 300\)/);
+  assert.match(source, /for \(let offset = 0; offset < symbols\.length; offset \+= 300\)/);
+  assert.match(source, /const chunk = symbols\.slice\(offset, offset \+ 300\)/);
+  assert.match(source, /stockQuoteStreams: \[\]/);
+  assert.doesNotMatch(source, /\]\.filter\(Boolean\)\)\]\.slice\(0, 300\)/);
+});

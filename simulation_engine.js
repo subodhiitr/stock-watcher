@@ -68,6 +68,7 @@
     if (setupType === 'OPENING_FLUSH_VWAP_RECLAIM') return 0;
     if (setupType === 'TOP_GAINER_PULLBACK_RECLAIM') return 0;
     if (setupType === 'TOP_GAINER_CONTINUATION') return 0;
+    if (setupType === 'TOP_GAINER_CONTROLLED_RETEST') return 0;
     if (setupType === 'GAP_AND_GO') return 0;
     if (setupType === 'BULL_FLAG_CONTINUATION') return 0;
     if (setupType === 'EARLY_MOMENTUM') return 0;
@@ -107,6 +108,9 @@
     }
     if (setupType === 'TOP_LOSER_BEAR_FLAG') {
       return Number(settings.SIMULATION_TOP_LOSER_BEAR_FLAG_MIN_SCORE) || 55;
+    }
+    if (setupType === 'TOP_GAINER_CONTROLLED_RETEST') {
+      return Math.max(0, Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_SCORE) || 70);
     }
     if (setupType === 'RANGEBOUND') {
       return Math.max(0, Number(settings.SIMULATION_RANGEBOUND_MIN_SCORE) || 35);
@@ -593,7 +597,9 @@
       if (candidate.indicators && typeof candidate.indicators === 'object') delete candidate.indicators.topLoserRank;
     }
     const count = Math.max(1, Math.floor(Number(settings.SIMULATION_TOP_GAINER_COUNT) || 5));
-    if (settings.SIMULATION_TOP_GAINER_CONTINUATION_ENABLED) source
+    if (settings.SIMULATION_TOP_GAINER_CONTINUATION_ENABLED ||
+        settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_ENABLED ||
+        settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_SHADOW_ENABLED) source
       .filter(candidate => String(candidate?.assetType || 'stock').toLowerCase() !== 'etf')
       .map(candidate => ({ candidate, dayChange:getCandidateDayChange(candidate) }))
       .filter(item => Number.isFinite(item.dayChange))
@@ -619,6 +625,98 @@
             item.candidate.indicators.topLoserRank = index + 1;
           }
         });
+    }
+    return source;
+  }
+
+  function emaSeries(values, period) {
+    const source = (Array.isArray(values) ? values : []).map(Number);
+    if (source.length < period || source.slice(0, period).some(value => !Number.isFinite(value))) return [];
+    const multiplier = 2 / (period + 1);
+    const output = new Array(source.length).fill(null);
+    let current = source.slice(0, period).reduce((sum, value) => sum + value, 0) / period;
+    output[period - 1] = current;
+    for (let index = period; index < source.length; index += 1) {
+      if (!Number.isFinite(source[index])) continue;
+      current = (source[index] - current) * multiplier + current;
+      output[index] = current;
+    }
+    return output;
+  }
+
+  function annotateLeaderIndicators(candidates, at = null, historyBySymbol = null, settings = {}) {
+    settings = withDefaults(settings);
+    const source = Array.isArray(candidates) ? candidates.filter(Boolean) : [];
+    const atMs = new Date(at || source[0]?.__snapshotAt || source[0]?.snapshotAt || Date.now()).getTime();
+    const windowMin = Math.max(1, Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MEMORY_MIN) || 30);
+    const cutoffMs = atMs - windowMin * 60000;
+    for (const candidate of source) {
+      const symbol = String(candidate?.symbol || '').toUpperCase();
+      const indicators = candidate.indicators && typeof candidate.indicators === 'object'
+        ? candidate.indicators
+        : (candidate.indicators = {});
+      const rank = Number(candidate.topGainerRank ?? indicators.topGainerRank);
+      const stored = historyBySymbol instanceof Map
+        ? (Array.isArray(historyBySymbol.get(symbol)) ? historyBySymbol.get(symbol) : [])
+        : (Array.isArray(candidate.leaderHistory) ? candidate.leaderHistory : []);
+      const history = stored
+        .filter(row => Number.isFinite(Number(row?.atMs)) && Number(row.atMs) >= cutoffMs && Number(row.atMs) <= atMs)
+        .map(row => ({ atMs:Number(row.atMs), rank:Number.isFinite(Number(row.rank)) && Number(row.rank) >= 1 ? Number(row.rank) : null }));
+      const currentRow = { atMs, rank:Number.isFinite(rank) && rank > 0 ? rank : null };
+      const sameTimeIndex = history.findIndex(row => row.atMs === atMs);
+      if (sameTimeIndex >= 0) history[sameTimeIndex] = currentRow;
+      else history.push(currentRow);
+      history.sort((left, right) => left.atMs - right.atMs);
+      const topFiveRows = history.filter(row => Number.isFinite(row.rank) && row.rank >= 1 && row.rank <= 5);
+      const topFiveRanks = topFiveRows.map(row => row.rank);
+      const meanRank = topFiveRanks.length
+        ? topFiveRanks.reduce((sum, value) => sum + value, 0) / topFiveRanks.length
+        : null;
+      const rankStdDev = topFiveRanks.length
+        ? Math.sqrt(topFiveRanks.reduce((sum, value) => sum + ((value - meanRank) ** 2), 0) / topFiveRanks.length)
+        : null;
+      const lastTopFiveAtMs = topFiveRows.length ? topFiveRows.at(-1).atMs : null;
+
+      const completed = getCompletedCandles(candidate, candidate.previousCandidate, atMs, 5)
+        .filter(candle => new Date(candle.time).getTime() >= cutoffMs);
+      const recentHighValues = completed.map(candle => Number(candle.high)).filter(Number.isFinite);
+      const recentHigh = recentHighValues.length ? Math.max(...recentHighValues) : null;
+      const price = getCandidatePrice(candidate);
+      const recentHighRetestPct = Number.isFinite(recentHigh) && recentHigh > 0 && Number.isFinite(price)
+        ? ((recentHigh - price) / recentHigh) * 100
+        : null;
+      const allCompleted = getCompletedCandles(candidate, candidate.previousCandidate, atMs, 5);
+      const closes = allCompleted.map(candle => Number(candle.close));
+      const ema9 = emaSeries(closes, 9);
+      const ema20 = emaSeries(closes, 20);
+      const spreads = closes.map((close, index) => Number.isFinite(close) && close > 0 && Number.isFinite(ema9[index]) && Number.isFinite(ema20[index])
+        ? ((ema9[index] - ema20[index]) / close) * 100
+        : null).filter(Number.isFinite).slice(-3);
+      const emaSpreadSlope3Bars = spreads.length === 3 ? (spreads[2] - spreads[0]) / 2 : null;
+      const trigger = getEntryTriggerPrice(candidate);
+      const atr = Number(indicators.atr);
+      const triggerExtensionAtr = Number.isFinite(price) && Number.isFinite(trigger) && Number.isFinite(atr) && atr > 0
+        ? (price - trigger) / atr
+        : null;
+      const shock = getVolumeShockInfo(candidate);
+      const latest = allCompleted.at(-1);
+      const prior = allCompleted.at(-2);
+      const leaderReacceleration = Number(shock.change5m) >= Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_CHANGE_5M_PCT || 0.1) &&
+        (Number(shock.volumeRatio3m) >= 1 || Number(shock.volumeRatio5m) >= 1) &&
+        !!latest && !!prior && Number(latest.close) > Number(prior.high);
+
+      Object.assign(indicators, {
+        leaderRankPersistencePct30m:history.length ? round2(topFiveRows.length / history.length * 100) : null,
+        leaderRankStability30m:Number.isFinite(rankStdDev) ? round3(Math.max(0, Math.min(1, 1 - rankStdDev / 2))) : null,
+        leaderLastTopFiveAt:lastTopFiveAtMs == null ? null : new Date(lastTopFiveAtMs).toISOString(),
+        leaderRankAgeMin:lastTopFiveAtMs == null ? null : round2((atMs - lastTopFiveAtMs) / 60000),
+        recentHigh:Number.isFinite(recentHigh) ? round3(recentHigh) : null,
+        recentHighRetestPct:Number.isFinite(recentHighRetestPct) ? round3(recentHighRetestPct) : null,
+        emaSpreadSlope3Bars:Number.isFinite(emaSpreadSlope3Bars) ? round3(emaSpreadSlope3Bars) : null,
+        triggerExtensionAtr:Number.isFinite(triggerExtensionAtr) ? round3(triggerExtensionAtr) : null,
+        leaderReacceleration,
+      });
+      if (historyBySymbol instanceof Map && symbol) historyBySymbol.set(symbol, history);
     }
     return source;
   }
@@ -743,6 +841,79 @@
     const ok = !reason;
     if (ok) candidate.__setupEntryTrigger = reclaim.high;
     return { ok, reason, reclaim, rank:Number.isFinite(rank) ? rank : null, dayChange, vwapExtensionPct, freshVolume, trendOk, holdOk };
+  }
+
+  function getTopGainerControlledRetestInfo(candidate, settings = {}, at = null, context = {}, options = {}) {
+    settings = withDefaults(settings);
+    const executionEnabled = settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_ENABLED === true;
+    if (!executionEnabled && !options.ignoreEnabled) {
+      return { ok:false, reason:'top-gainer controlled retest execution disabled', executionEnabled:false, status:'hypothesis' };
+    }
+    const side = String(candidate?.side || candidate?.signal || 'buy').toLowerCase();
+    const indicators = candidate?.indicators || {};
+    const price = getCandidatePrice(candidate);
+    const vwap = Number(indicators.vwap);
+    const rankAgeMin = Number(indicators.leaderRankAgeMin);
+    const rankPersistence = Number(indicators.leaderRankPersistencePct30m);
+    const dayChange = getCandidateDayChange(candidate);
+    const decisionScore = getCandidateDecisionScore(candidate);
+    const triggerExtensionPct = getTriggerDistancePct(candidate, side);
+    const vwapExtensionPct = Number.isFinite(price) && Number.isFinite(vwap) && vwap > 0
+      ? ((price - vwap) / vwap) * 100
+      : null;
+    const retestPct = Number(indicators.recentHighRetestPct);
+    const ema9 = Number(indicators.ema9 ?? indicators.emaShort);
+    const ema20 = Number(indicators.ema20 ?? indicators.emaLong);
+    const superTrend = String(indicators.superTrendDirection || '').toLowerCase();
+    const shock = getVolumeShockInfo(candidate);
+    const change5m = Number(shock.change5m);
+    const freshVolume = Number(shock.volumeRatio3m) >= 1 || Number(shock.volumeRatio5m) >= 1;
+    const modeledNetPct = Number(candidate?.cost?.netPct);
+    const memoryMin = Math.max(1, Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MEMORY_MIN) || 30);
+    const minTrigger = Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_TRIGGER_EXTENSION_PCT) || 0.6;
+    const maxTrigger = Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MAX_TRIGGER_EXTENSION_PCT) || 1;
+    const maxVwap = Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MAX_VWAP_EXTENSION_PCT) || 0.8;
+    const minRetest = Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_RETEST_PCT) || 0.5;
+    const maxRetest = Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MAX_RETEST_PCT) || 1.2;
+    const minChange5m = Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_CHANGE_5M_PCT) || 0.1;
+    const minNet = Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_NET_PROFIT_PCT) || 1;
+    const regimeCandidate = { ...candidate, setupType:'TOP_GAINER_CONTROLLED_RETEST', derivedSetupType:'TOP_GAINER_CONTROLLED_RETEST' };
+    const regime = getMarketRegime(regimeCandidate, 'buy', { ...context, settings });
+    let reason = '';
+    if (side === 'sell') reason = 'top-gainer controlled retest is long-only';
+    else if (!Number.isFinite(rankPersistence) || rankPersistence <= 0 || !Number.isFinite(rankAgeMin) || rankAgeMin > memoryMin) reason = `top-five leader memory is unavailable or older than ${memoryMin} minutes`;
+    else if (!Number.isFinite(dayChange) || dayChange < 1.5 || dayChange > 6) reason = `controlled-retest day move ${Number.isFinite(dayChange) ? round2(dayChange) : '--'}% outside 1.5-6%`;
+    else if (decisionScore < Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_SCORE || 70)) reason = `controlled-retest decision score ${round2(decisionScore)} < ${round2(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_SCORE || 70)}`;
+    else if (String(indicators.entryStatus || '').toLowerCase() !== 'triggered') reason = 'controlled-retest trigger is not active';
+    else if (triggerExtensionPct == null || triggerExtensionPct <= minTrigger || triggerExtensionPct > maxTrigger) reason = `controlled-retest trigger extension ${triggerExtensionPct == null ? '--' : round3(triggerExtensionPct)}% outside >${round2(minTrigger)}-${round2(maxTrigger)}%`;
+    else if (vwapExtensionPct == null || vwapExtensionPct < 0 || vwapExtensionPct > maxVwap) reason = `controlled-retest VWAP extension ${vwapExtensionPct == null ? '--' : round3(vwapExtensionPct)}% outside 0-${round2(maxVwap)}%`;
+    else if (!Number.isFinite(retestPct) || retestPct < minRetest || retestPct > maxRetest) reason = `controlled-retest pullback ${Number.isFinite(retestPct) ? round3(retestPct) : '--'}% outside ${round2(minRetest)}-${round2(maxRetest)}%`;
+    else if (!Number.isFinite(ema9) || !Number.isFinite(ema20) || ema9 <= ema20) reason = 'controlled-retest EMA9 must be above EMA20';
+    else if (superTrend !== 'bullish') reason = 'controlled-retest SuperTrend must be bullish';
+    else if (!Number.isFinite(change5m) || change5m < minChange5m) reason = `controlled-retest five-minute change ${Number.isFinite(change5m) ? round3(change5m) : '--'}% < ${round2(minChange5m)}%`;
+    else if (!freshVolume) reason = 'controlled-retest needs fresh 3m/5m volume';
+    else if (indicators.leaderReacceleration !== true) reason = 'controlled-retest leader has not re-accelerated above the prior completed candle high';
+    else if (!Number.isFinite(modeledNetPct) || modeledNetPct < minNet) reason = `controlled-retest modeled net ${Number.isFinite(modeledNetPct) ? round3(modeledNetPct) : '--'}% < ${round2(minNet)}%`;
+    else if (!regime.ok) reason = regime.reason || 'controlled-retest market regime conflict';
+    return {
+      ok:!reason,
+      reason,
+      status:'hypothesis',
+      executionEnabled,
+      rankPersistencePct30m:Number.isFinite(rankPersistence) ? rankPersistence : null,
+      rankStability30m:Number.isFinite(Number(indicators.leaderRankStability30m)) ? Number(indicators.leaderRankStability30m) : null,
+      rankAgeMin:Number.isFinite(rankAgeMin) ? rankAgeMin : null,
+      dayChange,
+      decisionScore,
+      triggerExtensionPct,
+      triggerExtensionAtr:Number.isFinite(Number(indicators.triggerExtensionAtr)) ? Number(indicators.triggerExtensionAtr) : null,
+      vwapExtensionPct,
+      recentHighRetestPct:Number.isFinite(retestPct) ? retestPct : null,
+      emaSpreadSlope3Bars:Number.isFinite(Number(indicators.emaSpreadSlope3Bars)) ? Number(indicators.emaSpreadSlope3Bars) : null,
+      leaderReacceleration:indicators.leaderReacceleration === true,
+      modeledNetPct:Number.isFinite(modeledNetPct) ? modeledNetPct : null,
+      marketRegime:regime,
+    };
   }
 
   function getBearFlagContinuationInfo(candidate, settings = {}, at = null) {
@@ -1178,7 +1349,7 @@
     const overrideMaxNiftyDecline = Math.abs(Number(settings.SIMULATION_LONG_SECTOR_RS_OVERRIDE_MAX_NIFTY_DECLINE_PCT));
     const longSectorRsOverride = tradeSide === 'buy'
       && !!settings.SIMULATION_LONG_SECTOR_RS_OVERRIDE_ENABLED
-      && ['MOMENTUM_RUNNER', 'TOP_GAINER_CONTINUATION', 'TOP_GAINER_PULLBACK_RECLAIM'].includes(setupType)
+      && ['MOMENTUM_RUNNER', 'TOP_GAINER_CONTINUATION', 'TOP_GAINER_PULLBACK_RECLAIM', 'TOP_GAINER_CONTROLLED_RETEST'].includes(setupType)
       && entryTriggered
       && Number.isFinite(nifty)
       && nifty < -niftyThreshold
@@ -1718,11 +1889,13 @@
     'SIMULATION_RANGEBOUND_MIN_RANGE_PCT',
     'SIMULATION_RANGEBOUND_MAX_LOWER_DISTANCE_PCT', 'SIMULATION_RANGEBOUND_MIN_TOUCHES_PER_SIDE',
     'SIMULATION_RANGEBOUND_MIN_MIDPOINT_CROSSES', 'SIMULATION_RANGEBOUND_MIN_SCORE',
+    'SIMULATION_RANGEBOUND_INITIAL_STOP_PCT',
     'SIMULATION_RANGEBOUND_POSITION_MULTIPLIER', 'SIMULATION_RANGEBOUND_MAX_POSITION_EXPOSURE',
     'SIMULATION_RANGEBOUND_MIN_NET_PROFIT_PCT',
     'SIMULATION_RANGEBOUND_MIN_GROSS_TO_COST_MULTIPLE', 'SIMULATION_RANGEBOUND_MAX_NIFTY_DECLINE_PCT',
     'SIMULATION_RANGEBOUND_MIN_BREADTH_PCT', 'SIMULATION_RANGEBOUND_MIN_SECTOR_PCT',
     'SIMULATION_RANGEBOUND_MIN_RS_PCT',
+    'SIMULATION_RANGEBOUND_SIGNAL_RECOVERY_SHADOW_ENABLED', 'SIMULATION_RANGEBOUND_SIGNAL_RECOVERY_WINDOW_MIN',
     'SIMULATION_GAP_AND_GO_ENABLED', 'SIMULATION_GAP_AND_GO_MIN_GAP_PCT',
     'SIMULATION_GAP_AND_GO_MAX_GAP_PCT', 'SIMULATION_GAP_AND_GO_ENTRY_CUTOFF_MIN',
     'SIMULATION_GAP_AND_GO_MIN_REL_VOL', 'SIMULATION_GAP_AND_GO_MIN_VOLUME_RATIO_3M',
@@ -1769,6 +1942,14 @@
     'SIMULATION_TOP_GAINER_PULLBACK_RECLAIM_ENABLED', 'SIMULATION_TOP_GAINER_PULLBACK_MIN_DAY_GAIN_PCT',
     'SIMULATION_TOP_GAINER_PULLBACK_MAX_DAY_GAIN_PCT', 'SIMULATION_TOP_GAINER_PULLBACK_MAX_VWAP_EXTENSION_PCT',
     'SIMULATION_TOP_GAINER_PULLBACK_MAX_VWAP_TOUCH_PCT', 'SIMULATION_TOP_GAINER_PULLBACK_POSITION_MULTIPLIER',
+    'SIMULATION_TOP_GAINER_CONTROLLED_RETEST_ENABLED', 'SIMULATION_TOP_GAINER_CONTROLLED_RETEST_SHADOW_ENABLED',
+    'SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MEMORY_MIN', 'SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_SCORE',
+    'SIMULATION_TOP_GAINER_CONTROLLED_RETEST_INVALIDATION_SCORE',
+    'SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_TRIGGER_EXTENSION_PCT', 'SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MAX_TRIGGER_EXTENSION_PCT',
+    'SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MAX_VWAP_EXTENSION_PCT',
+    'SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_RETEST_PCT', 'SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MAX_RETEST_PCT',
+    'SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_CHANGE_5M_PCT', 'SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_NET_PROFIT_PCT',
+    'SIMULATION_TOP_GAINER_CONTROLLED_RETEST_PARTIAL_QTY_PCT', 'SIMULATION_TOP_GAINER_CONTROLLED_RETEST_PROFIT_MILESTONE_PCT',
     'SIMULATION_OPENING_FLUSH_REVERSAL_ENABLED', 'SIMULATION_OPENING_FLUSH_MIN_DECLINE_PCT',
     'SIMULATION_OPENING_FLUSH_MIN_INDEX_RECOVERY_PCT', 'SIMULATION_OPENING_FLUSH_MAX_TRIGGER_EXTENSION_PCT',
     'SIMULATION_OPENING_FLUSH_MIN_SCORE', 'SIMULATION_CONTINUATION_REENTRY_ENABLED',
@@ -1824,6 +2005,12 @@
       topGainerRank:Number.isFinite(Number(candidate?.topGainerRank ?? indicators.topGainerRank))
         ? Number(candidate?.topGainerRank ?? indicators.topGainerRank)
         : null,
+      leaderRankPersistencePct30m:Number.isFinite(Number(indicators.leaderRankPersistencePct30m)) ? Number(indicators.leaderRankPersistencePct30m) : null,
+      leaderRankStability30m:Number.isFinite(Number(indicators.leaderRankStability30m)) ? Number(indicators.leaderRankStability30m) : null,
+      recentHighRetestPct:Number.isFinite(Number(indicators.recentHighRetestPct)) ? Number(indicators.recentHighRetestPct) : null,
+      emaSpreadSlope3Bars:Number.isFinite(Number(indicators.emaSpreadSlope3Bars)) ? Number(indicators.emaSpreadSlope3Bars) : null,
+      triggerExtensionAtr:Number.isFinite(Number(indicators.triggerExtensionAtr)) ? Number(indicators.triggerExtensionAtr) : null,
+      leaderReacceleration:indicators.leaderReacceleration === true,
       stopPct:Number.isFinite(Number(candidate?.preCalcStopPct ?? indicators.stopPct)) ? Number(candidate?.preCalcStopPct ?? indicators.stopPct) : null,
       rr:Number.isFinite(Number(candidate?.rr)) ? Number(candidate.rr) : null,
       estimatedNetPct:Number.isFinite(Number(candidate?.cost?.netPct)) ? Number(candidate.cost.netPct) : null,
@@ -2226,6 +2413,7 @@
     if (getGapAndGoInfo(candidate, settings, at).ok) return 'GAP_AND_GO';
     if (getEarlyMomentumInfo(candidate, settings, at, context).ok) return 'EARLY_MOMENTUM';
     if (getTopGainerPullbackReclaimInfo(candidate, settings, at).ok) return 'TOP_GAINER_PULLBACK_RECLAIM';
+    if (getTopGainerControlledRetestInfo(candidate, settings, at, context).ok) return 'TOP_GAINER_CONTROLLED_RETEST';
     if (getTopGainerContinuationInfo(candidate, settings, at).ok) return 'TOP_GAINER_CONTINUATION';
     if (getBullFlagContinuationInfo(candidate, settings, at).ok) return 'BULL_FLAG_CONTINUATION';
     if (getTopLoserBearFlagInfo(candidate, settings, at).ok) return 'TOP_LOSER_BEAR_FLAG';
@@ -2390,6 +2578,10 @@
       const reclaimInfo = getTopGainerPullbackReclaimInfo(candidate, settings, at);
       if (!reclaimInfo.ok) return reclaimInfo.reason || 'not a qualified top-gainer pullback reclaim';
     }
+    if (setupType === 'TOP_GAINER_CONTROLLED_RETEST') {
+      const controlledRetestInfo = getTopGainerControlledRetestInfo(candidate, settings, at, context);
+      if (!controlledRetestInfo.ok) return controlledRetestInfo.reason || 'not a qualified top-gainer controlled retest';
+    }
     if (setupType === 'BULL_FLAG_CONTINUATION') {
       const bullFlagInfo = getBullFlagContinuationInfo(candidate, settings, at);
       if (!bullFlagInfo.ok) return bullFlagInfo.reason || 'not a qualified bull-flag continuation';
@@ -2409,7 +2601,7 @@
     const relVol = getRelativeVolume(candidate);
     const guardLevel = String(candidate.guard?.level || '').toLowerCase();
     const globalLongGuards = settings.SIMULATION_LONG_ENTRY_QUALITY_GUARDS_ENABLED !== false;
-    const needsLongConfirmation = buy && !['TOP_GAINER_PULLBACK_RECLAIM', 'RANGEBOUND'].includes(setupType) && (
+    const needsLongConfirmation = buy && !['TOP_GAINER_PULLBACK_RECLAIM', 'TOP_GAINER_CONTROLLED_RETEST', 'RANGEBOUND'].includes(setupType) && (
       globalLongGuards
         ? isSimulationSetupAllowed(setupType, settings)
         : ['TOP_GAINER_CONTINUATION', 'EARLY_MOMENTUM', 'MOMENTUM_RUNNER', 'VWAP_TREND_CONTINUATION', 'FRESH_BREAKOUT'].includes(setupType)
@@ -2540,7 +2732,7 @@
       const relaxedFresh = setupType === 'FRESH_BREAKOUT' && isRelaxedFreshBreakoutCandidate(candidate, settings);
       const maxFreshTrigger = Number(settings.SIMULATION_FRESH_BREAKOUT_RELAXED_MAX_TRIGGER_EXTENSION_PCT) || 1;
       const triggerLimit = relaxedFresh ? maxFreshTrigger : 0.6;
-      if (triggerDistancePct > triggerLimit && setupType !== 'VOLUME_SHOCK_BREAKOUT' && !runner && !continuation) return `chasing ${round2(triggerDistancePct)}% from trigger`;
+      if (triggerDistancePct > triggerLimit && !['VOLUME_SHOCK_BREAKOUT', 'TOP_GAINER_CONTROLLED_RETEST'].includes(setupType) && !runner && !continuation) return `chasing ${round2(triggerDistancePct)}% from trigger`;
     }
     const vwap = Number(candidate.indicators?.vwap);
     if (Number.isFinite(vwap) && vwap > 0) {
@@ -2553,7 +2745,7 @@
           ? Number(settings.SIMULATION_FRESH_BREAKOUT_RELAXED_MAX_VWAP_EXTENSION_PCT) || 1.1
           : Number(settings.SIMULATION_FRESH_BREAKOUT_HIGH_REL_VOL_MAX_VWAP_EXTENSION_PCT) || 1)
         : baseFreshMax;
-      if (vwapExtensionPct > freshMax && setupType !== 'VOLUME_SHOCK_BREAKOUT' && !runner && !continuation) return `extended ${round2(vwapExtensionPct)}% from VWAP`;
+      if (vwapExtensionPct > freshMax && !['VOLUME_SHOCK_BREAKOUT', 'TOP_GAINER_CONTROLLED_RETEST'].includes(setupType) && !runner && !continuation) return `extended ${round2(vwapExtensionPct)}% from VWAP`;
     }
     if (setupType === 'FRESH_BREAKOUT' && !runner) {
       const confirmations = getBreakoutConfirmations(candidate, side);
@@ -2689,12 +2881,22 @@
     return [...leaders.values()].sort(compareCandidatesByProfitability);
   }
 
+  function addCandidateRejectionReason(candidate, reason) {
+    const text = String(reason || '').trim();
+    if (!candidate || !text) return;
+    const existing = Array.isArray(candidate.rejectionReasons) ? candidate.rejectionReasons : [];
+    candidate.rejectionReasons = [...new Set([...existing, text])];
+    candidate.selectionReason = `Not selected: ${candidate.rejectionReasons[0]}`;
+    if (!String(candidate.entryBlockReason || '').trim()) candidate.entryBlockReason = text;
+  }
+
   function selectSimulationEntryCandidates(candidates, at, settings, context = {}) {
     settings = withDefaults(settings);
     for (const candidate of Array.isArray(candidates) ? candidates : []) {
       applyFrozenEntryTrigger(candidate, candidate?.previousCandidate || context.previousCandidate, at, settings);
     }
     annotateTopGainerRanks(candidates, settings);
+    annotateLeaderIndicators(candidates, at, context.leaderHistoryBySymbol, settings);
     const openSymbols = context.openSymbols instanceof Set
       ? context.openSymbols
       : new Set(Array.isArray(context.openSymbols) ? context.openSymbols : []);
@@ -2710,7 +2912,12 @@
     }
     
     const quality = getSnapshotDataQuality(candidates, settings);
-    if (quality.mode === 'block') return [];
+    if (quality.mode === 'block') {
+      for (const candidate of Array.isArray(candidates) ? candidates : []) {
+        addCandidateRejectionReason(candidate, `snapshot data quality blocked entries: ${(quality.issues || []).join(', ') || 'unreliable snapshot'}`);
+      }
+      return [];
+    }
     const configuredTopN = Math.max(1, Math.floor(Number(context.topN ?? settings.SIMULATION_TOP_N) || 10));
     const reducedTopN = Math.max(1, Math.floor(Number(settings.SIMULATION_DATA_QUALITY_REDUCED_TOP_N) || 2));
     const topN = quality.mode === 'reduce' ? Math.min(configuredTopN, reducedTopN) : configuredTopN;
@@ -2755,6 +2962,17 @@
       .map(candidate => {
         if (!candidate) return null;
         const pullbackInfo = getTopGainerPullbackReclaimInfo(candidate, settings, at);
+        const controlledRetestInfo = getTopGainerControlledRetestInfo(candidate, settings, at, context, {
+          ignoreEnabled:settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_SHADOW_ENABLED === true,
+        });
+        candidate.shadowSetupObservations = {
+          ...(candidate.shadowSetupObservations || {}),
+          TOP_GAINER_CONTROLLED_RETEST:{
+            ...controlledRetestInfo,
+            matched:controlledRetestInfo.ok,
+            shadow:settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_ENABLED !== true,
+          },
+        };
         const topGainerInfo = getTopGainerContinuationInfo(candidate, settings, at);
         const openingFlushInfo = getOpeningFlushReversalInfo(candidate, settings, at, context);
         const gapAndGoInfo = getGapAndGoInfo(candidate, settings, at);
@@ -2767,13 +2985,15 @@
           ? 'GAP_AND_GO'
           : (pullbackInfo.ok
           ? 'TOP_GAINER_PULLBACK_RECLAIM'
+          : (controlledRetestInfo.ok && settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_ENABLED === true
+          ? 'TOP_GAINER_CONTROLLED_RETEST'
           : (topGainerInfo.ok
             ? 'TOP_GAINER_CONTINUATION'
             : (bullFlagInfo.ok
               ? 'BULL_FLAG_CONTINUATION'
               : (topLoserInfo.ok
                 ? 'TOP_LOSER_BEAR_FLAG'
-                : (bearFlagInfo.ok ? 'BEAR_FLAG_CONTINUATION' : (candidate.derivedSetupType || candidate.setupType || deriveSetupType(candidate, settings, at, context))))))));
+                : (bearFlagInfo.ok ? 'BEAR_FLAG_CONTINUATION' : (candidate.derivedSetupType || candidate.setupType || deriveSetupType(candidate, settings, at, context)))))))));
         applySectorPriority(candidate, sectorPriorityStats, context, settings);
         return applyDecisionScore(candidate, expectancyModel, settings);
       })
@@ -2796,13 +3016,16 @@
         candidate.eligibilityAudit = eligible
           ? { eligible:true, reasons:[], setupType:candidate.derivedSetupType || candidate.setupType, side:candidate.side || candidate.signal }
           : explainCandidateEligibility(candidate, at, settings, auditContext);
+        if (!eligible) {
+          for (const reason of candidate.eligibilityAudit?.reasons || []) addCandidateRejectionReason(candidate, reason);
+        }
         return eligible;
       })
       .filter(candidate => {
         // Check concurrent positions instead of just binary open/closed check
         const positionCount = openPositionCounts.get(candidate.symbol) || 0;
         if (positionCount >= maxConcurrentPerSymbol) {
-          candidate.entryBlockReason = `Already have ${positionCount} open position(s) for ${candidate.symbol}; max concurrent: ${maxConcurrentPerSymbol}`;
+          addCandidateRejectionReason(candidate, `Already have ${positionCount} open position(s) for ${candidate.symbol}; max concurrent: ${maxConcurrentPerSymbol}`);
           return false;
         }
         return true;
@@ -2817,10 +3040,12 @@
           candidate.entryContext = { ...(candidate.entryContext || {}), continuationReentry:true };
         }
         candidate.entryBlockReason = block || '';
+        if (block) addCandidateRejectionReason(candidate, block);
         return !block;
       })
       .filter(candidate => {
         const price = getCandidatePrice(candidate);
+        if (!Number.isFinite(price) || price <= 0) addCandidateRejectionReason(candidate, 'invalid or unavailable entry price');
         return Number.isFinite(price) && price > 0;
       })
       .sort(compareCandidates);
@@ -2834,31 +3059,52 @@
     }
     for (const candidate of ranked) {
       const cycleLimit = Math.max(0, Math.floor(Number(settings.SIMULATION_MAX_NEW_PER_CYCLE) || 0));
-      if (selected.length >= Math.min(topN, rollingCapacity, totalSlots, activeSlots, cycleLimit || Infinity)) break;
+      if (selected.length >= topN) {
+        addCandidateRejectionReason(candidate, `top-N selection capacity exhausted ${selected.length}/${topN}`);
+        continue;
+      }
+      if (selected.length >= rollingCapacity) {
+        addCandidateRejectionReason(candidate, `rolling entry capacity exhausted ${rollingEntries}/${rollingEntryMax}`);
+        continue;
+      }
+      if (selected.length >= totalSlots) {
+        addCandidateRejectionReason(candidate, `open-position capacity exhausted ${openPositionTotal}/${settings.SIMULATION_MAX_OPEN}`);
+        continue;
+      }
+      if (selected.length >= activeSlots) {
+        addCandidateRejectionReason(candidate, `active-position capacity exhausted ${openPositionTotal}/${settings.SIMULATION_MAX_ACTIVE_OPEN}`);
+        continue;
+      }
+      if (cycleLimit > 0 && selected.length >= cycleLimit) {
+        addCandidateRejectionReason(candidate, `new-entry cycle capacity exhausted ${selected.length}/${cycleLimit}`);
+        continue;
+      }
       const side = String(candidate?.side || candidate?.signal || '').toLowerCase();
       if (side === 'sell' && shortCapacity <= 0) {
-        candidate.entryBlockReason = `concurrent short limit ${maxConcurrentShorts}`;
+        addCandidateRejectionReason(candidate, `concurrent short limit ${maxConcurrentShorts}`);
         continue;
       }
       const sector = String(candidate?.sector || candidate?.sectorPriority?.sector || '').trim();
       if (sector && maxOpenPerSector > 0 && (sectorCounts.get(sector) || 0) >= maxOpenPerSector) {
-        candidate.entryBlockReason = `sector position limit ${sector} ${sectorCounts.get(sector)}/${maxOpenPerSector}`;
+        addCandidateRejectionReason(candidate, `sector position limit ${sector} ${sectorCounts.get(sector)}/${maxOpenPerSector}`);
         continue;
       }
       if (candidate.sectorPriority?.aligned) {
         if (sectorCapacity <= 0) {
-          candidate.entryBlockReason = 'sector-aligned cycle capacity exhausted';
+          addCandidateRejectionReason(candidate, `rolling sector capacity exhausted ${context.dayStats?.rollingSectorEntries || 0}/${sectorMax}`);
           continue;
         }
         sectorCapacity -= 1;
       } else {
         if (ordinaryCapacity <= 0) {
-          candidate.entryBlockReason = 'ordinary cycle capacity exhausted';
+          addCandidateRejectionReason(candidate, `rolling ordinary capacity exhausted ${context.dayStats?.rollingOrdinaryEntries || 0}/${ordinaryMax}`);
           continue;
         }
         ordinaryCapacity -= 1;
       }
       selected.push(candidate);
+      candidate.selectionReason = `Selected: rank ${candidate.selectionRank}`;
+      candidate.rejectionReasons = [];
       if (side === 'sell') shortCapacity -= 1;
       if (sector) sectorCounts.set(sector, (sectorCounts.get(sector) || 0) + 1);
     }
@@ -2935,6 +3181,9 @@
     if (setupType === 'MOMENTUM_RUNNER') {
       const stopPct = Math.max(0.1, Number(settings.SIMULATION_RUNNER_INITIAL_STOP_PCT) || 0.8);
       stopDistance = entry * stopPct / 100;
+    } else if (setupType === 'RANGEBOUND') {
+      const stopPct = Math.max(0.1, Number(settings.SIMULATION_RANGEBOUND_INITIAL_STOP_PCT) || 0.5);
+      stopDistance = Math.min(stopDistance, entry * stopPct / 100);
     }
     if (side === 'sell') return { target: round2(entry - targetDistance), stop: round2(entry + stopDistance) };
     return { target: round2(entry + targetDistance), stop: round2(entry - stopDistance) };
@@ -3267,7 +3516,7 @@
     const maxFavorablePct = Number(trade._maxFavorablePct) || 0;
     if (maxFavorablePct < profitLockPct) return null;
     trade._topGainerProfitLockArmed = true;
-    if (!trade._partialTargetBooked && Number(trade.qty) > 1) {
+    if (settings.SIMULATION_PARTIAL_EXITS_ENABLED !== false && !trade._partialTargetBooked && Number(trade.qty) > 1) {
       return {
         reason:'Simulation top-gainer profit lock',
         exitPrice:Number(price),
@@ -3286,6 +3535,108 @@
       }
     }
     return null;
+  }
+
+  function getTopGainerControlledRetestExit(trade, price, candidate, at, settings) {
+    settings = withDefaults(settings);
+    if (String(trade?.setupType || '').toUpperCase() !== 'TOP_GAINER_CONTROLLED_RETEST') return null;
+    const entry = Number(trade.entryPrice);
+    if (!Number.isFinite(entry) || entry <= 0 || !Number.isFinite(Number(price))) return null;
+    const indicators = candidate?.indicators || {};
+    const completed = getLatestCompletedCandidateCandle(candidate, at, 5);
+    const vwap = Number(indicators.vwap);
+    const decisionScore = getCandidateDecisionScore(candidate);
+    const rankAgeMin = Number(indicators.leaderRankAgeMin);
+    const modeledNetPct = Number(candidate?.cost?.netPct);
+    const invalidationReasons = [];
+    if (completed && Number.isFinite(vwap) && Number(completed.close) < vwap) invalidationReasons.push('completed candle closed below VWAP');
+    if (String(indicators.superTrendDirection || '').toLowerCase() === 'bearish') invalidationReasons.push('SuperTrend turned bearish');
+    if (decisionScore < Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_INVALIDATION_SCORE || 65)) invalidationReasons.push(`decision score ${round2(decisionScore)} below ${round2(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_INVALIDATION_SCORE || 65)}`);
+    if (!Number.isFinite(rankAgeMin) || rankAgeMin > Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MEMORY_MIN || 30)) invalidationReasons.push('top-five leader memory expired');
+    if (!Number.isFinite(modeledNetPct) || modeledNetPct < Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_NET_PROFIT_PCT || 1)) invalidationReasons.push('modeled net profit fell below 1%');
+    if (invalidationReasons.length) {
+      return { reason:'Simulation controlled-retest invalidation', exitPrice:Number(price), exitFlags:invalidationReasons };
+    }
+
+    const milestonePct = Math.max(0, Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_PROFIT_MILESTONE_PCT) || 0.7);
+    if (!trade._partialTargetBooked && Number(trade.qty) > 1 && Number(trade._maxFavorablePct) >= milestonePct) {
+      return {
+        reason:'Simulation controlled-retest 0.7% partial',
+        exitPrice:Number(price),
+        action:'partial',
+        qtyPct:Math.min(90, Math.max(1, Number(settings.SIMULATION_TOP_GAINER_CONTROLLED_RETEST_PARTIAL_QTY_PCT) || 75)),
+        runner:true,
+        newTarget:null,
+      };
+    }
+    if (trade._partialTargetBooked) {
+      const priorCompletedLow = Number(completed?.low);
+      const trail = Math.max(Number.isFinite(vwap) ? vwap : -Infinity, Number.isFinite(priorCompletedLow) ? priorCompletedLow : -Infinity);
+      if (Number.isFinite(trail) && Number(price) < trail) {
+        return { reason:'Simulation controlled-retest VWAP/candle-low trail', exitPrice:Number(price), trailPrice:round2(trail) };
+      }
+    }
+    return null;
+  }
+
+  function startRangeboundSignalRecoveryObservation(trade, candidate, at, settings) {
+    settings = withDefaults(settings);
+    if (settings.SIMULATION_RANGEBOUND_SIGNAL_RECOVERY_SHADOW_ENABLED === false || String(trade?.setupType || '').toUpperCase() !== 'RANGEBOUND') return null;
+    const startedAt = new Date(at || Date.now()).toISOString();
+    const windowMin = Math.max(1, Number(settings.SIMULATION_RANGEBOUND_SIGNAL_RECOVERY_WINDOW_MIN) || 15);
+    const vwap = Number(candidate?.indicators?.vwap);
+    trade.signalRecoveryObservation = {
+      schemaVersion:1,
+      status:'pending',
+      hypothesis:true,
+      exitReason:'Simulation signal deterioration',
+      startedAt,
+      deadlineAt:new Date(new Date(startedAt).getTime() + windowMin * 60000).toISOString(),
+      windowMin,
+      originalStop:Number.isFinite(Number(trade.stop)) ? Number(trade.stop) : null,
+      vwapAtExit:Number.isFinite(vwap) ? vwap : null,
+      recoveredBeforeStop:null,
+      observedCompletedBarTime:null,
+    };
+    return trade.signalRecoveryObservation;
+  }
+
+  function updateRangeboundSignalRecoveryObservations(trades, candidateBySymbol, at, settings = {}) {
+    settings = withDefaults(settings);
+    const atMs = new Date(at || Date.now()).getTime();
+    let changed = false;
+    for (const trade of Array.isArray(trades) ? trades : []) {
+      const observation = trade?.signalRecoveryObservation;
+      if (!observation || observation.status !== 'pending') continue;
+      const deadlineMs = new Date(observation.deadlineAt || 0).getTime();
+      const startedMs = new Date(observation.startedAt || 0).getTime();
+      const symbol = String(trade?.symbol || '').toUpperCase();
+      const candidate = candidateBySymbol instanceof Map ? candidateBySymbol.get(symbol) : candidateBySymbol?.[symbol];
+      const completed = candidate ? getLatestCompletedCandidateCandle(candidate, at, 5) : null;
+      const completedAtMs = completed ? new Date(completed.time).getTime() + 5 * 60000 : NaN;
+      if (completed && Number.isFinite(completedAtMs) && completedAtMs > startedMs && completedAtMs <= deadlineMs && observation.observedCompletedBarTime !== completed.time) {
+        observation.observedCompletedBarTime = completed.time;
+        const stop = Number(observation.originalStop);
+        const vwap = Number(candidate?.indicators?.vwap ?? observation.vwapAtExit);
+        const stopHit = Number.isFinite(stop) && Number(completed.low) <= stop;
+        const reclaimed = Number.isFinite(vwap) && Number(completed.close) > vwap;
+        if (stopHit || reclaimed) {
+          observation.status = 'completed';
+          observation.recoveredBeforeStop = !stopHit && reclaimed;
+          observation.outcome = stopHit ? 'original-stop-hit-before-reclaim' : 'completed-candle-vwap-reclaim-before-stop';
+          observation.completedAt = new Date(atMs).toISOString();
+        }
+        changed = true;
+      }
+      if (observation.status === 'pending' && Number.isFinite(deadlineMs) && atMs >= deadlineMs) {
+        observation.status = 'completed';
+        observation.recoveredBeforeStop = false;
+        observation.outcome = 'no-reclaim-within-window';
+        observation.completedAt = new Date(atMs).toISOString();
+        changed = true;
+      }
+    }
+    return changed;
   }
 
   function getMomentumFadeExit(trade, price, candidate, at, settings) {
@@ -3573,7 +3924,7 @@
 
   function getConfiguredGainMilestones(settings = {}) {
     const raw = settings.SIMULATION_GAIN_MILESTONES_PCT;
-    const values = Array.isArray(raw) ? raw : String(raw || '0.5,1,1.5,2').split(',');
+    const values = Array.isArray(raw) ? raw : String(raw || '0.7,1,1.5,2').split(',');
     return [...new Set(values
       .map(value => Number(value))
       .filter(value => Number.isFinite(value) && value > 0)
@@ -3655,6 +4006,13 @@
       trade._bestPrice = side === 'sell'
         ? Math.min(Number(trade._bestPrice) || entry, price)
         : Math.max(Number(trade._bestPrice) || entry, price);
+      if (String(trade?.setupType || '').toUpperCase() === 'TOP_GAINER_CONTROLLED_RETEST') {
+        if (opts.isEodSettlement) return { reason:'Simulation EOD square-off', exitPrice:Number(price) };
+        const controlledRetestStop = getSimulationStopExit(trade, price, candidate, at, settings);
+        if (controlledRetestStop) return controlledRetestStop;
+      }
+      const controlledRetestExit = getTopGainerControlledRetestExit(trade, price, candidate, at, settings);
+      if (controlledRetestExit) return controlledRetestExit;
       const gainMilestoneExit = getGainMilestoneExit(trade, price, at, settings);
       if (gainMilestoneExit) return gainMilestoneExit;
       const topGainerExit = getTopGainerContinuationExit(trade, price, candidate, at, settings);
@@ -3664,7 +4022,7 @@
       if (side !== 'sell' && maxFavorablePctForThreshold >= adaptiveLongProfitLockPct) {
         trade._longProfitLockArmed = true;
         const longProfitLockMinHoldMs = Math.max(0, Number(settings.SIMULATION_LONG_PROFIT_LOCK_MIN_HOLD_MIN) || 0) * 60000;
-        if (!trade._partialTargetBooked && Number(trade.qty) > 1 && favorablePctForThreshold >= adaptiveLongProfitLockPct &&
+        if (settings.SIMULATION_PARTIAL_EXITS_ENABLED !== false && !trade._partialTargetBooked && Number(trade.qty) > 1 && favorablePctForThreshold >= adaptiveLongProfitLockPct &&
             Number.isFinite(openedAt) && nowMs - openedAt >= longProfitLockMinHoldMs && (!Number.isFinite(target) || price < target)) {
           return {
             reason:'Simulation long profit lock',
@@ -3679,7 +4037,7 @@
       }
       if (side === 'sell' && maxFavorablePctForThreshold >= Number(settings.SIMULATION_SHORT_PROFIT_LOCK_PCT || 0.25)) {
         trade._shortProfitLockArmed = true;
-        if (!trade._partialTargetBooked && Number(trade.qty) > 1 && favorablePctForThreshold >= Number(settings.SIMULATION_SHORT_PROFIT_LOCK_PCT || 0.25)) {
+        if (settings.SIMULATION_PARTIAL_EXITS_ENABLED !== false && !trade._partialTargetBooked && Number(trade.qty) > 1 && favorablePctForThreshold >= Number(settings.SIMULATION_SHORT_PROFIT_LOCK_PCT || 0.25)) {
           return {
             reason:'Simulation short profit lock',
             exitPrice:Number(price),
@@ -3742,7 +4100,10 @@
         Math.max(0, Number(settings.SIMULATION_NO_PROGRESS_MIN_FAVORABLE_PCT) || 0.15);
       if (madeMinimumProgress && !isMomentumRunnerTrade(trade) && Number.isFinite(openedAt) && nowMs - openedAt >= Number(settings.SIMULATION_TIME_STOP_MIN || 45) * 60 * 1000 && favorablePct < Number(settings.SIMULATION_TIME_STOP_MIN_PROFIT_PCT || 0.2)) {
         const live = getPaperTradePnl(trade, price);
-        if (isSimulationSignalDeteriorated(trade, candidate, price)) return { reason: 'Simulation signal deterioration', exitPrice: Number(price) };
+        if (isSimulationSignalDeteriorated(trade, candidate, price)) {
+          const signalRecoveryObservation = startRangeboundSignalRecoveryObservation(trade, candidate, at, settings);
+          return { reason: 'Simulation signal deterioration', exitPrice: Number(price), signalRecoveryObservation };
+        }
         if (live && live.pnl <= 0 && favorablePct <= -0.15) return { reason: 'Simulation time stop cost guard', exitPrice: Number(price) };
       }
     }
@@ -3753,7 +4114,7 @@
     if (side === 'sell') {
       if (!isMomentumRunnerTrade(trade) && Number.isFinite(target) && price <= target) {
         const runner = getTargetRunnerInfo(trade, candidate, price, settings);
-        if (!trade._partialTargetBooked && Number(trade.qty) > 1) {
+        if (settings.SIMULATION_PARTIAL_EXITS_ENABLED !== false && !trade._partialTargetBooked && Number(trade.qty) > 1) {
           return { reason: runner.ok ? 'Simulation partial target runner' : 'Simulation partial target', exitPrice: target, action: 'partial', qtyPct: settings.SIMULATION_TARGET_PARTIAL_QTY_PCT, runner: runner.ok, newTarget: runner.ok ? getNextRunnerTarget(trade, price, settings) : null };
         }
         return { reason: 'Simulation target', exitPrice: target };
@@ -3765,7 +4126,7 @@
     }
     if (!isMomentumRunnerTrade(trade) && Number.isFinite(target) && price >= target) {
       const runner = getTargetRunnerInfo(trade, candidate, price, settings);
-      if (!trade._partialTargetBooked && Number(trade.qty) > 1) {
+      if (settings.SIMULATION_PARTIAL_EXITS_ENABLED !== false && !trade._partialTargetBooked && Number(trade.qty) > 1) {
         return { reason: runner.ok ? 'Simulation partial target runner' : 'Simulation partial target', exitPrice: target, action: 'partial', qtyPct: settings.SIMULATION_TARGET_PARTIAL_QTY_PCT, runner: runner.ok, newTarget: runner.ok ? getNextRunnerTarget(trade, price, settings) : null };
       }
       return { reason: 'Simulation target', exitPrice: target };
@@ -3876,7 +4237,10 @@
         if (remainingGrossCapacity != null && Number.isFinite(price) && price > 0) {
           qty = Math.min(qty, Math.floor(remainingGrossCapacity / price));
         }
-        if (qty <= 0) return null;
+        if (qty <= 0) {
+          addCandidateRejectionReason(candidate, 'position sizing reduced quantity to zero by cash, gross-exposure, portfolio-heat, or sector-heat capacity');
+          return null;
+        }
         if (remainingCash != null) remainingCash = Math.max(0, remainingCash - (price * qty));
         if (remainingGrossCapacity != null) remainingGrossCapacity = Math.max(0, remainingGrossCapacity - price * qty);
         if (remainingHeatRisk != null) remainingHeatRisk = Math.max(0, remainingHeatRisk - riskPerShare * qty);
@@ -4167,8 +4531,10 @@
     applyFrozenEntryTrigger,
     getRelativeVolume,
     annotateTopGainerRanks,
+    annotateLeaderIndicators,
     getTopGainerContinuationInfo,
     getTopGainerPullbackReclaimInfo,
+    getTopGainerControlledRetestInfo,
     getGapAndGoInfo,
     getBullFlagContinuationInfo,
     getBearFlagContinuationInfo,
@@ -4238,6 +4604,9 @@
     getConfirmedBreakevenExit,
     getMomentumRunnerExit,
     getSimulationExit,
+    getTopGainerControlledRetestExit,
+    startRangeboundSignalRecoveryObservation,
+    updateRangeboundSignalRecoveryObservations,
     getLatestCandidateCandle,
     getLatestCompletedCandidateCandle,
     getCandidateCandles,

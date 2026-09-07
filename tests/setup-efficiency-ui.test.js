@@ -24,6 +24,25 @@ test('panel streams updates only while open and exposes efficiency criteria', ()
   assert.match(js, /Win rate[\s\S]*Profit factor[\s\S]*Max drawdown[\s\S]*Recent trend/);
 });
 
+test('panel loads its initial payload before opening the persistent update stream', () => {
+  const loadStart = js.indexOf('async function loadSetupEfficiency');
+  const loadEnd = js.indexOf('function stopSetupEfficiencyStream', loadStart);
+  const loadSource = js.slice(loadStart, loadEnd);
+  const openStart = js.indexOf('function openSetupEfficiencyPanel');
+  const openEnd = js.indexOf('function closeSetupEfficiencyPanel', openStart);
+  const openSource = js.slice(openStart, openEnd);
+  const bootstrapApply = loadSource.indexOf('applySetupEfficiencyPayload(bootstrapPayload)');
+  const bootstrapStream = loadSource.indexOf('startSetupEfficiencyStream()', bootstrapApply);
+  const networkApply = loadSource.indexOf('applySetupEfficiencyPayload(payload)');
+  const networkStream = loadSource.indexOf('startSetupEfficiencyStream()', networkApply);
+  assert.ok(bootstrapApply >= 0 && bootstrapStream > bootstrapApply);
+  assert.ok(networkApply >= 0 && networkStream > networkApply);
+  assert.match(loadSource, /SETUP_EFFICIENCY_LOAD_TIMEOUT_MS/);
+  assert.match(loadSource, /attempt < 1/);
+  assert.match(loadSource, />Retry<\/button>/);
+  assert.doesNotMatch(openSource, /startSetupEfficiencyStream\(\)/);
+});
+
 test('panel supports on-demand analysis for one close date', () => {
   assert.match(js, /id="setup-efficiency-date"[\s\S]*type="date"/);
   assert.match(js, /setupEfficiencyDate \|\| getTradeDateISO\(\)/);

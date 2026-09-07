@@ -29,7 +29,8 @@ test('dashboard SSE handler updates serverSectorTrend from payload', () => {
 
 test('live sector updates preserve locally computed sector coverage', () => {
   const source = fs.readFileSync(DASHBOARD_APP_PATH, 'utf8');
-  assert.match(source, /if \(payload\.sectorTrend\) updateSectorTilesPartial\(payload\.sectorTrend\)/);
+  assert.match(source, /serverSectorTrend\s*=\s*payload\.sectorTrend;\s*scheduleLiveSectorTrendUpdate\(payload\.sectorTrend\)/);
+  assert.match(source, /function scheduleLiveSectorTrendUpdate\(sectorTrend\)[\s\S]*updateSectorTilesPartial\(pending\)/);
   assert.doesNotMatch(source, /Object\.assign\(sectorTrendCache,\s*serverSectorTrend\)/);
 });
 

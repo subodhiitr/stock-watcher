@@ -1,0 +1,166 @@
+{
+  "reason": "User requested unresolved market-cap categories be set to small cap",
+  "updated": [
+    {
+      "symbol": "INDOMIM",
+      "cap": "custom"
+    },
+    {
+      "symbol": "BLEL",
+      "cap": "custom"
+    },
+    {
+      "symbol": "NAICL",
+      "cap": "custom"
+    },
+    {
+      "symbol": "PRIORITY",
+      "cap": "custom"
+    },
+    {
+      "symbol": "ESDS",
+      "cap": "custom"
+    },
+    {
+      "symbol": "AASTHA",
+      "cap": "custom"
+    },
+    {
+      "symbol": "AGL",
+      "cap": "custom"
+    },
+    {
+      "symbol": "ALPINETEX",
+      "cap": "custom"
+    },
+    {
+      "symbol": "ANNAPURNA",
+      "cap": "custom"
+    },
+    {
+      "symbol": "ARDEE",
+      "cap": "custom"
+    },
+    {
+      "symbol": "AUGMONT",
+      "cap": "custom"
+    },
+    {
+      "symbol": "CMLL",
+      "cap": "custom"
+    },
+    {
+      "symbol": "CORDELIA",
+      "cap": "custom"
+    },
+    {
+      "symbol": "CSM",
+      "cap": "custom"
+    },
+    {
+      "symbol": "DHOOTTRANS",
+      "cap": "custom"
+    },
+    {
+      "symbol": "GAJA",
+      "cap": "custom"
+    },
+    {
+      "symbol": "HORIZONIND",
+      "cap": "custom"
+    },
+    {
+      "symbol": "JNPR",
+      "cap": "custom"
+    },
+    {
+      "symbol": "KDGREEN",
+      "cap": "custom"
+    },
+    {
+      "symbol": "KNACK",
+      "cap": "custom"
+    },
+    {
+      "symbol": "KUSUMGAR",
+      "cap": "custom"
+    },
+    {
+      "symbol": "LALITHAA",
+      "cap": "custom"
+    },
+    {
+      "symbol": "LASERPOWER",
+      "cap": "custom"
+    },
+    {
+      "symbol": "LCL",
+      "cap": "custom"
+    },
+    {
+      "symbol": "LEAPIND",
+      "cap": "custom"
+    },
+    {
+      "symbol": "LUMINO",
+      "cap": "custom"
+    },
+    {
+      "symbol": "MANIPALHOS",
+      "cap": "custom"
+    },
+    {
+      "symbol": "MILKYMIST",
+      "cap": "custom"
+    },
+    {
+      "symbol": "MOLBIO",
+      "cap": "custom"
+    },
+    {
+      "symbol": "MVELECTRO",
+      "cap": "custom"
+    },
+    {
+      "symbol": "RAMBHAJO",
+      "cap": "custom"
+    },
+    {
+      "symbol": "SBIFUNDS",
+      "cap": "custom"
+    },
+    {
+      "symbol": "SHANKESH",
+      "cap": "custom"
+    },
+    {
+      "symbol": "SHIPROCKET",
+      "cap": "custom"
+    },
+    {
+      "symbol": "SKYWAYS",
+      "cap": "custom"
+    },
+    {
+      "symbol": "SUNSHINE",
+      "cap": "custom"
+    },
+    {
+      "symbol": "SYMBIOTEC",
+      "cap": "custom"
+    },
+    {
+      "symbol": "TECHNOCRAF",
+      "cap": "custom"
+    },
+    {
+      "symbol": "TEMPSENS",
+      "cap": "custom"
+    },
+    {
+      "symbol": "XTRANET",
+      "cap": "custom"
+    }
+  ],
+  "remainingCustomCaps": 0
+}

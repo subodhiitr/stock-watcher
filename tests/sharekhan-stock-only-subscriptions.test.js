@@ -18,6 +18,24 @@ test('Sharekhan websocket always includes the 63MOONS ticker', () => {
   assert.match(source, /\.\.\.SHAREKHAN_EXTRA_TICKER_SYMBOLS/);
 });
 
+test('mobile stock universe follows live Sharekhan stock subscriptions and excludes index codes', () => {
+  const helperStart = source.indexOf('function getSharekhanSubscribedStockSymbols');
+  const helperEnd = source.indexOf('function rememberSimulationUniverse', helperStart);
+  const helper = source.slice(helperStart, helperEnd);
+  const universeStart = source.indexOf('function buildMobileStockUniverse');
+  const universeEnd = source.indexOf('function buildHealthPayload', universeStart);
+  const universe = source.slice(universeStart, universeEnd);
+
+  assert.ok(helperStart >= 0);
+  assert.match(helper, /sharekhanTicker\._subscribedCodes/);
+  assert.match(helper, /sharekhanIndexCodeMap\.keys\(\)/);
+  assert.match(helper, /!indexCodes\.has\(Number\(code\)\)/);
+  assert.match(helper, /sharekhanTicker\.getSymbol\(code\)/);
+  assert.match(universe, /getSharekhanSubscribedStockSymbols\(\)/);
+  assert.doesNotMatch(universe, /Math\.min\(300/);
+  assert.doesNotMatch(universe, /stocks:\[\.\.\.bySymbol\.values\(\)\]\.slice\(0, 300\)/);
+});
+
 test('Sharekhan websocket incremental subscriptions reject ETFs', () => {
   assert.match(source, /filter\(sym => sym && universe\.has\(sym\) && !isEtfSimulationSymbol\(sym\)\)/);
 });

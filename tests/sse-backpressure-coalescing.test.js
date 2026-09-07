@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'ticker_proxy.js'), 'utf8');
+const dashboardSource = fs.readFileSync(path.join(__dirname, '..', 'dashboard-app.js'), 'utf8');
 
 test('SSE writes expose Node backpressure instead of reporting unconditional success', () => {
   const start = source.indexOf('function writeSseEvent(');
@@ -18,6 +19,25 @@ test('intraday tick broadcasts are coalesced and pause slow clients until drain'
   assert.match(source, /if \(intradayBroadcastTimer\) return/);
   assert.match(source, /client\.res\.once\('drain'/);
   assert.match(source, /if \(client\.backpressured\) continue/);
+});
+
+test('intraday tick broadcasts send the full subscribed snapshot on each update', () => {
+  const start = source.indexOf('function flushIntradayLiveBroadcast()');
+  const body = source.slice(start, source.indexOf('\nfunction broadcastIntradayLive', start));
+  assert.match(body, /data: buildIntradayLiveData\(symbolFilter\)/);
+  assert.match(body, /changedSymbols: Array\.isArray\(changedSymbols\)/);
+  assert.doesNotMatch(body, /changedSymbolsForClient/);
+  assert.doesNotMatch(body, /dataSymbols/);
+});
+
+test('dashboard throttles expensive intraday consumers but applies row updates immediately', () => {
+  assert.match(dashboardSource, /if \(liveQuoteConsumerRefreshTimer\) return/);
+  assert.match(dashboardSource, /INTRADAY_CONSUMER_REFRESH_MS = 750/);
+  assert.match(dashboardSource, /applyPartialRowUpdates\(changedSymbols\)/);
+  assert.doesNotMatch(dashboardSource, /schedulePartialRowUpdates\(changedSymbols\)/);
+  assert.doesNotMatch(dashboardSource, /INTRADAY_ROW_REFRESH_MS/);
+  assert.doesNotMatch(dashboardSource, /pendingIntradayRowSymbols/);
+  assert.match(dashboardSource, /new Map\(getAllStockRows\(\)\.map\(row => \[row\.sym, row\]\)\)/);
 });
 
 test('heavy replay worker failures never fall back inside the live proxy', () => {
