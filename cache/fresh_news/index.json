@@ -1,6 +1,6 @@
 {
   "version": 7,
-  "savedAt": 1789264508827,
+  "savedAt": 1789275881636,
   "partitioned": true,
   "days": {
     "2026-08-31": {
@@ -113,30 +113,30 @@
     },
     "2026-09-11": {
       "date": "2026-09-11",
-      "savedAt": 1789264350559,
-      "builtInMs": 86301,
+      "savedAt": 1789275722540,
+      "builtInMs": 122538,
       "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
-      "scanned": 547,
-      "count": 67,
-      "symbolCount": 30
+      "scanned": 522,
+      "count": 66,
+      "symbolCount": 29
     },
     "2026-09-12": {
       "date": "2026-09-12",
-      "savedAt": 1789264431960,
-      "builtInMs": 81348,
+      "savedAt": 1789275802172,
+      "builtInMs": 79578,
       "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
-      "scanned": 547,
+      "scanned": 522,
       "count": 24,
       "symbolCount": 13
     },
     "2026-09-13": {
       "date": "2026-09-13",
-      "savedAt": 1789264508773,
-      "builtInMs": 76758,
+      "savedAt": 1789275881599,
+      "builtInMs": 79388,
       "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
-      "scanned": 547,
-      "count": 0,
-      "symbolCount": 0
+      "scanned": 522,
+      "count": 2,
+      "symbolCount": 1
     }
   }
 }
