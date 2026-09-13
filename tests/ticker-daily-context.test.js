@@ -18,6 +18,7 @@ test('buildDailyTradeContext uses latest completed day when daily chart ends wit
   assert.equal(context.prevDayHigh, 112);
   assert.equal(context.prevDayLow, 101);
   assert.equal(context.prevDayClose, 110);
+  assert.equal(context.previousDayGainPct, 10);
 });
 
 test('buildDailyTradeContext still uses the prior row when the current day close is present', () => {
@@ -35,6 +36,7 @@ test('buildDailyTradeContext still uses the prior row when the current day close
   assert.equal(context.prevDayHigh, 112);
   assert.equal(context.prevDayLow, 101);
   assert.equal(context.prevDayClose, 110);
+  assert.equal(context.previousDayGainPct, 10);
 });
 
 test('buildDailyTradeContext uses chart previous close when a null daily row precedes current session', () => {
@@ -81,4 +83,23 @@ test('pickChartPreviousClose accepts short-chart chartPreviousClose fallback', (
   });
 
   assert.equal(previousClose, 108.5);
+});
+
+test('daily and aggregated intraday trend helpers return directional context', () => {
+  const closes = Array.from({ length:25 }, (_, index) => 100 + index);
+  const context = proxy.__test__.buildDailyTradeContextForTests({
+    indicators:{ quote:[{
+      high:closes.map(value => value + 1),
+      low:closes.map(value => value - 1),
+      close:closes,
+      volume:closes.map(() => 1000),
+    }] },
+  });
+  assert.equal(context.dailyTrend, 'up');
+
+  const timestamps = Array.from({ length:30 }, (_, index) => 1_700_000_000 + index * 300);
+  const intradayCloses = Array.from({ length:30 }, (_, index) => 200 + index);
+  const aggregated = proxy.__test__.aggregateClosingPricesForTests(timestamps, intradayCloses, 15);
+  assert.equal(aggregated.length, 11);
+  assert.equal(proxy.__test__.closingSeriesTrendForTests(aggregated, 3, 5), 'up');
 });

@@ -1,0 +1,981 @@
+{
+  "updated": [
+    {
+      "symbol": "ACMESOLAR",
+      "name": "ACMESOLAR",
+      "sector": "Power"
+    },
+    {
+      "symbol": "ADANIENSOL",
+      "name": "ADANIENSOL",
+      "sector": "Power"
+    },
+    {
+      "symbol": "APARINDS",
+      "name": "APARINDS",
+      "sector": "Capital Goods"
+    },
+    {
+      "symbol": "BALRAMCHIN",
+      "name": "BALRAMCHIN",
+      "sector": "Fast Moving Consumer Goods"
+    },
+    {
+      "symbol": "BSE",
+      "name": "BSE",
+      "sector": "Financial Services"
+    },
+    {
+      "symbol": "CEMPRO",
+      "name": "CEMPRO",
+      "sector": "Construction"
+    },
+    {
+      "symbol": "CHENNPETRO",
+      "name": "CHENNPETRO",
+      "sector": "Oil Gas & Consumable Fuels"
+    },
+    {
+      "symbol": "CPPLUS",
+      "name": "CPPLUS",
+      "sector": "Capital Goods"
+    },
+    {
+      "symbol": "EMMVEE",
+      "name": "EMMVEE",
+      "sector": "Capital Goods"
+    },
+    {
+      "symbol": "ENGINERSIN",
+      "name": "ENGINERSIN",
+      "sector": "Construction"
+    },
+    {
+      "symbol": "GPIL",
+      "name": "GPIL",
+      "sector": "Capital Goods"
+    },
+    {
+      "symbol": "GRANULES",
+      "name": "GRANULES",
+      "sector": "Healthcare"
+    },
+    {
+      "symbol": "HONASA",
+      "name": "HONASA",
+      "sector": "Fast Moving Consumer Goods"
+    },
+    {
+      "symbol": "IREDA",
+      "name": "IREDA",
+      "sector": "Financial Services"
+    },
+    {
+      "symbol": "KIRLOSENG",
+      "name": "KIRLOSENG",
+      "sector": "Capital Goods"
+    },
+    {
+      "symbol": "NEULANDLAB",
+      "name": "NEULANDLAB",
+      "sector": "Healthcare"
+    },
+    {
+      "symbol": "NLCINDIA",
+      "name": "NLCINDIA",
+      "sector": "Power"
+    },
+    {
+      "symbol": "PARAS",
+      "name": "PARAS",
+      "sector": "Capital Goods"
+    },
+    {
+      "symbol": "PATANJALI",
+      "name": "PATANJALI",
+      "sector": "Fast Moving Consumer Goods"
+    },
+    {
+      "symbol": "PWL",
+      "name": "PWL",
+      "sector": "Consumer Services"
+    },
+    {
+      "symbol": "RRKABEL",
+      "name": "RRKABEL",
+      "sector": "Capital Goods"
+    },
+    {
+      "symbol": "SYRMA",
+      "name": "SYRMA",
+      "sector": "Capital Goods"
+    },
+    {
+      "symbol": "TRAVELFOOD",
+      "name": "TRAVELFOOD",
+      "sector": "Consumer Services"
+    },
+    {
+      "symbol": "WELCORP",
+      "name": "WELCORP",
+      "sector": "Capital Goods"
+    }
+  ],
+  "capUpdated": [
+    {
+      "symbol": "ACMESOLAR",
+      "cap": "small"
+    },
+    {
+      "symbol": "ADANIENSOL",
+      "cap": "large"
+    },
+    {
+      "symbol": "APARINDS",
+      "cap": "mid"
+    },
+    {
+      "symbol": "BALRAMCHIN",
+      "cap": "small"
+    },
+    {
+      "symbol": "BSE",
+      "cap": "mid"
+    },
+    {
+      "symbol": "CEMPRO",
+      "cap": "small"
+    },
+    {
+      "symbol": "CHENNPETRO",
+      "cap": "small"
+    },
+    {
+      "symbol": "CPPLUS",
+      "cap": "small"
+    },
+    {
+      "symbol": "EMMVEE",
+      "cap": "small"
+    },
+    {
+      "symbol": "ENGINERSIN",
+      "cap": "small"
+    },
+    {
+      "symbol": "GPIL",
+      "cap": "small"
+    },
+    {
+      "symbol": "GRANULES",
+      "cap": "small"
+    },
+    {
+      "symbol": "HONASA",
+      "cap": "small"
+    },
+    {
+      "symbol": "IREDA",
+      "cap": "mid"
+    },
+    {
+      "symbol": "KIRLOSENG",
+      "cap": "small"
+    },
+    {
+      "symbol": "NEULANDLAB",
+      "cap": "small"
+    },
+    {
+      "symbol": "NLCINDIA",
+      "cap": "mid"
+    },
+    {
+      "symbol": "PARAS",
+      "cap": "small"
+    },
+    {
+      "symbol": "PATANJALI",
+      "cap": "mid"
+    },
+    {
+      "symbol": "PWL",
+      "cap": "small"
+    },
+    {
+      "symbol": "RRKABEL",
+      "cap": "small"
+    },
+    {
+      "symbol": "SYRMA",
+      "cap": "small"
+    },
+    {
+      "symbol": "TRAVELFOOD",
+      "cap": "small"
+    },
+    {
+      "symbol": "WELCORP",
+      "cap": "small"
+    }
+  ],
+  "skipped": [
+    {
+      "symbol": "AASTHA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ACGL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ADDIND",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ADVIKCA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "AGL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ALFREDHE",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ALPINETEX",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ALUFLUOR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "AMAL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "AMARJOTHI",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ANDREWYU",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ANNAPURNA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ANSALBU",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ANTELOPUS",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "APOORVA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ARCL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ARDEE",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ARYAMAN",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ASIANTNE",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ASSAMENT",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "AUGMONT",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "AUSTENG",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "AVANCE",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "AXTEL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "AZADIND",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "BENARAS",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "BLEL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "BLUECLOUDS",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "BPLPHARMA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "BRAHMINFRA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "BRIGHTBR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "CFEL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "CGVAK",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "CHEMCRUX",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "CMLL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "CMRGREEN",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "COMPEAU",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "CORDELIA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "CPL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "CRAVATEX",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "CSM",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "DEEP",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "DHATRE",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "DHOOTTRANS",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "E2E",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "EASTWEST",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ECORECO",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "EKI",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "EMPIND",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ENKEIWHEL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ESDS",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "FERMENTA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "FREDUN",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "GAJA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "GKB",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "GYFTR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "HAMPTON",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "HAZOOR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "HBPOR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "HDIL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "HINDADH",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "HINDALUMI",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "HORIZONIND",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "HRYNSHP",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "INDOKEM",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "INDOMIM",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "IPRINGLTD",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ISTLTD",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ITL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "JENBURPH",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "JINDWORLD",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "JNPR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "JYOTIRES",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "KAMANWALA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "KANCOTEA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "KDGREEN",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "KJMCFIN",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "KMCSHIL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "KNACK",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "KSE",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "KUSUMGAR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "LADDERUP",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "LAKSHMIMIL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "LALITHAA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "LANCER",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "LASERPOWER",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "LCL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "LEAPIND",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "LKPSEC",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "LOTUSCHO",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "LUMINO",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "MAKERSL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "MANIPALHOS",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "MEDICAPQ",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "MIIL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "MILKYMIST",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "MKEXIM",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "MLKFOOD",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "MOHITE",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "MOLBIO",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "MSL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "MUKESHB",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "MVELECTRO",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "NAICL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "NICCOPAR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "NTCIND",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ODYCORP",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ONEGLOBAL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ONIXSOLAR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "OPTIFIN",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "ORIRAIL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "PACIFICI",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "PANCHMAHQ",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "PANORAMA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "PARNAXLAB",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "PBMPOLY",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "PERMAGN",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "PHOENXINTL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "POEL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "POLYSPIN",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "PRIORITY",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "PRISMX",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "RAMBHAJO",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "RIR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "RRECL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "RTSPOWR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SAB",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SAICAPI",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SAMBANDAM",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SAYAJIIND",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SBIFUNDS",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SEKURITIND",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SGLRES",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SGRL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SHANKESH",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SHERVANI",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SHILGRAVQ",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SHIPROCKET",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SHIVAAGRO",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SHIVACEM",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SHRADDHA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SHRJAGP",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SHUKRAPHAR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SIEL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SIMPLXREA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SKYWAYS",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SPELS",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SRIKPRIND",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "STLSTRINF",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SUMEDHA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SUNLOC",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SUNRAKSHAK",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SUNSHIEL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SUNSHINE",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SVGLOBAL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SWARNSAR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "SYMBIOTEC",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "TANAA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "TECHNOCRAF",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "TEMPSENS",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "TERAI",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "TGVSL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "TOYAMSL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "TRANSCOR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "TRITONV",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "TURTLEMINT",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "TUTIALKA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "UDAYJEW",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "UPHOT",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VADILENT",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VAML",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VASUPRADA",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VEDAVAAG",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VEDPOWER",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VGCL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VIJSOLX",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VIRAT",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VISHAL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VISL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VIVOBIOT",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VOEPL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VOGL",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VOITHPAPR",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "VTMLTD",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "WARDINMOBI",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "WATERBASE",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "WHBRADY",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "XTRANET",
+      "reason": "sector/cap not found"
+    },
+    {
+      "symbol": "YOGI",
+      "reason": "sector/cap not found"
+    }
+  ],
+  "failed": []
+}

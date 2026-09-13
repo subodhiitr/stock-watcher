@@ -36,4 +36,5 @@ test('frozen strategy settings fail closed if defaults drift', () => {
   assert.equal(settings.SIMULATION_BULL_FLAG_CONTINUATION_ENABLED, false);
   assert.equal(settings.SIMULATION_GAP_AND_GO_ENABLED, false);
   assert.equal(settings.SIMULATION_MOMENTUM_CATALYST_ENABLED, false);
+  assert.equal(settings.SIMULATION_PARTIAL_EXITS_ENABLED, true);
 });

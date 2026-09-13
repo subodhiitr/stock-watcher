@@ -60,6 +60,30 @@ class ConfiguredEncryptionAttestation implements EncryptionAttestationPort {
   }
 }
 
+export function isLocalPortfolioRequest(request: http.IncomingMessage): boolean {
+  const loopback = (value: string | undefined) =>
+    value === '127.0.0.1' || value === '::1' || value === '::ffff:127.0.0.1'
+  if (!loopback(request.socket.remoteAddress)) return false
+  if (request.headers.forwarded !== undefined || request.headers['x-forwarded-host'] !== undefined
+    || request.headers['x-real-ip'] !== undefined) return false
+  const forwarded = request.headers['x-forwarded-for']
+  if (forwarded !== undefined && (typeof forwarded !== 'string'
+    || !forwarded.split(',').every((value) => loopback(value.trim())))) return false
+  try {
+    const host = request.headers.host
+    if (host === undefined) return false
+    const url = new URL(`http://${host}`)
+    if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+      || url.username || url.password || url.pathname !== '/') return false
+    const origin = request.headers.origin
+    if (origin !== undefined && !isSameHostOrigin(host, origin)) return false
+    const site = request.headers['sec-fetch-site']
+    return site === undefined || site === 'same-origin' || site === 'none'
+  } catch {
+    return false
+  }
+}
+
 function sha256(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex')
 }
@@ -370,6 +394,7 @@ export function createPortfolioHttpRuntime(options: PortfolioHttpRuntimeOptions 
       method: nodeRequest.method ?? 'GET',
       path: pathname,
       headers: toHeaderRecord(nodeRequest.headers),
+      localAccess: isLocalPortfolioRequest(nodeRequest),
       portfolioId,
       ...(bodyText === undefined ? {} : { bodyText }),
       requestFingerprint: sha256(`${nodeRequest.method ?? 'GET'}\n${pathname}\n${bodyText ?? ''}`),
@@ -403,8 +428,31 @@ export function createPortfolioHttpRuntime(options: PortfolioHttpRuntimeOptions 
           write(nodeResponse, Object.freeze({
             status: 200,
             headers: SAFE_JSON_HEADERS,
-            body: Object.freeze({ configured }),
+            body: Object.freeze({ configured, localLogin: isLocalPortfolioRequest(nodeRequest) && store.findLocalAdministrator() !== undefined }),
           }))
+          return true
+        }
+        if (pathname === '/api/portfolio/auth/local-login' && nodeRequest.method === 'POST') {
+          if (!isLocalPortfolioRequest(nodeRequest) || origin === undefined) {
+            write(nodeResponse, generic(403, 'ACCESS_DENIED'))
+            return true
+          }
+          const result = auth.loginLocal()
+          if (!result.ok) {
+            write(nodeResponse, generic(401, 'AUTHENTICATION_REQUIRED'))
+            return true
+          }
+          write(nodeResponse, {
+            status: 200,
+            headers: {
+              ...SAFE_JSON_HEADERS,
+              'set-cookie': [
+                PortfolioAuthenticationService.cookie(result.sessionToken, secureCookies),
+                PortfolioAuthenticationService.csrfCookie(result.csrfToken, secureCookies),
+              ].join('|||'),
+            },
+            body: { authenticated: true, expiresAtEpochMs: result.expiresAtEpochMs },
+          })
           return true
         }
         if (pathname === '/api/portfolio/auth/login' && nodeRequest.method === 'POST') {
@@ -525,6 +573,7 @@ export function createPortfolioHttpRuntime(options: PortfolioHttpRuntimeOptions 
         if (pathname === '/api/portfolio/auth/logout' && nodeRequest.method === 'POST') {
           const apiRequest: PortfolioApiRequest = {
             method: 'POST', path: pathname, headers: toHeaderRecord(nodeRequest.headers),
+            localAccess: isLocalPortfolioRequest(nodeRequest),
             portfolioId: 'portfolio:collection', bodyText: bodyText ?? '',
             requestFingerprint: sha256(`POST\n${pathname}\n${bodyText ?? ''}`),
           }

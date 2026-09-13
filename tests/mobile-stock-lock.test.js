@@ -10,7 +10,8 @@ test('setups and all stocks show open positions as locked with entry price', () 
   assert.match(app, /function openTradeForSymbol/);
   assert.match(app, /stock-lock broker-status--\$\{brokerState\}"><b>Locked · Entry \$\{fmt\(lockedTrade\.entryPrice\)\}/);
   assert.match(app, /lockedTrade \? 'Locked' : canTrade \? 'Trade'/);
-  assert.match(css, /\.setup-card\.is-locked, \.all-stock-row\.is-locked/);
+  assert.match(app, /class="setup-card all-stock-card \$\{lockedTrade \? 'is-locked'/);
+  assert.match(css, /\.setup-card\.is-locked/);
 });
 
 test('trade stream refreshes locks and click handlers reject duplicate entries', () => {

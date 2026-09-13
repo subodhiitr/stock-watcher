@@ -131,6 +131,17 @@ export class SqlitePortfolioApiStore implements PortfolioApiStore {
     if (!this.canUse()) throw new Error('PORTFOLIO_API_STORE_UNAVAILABLE')
   }
 
+  findLocalAdministrator(): PrincipalRecord | undefined {
+    this.assertAvailable()
+    const rows = this.database.prepare(`
+      SELECT principal_id, username_key, display_name, password_salt, password_hash,
+             global_role, mfa_secret, disabled
+      FROM portfolio_principals WHERE global_role = 'ADMIN' AND disabled = 0
+      LIMIT 2
+    `).all() as PrincipalRow[]
+    return rows.length === 1 ? principal(rows[0]!) : undefined
+  }
+
   countPrincipals(): number {
     this.assertAvailable()
     const row = this.database.prepare('SELECT COUNT(*) AS count FROM portfolio_principals').get() as { count: number }

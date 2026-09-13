@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const { aggregateResearchNewsSignals } = require('./portfolio/adapters/api/research-signals.cjs');
 
-const CACHE_VERSION = 5;
+const CACHE_VERSION = 7;
 const CACHE_MAX_DAYS = 30;
 const CRON_TIMES_IST = ['10:30', '15:45'];
 
@@ -58,10 +59,10 @@ function itemNewsDateKey(item) {
 
 function isFreshNewsImportant(item) {
   const text = `${item?.type || ''} ${item?.title || ''} ${item?.subject || ''} ${item?.purpose || ''}`;
-  return /result|financial|earnings|dividend|board|bonus|split|buyback|large deal|bulk deal|block deal|acquisition|merger|mou|contract|order win|bags order|corporate action|announcement/i.test(text);
+  return /result|financial|earnings|dividend|board|bonus|split|buyback|large deal|bulk deal|block deal|acquisition|merger|mou|contract|order win|bags order|corporate action|announcement|\bfraud\b|irregularit(?:y|ies)|investigat(?:e|ed|es|ing|ion)|\bprobe\b|alleg(?:ation|ations|ed)|regulatory action|enforcement action|show cause|penalt(?:y|ies)|\blawsuit\b|litigation|\bscam\b|misconduct/i.test(text);
 }
 
-function normalizeFreshNewsUniverse(symbols, maxSymbols = 300) {
+function normalizeFreshNewsUniverse(symbols) {
   return (Array.isArray(symbols) ? symbols : [])
     .map(item => typeof item === 'string' ? { symbol:item } : item)
     .map(item => ({
@@ -69,21 +70,27 @@ function normalizeFreshNewsUniverse(symbols, maxSymbols = 300) {
       name:String(item?.name || '').trim(),
       assetType:String(item?.assetType || item?.type || 'stock').trim().toLowerCase(),
     }))
-    .filter(item => item.symbol)
-    .slice(0, maxSymbols);
+    .filter(item => item.symbol);
 }
 
 function dedupeFreshNewsItems(items) {
-  const seen = new Set();
+  const seen = new Map();
   const deduped = [];
   for (const item of items.sort((a, b) =>
     (Number(b.tradeImpactAbs || 0) - Number(a.tradeImpactAbs || 0)) ||
     (Number(b.tradeImpactScore || 0) - Number(a.tradeImpactScore || 0)) ||
     ((Date.parse(b.publishedAt || 0) || 0) - (Date.parse(a.publishedAt || 0) || 0))
   )) {
-    const key = `${item.symbol}|${String(item.type || '').toLowerCase()}|${String(item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 120)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    const normalizedTitle = String(item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 160);
+    const key = `${item.symbol}|${normalizedTitle || String(item.url || '').toLowerCase()}`;
+    if (seen.has(key)) {
+      const existing = deduped[seen.get(key)];
+      existing.source = [...new Set(`${existing.source || ''}+${item.source || ''}`.split('+').filter(Boolean))].join('+');
+      if (String(item.summary || '').length > String(existing.summary || '').length) existing.summary = item.summary;
+      if (!existing.url && item.url) existing.url = item.url;
+      continue;
+    }
+    seen.set(key, deduped.length);
     deduped.push(item);
   }
   return deduped;
@@ -140,6 +147,8 @@ function createFreshNewsService(deps = {}) {
   const fetchNSEAllCorporateActions = deps.fetchNSEAllCorporateActions || (async () => []);
   const fetchNSEAllBoardMeetings = deps.fetchNSEAllBoardMeetings || (async () => []);
   const fetchNSEStockAnnouncements = deps.fetchNSEStockAnnouncements || (async () => []);
+  const fetchScreenerStockAnnouncements = deps.fetchScreenerStockAnnouncements || (async () => []);
+  const fetchLiveMintStockAnnouncements = deps.fetchLiveMintStockAnnouncements || (async () => []);
   let dayCache = null;
   const buildJobs = new Map();
   const impactByDate = new Map();
@@ -205,12 +214,52 @@ function createFreshNewsService(deps = {}) {
     return categorized;
   }
 
+  function getCachedResearchSignalsForSymbol(symbol, now = new Date()) {
+    const normalized = String(symbol || '').trim().toUpperCase();
+    const asOf = now instanceof Date ? now : new Date(now);
+    if (!normalized || Number.isNaN(asOf.getTime())) return null;
+    const cutoff = asOf.getTime();
+    const lookbackStart = cutoff - CACHE_MAX_DAYS * 24 * 60 * 60 * 1000;
+    const index = loadIndex();
+    const entries = Object.keys(index.days || {})
+      .filter(dateKey => {
+        const day = Date.parse(`${dateKey}T00:00:00.000Z`);
+        return Number.isFinite(day) && day <= cutoff && day >= lookbackStart - 24 * 60 * 60 * 1000;
+      })
+      .map(readDay)
+      .filter(Boolean);
+    const items = dedupeFreshNewsItems(entries.flatMap(entry => [
+      ...(Array.isArray(entry.researchItems) ? entry.researchItems : []),
+      ...(Array.isArray(entry.items) ? entry.items : []),
+    ]).filter(item => String(item?.symbol || '').trim().toUpperCase() === normalized));
+    const coverage = entries
+      .map(entry => entry.symbolScanCoverage?.[normalized])
+      .filter(value => Number.isFinite(Number(value)));
+    const scanCoveragePct = coverage.length
+      ? Math.round(coverage.reduce((total, value) => total + Number(value), 0) / coverage.length)
+      : entries.length ? 100 : 0;
+    const aggregated = aggregateResearchNewsSignals(items, asOf.toISOString());
+    const verifiedNoEvent = scanCoveragePct === 100 && aggregated.verifiedItemCount === 0;
+    return {
+      ...aggregated,
+      catalystImpact: verifiedNoEvent ? 0 : aggregated.catalystImpact,
+      resultImpact: verifiedNoEvent ? 0 : aggregated.resultImpact,
+      eventRisk: verifiedNoEvent ? 0 : aggregated.eventRisk,
+      scanCoveragePct,
+      scanLookbackDays:CACHE_MAX_DAYS,
+      evidence:[
+        ...aggregated.evidence,
+        ...(verifiedNoEvent ? ['No verified NSE catalyst in the 30-day scan'] : []),
+      ],
+    };
+  }
+
   function loadDashboardStockUniverse() {
     const rows = [];
     try {
       const source = fs.existsSync(dashboardAppPath) ? fs.readFileSync(dashboardAppPath, 'utf8') : '';
-      const block = source.match(/const\s+MIDCAP_STOCKS\s*=\s*\[([\s\S]*?)\];/);
-      const text = block ? block[1] : source;
+      const block = source.match(/(?:const|let|var)\s+MIDCAP_STOCKS\s*=\s*\[([\s\S]*?)\];/);
+      const text = block ? block[1] : '';
       const re = /\{\s*sym:'([^']+)'\s*,\s*name:'([^']*)'[\s\S]*?sector:'([^']*)'[\s\S]*?cap:'([^']*)'/g;
       let m;
       while ((m = re.exec(text))) {
@@ -252,7 +301,7 @@ function createFreshNewsService(deps = {}) {
       row.name = String(row.name || symbol);
       row.assetType = String(row.assetType || row.type || 'stock').toLowerCase();
       return true;
-    }).slice(0, 320);
+    });
   }
 
   function dayFile(targetDate) {
@@ -358,15 +407,16 @@ function createFreshNewsService(deps = {}) {
       if (!fs.existsSync(file)) return null;
       const entry = JSON.parse(fs.readFileSync(file, 'utf8') || '{}');
       if (!entry || !Array.isArray(entry.items)) return null;
-      const needsUpgrade = (entry.version || 1) !== CACHE_VERSION ||
-        entry.items.some(item => !item.newsSentiment || item.tradeImpactScore == null);
+      const needsScreenerRefresh = (entry.version || 1) !== CACHE_VERSION ||
+        !String(entry.source || '').includes('screener-company-pages') ||
+        !String(entry.source || '').includes('livemint-rss');
+      const needsUpgrade = entry.items.some(item => !item.newsSentiment || item.tradeImpactScore == null);
       if (needsUpgrade) {
-        entry.version = CACHE_VERSION;
         entry.items = dedupeFreshNewsItems(entry.items.map(item => ({ ...item, ...classifyNewsTradeImpact(item) })));
         entry.count = entry.items.length;
         entry.symbolCount = new Set(entry.items.map(item => item.symbol)).size;
-        writeDay(entry);
       }
+      entry.needsScreenerRefresh = needsScreenerRefresh;
       cacheImpactEntry(entry);
       return entry;
     } catch(e) {
@@ -415,6 +465,7 @@ function createFreshNewsService(deps = {}) {
       assetType:String(item?.assetType || 'stock').toLowerCase(),
       type:item.type || classifyNewsItem(item.title || ''),
       title:item.title || item.type || 'News',
+      summary:String(item.summary || ''),
       source:item.source || 'NSE',
       url:item.url || '',
       publishedAt:item.publishedAt || item.filingDate || item.exDate || item.eventDate || null,
@@ -430,6 +481,8 @@ function createFreshNewsService(deps = {}) {
     const job = (async () => {
       const startedAt = Date.now();
       const items = [];
+      const researchItems = [];
+      const symbolScanCoverage = {};
       const errors = [];
       const universe = buildUniverse(requestedUniverse);
       const marketSettled = await Promise.allSettled([
@@ -464,7 +517,37 @@ function createFreshNewsService(deps = {}) {
             continue;
           }
           const { row, news } = r.value;
-          for (const raw of (Array.isArray(news) ? news : [])) {
+          const rawItems = Array.isArray(news) ? news : [];
+          const coverageError = news?.coverageError;
+          symbolScanCoverage[row.symbol] = coverageError ? 0 : 100;
+          if (coverageError) errors.push(`${row.symbol}: ${coverageError}`);
+          for (const raw of rawItems) {
+            const publishedAt = raw.publishedAt || raw.filingDate || raw.exDate || raw.eventDate || null;
+            const publishedAtMs = Date.parse(publishedAt || '');
+            const targetEndMs = Date.parse(`${targetDate}T23:59:59.999Z`);
+            if (
+              Number.isFinite(publishedAtMs)
+              && publishedAtMs <= targetEndMs
+              && publishedAtMs >= targetEndMs - CACHE_MAX_DAYS * 24 * 60 * 60 * 1000
+            ) {
+              const researchItem = {
+                symbol:row.symbol,
+                name:row.name || row.symbol,
+                assetType:row.assetType || 'stock',
+                type:raw.type || classifyNewsItem(raw.title || ''),
+                title:raw.title || raw.type || 'News',
+                source:raw.source || 'NSE',
+                url:raw.url || '',
+                publishedAt,
+                dateKey:itemNewsDateKey(raw),
+                resultVerdict:raw.resultVerdict || null,
+                resultVerdictReason:raw.resultVerdictReason || null,
+                revenueGrowthPct:raw.revenueGrowthPct ?? null,
+                patGrowthPct:raw.patGrowthPct ?? null,
+                epsGrowthPct:raw.epsGrowthPct ?? null,
+              };
+              researchItems.push({ ...researchItem, ...classifyNewsTradeImpact(researchItem) });
+            }
             const item = normalizeMarketNewsItem({ ...raw, symbol:row.symbol, name:row.name, assetType:row.assetType }, targetDate);
             if (!item) continue;
             const titleKey = `${item.symbol}|${String(item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 120)}`;
@@ -475,6 +558,111 @@ function createFreshNewsService(deps = {}) {
         }
         if (i + concurrency < universe.length) await new Promise(r => setTimeout(r, 120));
       }
+      let screenerFailures = 0;
+      const newsActiveSymbols = new Set(items.map(item => String(item.symbol || '').toUpperCase()));
+      const screenerUniverse = universe.filter(row =>
+        String(row.assetType || 'stock').toLowerCase() === 'stock' && newsActiveSymbols.has(row.symbol)
+      );
+      const screenerConcurrency = 8;
+      for (let i = 0; i < screenerUniverse.length; i += screenerConcurrency) {
+        const chunk = screenerUniverse.slice(i, i + screenerConcurrency);
+        const settled = await Promise.allSettled(chunk.map(row =>
+          fetchScreenerStockAnnouncements(row).then(news => ({ row, news }))
+        ));
+        for (const result of settled) {
+          if (result.status !== 'fulfilled') {
+            screenerFailures++;
+            continue;
+          }
+          const { row, news } = result.value;
+          for (const raw of (Array.isArray(news) ? news : [])) {
+            const publishedAt = raw.publishedAt || null;
+            const publishedAtMs = Date.parse(publishedAt || '');
+            const targetEndMs = Date.parse(`${targetDate}T23:59:59.999Z`);
+            if (
+              Number.isFinite(publishedAtMs)
+              && publishedAtMs <= targetEndMs
+              && publishedAtMs >= targetEndMs - CACHE_MAX_DAYS * 24 * 60 * 60 * 1000
+            ) {
+              const researchItem = {
+                symbol:row.symbol,
+                name:row.name || row.symbol,
+                assetType:'stock',
+                type:raw.type || classifyNewsItem(`${raw.title || ''} ${raw.summary || ''}`),
+                title:raw.title || raw.type || 'News',
+                summary:String(raw.summary || ''),
+                source:raw.source || 'Screener',
+                url:raw.url || '',
+                publishedAt,
+                dateKey:itemNewsDateKey(raw),
+              };
+              researchItems.push({ ...researchItem, ...classifyNewsTradeImpact({ ...researchItem, subject:researchItem.summary }) });
+            }
+            const item = normalizeMarketNewsItem({
+              ...raw,
+              symbol:row.symbol,
+              name:row.name,
+              assetType:'stock',
+              type:raw.type || classifyNewsItem(`${raw.title || ''} ${raw.summary || ''}`),
+              source:raw.source || 'Screener',
+              subject:raw.summary || '',
+            }, targetDate);
+            if (item) items.push(item);
+          }
+        }
+      }
+      if (screenerFailures) errors.push(`Screener: ${screenerFailures}/${screenerUniverse.length} stock pages unavailable`);
+      let liveMintFailures = 0;
+      const liveMintUniverse = universe.filter(row => String(row.assetType || 'stock').toLowerCase() === 'stock');
+      const liveMintConcurrency = 20;
+      for (let i = 0; i < liveMintUniverse.length; i += liveMintConcurrency) {
+        const chunk = liveMintUniverse.slice(i, i + liveMintConcurrency);
+        const settled = await Promise.allSettled(chunk.map(row =>
+          fetchLiveMintStockAnnouncements(row).then(news => ({ row, news }))
+        ));
+        for (const result of settled) {
+          if (result.status !== 'fulfilled') {
+            liveMintFailures++;
+            continue;
+          }
+          const { row, news } = result.value;
+          for (const raw of (Array.isArray(news) ? news : [])) {
+            const publishedAt = raw.publishedAt || null;
+            const publishedAtMs = Date.parse(publishedAt || '');
+            const targetEndMs = Date.parse(`${targetDate}T23:59:59.999Z`);
+            if (
+              Number.isFinite(publishedAtMs)
+              && publishedAtMs <= targetEndMs
+              && publishedAtMs >= targetEndMs - CACHE_MAX_DAYS * 24 * 60 * 60 * 1000
+            ) {
+              const researchItem = {
+                symbol:row.symbol,
+                name:row.name || row.symbol,
+                assetType:'stock',
+                type:raw.type || classifyNewsItem(`${raw.title || ''} ${raw.summary || ''}`),
+                title:raw.title || raw.type || 'News',
+                summary:String(raw.summary || ''),
+                source:raw.source || 'LiveMint',
+                url:raw.url || '',
+                publishedAt,
+                dateKey:itemNewsDateKey(raw),
+              };
+              researchItems.push({ ...researchItem, ...classifyNewsTradeImpact({ ...researchItem, subject:researchItem.summary }) });
+            }
+            const item = normalizeMarketNewsItem({
+              ...raw,
+              symbol:row.symbol,
+              name:row.name,
+              assetType:'stock',
+              type:raw.type || classifyNewsItem(`${raw.title || ''} ${raw.summary || ''}`),
+              source:raw.source || 'LiveMint',
+              subject:raw.summary || '',
+            }, targetDate);
+            if (item) items.push(item);
+          }
+        }
+      }
+      if (liveMintFailures) errors.push(`LiveMint: ${liveMintFailures}/${liveMintUniverse.length} stock matches unavailable`);
       for (const item of items) {
         const row = symbolRows.get(item.symbol);
         if (row) {
@@ -489,11 +677,14 @@ function createFreshNewsService(deps = {}) {
         date:targetDate,
         savedAt:Date.now(),
         builtInMs:Date.now() - startedAt,
-        source:'nse-market-wide+symbol-announcements',
+        source:'nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss',
         scanned:universe.length,
+        scannedSymbols:universe.map(row => row.symbol),
         count:deduped.length,
         symbolCount:symbolsWithNews.size,
-        items:deduped.slice(0, 500),
+        items:deduped,
+        researchItems:dedupeFreshNewsItems(researchItems),
+        symbolScanCoverage,
         errors:errors.slice(0, 10),
       };
     })().finally(() => buildJobs.delete(targetDate));
@@ -501,10 +692,22 @@ function createFreshNewsService(deps = {}) {
     return job;
   }
 
+  function coversUniverse(entry, requestedUniverse) {
+    const scanned = new Set(entry.scannedSymbols || Object.keys(entry.symbolScanCoverage || {}));
+    return buildUniverse(requestedUniverse).every(row => scanned.has(row.symbol));
+  }
+
   async function getDayEntry(targetDate, requestedUniverse = [], opts = {}) {
     loadIndex();
     const cached = !opts.force ? readDay(targetDate) : null;
-    if (cached) return { ...cached, fromCache:true };
+    if (cached && coversUniverse(cached, requestedUniverse)) {
+      if (cached.needsScreenerRefresh) {
+        buildDayEntry(targetDate, requestedUniverse)
+          .then(entry => writeDay(entry))
+          .catch(error => console.warn(`[fresh-news-cache] Background news source refresh failed ${targetDate}:`, error.message));
+      }
+      return { ...cached, fromCache:true };
+    }
     const entry = await buildDayEntry(targetDate, requestedUniverse);
     writeDay(entry);
     console.log(`[fresh-news-cache] Saved ${entry.count} items for ${targetDate}`);
@@ -514,10 +717,9 @@ function createFreshNewsService(deps = {}) {
   async function fetchFreshStockNews(symbols, opts = {}) {
     const explicitDate = !!opts.date;
     const targetDate = opts.date || freshNewsDateKey();
-    const maxSymbols = Math.max(1, Math.min(Number(opts.maxSymbols) || 220, 300));
     const limit = Math.max(1, Math.min(Number(opts.limit) || 25, 100));
     const offset = Math.max(0, Number(opts.offset) || 0);
-    const universe = normalizeFreshNewsUniverse(symbols, maxSymbols);
+    const universe = normalizeFreshNewsUniverse(symbols);
     const dateKeys = explicitDate ? [targetDate] : freshNewsRefreshDateKeys();
     const dayEntries = [];
     for (const dateKey of dateKeys) dayEntries.push(await getDayEntry(dateKey, universe, { force:!!opts.force }));
@@ -542,6 +744,7 @@ function createFreshNewsService(deps = {}) {
         assetType:row.assetType || item.assetType || 'stock',
         type:item.type || classifyNewsItem(item.title || ''),
         title:item.title || item.type || 'News',
+        summary:String(item.summary || ''),
         source:item.source || 'NSE',
         url:item.url || '',
         publishedAt:item.publishedAt || item.filingDate || item.exDate || item.eventDate || null,
@@ -631,7 +834,10 @@ function createFreshNewsService(deps = {}) {
   function startCron() {
     scheduleNextRefresh();
     loadIndex();
-    const missingTarget = freshNewsRefreshDateKeys().some(dateKey => !readDay(dateKey));
+    const missingTarget = freshNewsRefreshDateKeys().some(dateKey => {
+      const entry = readDay(dateKey);
+      return !entry || entry.needsScreenerRefresh || !coversUniverse(entry, []);
+    });
     if (missingTarget) {
       const startupTimer = setTimeout(() => {
         refreshCache('startup-missing-cache').catch(e => console.warn('[fresh-news-cron] Startup refresh failed:', e.message));
@@ -673,6 +879,7 @@ function createFreshNewsService(deps = {}) {
     fetchFreshStockNews,
     getCachedImpactForSymbol,
     getCachedImpactsForSymbol,
+    getCachedResearchSignalsForSymbol,
     refreshCache,
     startCron,
     handleRoute,

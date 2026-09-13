@@ -647,6 +647,7 @@ test('early momentum is blocked after 10:15 IST and requires sector support when
 
 test('standard long profit lock books 25 percent without exiting on the first cost retracement', () => {
   const settings = TradeRules.withDefaults({
+    SIMULATION_PARTIAL_EXITS_ENABLED:true,
     SIMULATION_GAIN_MILESTONE_ENABLED:false,
     SIMULATION_TRAIL_START_PCT:2,
   });
@@ -738,7 +739,7 @@ test('top-gainer continuation ranks the universe and applies its qualification a
 });
 
 test('top-gainer continuation exits on a completed trigger/VWAP loss and locks profit at 0.8 percent', () => {
-  const settings = TradeRules.withDefaults({});
+  const settings = TradeRules.withDefaults({ SIMULATION_PARTIAL_EXITS_ENABLED:true });
   const trade = {
     symbol:'GAINER',
     side:'buy',

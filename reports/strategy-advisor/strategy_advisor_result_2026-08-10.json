@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-08-10",
+  "status": "done",
+  "generatedAt": "2026-08-10T13:45:00.000Z",
+  "agent": { "provider": "codex-session", "replayUsed": false, "sweepUsed": false },
+  "thesis": "OLAELEC and NETWEB did not share a fixed 0.5% RANGEBOUND stop. OLAELEC had a dynamic 0.395% stop at INR 40.37 and exited only after two consecutive completed five-minute candles closed beyond it; the live exit price was INR 40.25, making the gross loss 0.691%, and INR 117.76 of charges increased the net loss to 0.750%. NETWEB had a tighter dynamic 0.25% stop at INR 4,998.57. It recorded only one stop-confirmation bar before its management candle history jumped 95 minutes from 11:30 to 13:05 IST. At the next usable update, the time-stop signal-deterioration rule returned an exit at INR 4,924.50 before the stop check ran, producing a 1.728% gross loss and 1.813% net loss after INR 80.51 charges.",
+  "selectedDay": {
+    "positions": 14, "wins": 5, "losses": 9,
+    "grossPnl": -3388.12, "charges": 1157.31, "netPnl": -4545.43, "expectancyPerTrade": -324.67,
+    "olaelec": {
+      "entryPrice": 40.53, "plannedStop": 40.37, "plannedStopDistancePct": 0.395,
+      "exitPrice": 40.25, "holdMin": 32.5, "stopBreachCount": 2,
+      "closeReason": "Simulation confirmed stop", "grossPnl": -1381.52,
+      "charges": 117.76, "netPnl": -1499.28, "netPct": -0.7497
+    },
+    "netweb": {
+      "entryPrice": 5011.1, "plannedStop": 4998.57, "plannedStopDistancePct": 0.25,
+      "exitPrice": 4924.5, "holdMin": 137.6, "stopBreachCount": 1,
+      "closeReason": "Simulation signal deterioration", "grossPnl": -1645.4,
+      "charges": 80.51, "netPnl": -1725.91, "netPct": -1.8127,
+      "observedCandleGap": "11:30 to 13:05 IST"
+    }
+  },
+  "confidenceWindow": {
+    "datesRequested": ["2026-08-10", "2026-08-07", "2026-08-06", "2026-08-05", "2026-08-04", "2026-08-03", "2026-07-31"],
+    "datesAvailable": ["2026-08-10", "2026-08-07", "2026-08-06", "2026-08-05", "2026-08-04", "2026-08-03", "2026-07-31"],
+    "datesUsed": ["2026-08-10", "2026-08-07", "2026-08-06", "2026-08-05", "2026-08-04", "2026-08-03", "2026-07-31"],
+    "shortfall": 0, "positions": 90, "grossPnl": -5015.88,
+    "charges": 5768.93, "netPnl": -10784.81, "expectancyPerTrade": -119.83,
+    "rangebound": {
+      "positions": 50, "dates": 7, "netPnl": -6145.99,
+      "stopExits": 12, "stopAvgNetPct": -0.5966,
+      "signalDeteriorationExits": 14, "signalDeteriorationAvgNetPct": -0.2364,
+      "signalDeteriorationWorseThanHalfPct": 2, "signalDeteriorationWorseThanOnePct": 1
+    }
+  },
+  "effectiveExitControls": [
+    {
+      "key": "SIMULATION_STOP_CONFIRM_BARS", "value": 2, "defaultValue": 2,
+      "overridden": false, "source": "default",
+      "description": "Number of consecutive completed candles beyond the stop required to confirm a normal stop exit."
+    },
+    {
+      "key": "SIMULATION_STOP_GRACE_MIN", "value": 10, "defaultValue": 10,
+      "overridden": false, "source": "default",
+      "description": "Minutes after entry during which normal stop checks are softened unless emergency conditions occur."
+    },
+    {
+      "key": "SIMULATION_EMERGENCY_STOP_PCT", "value": 1.25, "defaultValue": 1.25,
+      "overridden": false, "source": "default",
+      "description": "Hard adverse move percent from entry that can exit immediately, even during stop grace."
+    },
+    {
+      "key": "SIMULATION_SLIPPAGE_PCT", "value": 0.06, "defaultValue": 0.06,
+      "overridden": false, "source": "default",
+      "description": "Modeled slippage used by cost estimates; confirmed-stop execution records the observed live management price rather than forcing the planned stop price."
+    }
+  ],
+  "limitations": [
+    "This is analytics-reviewed only. No Replay, backtest, sweep, or targeted settings trial was run.",
+    "The stored NETWEB candles prove a 95-minute management-data gap, but the Advisor evidence does not identify whether the upstream cause was Sharekhan delivery, cache refresh, or candidate construction.",
+    "The source path checks signal deterioration before the final long-side stop check, so NETWEB's next candidate was classified by signal deterioration before the stop counter could consume that candidate.",
+    "The 0.5 values visible in RANGEBOUND configuration are not a fixed stop-loss: position sizing is 0.5, maximum tolerated Nifty decline is 0.5%, and gain milestones include 0.5%. RANGEBOUND stop distance is dynamic and stored per trade."
+  ],
+  "recommendations": []
+}

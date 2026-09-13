@@ -54,3 +54,34 @@ test('freshness uses fetchedAt only when price time is missing', () => {
   });
   assert.equal(result.stale, false);
 });
+
+test('Sharekhan heartbeats never refresh a previous-day market price', () => {
+  const now = Date.UTC(2026, 8, 8, 5, 30);
+  const freshness = loadGetIntradayFreshness(now);
+  const quote = { dataSource: 'sharekhan-ws', priceTime: '2026-09-07T10:00:00Z', _updatedAt: now - 60000 };
+  const before = freshness({ ...quote, fetchedAt: now - 60000 });
+  const after = freshness({ ...quote, fetchedAt: now });
+  assert.equal(after.stale, true);
+  assert.equal(after.ageMs, before.ageMs);
+  assert.match(after.reason, /Market data age/);
+  assert.ok(after.ageMin > 1000);
+});
+
+test('Sharekhan uses original receipt time and tolerates an active candle start', () => {
+  const now = Date.UTC(2026, 8, 8, 5, 29, 59);
+  const freshness = loadGetIntradayFreshness(now);
+  const quote = { dataSource: 'sharekhan-ws', priceTimeMs: now - 299000, _updatedAt: now - 1000, fetchedAt: now };
+  assert.equal(freshness(quote).stale, false);
+  assert.equal(freshness({ ...quote, _updatedAt: now - 360000 }).stale, true);
+  assert.match(freshness({ ...quote, _updatedAt: now - 360000 }).reason, /Last quote received/);
+  assert.equal(freshness({ ...quote, priceTimeMs: now - 540000 }).stale, false);
+  assert.equal(freshness({ ...quote, priceTimeMs: now - 601000 }).stale, true);
+});
+
+test('Sharekhan missing timestamps cannot fall back to heartbeat arrival time', () => {
+  const now = Date.now();
+  const freshness = loadGetIntradayFreshness(now);
+  assert.equal(freshness({ dataSource: 'sharekhan-ws', fetchedAt: now }).stale, true);
+  assert.equal(freshness({ dataSource: 'sharekhan-ws', priceTimeMs: now, fetchedAt: now }).stale, true);
+  assert.equal(freshness({ dataSource: 'sharekhan-ws', _updatedAt: now, priceTimeMs: 0, priceTime: new Date(now).toISOString() }).stale, false);
+});

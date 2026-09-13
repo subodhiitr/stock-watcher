@@ -54,6 +54,8 @@ test('SSE helper applies the final payload before resolving done', () => {
 });
 
 test('desktop shells expose the asynchronous connect asset version', () => {
-  assert.match(html, /dashboard-app\.js\?v=20260801-71/);
-  assert.match(controller, /dashboard-app\.js\?v=20260801-71/);
+  const htmlVersion = html.match(/dashboard-app\.js\?v=(\d{8}-\d+)/)?.[1];
+  const controllerVersion = controller.match(/dashboard-app\.js\?v=(\d{8}-\d+)/)?.[1];
+  assert.ok(htmlVersion, 'HTML must version the dashboard script');
+  assert.equal(controllerVersion, htmlVersion, 'Both shells must load the same version');
 });

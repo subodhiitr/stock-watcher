@@ -132,6 +132,70 @@ test('GET /simulation/analysis returns server-side analyzed candidates payload',
   assert.equal(typeof response.json.dataQuality.bySource, 'object');
 });
 
+test('combined setup leaders include watching candidates but exclude runtime-blocked and disabled setups', () => {
+  const proxy = loadProxyWithFixture('combined-setup-watching-candidates');
+  const leaders = proxy.__test__.selectCombinedSetupCandidatesForTests([
+    {
+      symbol: 'RUNNER-A', side: 'buy', setupType: 'MOMENTUM_RUNNER', score: 82,
+      blockReason: '', eligibilityReasons: ['entry Near trigger'],
+    },
+    {
+      symbol: 'RUNNER-B', side: 'buy', setupType: 'MOMENTUM_RUNNER', score: 70,
+      blockReason: '', eligibilityReasons: ['entry Wait'],
+    },
+    {
+      symbol: 'PULLBACK-A', side: 'buy', setupType: 'VWAP_PULLBACK_OR_HOLD', score: 76,
+      blockReason: '', eligibilityReasons: ['completed candle confirmation pending'],
+    },
+    {
+      symbol: 'BLOCKED-A', side: 'buy', setupType: 'RANGEBOUND', score: 90,
+      blockReason: 'setup loss guard', eligibilityReasons: [],
+    },
+    {
+      symbol: 'DISABLED-A', side: 'buy', setupType: 'FRESH_BREAKOUT', score: 95,
+      blockReason: '', eligibilityReasons: ['setup FRESH_BREAKOUT disabled'],
+    },
+  ], {
+    SIMULATION_MOMENTUM_RUNNER_ENABLED: true,
+    SIMULATION_VWAP_PULLBACK_ENABLED: true,
+    SIMULATION_RANGEBOUND_ENABLED: true,
+    SIMULATION_FRESH_BREAKOUT_ENABLED: false,
+  });
+
+  assert.deepEqual(leaders.map(candidate => candidate.symbol), ['RUNNER-A', 'PULLBACK-A']);
+  assert.ok(leaders.every(candidate => candidate.combinedSetupEnabled === true));
+  assert.ok(leaders.every(candidate => candidate.combinedInformationalOnly === false));
+});
+
+test('combined setup leaders fall back to disabled setups as informational-only when no enabled setup is available', () => {
+  const proxy = loadProxyWithFixture('combined-setup-disabled-fallback');
+  const leaders = proxy.__test__.selectCombinedSetupCandidatesForTests([
+    {
+      symbol: 'SHORT-A', side: 'sell', setupType: 'SHORT_MOMENTUM', score: 82,
+      blockReason: '', eligibilityReasons: ['setup SHORT_MOMENTUM disabled'],
+    },
+    {
+      symbol: 'SHORT-B', side: 'sell', setupType: 'SHORT_MOMENTUM', score: 70,
+      blockReason: '', eligibilityReasons: ['setup SHORT_MOMENTUM disabled'],
+    },
+    {
+      symbol: 'CHASING-A', side: 'buy', setupType: 'CHASING', score: 76,
+      blockReason: '', eligibilityReasons: ['setup CHASING disabled'],
+    },
+    {
+      symbol: 'BLOCKED-A', side: 'sell', setupType: 'SHORT_MOMENTUM', score: 95,
+      blockReason: 'setup loss guard', eligibilityReasons: [],
+    },
+  ], {
+    SIMULATION_SHORT_MOMENTUM_ENABLED: false,
+    SIMULATION_CHASING_ENABLED: false,
+  });
+
+  assert.deepEqual(leaders.map(candidate => candidate.symbol), ['SHORT-A', 'CHASING-A']);
+  assert.ok(leaders.every(candidate => candidate.combinedSetupEnabled === false));
+  assert.ok(leaders.every(candidate => candidate.combinedInformationalOnly === true));
+});
+
 test('POST /simulation/start returns 409 on invalid transition', async () => {
   const proxy = loadProxyWithFixture('start-transition-conflict');
   await request(proxy, { method: 'POST', path: '/simulation/start', body: {} });

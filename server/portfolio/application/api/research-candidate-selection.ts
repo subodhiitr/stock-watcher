@@ -45,7 +45,7 @@ export type ResearchCandidate = Readonly<{
   price: number
   prevClose?: number
   listingHistoryDays: number
-  median20dTradedValueLakh: number
+  median20dTradedValueLakh: number | null
   marketTimestamp: string
   metrics: ResearchCandidateMetrics
   evidence?: readonly string[]
@@ -209,7 +209,7 @@ function eligibilityReasons(candidate: ResearchCandidate, config: StrategyConfig
   const reasons: string[] = []
   if (!Number.isFinite(candidate.price) || candidate.price * 100 < config.universe.minPricePaise) reasons.push('MIN_PRICE')
   if (candidate.listingHistoryDays < config.universe.minListingHistoryDays) reasons.push('LISTING_HISTORY')
-  if (candidate.median20dTradedValueLakh < config.universe.minMedian20dTradedValueLakh) reasons.push('TRADED_VALUE')
+  if (candidate.median20dTradedValueLakh === null || candidate.median20dTradedValueLakh < config.universe.minMedian20dTradedValueLakh) reasons.push('TRADED_VALUE')
   if (!finite(candidate.metrics.m3m1) || !finite(candidate.metrics.m6m1)) reasons.push('MOMENTUM_HISTORY')
   return Object.freeze(reasons)
 }

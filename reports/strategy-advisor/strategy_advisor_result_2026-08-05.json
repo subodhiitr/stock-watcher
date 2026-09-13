@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-08-05",
+  "status": "done",
+  "generatedAt": "2026-08-05T16:15:00.000Z",
+  "agent": {
+    "provider": "codex-session",
+    "replayUsed": false,
+    "sweepUsed": false
+  },
+  "thesis": "August 5 was an entry-quality and stop-loss failure: all 5 positions lost, producing INR -1,414.09 gross, INR 242.81 in charges, and INR -1,656.90 net. PNBHOUSING's Top Gainer Pullback emergency stop lost INR 690.71, three Breakdown positions lost INR 663.81, and one Rangebound position lost INR 302.38. Those setups have too little multi-date evidence for a defensible disable or threshold change. The older recurring Momentum Runner loss remains actionable, while Rangebound cost filtering remains only a low-confidence research change.",
+  "selectedDay": {
+    "positions": 5,
+    "wins": 0,
+    "losses": 5,
+    "winRatePct": 0,
+    "grossPnl": -1414.09,
+    "charges": 242.81,
+    "netPnl": -1656.9,
+    "expectancyPerTrade": -331.38,
+    "profitFactor": 0,
+    "maxDrawdown": 1656.9,
+    "exitSummary": "Three Stop exits lost INR 1,292.16 net, one Time / No progress exit lost INR 216.38, and the EOD exit lost INR 148.36. Stored day-close benchmarks cover all exits but do not establish an executable alternative."
+  },
+  "confidenceWindow": {
+    "datesRequested": ["2026-08-05", "2026-08-04", "2026-08-03", "2026-07-31", "2026-07-30", "2026-07-29", "2026-07-28"],
+    "datesAvailable": ["2026-08-05", "2026-08-04", "2026-08-03", "2026-07-31", "2026-07-30", "2026-07-29", "2026-07-28"],
+    "datesUsed": ["2026-08-05", "2026-08-04", "2026-08-03", "2026-07-31", "2026-07-30", "2026-07-29", "2026-07-28"],
+    "shortfall": 0,
+    "positions": 79,
+    "wins": 23,
+    "grossPnl": -517.94,
+    "charges": 5119.69,
+    "netPnl": -5637.63,
+    "expectancyPerTrade": -71.36,
+    "profitFactor": 0.64,
+    "maxDrawdown": 5637.63
+  },
+  "limitations": [
+    "This is analytics-reviewed only. No Replay, backtest, sweep, or targeted settings trial was run.",
+    "August 5 has 191 snapshots, 187 usable snapshots, and one settings fingerprint. Repeated snapshot appearances were not treated as independent observations.",
+    "Breakdown has only 4 positions across 2 dates in this window, and Top Gainer Pullback has only 3 positions across 3 dates; that is insufficient for enable or threshold changes.",
+    "Transactions do not store the entry-time expected gross-to-cost multiple, so the exact trades affected by tightening the Rangebound cost gate cannot be identified.",
+    "Day-close opportunity values are hindsight benchmarks and cannot prove a later executable exit."
+  ],
+  "topGainerSelectionAnalysis": {
+    "marketWindow": "09:15-15:30 IST",
+    "capturedTopFiveRows": 925,
+    "capacityOrRiskBlockRows": 0,
+    "conclusion": "Top-gainer rank did not grant automatic selection. No captured top-five rejection was caused by cash, capacity, max-open, cooldown, or trade-limit controls. The dominant blockers were the falling Nifty regime, score floors, unconfirmed triggers, disabled CHASING classification, excessive extension or faded impulse, and late cutoffs.",
+    "closingTopFive": [
+      { "rank": 1, "symbol": "HINDCOPPER", "outcome": "Not opened. Momentum Runner decision score reached 91.80, but price had faded 0.599% below its prior impulse high versus the 0.15% maximum and Nifty was down 0.985%." },
+      { "rank": 2, "symbol": "OLAELEC", "outcome": "Not opened. Best Fresh Breakout decision score was 85.90, but it arrived after the 14:15 ordinary-long cutoff while Nifty was down 1.075%; earlier rows frequently missed score, trigger, or stop-width gates." },
+      { "rank": 3, "symbol": "HINDZINC", "outcome": "Not opened. Best decision score was only 57.35 versus the 65 long floor, classification was CHASING and disabled, and Nifty was down 1.074%." },
+      { "rank": 4, "symbol": "KANSAINER", "outcome": "Not opened. Its best long state had negative five-minute momentum, a falling Nifty, and Wait status. By the close it had flipped to Breakdown with score 60.10 versus the 70 short floor and lacked a confirmed candle below trigger and VWAP." },
+      { "rank": 5, "symbol": "IPCALAB", "outcome": "Not opened. It appeared only at the closing snapshot as a Watch/CHASING row with decision score 37.40, not an actionable buy." }
+    ],
+    "otherPersistentCandidates": [
+      { "symbol": "BOSCHLTD", "outcome": "Not opened despite a 93.55 Top Gainer Pullback score because Nifty was down 0.986%." },
+      { "symbol": "PNBHOUSING", "outcome": "Opened as TOP_GAINER_PULLBACK_RECLAIM at 10:41 IST and later lost INR 690.71. It is not a missed selection." }
+    ],
+    "dataCaveat": "PNBHOUSING opened between adjacent snapshots: the row 20 seconds before entry still showed a Nifty-regime rejection and the row 101 seconds after entry showed no rejection. The exact live admission transition is not persisted as an entry intent."
+  },
+  "recommendations": [
+    {
+      "type": "setting-change",
+      "settingKey": "SIMULATION_MOMENTUM_RUNNER_ENABLED",
+      "currentValue": true,
+      "recommendedValue": false,
+      "defaultValue": true,
+      "overridden": false,
+      "source": "default",
+      "description": "Allows Momentum Runner candidates to open new simulation trades.",
+      "confidence": "medium",
+      "rationale": "Pause new Momentum Runner entries because the setup remains strongly negative across the most recent dates that contain its transactions.",
+      "evidence": [
+        "Affected group: all 19 Momentum Runner positions across 5 dates; 4 wins, INR -3,005.65 gross, INR 1,211.94 charges, INR -4,217.59 net, INR -221.98 expectancy, and profit factor 0.15.",
+        "Unaffected group: 60 other positions; INR 2,487.71 gross, INR 3,907.75 charges, and INR -1,420.04 net.",
+        "Four dates support pausing: July 28, July 29, July 31, and August 3. July 30 contradicts with INR 138.20 net; August 4 and August 5 have no Momentum Runner transaction evidence.",
+        "The affected setup is negative on 4 of 5 dates containing relevant transactions, or 80%."
+      ],
+      "risk": "Pausing removes the profitable July 30 subgroup and any future recovery. It would not have prevented August 5's losses because no Momentum Runner position closed that day.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "Medium confidence: aggregate evidence and 80% date support are favorable, but 19 affected transactions fall one short of the high-confidence minimum of 20. This was not replay-tested or validated."
+      }
+    },
+    {
+      "type": "setting-change",
+      "settingKey": "SIMULATION_RANGEBOUND_MIN_GROSS_TO_COST_MULTIPLE",
+      "currentValue": 2,
+      "recommendedValue": 2.5,
+      "defaultValue": 1.5,
+      "overridden": true,
+      "source": "current-override",
+      "description": "Minimum rangebound gross move as a multiple of modeled costs.",
+      "confidence": "low",
+      "rationale": "Research aligning the Rangebound-specific cost hurdle with the shared 2.5 multiple because recent gross gains have not covered charges, but preserve 2.0 until the exact entry-time affected group is observable.",
+      "evidence": [
+        "Relevant setup population: 27 Rangebound positions across 4 dates; 9 wins, INR 906.73 gross, INR 1,393.26 charges, INR -486.53 net, INR -18.02 expectancy, and profit factor 0.85.",
+        "Three relevant dates support a stricter cost hurdle: August 3, August 4, and August 5. July 31 contradicts with INR 378.90 net; three window dates have no Rangebound transactions.",
+        "August 4 was the clearest cost-drag example: INR 74.24 gross became INR -487.14 after charges. August 5's single Rangebound loss was gross-negative and would not necessarily be prevented by a cost filter.",
+        "Seven Target exits earned INR 2,397.96 net, while seven Stop exits lost INR 2,184.62; a higher entry cost hurdle cannot substitute for stop-quality work."
+      ],
+      "risk": "The expected gross-to-cost multiple at entry is absent from stored transactions, so the exact affected count is unknown. Tightening may reject profitable trades and would not address the observed emergency or confirmed-stop failures directly.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "Low confidence because the exact 2.0-to-2.5 affected population is not measurable even though 27 relevant trades across 4 dates show aggregate cost drag. Preserve the current value pending direct mechanism evidence."
+      }
+    }
+  ]
+}

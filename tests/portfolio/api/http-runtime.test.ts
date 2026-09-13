@@ -4,7 +4,7 @@ import path from 'node:path'
 import { createHmac, randomBytes, randomUUID } from 'node:crypto'
 import test from 'node:test'
 
-import { createPortfolioHttpRuntime } from '../../../server/portfolio/composition/http-runtime.ts'
+import { createPortfolioHttpRuntime, isLocalPortfolioRequest } from '../../../server/portfolio/composition/http-runtime.ts'
 import { passwordDigest } from '../../../server/portfolio/composition/security-adapters.ts'
 import {
   createTemporaryDatabasePath,
@@ -241,6 +241,80 @@ function mutationHeaders(cookie: string, csrf: string, idempotencyKey = `test:${
     'idempotency-key': idempotencyKey,
   }
 }
+
+test('local access requires loopback transport and host, rejecting forwarded remote clients', () => {
+  const local = (address: string | undefined, headers: http.IncomingHttpHeaders) =>
+    isLocalPortfolioRequest({ socket: { remoteAddress: address }, headers } as http.IncomingMessage)
+  for (const address of ['127.0.0.1', '::1', '::ffff:127.0.0.1']) {
+    assert.equal(local(address, { host: 'localhost:44100' }), true)
+  }
+  for (const address of [undefined, '192.168.1.10', '100.64.1.2']) {
+    assert.equal(local(address, { host: 'localhost:44100' }), false)
+  }
+  for (const headers of [
+    { host: 'remote.ts.net' }, { host: 'localhost.evil.test' },
+    { host: 'localhost', origin: 'https://evil.test' },
+    { host: 'localhost', 'x-forwarded-for': '100.64.1.2, 127.0.0.1' },
+    { host: 'localhost', forwarded: 'for=127.0.0.1' },
+    { host: 'localhost', 'sec-fetch-site': 'cross-site' },
+  ]) assert.equal(local('127.0.0.1', headers), false)
+  assert.equal(local('127.0.0.1', { host: 'localhost', 'x-forwarded-for': '::1' }), true)
+})
+
+test('local password-free sign-in creates a working session that cannot be reused remotely', async () => {
+  const running = await startRuntime()
+  try {
+    const status = await fetch(`${running.baseUrl}/api/portfolio/auth/status`)
+    assert.equal((await status.json() as { localLogin: boolean }).localLogin, true)
+    const signedIn = await fetch(`${running.baseUrl}/api/portfolio/auth/local-login`, {
+      method: 'POST', headers: { origin: running.baseUrl },
+    })
+    assert.equal(signedIn.status, 200)
+    const cookie = signedIn.headers.getSetCookie().map((item) => item.split(';')[0]).join('; ')
+    const session = await fetch(`${running.baseUrl}/api/portfolio/auth/session`, { headers: { cookie } })
+    assert.equal(session.status, 200)
+    assert.equal((await session.json() as { mfaVerified: boolean }).mfaVerified, false)
+    const list = await fetch(`${running.baseUrl}/api/portfolio/portfolios`, { headers: { cookie } })
+    assert.equal(list.status, 200)
+    const remote = { cookie, 'x-forwarded-for': '100.64.1.2' }
+    assert.equal((await fetch(`${running.baseUrl}/api/portfolio/auth/session`, { headers: remote })).status, 401)
+    assert.equal((await fetch(`${running.baseUrl}/api/portfolio/auth/local-login`, {
+      method: 'POST', headers: { ...remote, origin: running.baseUrl },
+    })).status, 403)
+    assert.equal((await fetch(`${running.baseUrl}/api/portfolio/auth/local-login`, {
+      method: 'POST', headers: { origin: 'https://evil.test' },
+    })).status, 403)
+    assert.equal((await fetch(`${running.baseUrl}/api/portfolio/auth/local-login`, { method: 'POST' })).status, 403)
+    const csrf = decodeURIComponent(cookie.match(/portfolio_csrf=([^;]+)/u)?.[1] ?? '')
+    const logout = await fetch(`${running.baseUrl}/api/portfolio/auth/logout`, {
+      method: 'POST', headers: { ...mutationHeaders(cookie, csrf), origin: running.baseUrl },
+      body: JSON.stringify({ confirm: true }),
+    })
+    assert.equal(logout.status, 200)
+    assert.equal((await fetch(`${running.baseUrl}/api/portfolio/auth/session`, { headers: { cookie } })).status, 401)
+  } finally {
+    await running.close()
+  }
+})
+
+test('password login accepts missing or incorrect MFA without claiming MFA verification', async () => {
+  const running = await startRuntime()
+  try {
+    for (const mfaCode of ['', 'invalid']) {
+      const signedIn = await login(running.baseUrl, 'admin', 'correct-horse-battery-staple', mfaCode)
+      assert.equal(signedIn.response.status, 200)
+      const response = await fetch(`${running.baseUrl}/api/portfolio/auth/session`, {
+        headers: { cookie: signedIn.cookie },
+      })
+      assert.equal(response.status, 200)
+      assert.equal((await response.json() as { mfaVerified: boolean }).mfaVerified, false)
+    }
+    const rejected = await login(running.baseUrl, 'admin', 'wrong-password', '')
+    assert.equal(rejected.response.status, 401)
+  } finally {
+    await running.close()
+  }
+})
 
 test('database-backed login, authorization, creation, idempotency, and logout work end to end', async () => {
   const running = await startRuntime()
@@ -857,7 +931,7 @@ test('first-run bootstrap creates the administrator, signs in, and then closes',
   try {
     const before = await fetch(`${running.baseUrl}/api/portfolio/auth/status`)
     assert.equal(before.status, 200)
-    assert.deepEqual(await before.json(), { configured: false })
+    assert.deepEqual(await before.json(), { configured: false, localLogin: false })
 
     const weak = await fetch(`${running.baseUrl}/api/portfolio/auth/bootstrap`, {
       method: 'POST',

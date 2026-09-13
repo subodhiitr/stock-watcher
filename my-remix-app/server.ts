@@ -51,7 +51,10 @@ function forwardToProxy(proxyBase: string, request: http.IncomingMessage, respon
     port: target.port,
     path: target.pathname + target.search,
     method: request.method,
-    headers: request.headers,
+    headers: {
+      ...request.headers,
+      'x-forwarded-for': [request.headers['x-forwarded-for'], request.socket.remoteAddress ?? 'unknown'].filter(Boolean).join(', '),
+    },
   }
   let activeProxy: http.ClientRequest | null = null
   let reconnectTimer: NodeJS.Timeout | null = null

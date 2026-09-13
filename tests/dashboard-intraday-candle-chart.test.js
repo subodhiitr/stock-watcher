@@ -43,11 +43,11 @@ test('stock price cell opens intraday candle chart modal', () => {
     escapeHTML: value => String(value ?? ''),
     isStockFavorite: () => false,
     isCustomStock: () => false,
-    renderTradeCell: () => '',
-    renderShortTargetCell: () => '',
+    renderCombinedTradeCell: () => '',
     renderHealthCell: () => '',
     renderHealthEventBadges: () => '',
     sparkBars: () => '',
+    stockTrendButton: () => '',
     renderTargetCell: () => '',
   });
 

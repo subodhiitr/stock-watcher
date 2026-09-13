@@ -1,0 +1,37 @@
+{
+  "ok": true,
+  "date": "2026-09-15",
+  "savedAt": 1789269408126,
+  "builtInMs": 108107,
+  "source": "nse-board-meetings",
+  "scanned": 3219,
+  "count": 2,
+  "symbolCount": 1,
+  "items": [
+    {
+      "symbol": "BAJAJHLDNG",
+      "name": "Bajaj Holdings & Investment Limited",
+      "type": "Dividend",
+      "title": "BAJAJ HOLDINGS & INVESTMENT LIMITED has informed the Exchange about Board Meeting to be held on 15-Sep-2026 to consider Dividend.",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=BAJAJHLDNG",
+      "eventDate": "2026-09-14T18:30:00.000Z",
+      "dateKey": "2026-09-15",
+      "status": "upcoming",
+      "period": null
+    },
+    {
+      "symbol": "BAJAJHLDNG",
+      "name": "Bajaj Holdings & Investment Limited",
+      "type": "Interim Dividend",
+      "title": "Bajaj Holdings & Investment Limited has informed the Exchange regarding prior intimation of Board Meeting, which is to be held on Tuesday, 15 September 2026, to consider and approve declaration of Interim Dividend for FY2027",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=BAJAJHLDNG",
+      "eventDate": "2026-09-14T18:30:00.000Z",
+      "dateKey": "2026-09-15",
+      "status": "upcoming",
+      "period": null
+    }
+  ],
+  "version": 3
+}

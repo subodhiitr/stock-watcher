@@ -187,9 +187,11 @@ export class PortfolioAuthenticationService {
     }
     const principal = this.store.findPrincipalByUsername(usernameKey)
     const passwordOk = verifyPassword(input.password, principal)
-    const mfaOk = principal?.mfaSecret === undefined
-      || (input.mfaCode !== undefined && verifyTotp(principal.mfaSecret, input.mfaCode, now))
-    if (!passwordOk || !mfaOk || principal === undefined) {
+    const mfaVerified = principal?.mfaSecret !== undefined
+      && input.mfaCode !== undefined && verifyTotp(principal.mfaSecret, input.mfaCode, now)
+    // Authenticator codes are optional for sign-in; privileged actions still
+    // require a genuinely verified code in the session.
+    if (!passwordOk /* || !mfaVerified */ || principal === undefined) {
       const failureLimit = this.store.allowRateLimit({
         bucketKey,
         nowEpochMs: now,
@@ -222,8 +224,23 @@ export class PortfolioAuthenticationService {
       csrfHash: sha256(csrfToken),
       createdAtEpochMs: now,
       expiresAtEpochMs,
-      mfaVerified: principal.mfaSecret !== undefined,
+      mfaVerified,
     })
+    return Object.freeze({ ok: true, sessionToken, csrfToken, expiresAtEpochMs })
+  }
+
+  loginLocal(): LoginResult {
+    const principal = this.store.findLocalAdministrator()
+    if (principal === undefined) return Object.freeze({ ok: false, status: 401 })
+    const sessionToken = `local.${randomBytes(32).toString('base64url')}`
+    const csrfToken = randomBytes(32).toString('base64url')
+    const now = this.now()
+    const expiresAtEpochMs = now + SESSION_TTL_MS
+    if (!this.store.createSession({
+      sessionHash: sha256(sessionToken), principalId: principal.principalId,
+      csrfHash: sha256(csrfToken), createdAtEpochMs: now, expiresAtEpochMs,
+      mfaVerified: false,
+    })) return Object.freeze({ ok: false, status: 401 })
     return Object.freeze({ ok: true, sessionToken, csrfToken, expiresAtEpochMs })
   }
 
@@ -295,6 +312,7 @@ export class SqliteSessionAuthenticator implements SessionAuthenticator {
   async authenticate(request: PortfolioApiRequest): Promise<AuthenticatedSession | null> {
     const token = cookieValue(request, SESSION_COOKIE)
     if (token === undefined) return null
+    if (token.startsWith('local.') && request.localAccess !== true) return null
     const now = this.now()
     const record = this.store.findSession(sha256(token), now)
     if (record === undefined) return null

@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-08-04",
+  "status": "done",
+  "generatedAt": "2026-08-05T16:15:00.000Z",
+  "agent": {
+    "provider": "codex-session",
+    "replayUsed": false,
+    "sweepUsed": false
+  },
+  "thesis": "August 4 was a cost-drag loss rather than a gross trading loss. All 11 closed positions were Rangebound Reversion: INR 74.24 gross became INR -487.14 net after INR 561.38 of charges. Target exits worked, but stop, VWAP, and signal-deterioration losses consumed their gains. The trailing window also continues to show Momentum Runner as the largest recurring setup-level drag even though it opened no position on August 4.",
+  "selectedDay": {
+    "positions": 11,
+    "wins": 4,
+    "losses": 7,
+    "winRatePct": 36.4,
+    "grossPnl": 74.24,
+    "charges": 561.38,
+    "netPnl": -487.14,
+    "expectancyPerTrade": -44.29,
+    "profitFactor": 0.62,
+    "maxDrawdown": 537.91,
+    "exitSummary": "Four Target exits earned INR 752.19 net. Three Stop exits lost INR 641.90, two VWAP exits lost INR 359.14, and three Momentum / Signal exits lost INR 238.29. Stored day-close benchmarks cover every exit but are not executable counterfactuals."
+  },
+  "confidenceWindow": {
+    "datesRequested": ["2026-08-04", "2026-08-03", "2026-07-31", "2026-07-30", "2026-07-29", "2026-07-28", "2026-07-27"],
+    "datesAvailable": ["2026-08-04", "2026-08-03", "2026-07-31", "2026-07-30", "2026-07-29", "2026-07-28", "2026-07-27"],
+    "datesUsed": ["2026-08-04", "2026-08-03", "2026-07-31", "2026-07-30", "2026-07-29", "2026-07-28", "2026-07-27"],
+    "shortfall": 0,
+    "positions": 92,
+    "wins": 27,
+    "grossPnl": -497.59,
+    "charges": 5781.05,
+    "netPnl": -6278.64,
+    "expectancyPerTrade": -68.25,
+    "profitFactor": 0.63,
+    "maxDrawdown": 6484.67
+  },
+  "limitations": [
+    "This is analytics-reviewed only. No Replay, backtest, sweep, or targeted settings trial was run.",
+    "August 4 has 200 snapshots, 188 usable snapshots, and one settings fingerprint. Repeated snapshot appearances were not treated as independent observations.",
+    "July 30 and July 31 have lower usable snapshot coverage and multiple historical settings fingerprints, reducing direct comparability.",
+    "Transactions do not store the entry-time expected gross-to-cost multiple, so the exact trades affected by tightening the Rangebound cost gate cannot be identified.",
+    "Day-close opportunity values measure hindsight distance from the recorded exit, not an executable later exit."
+  ],
+  "topGainerSelectionAnalysis": {
+    "marketWindow": "09:15-15:30 IST",
+    "capturedTopFiveRows": 930,
+    "capacityOrRiskBlockRows": 0,
+    "conclusion": "Top-gainer rank was only an annotation and did not bypass setup qualification. No captured top-five rejection was caused by cash, capacity, max-open, cooldown, or trade-limit controls. The dominant blockers were score floors, weak breadth, unconfirmed triggers, excessive extension, fading five-minute momentum, and late cutoffs.",
+    "closingTopFive": [
+      { "rank": 1, "symbol": "ATHERENERG", "outcome": "Opened as RANGEBOUND at 13:16 IST and earned INR 45.94; its separate Fresh Breakout state was rejected for 8.66% trigger extension versus 0.6% and breadth of 36.93%." },
+      { "rank": 2, "symbol": "CGPOWER", "outcome": "Not opened. Best decision score 83.10 was below the late-long requirement of 90, with breadth only 29.74%; earlier rows repeatedly remained Near trigger or Wait." },
+      { "rank": 3, "symbol": "WONDERLA", "outcome": "Not opened. Rangebound entry was late, still Wait, and required a 1.8%-3.322% stop versus the 0.75% ceiling." },
+      { "rank": 4, "symbol": "SAIL", "outcome": "Not opened. Its Top Gainer Continuation score reached 83.75 but remained below the late-long threshold of 90; earlier rows were mostly non-directional, below score floors, or Near trigger." },
+      { "rank": 5, "symbol": "PRICOLLTD", "outcome": "Not opened. Decision score reached 90.05, but Momentum Runner five-minute change was 0.07% versus the 0.1% minimum without a confirmed VWAP reclaim, while breadth was 32.68%." }
+    ],
+    "dataCaveat": "Captured ranked rows never marked a top-five row selected, although the reconciled ledger proves ATHERENERG opened between snapshots. The two-minute snapshot cadence therefore cannot reproduce the exact admission instant."
+  },
+  "recommendations": [
+    {
+      "type": "setting-change",
+      "settingKey": "SIMULATION_MOMENTUM_RUNNER_ENABLED",
+      "currentValue": true,
+      "recommendedValue": false,
+      "defaultValue": true,
+      "overridden": false,
+      "source": "default",
+      "description": "Allows Momentum Runner candidates to open new simulation trades.",
+      "confidence": "high",
+      "rationale": "Pause new Momentum Runner entries because its negative expectancy remains the dominant recurring setup-level loss in the trailing confidence window.",
+      "evidence": [
+        "Affected group: all 30 Momentum Runner positions across 6 dates; 8 wins, INR -3,019.98 gross, INR 1,651.85 charges, INR -4,671.83 net, INR -155.73 expectancy, and profit factor 0.21.",
+        "Unaffected group: 62 other positions; INR 2,522.39 gross, INR 4,129.20 charges, and INR -1,606.81 net.",
+        "Five dates support pausing: July 27, July 28, July 29, July 31, and August 3. July 30 contradicts with INR 138.20 net; August 4 has no Momentum Runner transaction evidence.",
+        "The affected setup is negative on 5 of 6 dates containing relevant transactions, or 83.3%."
+      ],
+      "risk": "Pausing removes the profitable July 30 subgroup and any future recovery. August 4 itself had no Momentum Runner position, so this addresses recurring portfolio drag rather than that day's direct Rangebound loss.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "High confidence: 30 affected transactions across 6 dates, strongly negative aggregate outcome, support on 83.3% of relevant dates, and only one small profitable contradictory date. This was not replay-tested or validated."
+      }
+    },
+    {
+      "type": "setting-change",
+      "settingKey": "SIMULATION_RANGEBOUND_MIN_GROSS_TO_COST_MULTIPLE",
+      "currentValue": 2,
+      "recommendedValue": 2.5,
+      "defaultValue": 1.5,
+      "overridden": true,
+      "source": "current-override",
+      "description": "Minimum rangebound gross move as a multiple of modeled costs.",
+      "confidence": "low",
+      "rationale": "Research aligning the Rangebound-specific cost hurdle with the shared 2.5 multiple because charges converted positive gross movement into a net loss, but preserve 2.0 until entry-time cost evidence is stored.",
+      "evidence": [
+        "Relevant setup population: 26 Rangebound positions across 3 dates; 9 wins, INR 1,156.48 gross, INR 1,340.63 charges, INR -184.15 net, INR -7.08 expectancy, and profit factor 0.94.",
+        "August 4 alone produced INR 74.24 gross but paid INR 561.38 in charges, ending INR -487.14 net.",
+        "Two relevant dates support a stricter cost hurdle: August 3 at INR -75.91 and August 4 at INR -487.14. July 31 contradicts with INR 378.90 net; four window dates have no Rangebound transactions.",
+        "Across the Rangebound population, 7 Target exits earned INR 2,397.96 net, while Stop, VWAP, Momentum fade, and No progress exits lost INR 2,801.29 net before the trailing winner."
+      ],
+      "risk": "The stored transaction does not record the expected gross-to-cost multiple seen at entry, so the exact affected count is unknown. A higher gate could reject profitable oscillations, including the positive July 31 subgroup, without fixing stop quality.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "Low confidence despite 26 relevant transactions because the exact 2.0-to-2.5 affected subset cannot be reconstructed from stored fields. Preserve the current value pending direct entry-time mechanism evidence."
+      }
+    }
+  ]
+}

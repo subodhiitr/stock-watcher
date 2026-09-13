@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-08-07",
+  "status": "done",
+  "generatedAt": "2026-08-07T16:01:35.912Z",
+  "agent": {
+    "provider": "codex-session",
+    "replayUsed": false,
+    "sweepUsed": false
+  },
+  "thesis": "August 7 was a concentrated loss session: all four positions lost INR 2,480.40 net, led by three newly enlarged Rangebound positions losing INR 1,830.08. The strongest recurring improvement is to delay Rangebound entry from 10:00 to 10:30 IST; the pre-10:30 subgroup is consistently weak while later entries are positive in aggregate. Fresh Breakout also remains structurally negative and now warrants a medium-confidence pause. Reducing Rangebound exposure from INR 200,000 to INR 100,000 is prudent risk containment but has low confidence because only one session used the new cap.",
+  "selectedDay": {
+    "positions": 4,
+    "wins": 0,
+    "losses": 4,
+    "winRatePct": 0,
+    "grossPnl": -2044.29,
+    "charges": 436.11,
+    "netPnl": -2480.40,
+    "expectancyPerTrade": -620.10,
+    "profitFactor": 0,
+    "maxDrawdown": 2480.40,
+    "setupSummary": "Three Rangebound positions lost INR 1,830.08 net and the one Fresh Breakout position lost INR 650.32 net.",
+    "exitSummary": "Two confirmed-stop exits lost INR 1,639.94, one VWAP-loss exit lost INR 656.16, and one momentum-deterioration exit lost INR 184.30. No trade reached a target or trailing-profit exit."
+  },
+  "confidenceWindow": {
+    "datesRequested": ["2026-08-07", "2026-08-06", "2026-08-05", "2026-08-04", "2026-08-03", "2026-07-31", "2026-07-30"],
+    "datesAvailable": ["2026-08-07", "2026-08-06", "2026-08-05", "2026-08-04", "2026-08-03", "2026-07-31", "2026-07-30"],
+    "datesUsed": ["2026-08-07", "2026-08-06", "2026-08-05", "2026-08-04", "2026-08-03", "2026-07-31", "2026-07-30"],
+    "shortfall": 0,
+    "positions": 79,
+    "wins": 25,
+    "grossPnl": -397.40,
+    "charges": 4847.81,
+    "netPnl": -5245.21,
+    "expectancyPerTrade": -66.40,
+    "profitFactor": 0.65,
+    "maxDrawdown": 6650.13
+  },
+  "dailyDiagnosis": {
+    "rangebound": [
+      "KPITTECH entered near INR 199,884 exposure and lost INR 989.62 on a confirmed stop after 19.9 minutes.",
+      "INTELLECT entered near INR 199,879 exposure and lost INR 656.16 on a VWAP-loss exit after 39.9 minutes.",
+      "GODREJPROP entered near INR 199,025 exposure and lost INR 184.30 on signal deterioration after 45 minutes.",
+      "All three Rangebound positions opened before 10:30 IST. Their losses therefore support the entry-time diagnosis independently of the later exit type."
+    ],
+    "freshBreakout": "UNIONBANK entered at INR 99,896 exposure with score 80 and decision score 76.5, then lost INR 650.32 on a confirmed stop. Raising the Fresh Breakout score floor would not have blocked this trade.",
+    "exitControls": "The shared 75-minute no-progress window did not cause today's losses: every position exited within 45 minutes through stop, VWAP, or momentum rules. SIMULATION_RUNNER_INITIAL_STOP_PCT is also irrelevant because no Momentum Runner traded."
+  },
+  "opportunityLossAnalysis": {
+    "scope": "Sell candidates that did not become trades, evaluated across the seven requested sessions without Replay, backtest, sweep, or live-setting mutation.",
+    "selectedDay": {
+      "candidateRows": 13703,
+      "eligibleRows": 0,
+      "sellTrades": 0,
+      "brokerSellOrders": 0,
+      "dominantBlockers": [
+        "2,881 rows: completed confirmation candle was not bearish.",
+        "1,929 rows: decision score was 54 versus the configured minimum of 70.",
+        "1,811 rows: CHASING entries were disabled.",
+        "1,402 rows: entry state was still Wait.",
+        "1,282 rows: entry state was Near trigger.",
+        "620 rows: late-short acceleration had only 1 of 4 required confirmations.",
+        "523 rows: bearish entry conflicted with the sector or market regime."
+      ]
+    },
+    "exactConfigCheck": {
+      "settingKey": "SIMULATION_SHORT_MAX_TRIGGER_EXTENSION_PCT",
+      "currentValue": 0.3,
+      "evaluatedValue": 0.75,
+      "method": "Static sole-blocker re-evaluation at the exact proposed value, one date-symbol observation per session, excluding symbols already traded short; modeled to stored day close at INR 100,000 exposure after Zerodha charges and 0.06% slippage.",
+      "affectedCandidates": [
+        {"date":"2026-08-07","symbol":"KAJARIACER","triggerExtensionPct":0.40,"modeledNetPnl":401.85},
+        {"date":"2026-08-07","symbol":"NHPC","triggerExtensionPct":0.55,"modeledNetPnl":51.92},
+        {"date":"2026-08-06","symbol":"ONGC","triggerExtensionPct":0.53,"modeledNetPnl":138.84}
+      ],
+      "grossPnl": 1019.95,
+      "charges": 247.73,
+      "slippage": 179.61,
+      "modeledNetPnl": 592.61,
+      "supportingDates": ["2026-08-06","2026-08-07"],
+      "contradictingDates": [],
+      "confidence": "low",
+      "decision": "Preserve the current 0.30% cap. The modeled INR 592.61 opportunity is only three candidates across two dates, while the four shorts actually admitted under current rules on August 5-6 all lost INR 1,218.54 net in aggregate."
+    },
+    "otherConfigChecks": [
+      "Reducing SIMULATION_SHORT_CONFIRM_BARS from 2 to 1 would not solve the dominant non-bearish-candle rejection because bearish completed-candle direction, closes below trigger and VWAP, wick quality, live holds, and fresh volume remain independent requirements.",
+      "Disabling SIMULATION_SHORT_REQUIRE_COMPLETED_CANDLE would remove a materially important confirmation safeguard and is not supported by the available multi-date evidence."
+    ]
+  },
+  "limitations": [
+    "This result is analytics-reviewed only. No Replay, backtest, sweep, targeted settings trial, or setting application was run.",
+    "August 7 has 196 snapshots, 187 usable snapshots, 27,355 candidate rows, 24,940 actionable rows, and one settings fingerprint. Repeated snapshot appearances were not treated as independent observations.",
+    "Only three positions on one date used approximately INR 200,000 Rangebound exposure, so the exact INR 100,000 sizing recommendation has low confidence.",
+    "The INR 100,000 sizing comparison holds today's symbols, entries, exits, and exit-leg proportions constant and recalculates Zerodha charges. It does not model different queue position, slippage, liquidity, or capacity-driven selection.",
+    "Entry-time admission metrics are newly persisted; older dates do not consistently contain every Rangebound lower-distance, cost, and live-depth field needed to isolate additional quality gates.",
+    "The Rangebound time and exposure recommendations overlap on today's three trades. Their combined result has not been evaluated and they should not be treated as a validated package."
+  ],
+  "recommendations": [
+    {
+      "type": "setting-change",
+      "settingKey": "SIMULATION_RANGEBOUND_ENTRY_START_MIN",
+      "currentValue": 600,
+      "recommendedValue": 630,
+      "defaultValue": 600,
+      "overridden": false,
+      "source": "default",
+      "description": "Earliest IST minute when a rangebound setup may open a new position.",
+      "confidence": "medium",
+      "rationale": "Delay Rangebound entries from 10:00 to 10:30 IST because the opening subgroup is persistently loss-making while later entries remain profitable in aggregate.",
+      "evidence": [
+        "Affected group: 18 Rangebound positions opened before 10:30 across 5 dates; 4 wins, INR -1,417.36 gross, INR 1,133.19 charges, INR -2,550.55 net, and profit factor 0.27.",
+        "Four of five affected dates support the delay: July 31 INR -76.92, August 4 INR -84.90, August 6 INR -583.90, and August 7 INR -1,830.08. August 3 contradicts with INR 25.25 net.",
+        "Unaffected group: 27 Rangebound positions opened at or after 10:30 across 5 dates; 11 wins, INR 1,896.39 gross, INR 1,379.66 charges, INR 516.73 net, and profit factor 1.20.",
+        "All three August 7 Rangebound positions opened before 10:30 and all lost, across three distinct exit mechanisms: stop, VWAP, and momentum deterioration.",
+        "Total relevant setup population: 45 Rangebound positions across 6 dates, INR -2,033.82 net, and profit factor 0.67."
+      ],
+      "risk": "The later start would reject four profitable early Rangebound trades and could miss genuine opening reversions. August 3 is a contradictory positive date, and observational timing does not prove that rejected capital would be redeployed profitably.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "Medium confidence: the exact time filter affects 18 transactions across 5 dates, aggregate evidence is favorable, and 4 of 5 relevant dates support it. The sample is below the 20-transaction high-confidence threshold and one date contradicts."
+      }
+    },
+    {
+      "type": "setting-change",
+      "settingKey": "SIMULATION_FRESH_BREAKOUT_ENABLED",
+      "currentValue": true,
+      "recommendedValue": false,
+      "defaultValue": true,
+      "overridden": false,
+      "source": "default",
+      "description": "Allows Fresh Breakout candidates to open new simulation trades.",
+      "confidence": "medium",
+      "rationale": "Pause Fresh Breakout entries because losses persist across scores and exit types, including today's high-score UNIONBANK stop, so another score-floor increase is unlikely to address the setup-wide weakness.",
+      "evidence": [
+        "Affected group: all 12 Fresh Breakout positions across 4 dates; 1 win, INR -2,025.82 gross, INR 921.33 charges, INR -2,947.15 net, and profit factor 0.31.",
+        "Three of four relevant dates support pausing: August 3 INR -1,424.58, August 6 INR -1,249.07, and August 7 INR -650.32. July 31 contradicts with INR 376.82 net.",
+        "The only winner was GAIL at INR 1,307.46 net; the other 11 positions lost, including score-80 UNIONBANK and score-88 DIXON, so weakness is not confined to the low-score band.",
+        "Unaffected group: the other 67 positions produced INR 1,628.42 gross, INR 3,926.48 charges, and INR -2,298.06 net.",
+        "The seven-session portfolio has INR -5,245.21 net PnL and profit factor 0.65; Fresh Breakout accounts for 56% of the aggregate net loss."
+      ],
+      "risk": "Pausing removes the exceptional GAIL winner and any future breakout recovery. The setup has transactions on only four dates, and disabling it does not repair the remaining portfolio's negative expectancy.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "Medium confidence: 12 affected transactions across 4 dates meet the medium sample threshold, aggregate evidence favors pausing, and 3 of 4 relevant dates support it. One large winning outlier and limited date coverage prevent high confidence."
+      }
+    },
+    {
+      "type": "setting-change",
+      "settingKey": "SIMULATION_RANGEBOUND_MAX_POSITION_EXPOSURE",
+      "currentValue": 200000,
+      "recommendedValue": 100000,
+      "defaultValue": 200000,
+      "overridden": false,
+      "source": "default",
+      "description": "Maximum rupee exposure allowed for one Rangebound position without increasing the shared cap for other setups.",
+      "confidence": "low",
+      "rationale": "Reduce the new Rangebound cap to INR 100,000 as risk containment after all three approximately INR 200,000 entries lost on their first observed session.",
+      "evidence": [
+        "Affected observed group: 3 approximately INR 200,000 Rangebound positions on August 7; 0 wins, INR -1,476.45 gross, INR 353.63 charges, INR -1,830.08 net, and profit factor 0.",
+        "A fixed-price INR 100,000 arithmetic comparison for the same three positions produces INR -983.63 modeled net, reducing the observed loss by INR 846.45 while leaving every trade unprofitable.",
+        "The three entries consumed about INR 598,789 of gross exposure. At INR 100,000 each they would consume about INR 300,000, leaving substantially more room below the INR 800,000 portfolio gross-exposure ceiling.",
+        "Unaffected historical Rangebound group: 42 smaller positions across 5 dates; 15 wins, INR 1,955.48 gross, INR 2,159.22 charges, INR -203.74 net, and profit factor 0.95.",
+        "Only August 7 contains direct INR 200,000 exposure evidence; the other six requested dates cannot support or contradict the exact cap change."
+      ],
+      "risk": "The recommendation is based on only three trades from one session. Lower exposure increases charges as a percentage of notional and may reduce gains when Rangebound performance improves. The fixed-price comparison is not an executable counterfactual and does not model different liquidity or trade selection.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "Low confidence because only 3 affected positions on 1 date directly used the INR 200,000 cap. The observed loss supports immediate risk containment, but the exact INR 100,000 alternative is not replay-tested or validated."
+      }
+    }
+  ]
+}

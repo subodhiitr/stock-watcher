@@ -184,6 +184,7 @@ export type BrokerPortfolioReconciliationRecord = Readonly<{
 
 export interface PortfolioApiStore {
   countPrincipals(): number
+  findLocalAdministrator(): PrincipalRecord | undefined
   createPrincipal(record: PrincipalRecord, createdAtEpochMs: number): boolean
   findPrincipalByUsername(usernameKey: string): PrincipalRecord | undefined
   findPrincipalById(principalId: string): PrincipalRecord | undefined
