@@ -1,0 +1,331 @@
+{
+  "date": "2026-09-10",
+  "status": "done",
+  "agent": {
+    "provider": "codex-session",
+    "replayUsed": false,
+    "sweepUsed": false
+  },
+  "generatedAt": "2026-09-10T02:47:33.231Z",
+  "summary": {
+    "setupTrades": 0,
+    "exits": 0,
+    "snapshots": 0,
+    "usableSnapshots": 0
+  },
+  "positions": [],
+  "sevenSessionReview": {
+    "datesRequested": [
+      "2026-09-09",
+      "2026-09-08",
+      "2026-09-07",
+      "2026-09-04",
+      "2026-09-03",
+      "2026-08-31",
+      "2026-08-28"
+    ],
+    "datesAvailable": [
+      "2026-09-09",
+      "2026-09-08",
+      "2026-09-07",
+      "2026-09-04",
+      "2026-09-03",
+      "2026-08-31",
+      "2026-08-28"
+    ],
+    "datesUsed": [
+      "2026-09-09",
+      "2026-09-08",
+      "2026-09-07",
+      "2026-09-04",
+      "2026-09-03",
+      "2026-08-31",
+      "2026-08-28"
+    ],
+    "shortfall": 0,
+    "totalTransactions": 42,
+    "totalRelevantSetupTransactions": 28,
+    "affectedTransactions": 21,
+    "affectedNetPnl": -4366.24,
+    "unaffectedTransactions": 7,
+    "unaffectedNetPnl": -1.39,
+    "supportingDates": 5,
+    "contradictingDates": 1,
+    "noEvidenceDates": 1,
+    "contradictoryWinners": [
+      {
+        "symbol": "KDGREEN",
+        "pnl": 1881.66,
+        "date": "2026-09-08"
+      },
+      {
+        "symbol": "APLAPOLLO",
+        "pnl": 1106.19,
+        "date": "2026-09-04"
+      },
+      {
+        "symbol": "LODHA",
+        "pnl": 873.99,
+        "date": "2026-09-03"
+      },
+      {
+        "symbol": "ANANDRATHI",
+        "pnl": 945.43,
+        "date": "2026-08-31"
+      },
+      {
+        "symbol": "QUESS",
+        "pnl": 72.23,
+        "date": "2026-08-28"
+      }
+    ],
+    "daily": [
+      {
+        "date": "2026-09-09",
+        "affected": 0,
+        "pnl": 0
+      },
+      {
+        "date": "2026-09-08",
+        "affected": 4,
+        "pnl": -1132.1
+      },
+      {
+        "date": "2026-09-07",
+        "affected": 1,
+        "pnl": -1070.08
+      },
+      {
+        "date": "2026-09-04",
+        "affected": 5,
+        "pnl": -1176.12
+      },
+      {
+        "date": "2026-09-03",
+        "affected": 4,
+        "pnl": -309.16
+      },
+      {
+        "date": "2026-08-31",
+        "affected": 3,
+        "pnl": 261.11
+      },
+      {
+        "date": "2026-08-28",
+        "affected": 4,
+        "pnl": -939.89
+      }
+    ]
+  },
+  "limitations": [
+    "September 10 checked before market open at about 08:15 IST; simulation off, no trades or snapshots.",
+    "Current settings are not necessarily historical entry settings; snapshots have differing fingerprints.",
+    "Day-close benchmarks are simulation snapshots, not independently verified exchange closes.",
+    "No Rangebound rejection reasons in evidence; zero trades does not prove fresh-depth gating caused all rejections.",
+    "Repeated snapshot rows are not independent observations."
+  ],
+  "recommendations": [
+    {
+      "type": "setting-change",
+      "key": "SIMULATION_RANGEBOUND_MAX_POSITION_EXPOSURE",
+      "currentValue": 200000,
+      "recommendedValue": 100000,
+      "configurationRecord": {
+        "key": "SIMULATION_RANGEBOUND_MAX_POSITION_EXPOSURE",
+        "value": 200000,
+        "defaultValue": 200000,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum rupee exposure allowed for one Rangebound position without increasing the shared cap for other setups.",
+        "valueType": "number"
+      },
+      "confidence": "low",
+      "rationale": "Carry forward Rangebound concentration reduction, not a claim of improved profitability. No new Rangebound trades occurred September 9; September 10 has not started.",
+      "evidence": [
+        {
+          "datesRequested": [
+            "2026-09-09",
+            "2026-09-08",
+            "2026-09-07",
+            "2026-09-04",
+            "2026-09-03",
+            "2026-08-31",
+            "2026-08-28"
+          ],
+          "datesAvailable": [
+            "2026-09-09",
+            "2026-09-08",
+            "2026-09-07",
+            "2026-09-04",
+            "2026-09-03",
+            "2026-08-31",
+            "2026-08-28"
+          ],
+          "datesUsed": [
+            "2026-09-09",
+            "2026-09-08",
+            "2026-09-07",
+            "2026-09-04",
+            "2026-09-03",
+            "2026-08-31",
+            "2026-08-28"
+          ],
+          "shortfall": 0,
+          "totalTransactions": 42,
+          "totalRelevantSetupTransactions": 28,
+          "affectedTransactions": 21,
+          "affectedNetPnl": -4366.24,
+          "unaffectedTransactions": 7,
+          "unaffectedNetPnl": -1.39,
+          "supportingDates": 5,
+          "contradictingDates": 1,
+          "noEvidenceDates": 1,
+          "contradictoryWinners": [
+            {
+              "symbol": "KDGREEN",
+              "pnl": 1881.66,
+              "date": "2026-09-08"
+            },
+            {
+              "symbol": "APLAPOLLO",
+              "pnl": 1106.19,
+              "date": "2026-09-04"
+            },
+            {
+              "symbol": "LODHA",
+              "pnl": 873.99,
+              "date": "2026-09-03"
+            },
+            {
+              "symbol": "ANANDRATHI",
+              "pnl": 945.43,
+              "date": "2026-08-31"
+            },
+            {
+              "symbol": "QUESS",
+              "pnl": 72.23,
+              "date": "2026-08-28"
+            }
+          ],
+          "daily": [
+            {
+              "date": "2026-09-09",
+              "affected": 0,
+              "pnl": 0
+            },
+            {
+              "date": "2026-09-08",
+              "affected": 4,
+              "pnl": -1132.1
+            },
+            {
+              "date": "2026-09-07",
+              "affected": 1,
+              "pnl": -1070.08
+            },
+            {
+              "date": "2026-09-04",
+              "affected": 5,
+              "pnl": -1176.12
+            },
+            {
+              "date": "2026-09-03",
+              "affected": 4,
+              "pnl": -309.16
+            },
+            {
+              "date": "2026-08-31",
+              "affected": 3,
+              "pnl": 261.11
+            },
+            {
+              "date": "2026-08-28",
+              "affected": 4,
+              "pnl": -939.89
+            }
+          ]
+        }
+      ],
+      "risk": "Lower size also reduces winners. August 31 contradicts the loss concentration. Exposure groups differ in selection and costs; no counterfactual saving or replacement trade is modeled. Keep current setting unless explicitly approved.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "Seven sessions; 21 of 28 Rangebound positions affected across six dates: five supporting, one contradicting, one no-evidence date. Low confidence due to selection bias, contradictory winners and no new Rangebound sample. Not replay tested."
+      }
+    }
+  ],
+  "preserveSettings": [
+    {
+      "key": "SIMULATION_RANGEBOUND_REQUIRE_LIVE_DEPTH",
+      "value": true,
+      "defaultValue": false,
+      "overridden": true,
+      "differsFromDefault": true,
+      "source": "current-override",
+      "description": "Blocks Rangebound entries when fresh live order-book depth is unavailable instead of applying gates opportunistically.",
+      "valueType": "boolean",
+      "recommendedValue": true
+    },
+    {
+      "key": "SIMULATION_RANGEBOUND_MAX_DEPTH_AGE_SEC",
+      "value": 15,
+      "defaultValue": 15,
+      "overridden": false,
+      "differsFromDefault": false,
+      "source": "default",
+      "description": "Maximum age in seconds accepted for live order-book depth used by Rangebound entries.",
+      "valueType": "number",
+      "recommendedValue": 15
+    },
+    {
+      "key": "SIMULATION_RANGEBOUND_MAX_SPREAD_PCT",
+      "value": 0.15,
+      "defaultValue": 0.15,
+      "overridden": false,
+      "differsFromDefault": false,
+      "source": "default",
+      "description": "Maximum best bid-to-ask spread as a percentage of midpoint accepted for Rangebound entries.",
+      "valueType": "number",
+      "recommendedValue": 0.15
+    },
+    {
+      "key": "SIMULATION_SHORT_MIN_SCORE",
+      "value": 75,
+      "defaultValue": 60,
+      "overridden": true,
+      "differsFromDefault": true,
+      "source": "current-override",
+      "description": "Minimum absolute short-side score required before simulation can consider a sell candidate.",
+      "valueType": "number",
+      "recommendedValue": 75
+    },
+    {
+      "key": "SIMULATION_STOP_CONFIRM_BARS",
+      "value": 2,
+      "defaultValue": 2,
+      "overridden": false,
+      "differsFromDefault": false,
+      "source": "default",
+      "description": "Number of consecutive completed candles beyond the stop required to confirm a normal stop exit.",
+      "valueType": "number",
+      "recommendedValue": 2
+    }
+  ],
+  "operationalImprovements": [
+    {
+      "action": "Record entry-time rejection reasons and depth age before relaxing the gate.",
+      "evidence": "2041 Rangebound appearances across 261 symbols, zero trades; blockedReasons is empty.",
+      "confidence": "low"
+    },
+    {
+      "action": "Retain milestone exits and inspect stop quote paths instead of widening stops from hindsight.",
+      "evidence": "KANSAINER exit protected Rs992.64 versus stored close; GODREJPROP left Rs431.95. TATAELXSI later recovered but intervening excursion is not established.",
+      "confidence": "low"
+    },
+    {
+      "action": "Do not raise short score based on one winning session.",
+      "evidence": "Only seven Breakdown trades over two dates in seven-session window, net -Rs741.37.",
+      "confidence": "low"
+    }
+  ]
+}

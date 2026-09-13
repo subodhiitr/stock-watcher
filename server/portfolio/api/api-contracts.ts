@@ -14,6 +14,7 @@ export type PortfolioApiRequest = Readonly<{
   portfolioId: unknown
   bodyText?: string
   requestFingerprint?: string
+  localAccess?: boolean
 }>
 
 export type AuthenticatedSession = Readonly<{

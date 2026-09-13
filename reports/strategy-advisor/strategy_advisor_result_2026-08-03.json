@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-08-03",
+  "status": "done",
+  "generatedAt": "2026-08-04T03:00:00.000Z",
+  "agent": {
+    "provider": "codex-session",
+    "replayUsed": false,
+    "sweepUsed": false
+  },
+  "thesis": "August 3 was a broad net-loss session: 14 closed positions produced INR -809.79 gross, INR 815.81 in charges, and INR -1,625.60 net. Fresh Breakout caused INR -1,424.58 of the loss with four losing trades, while Momentum Runner added INR -125.11. Across the seven available transaction dates ending August 3, Momentum Runner is the clearest recurring setup-level problem; Fresh Breakout also loses money in aggregate but has material profitable counterexamples, so its entry-floor change remains lower confidence. Until entry quality improves, a simulation-only 0.5 position-multiplier ceiling is a defensible drawdown-control change, not a profitability fix.",
+  "selectedDay": {
+    "positions": 14,
+    "wins": 4,
+    "losses": 10,
+    "winRatePct": 28.6,
+    "grossPnl": -809.79,
+    "charges": 815.81,
+    "netPnl": -1625.6,
+    "expectancyPerTrade": -116.11,
+    "profitFactor": 0.44,
+    "maxDrawdown": 2041.08,
+    "exitSummary": "Targets were effective (4 exits, INR 1,038.47 net), but Time / No progress exits lost INR 1,424.58 and carried INR 2,381.04 of day-close opportunity loss. Stops lost INR 1,240.34. The stored exit benchmark has 100% coverage, but it is an end-of-day comparison rather than an executable counterfactual."
+  },
+  "confidenceWindow": {
+    "datesRequested": [
+      "2026-08-03",
+      "2026-07-31",
+      "2026-07-30",
+      "2026-07-29",
+      "2026-07-28",
+      "2026-07-27",
+      "2026-07-24"
+    ],
+    "datesAvailable": [
+      "2026-08-03",
+      "2026-07-31",
+      "2026-07-30",
+      "2026-07-29",
+      "2026-07-28",
+      "2026-07-27",
+      "2026-07-24"
+    ],
+    "datesUsed": [
+      "2026-08-03",
+      "2026-07-31",
+      "2026-07-30",
+      "2026-07-29",
+      "2026-07-28",
+      "2026-07-27",
+      "2026-07-24"
+    ],
+    "shortfall": 0,
+    "positions": 91,
+    "wins": 27,
+    "grossPnl": -838.9,
+    "charges": 5937.83,
+    "netPnl": -6776.73,
+    "expectancyPerTrade": -74.47,
+    "profitFactor": 0.6,
+    "maxDrawdown": 7633.24
+  },
+  "limitations": [
+    "This is an analytics-only review. No Replay, backtest, sweep, or targeted settings trial was run.",
+    "August 3 contains 187 snapshots, of which 182 are usable, under one settings fingerprint. July 30 and July 31 have materially lower usable coverage and multiple settings fingerprints, which weakens direct comparability.",
+    "Repeated snapshot appearances were not counted as independent observations; confidence uses reconciled positions and exit legs.",
+    "Transaction rows do not identify which Fresh Breakout eligibility path admitted each trade, so a score-floor recommendation may not affect strong-breakout or relaxed-path entries below the normal floor.",
+    "Exit opportunity figures compare the recorded exit with the stored day-close price; they do not prove that a later executable exit would have achieved that price."
+  ],
+  "recommendations": [
+    {
+      "type": "setting-change",
+      "settingKey": "SIMULATION_MOMENTUM_RUNNER_ENABLED",
+      "currentValue": true,
+      "recommendedValue": false,
+      "defaultValue": true,
+      "overridden": false,
+      "source": "default",
+      "description": "Allows Momentum Runner candidates to open new simulation trades.",
+      "confidence": "high",
+      "rationale": "Pause new Momentum Runner entries because the setup has persistently negative net expectancy and loss concentration across the full seven-session window.",
+      "evidence": [
+        "Affected group: all 33 Momentum Runner positions across 7 dates; 9 wins, INR -2,795.66 gross, INR 1,758.51 charges, INR -4,554.17 net, INR -138.01 expectancy, profit factor 0.25.",
+        "Unaffected group: the other 58 setup positions; 18 wins, INR 1,956.76 gross, INR 4,179.32 charges, INR -2,222.56 net, INR -38.32 expectancy, profit factor 0.80.",
+        "Five of seven dates support the pause: July 27, July 28, July 29, July 31, and August 3 were negative. July 24 and July 30 contradict it, but only by INR 117.66 and INR 138.20 respectively.",
+        "Losses are not isolated to late entries: 20 non-late positions lost INR 3,281.10 and 13 late positions lost INR 1,273.07. VWAP exits alone lost INR 2,898.20 across 11 exits; Stop and No progress exits lost another INR 2,651.90."
+      ],
+      "risk": "Disabling the setup would also remove its profitable July 24 and July 30 trades and any future recovery. This is a temporary capital-allocation response to poor observed expectancy, not proof that the rules can never work.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "High confidence under the seven-session rubric: 33 affected transactions across 7 dates, aggregate evidence is strongly favorable to pausing, and 5 of 7 dates (71.4%) support it. The two contradictory dates are small relative to the aggregate INR 4,554.17 loss. No replay validation was performed."
+      }
+    },
+    {
+      "type": "setting-change",
+      "settingKey": "SIMULATION_MAX_POSITION_MULTIPLIER",
+      "currentValue": 1,
+      "recommendedValue": 0.5,
+      "defaultValue": 1,
+      "overridden": false,
+      "source": "default",
+      "description": "Hard ceiling for the portfolio-level simulation position multiplier; 1 prevents sizing above the normal risk budget.",
+      "confidence": "medium",
+      "rationale": "Temporarily cap simulation sizing at half of the normal risk budget while setup expectancy is negative. This aims to reduce absolute loss and drawdown, not to make losing entries profitable.",
+      "evidence": [
+        "Observable affected proxy: 47 positions above INR 50,000 exposure across all 7 dates; 14 wins, INR -4,985.66 net, and INR 3,992.58 in charges.",
+        "The 44 positions at or below INR 50,000 also lost money, but less in absolute terms: INR -1,791.07 net with INR 1,945.25 charges.",
+        "The above-INR-50,000 group was negative on 5 of 7 dates: July 24, July 27, July 28, July 29, and August 3. It was positive on July 30 and July 31.",
+        "On August 3, all four positions above INR 50,000 were Fresh Breakout losses totaling INR -1,424.58."
+      ],
+      "risk": "The transaction record does not store each trade's uncapped planned multiplier, so exposure above INR 50,000 is only a proxy for the exact affected population. The cap would also reduce profitable full-size trades, including the strong July 30 session, and would not improve percentage expectancy.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "Medium confidence: 47 observable high-exposure positions across 7 dates and 5 of 7 dates support lower risk, but two profitable dates and incomplete planned-sizing fields prevent high confidence. No replay validation was performed."
+      }
+    },
+    {
+      "type": "setting-change",
+      "settingKey": "SIMULATION_FRESH_BREAKOUT_MIN_SCORE",
+      "currentValue": 60,
+      "recommendedValue": 72,
+      "defaultValue": 60,
+      "overridden": false,
+      "source": "default",
+      "description": "Independent minimum score for normal fresh-breakout entries; momentum runners use their own score thresholds.",
+      "confidence": "low",
+      "rationale": "Research a stricter normal Fresh Breakout score floor because the observed 60-to-71 score band has negative expectancy, but preserve the current setting until the stored data identifies the exact eligibility path for each entry.",
+      "evidence": [
+        "Exact score-band review: 13 Fresh Breakout positions with recorded scores from 60 through 71 across 3 dates; 3 wins and INR -1,351.10 net. All three dates containing this band were net negative for it.",
+        "The comparison group at score 72 or higher had 8 positions across 3 dates, 2 wins, and INR 481.93 net.",
+        "August 3 contributed three score-60-to-71 Fresh Breakout losses totaling INR -868.27; the score-72 WONDERLA trade also lost INR 556.31, showing that 72 is not a sufficient quality guarantee.",
+        "Material contradictory symbols exist inside the affected band, especially LUPIN at score 66 (INR 1,040.87 net) and INFY at score 68 (INR 478.64 net)."
+      ],
+      "risk": "The normal minimum-score key may not govern strong-breakout or relaxed-path entries, and the affected band contains two large winners. Raising the floor could remove upside without blocking every low-score entry. Keep the current value at 60 unless future evidence records the admission path and confirms the mechanism.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "Low confidence despite 13 affected transactions across 3 dates: the affected group is net negative and every represented date supports tightening, but material profitable counterexamples and missing eligibility-path fields make the exact key/value mechanism uncertain. No replay validation was performed."
+      }
+    }
+  ]
+}

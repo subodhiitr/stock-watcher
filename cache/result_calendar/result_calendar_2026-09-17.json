@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "date": "2026-09-17",
+  "savedAt": 1789269408126,
+  "builtInMs": 108108,
+  "source": "nse-board-meetings",
+  "scanned": 3219,
+  "count": 1,
+  "symbolCount": 1,
+  "items": [
+    {
+      "symbol": "FEDERALBNK",
+      "name": "The Federal Bank  Limited",
+      "type": "Fund Raising",
+      "title": "To consider Fund Raising",
+      "source": "NSE",
+      "url": "https://www.nseindia.com/get-quotes/equity?symbol=FEDERALBNK",
+      "eventDate": "2026-09-16T18:30:00.000Z",
+      "dateKey": "2026-09-17",
+      "status": "upcoming",
+      "period": null
+    }
+  ],
+  "version": 3
+}

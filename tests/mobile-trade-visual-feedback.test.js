@@ -11,7 +11,8 @@ test('trade click immediately shows opening state and disables duplicate clicks'
   assert.match(app, /pendingTradeSymbols: new Set\(\)/);
   assert.match(app, /Opening…/);
   assert.match(app, /state\.pendingTradeSymbols\.has\(symbol\)/);
-  assert.match(css, /\.setup-card\.is-opening, \.all-stock-row\.is-opening/);
+  assert.match(app, /class="setup-card all-stock-card \$\{lockedTrade \? 'is-locked'/);
+  assert.match(css, /\.setup-card\.is-opening/);
 });
 
 test('trade result immediately updates open state and shows global success or failure', () => {

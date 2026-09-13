@@ -1,0 +1,12 @@
+const fs=require('fs'),D=require('better-sqlite3');
+const before=require('./custom-stock-metadata-before-2026-09-06.json');
+const evidence=require('./custom-stock-screener-evidence-2026-09-06.json');
+if(evidence.length!==189)throw Error('Fetch incomplete: '+evidence.length);
+const db=new D('stock-watcher.db');const sectorUpdates=[];
+db.transaction(()=>{const get=db.prepare('SELECT sector FROM symbols WHERE symbol=?');const set=db.prepare('UPDATE symbols SET sector=?,updated_at=? WHERE symbol=?');for(const r of evidence){if(r.status!==200||!r.sectorFound)continue;const row=get.get(r.symbol);if(row&&row.sector.toLowerCase()==='custom'){set.run(r.sectorFound,Date.now(),r.symbol);sectorUpdates.push({symbol:r.symbol,sector:r.sectorFound,source:r.url});}}})();
+const after=before.map(b=>db.prepare('SELECT * FROM symbols WHERE symbol=?').get(b.symbol));
+for(const [i,a] of after.entries()){const b=before[i];for(const k of ['name','source','is_favorite'])if(a[k]!==b[k])throw Error('Unexpected change '+b.symbol+' '+k);if(b.sector.toLowerCase()!=='custom'&&a.sector!==b.sector)throw Error('Existing sector changed');if(b.cap.toLowerCase()!=='custom'&&a.cap!==b.cap)throw Error('Existing cap changed');}
+const unresolved=after.filter(r=>r.sector.toLowerCase()==='custom'||r.cap.toLowerCase()==='custom').map(r=>({symbol:r.symbol,sector:r.sector,cap:r.cap,reason:r.symbol==='NAICL'?'Symbol not found; NIACL exists separately':'Absent from AMFI June 2026 classification'}));
+const summary={targetStocks:before.length,sectorsUpdated:after.filter((a,i)=>a.sector!==before[i].sector).length,capsUpdated:after.filter((a,i)=>a.cap!==before[i].cap).length,remainingCustomSectors:after.filter(a=>a.sector.toLowerCase()==='custom').length,remainingCustomCaps:after.filter(a=>a.cap.toLowerCase()==='custom').length};
+fs.writeFileSync('artifacts/custom-stock-metadata-final-2026-09-06.json',JSON.stringify({summary,unresolved,sectorUpdates,after},null,2));db.close();
+(async()=>{const res=await fetch('http://localhost:3001/dashboard-bootstrap',{signal:AbortSignal.timeout(15000)});const data=await res.json();let verified=0;for(const r of after){const live=data.prefs.stocks.find(x=>x.sym===r.symbol);if(!live)continue;if(live.sector!==r.sector||live.cap!==r.cap)throw Error('Live mismatch '+r.symbol);verified++;}console.log(JSON.stringify({...summary,liveSavedStocksVerified:verified,unresolvedSymbols:unresolved.map(r=>r.symbol)}));})();

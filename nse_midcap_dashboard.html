@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NSE Midcap Dashboard</title>
-<link rel="stylesheet" href="dashboard.css?v=20260731-55">
+<link rel="stylesheet" href="dashboard.css?v=20260906-62">
 </head>
 <body>
 
@@ -77,51 +77,12 @@
 
   <!-- SOURCE PANEL -->
   <div id="source-panel">
-    <h2>Choose Data Source</h2>
-    <p class="sub">Both options use the proxy built into the Remix server. Start it with <code style="font-family:monospace;background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px;color:var(--accent)">npm.cmd run dev</code>. Yahoo Finance &amp; NSE is free — no API key needed.</p>
-
-    <div class="source-cards">
-      <!-- Yahoo Finance & NSE -->
-      <div class="source-card selected" id="card-yahoo" data-source="yahoo" onclick="selectSource('yahoo')" role="button" tabindex="0">
-        <div class="sc-icon">💜</div>
-        <div class="sc-title">Yahoo Finance &amp; NSE</div>
-        <div class="sc-desc">Fetches prices from Yahoo Finance's public <code style="font-family:monospace;font-size:11px">query1.finance.yahoo.com/v7</code> API and NSE India. Real-time during market hours, 15-min delayed otherwise.</div>
-        <span class="sc-badge badge-proxy">Proxy · No Key · Free</span>
-      </div>
-
-      <!-- AI Mode -->
-      <div class="source-card" id="card-ai" data-source="ai" onclick="selectSource('ai')" role="button" tabindex="0">
-        <div class="sc-icon">🤖</div>
-        <div class="sc-title">AI (OpenAI)</div>
-        <div class="sc-desc">Uses OpenAI with live web search to gather prices. Requires the local proxy with OPENAI_API_KEY configured.</div>
-        <span class="sc-badge badge-key">Proxy · OpenAI Key</span>
-      </div>
-      <div class="source-connect-slot">
-        <button class="btn primary" onclick="void connectYahoo()">Check Proxy &amp; Connect</button>
-        <button class="btn" type="button" onclick="openSettingsModal()">Simulation Settings</button>
-      </div>
+    <div class="source-connect-slot">
+      <button class="btn primary" onclick="void connectYahoo()">Check Proxy &amp; Connect</button>
     </div>
-
-    <!-- Yahoo extra -->
     <div id="extra-yahoo" class="source-extra" style="display:block">
-      <div class="info-box yahoo-info">
-        <strong>Quick setup (30 seconds):</strong><br>
-        1. Open a terminal in the project folder<br>
-        2. Run: <code>npm.cmd run dev</code><br>
-        3. Open this page from Remix, then click Connect below
-      </div>
       <div class="proxy-status" id="proxy-status-yahoo"></div>
       <div class="connect-err" id="connect-err-yahoo"></div>
-    </div>
-
-    <!-- AI extra -->
-    <div id="extra-ai" class="source-extra" style="display:none">
-      <label>OpenAI API</label>
-      <div class="input-row">
-        <input id="api-key-input" class="text-input" type="text" value="Use OPENAI_API_KEY with npm.cmd run dev" readonly />
-        <button class="btn primary" onclick="connectAI()">Check &amp; Connect →</button>
-      </div>
-      <div class="connect-err" id="connect-err-ai"></div>
     </div>
   </div>
 
@@ -169,13 +130,15 @@
       <button class="tab-btn strategy-advisor-tab" type="button" onclick="openStrategyAdvisorPanel()">Strategy Advisor</button>
       <button class="tab-btn settings-tab" type="button" onclick="openSettingsModal()">Settings</button>
     </div>
-    <div id="stock-content">
+  <div id="stock-content">
       <div id="setup-card-row"></div>
       <div id="controls-bar">
         <button id="filter-all" class="filter-btn active" onclick="setFilter('all',this)">All</button>
         <button class="filter-btn" onclick="setFilter('large',this)">🔵 Large Cap</button>
         <button class="filter-btn" onclick="setFilter('mid',this)">🟣 Mid Cap</button>
         <button class="filter-btn" onclick="setFilter('favorite',this)">★ Favorites</button>
+        <button class="filter-btn" onclick="setFilter('newipo',this)" title="NSE listings in the last 90 days">New IPO / listings</button>
+        <button class="filter-btn" onclick="document.getElementById('ipo-calendar').hidden = !document.getElementById('ipo-calendar').hidden; renderIpoCalendar()">New / Upcoming IPO calendar</button>
         <button class="filter-btn" onclick="setFilter('buy',this)">🟢 Buy</button>
         <button class="filter-btn" onclick="setFilter('watch',this)">🟡 Watch</button>
         <button class="filter-btn" onclick="setFilter('sell',this)">🔴 Sell</button>
@@ -223,12 +186,17 @@
         <div style="display:inline-flex;align-items:center;gap:6px"><span style="color:var(--green);font-weight:700">▲</span><span>higher</span></div>
         <div style="display:inline-flex;align-items:center;gap:6px"><span style="color:var(--red);font-weight:700">▼</span><span>lower</span></div>
       </div>
-      <div class="table-scroll-tools" aria-label="Stock table horizontal controls">
+      <section id="ipo-calendar" hidden style="padding:16px;margin-bottom:16px;overflow:auto;border:1px solid var(--border);border-radius:12px" aria-label="IPO calendar">
+      <label for="ipo-calendar-filter">IPO filter</label>
+      <select id="ipo-calendar-filter" onchange="renderIpoCalendar()"><option value="upcoming">Upcoming / open IPOs</option><option value="new">New listings (90 days)</option></select>
+      <div id="ipo-calendar-panel" aria-live="polite"></div>
+    </section>
+    <div class="table-scroll-tools" aria-label="Stock table horizontal controls">
         <button class="table-scroll-btn" id="stock-scroll-left" type="button" onclick="scrollStockTable(-1)" ondblclick="scrollStockTable(-1, true)" title="Scroll table left">‹</button>
         <div id="stock-top-scroll" aria-label="Stock table horizontal scrollbar"><div id="stock-top-scroll-inner"></div></div>
         <button class="table-scroll-btn" id="stock-scroll-right" type="button" onclick="scrollStockTable(1)" ondblclick="scrollStockTable(1, true)" title="Scroll table right">›</button>
       </div>
-      <div id="table-wrap">
+    <div id="table-wrap">
         <table>
           <thead><tr>
             <th></th>
@@ -237,8 +205,7 @@
             <th onclick="sortBy('sector')">Sector ↕</th>
             <th onclick="sortBy('change')">Price / Chg% ↕</th>
             <th class="hide-mobile" onclick="sortBy('volume')">Volume ↕</th>
-            <th onclick="sortBy('trade')">Trade ↕</th>
-            <th onclick="sortBy('sttarget')">ST Target Net% ↕</th>
+            <th class="combined-trade-heading"><button type="button" onclick="sortBy('trade')">Trade ↕</button><button type="button" onclick="sortBy('sttarget')">ST Target Net% ↕</button></th>
             <th onclick="sortBy('health')" style="cursor:pointer">Health ↕</th>
             <th>Trend</th>
             <th>Signal</th>
@@ -293,8 +260,7 @@
             <th class="hide-mobile hide-1200" onclick="etfSortBy('1y')" style="cursor:pointer">1Y ↕</th>
             <th class="hide-mobile hide-1200" onclick="etfSortBy('3y')" style="cursor:pointer">3Y ↕</th>
             <th>Trend</th>
-            <th onclick="etfSortBy('trade')">Trade ↕</th>
-            <th onclick="etfSortBy('sttarget')">ST Target Net% ↕</th>
+            <th class="combined-trade-heading"><button type="button" onclick="etfSortBy('trade')">Trade ↕</button><button type="button" onclick="etfSortBy('sttarget')">ST Target Net% ↕</button></th>
             <th>Signal</th>
             <th onclick="etfSortBy('nav')">NAV ↕</th>
             <th onclick="etfSortBy('premium')">Premium% ↕</th>
@@ -625,6 +591,6 @@
 
 <script defer src="trade_rules.js?v=20260730-26"></script>
 <script defer src="simulation_engine.js?v=20260620-25"></script>
-  <script defer src="dashboard-app.js?v=20260801-71"></script>
+<script defer src="dashboard-app.js?v=20260908-freshness"></script>
 </body>
 </html>

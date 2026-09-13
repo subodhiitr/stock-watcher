@@ -137,6 +137,47 @@ test('onTick callback receives raw tick for index/cache consumers', () => {
   assert.equal(rawTick?.ltp, 25000);
 });
 
+test('normalizes current Sharekhan full-feed bid and offer fields', () => {
+  const depth = normalizeSharekhanMarketDepth({
+    bidPrice: 99.95,
+    bidQty: 120,
+    offPrice: 100.05,
+    offQty: 80,
+    totalBuyQty: 900,
+    totalSellQty: 600,
+  });
+
+  assert.equal(depth.bestBidPrice, 99.95);
+  assert.equal(depth.bestBidQuantity, 120);
+  assert.equal(depth.bestAskPrice, 100.05);
+  assert.equal(depth.bestAskQuantity, 80);
+  assert.equal(depth.totalBidQuantity, 900);
+  assert.equal(depth.totalAskQuantity, 600);
+});
+
+test('depth-only feed frames reach raw tick consumers without creating candles', () => {
+  let rawTick = null;
+  const ticker = new SharekhanTicker({
+    accessToken: 'fake',
+    onTick: tick => { rawTick = tick; },
+  });
+  ticker._onTick(JSON.stringify({
+    data: {
+      exchangeCode: 'NC',
+      scripCode: 2885,
+      marketDepth: {
+        bids: [{ price:100, quantity:600 }],
+        asks: [{ price:100.05, quantity:400 }],
+      },
+    },
+  }));
+  assert.equal(rawTick?.scripCode, 2885);
+  assert.equal(normalizeSharekhanMarketDepth(rawTick)?.totalBidQuantity, 600);
+  assert.equal(ticker.getCandlesWithOpenBar(2885), null);
+  assert.equal(ticker._nonLtpTickCount, 1);
+  assert.deepEqual(ticker._lastNonLtpTickKeys, ['exchangeCode', 'marketDepth', 'scripCode']);
+});
+
 test('start opens direct Sharekhan websocket and sends subscription/feed on open', () => {
   const sent = [];
   let openedUrl = '';
@@ -155,13 +196,15 @@ test('start opens direct Sharekhan websocket and sends subscription/feed on open
     reconnectDelayMs: 60_000,
     webSocketFactory: url => new FakeSocket(url),
   });
-  ticker.subscribe([2885]);
+  ticker.subscribe([2885, 22]);
   ticker.start();
   ticker._ws.emit('open');
 
   assert.equal(openedUrl, 'wss://stream.sharekhan.com/skstream/api/stream?ACCESS_TOKEN=token%20with%20spaces');
   assert.deepEqual(sent[0], { action: 'subscribe', key: ['feed'], value: [''] });
-  assert.deepEqual(sent[1], { action: 'feed', key: ['ltp'], value: ['NC2885'] });
+  assert.deepEqual(sent[1], { action: 'feed', key: ['ltp'], value: ['NC2885,NC22'] });
+  assert.deepEqual(sent[2], { action: 'feed', key: ['full'], value: ['NC2885'] });
+  assert.deepEqual(sent[3], { action: 'feed', key: ['full'], value: ['NC22'] });
   ticker.stop();
 });
 

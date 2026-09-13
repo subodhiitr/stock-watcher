@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-08-21",
+  "status": "done",
+  "generatedAt": "2026-08-23T03:45:00.000Z",
+  "agent": {
+    "provider": "codex-session",
+    "replayUsed": false,
+    "sweepUsed": false
+  },
+  "thesis": "Across the latest 15 transaction-bearing sessions, realized gross trading P/L was positive but too small to cover modeled charges. The system made INR 6,338.69 before charges, paid INR 11,757.34 in charges, and lost INR 5,418.65 net. The latest seven-session confidence window improved to INR 348.81 net, but charges consumed 93.9% of gross P/L. The clearest directly observable improvement is to remove late-day trade-count expansion by restoring the daily entry cap from 30 to 12; broader setup and exit changes are not supported strongly enough without replay or richer entry-provenance fields.",
+  "analysisWindow": {
+    "definition": "Latest 15 dates containing reconciled closed positions, ending 2026-08-21",
+    "dates": [
+      "2026-08-21",
+      "2026-08-20",
+      "2026-08-19",
+      "2026-08-18",
+      "2026-08-17",
+      "2026-08-11",
+      "2026-08-10",
+      "2026-08-07",
+      "2026-08-06",
+      "2026-08-05",
+      "2026-08-04",
+      "2026-08-03",
+      "2026-07-31",
+      "2026-07-30",
+      "2026-07-29"
+    ],
+    "positions": 163,
+    "wins": 58,
+    "losses": 105,
+    "winRatePct": 35.58,
+    "grossPnlBeforeCharges": 6338.69,
+    "charges": 11757.34,
+    "netPnl": -5418.65,
+    "expectancyPerTrade": -33.24,
+    "profitFactor": 0.84,
+    "realizedSequenceMaxDrawdown": 11195.56,
+    "exits": 185,
+    "snapshotCount": 2716,
+    "usableSnapshotCount": 2559
+  },
+  "confidenceWindow": {
+    "datesRequested": [
+      "2026-08-21",
+      "2026-08-20",
+      "2026-08-19",
+      "2026-08-18",
+      "2026-08-17",
+      "2026-08-11",
+      "2026-08-10"
+    ],
+    "datesAvailable": [
+      "2026-08-21",
+      "2026-08-20",
+      "2026-08-19",
+      "2026-08-18",
+      "2026-08-17",
+      "2026-08-11",
+      "2026-08-10"
+    ],
+    "datesUsed": [
+      "2026-08-21",
+      "2026-08-20",
+      "2026-08-19",
+      "2026-08-18",
+      "2026-08-17",
+      "2026-08-11",
+      "2026-08-10"
+    ],
+    "shortfall": 0,
+    "positions": 64,
+    "wins": 26,
+    "losses": 38,
+    "winRatePct": 40.63,
+    "grossPnlBeforeCharges": 5677.70,
+    "charges": 5328.89,
+    "netPnl": 348.81,
+    "expectancyPerTrade": 5.45,
+    "profitFactor": 1.02,
+    "realizedSequenceMaxDrawdown": 4545.43
+  },
+  "setupFindings": [
+    {
+      "setupType": "FRESH_BREAKOUT",
+      "positions15": 26,
+      "netPnl15": -2842.76,
+      "expectancy15": -109.34,
+      "currentEnableSetting": "SIMULATION_FRESH_BREAKOUT_ENABLED",
+      "currentValue": false,
+      "conclusion": "Preserve the existing disabled override. There were no Fresh Breakout positions in the latest seven-session window, so re-enabling cannot be supported."
+    },
+    {
+      "setupType": "BREAKDOWN",
+      "positions15": 6,
+      "netPnl15": -2418.89,
+      "expectancy15": -403.15,
+      "positions7": 2,
+      "netPnl7": -1200.35,
+      "currentEnableSetting": "SIMULATION_BREAKDOWN_ENABLED",
+      "currentValue": false,
+      "conclusion": "Preserve the existing disabled override; all six observed positions lost, but the seven-session sample spans only one affected date."
+    },
+    {
+      "setupType": "MOMENTUM_RUNNER",
+      "positions15": 42,
+      "netPnl15": -236.44,
+      "positions7": 28,
+      "netPnl7": 225.93,
+      "profitFactor7": 1.05,
+      "supportingDates7": 3,
+      "contradictingDates7": 3,
+      "datesWithoutEvidence7": 1,
+      "conclusion": "Preserve enabled. Recent results are marginally positive and evenly split by date, so disabling or changing thresholds is not justified."
+    },
+    {
+      "setupType": "RANGEBOUND",
+      "positions15": 68,
+      "netPnl15": -407.28,
+      "positions7": 23,
+      "netPnl7": 1626.54,
+      "profitFactor7": 1.21,
+      "realizedSequenceMaxDrawdown7": 4528.95,
+      "conclusion": "Preserve enabled and preserve the dedicated INR 200,000 exposure cap. Above-INR-100,000 Rangebound positions made INR 3,608.87 net in the latest seven sessions; the cap was not the observed drag."
+    }
+  ],
+  "exitFindings": {
+    "positionsByExitBucket15": {
+      "Target": 23957.13,
+      "Trail": 3392.87,
+      "Stop": -14225.25,
+      "VWAP": -6214.54,
+      "Momentum fade": -5777.29,
+      "No progress": -5366.77,
+      "EOD": -1184.80
+    },
+    "latestSeven": {
+      "opportunityLossToDayClose": 18911.59,
+      "valueProtectedVersusDayClose": 23746.97,
+      "perfectExitLegs": 45,
+      "exitLegs": 71
+    },
+    "conclusion": "Do not loosen stops, VWAP exits, no-progress exits, or gain milestones from this evidence. Day-close benchmarks show more value protected than opportunity lost in the latest seven sessions, and target exits produced INR 14,654.64 realized net. The recurring VWAP, momentum-fade, and no-progress losses point first to entry-quality and churn, not proof that later exits would improve results."
+  },
+  "preserveCurrentControls": [
+    {
+      "key": "SIMULATION_FRESH_BREAKOUT_ENABLED",
+      "value": false,
+      "defaultValue": true,
+      "source": "current-override"
+    },
+    {
+      "key": "SIMULATION_BREAKDOWN_ENABLED",
+      "value": false,
+      "defaultValue": true,
+      "source": "current-override"
+    },
+    {
+      "key": "SIMULATION_RANGEBOUND_MAX_POSITION_EXPOSURE",
+      "value": 200000,
+      "defaultValue": 200000,
+      "source": "default"
+    },
+    {
+      "key": "SIMULATION_GAIN_MILESTONES_PCT",
+      "value": "0.7,1,1.5,2",
+      "defaultValue": "0.7,1,1.5,2",
+      "source": "default"
+    }
+  ],
+  "researchPriorities": [
+    "Capture dailyEntryOrdinal, openCountAtEntry, stopGuardBypassed, projectedNetProfitPct, triggerExtensionPct, and settingsFingerprint on each reconciled position so the loosened concurrency, cycle, stop-guard, and extension overrides can be evaluated directly.",
+    "Review entry-state patterns that later exit through VWAP, momentum fade, or no progress. Across 15 sessions these three buckets lost INR 17,358.60 net, but the current evidence does not retain enough entry-state detail to recommend an exact threshold safely.",
+    "Treat day-close opportunity loss as a hindsight benchmark only; do not convert it into a target or trailing-stop change without executable multi-date testing."
+  ],
+  "limitations": [
+    "This result is analytics-reviewed only. No Replay, backtest, parameter sweep, targeted setting trial, or setting mutation was run.",
+    "The 15-session window means transaction-bearing dates, not 15 consecutive calendar or exchange sessions; intervening dates with no reconciled closed positions are excluded.",
+    "Position P/L is aggregated once per reconciled position. The 185 exit rows represent exit legs and are used only for exit-quality and day-close opportunity analysis.",
+    "The daily-entry ordinal is reconstructed from closed positions ordered by openedAt. Positions still open or absent from reconciled facts can make the affected count conservative.",
+    "Seven of the 15 dates contain more than one snapshot settings fingerprint, so a date-end configuration record cannot prove that every trade on that date used exactly the same settings.",
+    "Realized-sequence drawdown is based on closed-position P/L order and is not mark-to-market portfolio drawdown.",
+    "Day-close opportunity figures are hindsight benchmarks and do not establish executable counterfactual P/L or include additional slippage from holding longer."
+  ],
+  "recommendations": [
+    {
+      "type": "setting-change",
+      "key": "SIMULATION_DAILY_MAX_TRADES",
+      "currentValue": 30,
+      "recommendedValue": 12,
+      "defaultValue": 12,
+      "currentSource": "current-override",
+      "description": "Maximum number of new simulation entries allowed in one trading day.",
+      "confidence": "medium",
+      "rationale": "Restore the default daily cap to reduce charge-heavy tail entries after the first 12 closed-position entries of a day.",
+      "evidence": [
+        "Latest-seven affected group: 13 of 64 positions across three dates, net P/L INR -749.62, charges INR 835.98, expectancy INR -57.66, profit factor 0.76.",
+        "Latest-seven unaffected first-12 group: 51 positions, net P/L INR 1,098.43, expectancy INR 21.54, profit factor 1.09.",
+        "Date support: 2026-08-21 INR -880.19 and 2026-08-20 INR -4.03 support the cap; 2026-08-10 INR 134.60 contradicts it; four dates had no entry beyond 12.",
+        "Full 15-session affected group: 41 of 163 positions, net P/L INR -1,704.30, charges INR 2,672.71, expectancy INR -41.57, with five supporting dates, two contradicting dates, and eight dates without an affected trade."
+      ],
+      "risk": "A 12-entry cap can exclude profitable late-ranked trades, including GAIL at INR 1,307.46 on 2026-07-31 and ICICIPRULI at INR 1,398.53 on 2026-08-21. The ordinal is reconstructed from closed positions, so the exact runtime guard population may be larger. Apply only with explicit approval, and monitor missed qualified opportunities after application.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "Medium confidence under the seven-session rubric: 13 affected positions across three dates, favorable aggregate evidence for the proposed cap, support on two of three affected dates, one limited contradictory date, and a consistent negative 15-session aggregate. This was not replay-tested or validated."
+      }
+    }
+  ]
+}

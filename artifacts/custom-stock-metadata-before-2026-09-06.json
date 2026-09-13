@@ -1,0 +1,1919 @@
+[
+  {
+    "symbol": "ANTELOPUS",
+    "name": "ANTELOPUS",
+    "sector": "Energy",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "HDIL",
+    "name": "HDIL",
+    "sector": "Realty",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "GPIL",
+    "name": "GPIL",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "PATANJALI",
+    "name": "PATANJALI",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VAML",
+    "name": "VAML",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "TRAVELFOOD",
+    "name": "TRAVELFOOD",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "INDOMIM",
+    "name": "INDOMIM",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "BLEL",
+    "name": "BLEL",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "EMMVEE",
+    "name": "EMMVEE",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "GRANULES",
+    "name": "GRANULES",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "WELCORP",
+    "name": "WELCORP",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 1
+  },
+  {
+    "symbol": "SYRMA",
+    "name": "SYRMA",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 1
+  },
+  {
+    "symbol": "RRKABEL",
+    "name": "RRKABEL",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "NEULANDLAB",
+    "name": "NEULANDLAB",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "KIRLOSENG",
+    "name": "KIRLOSENG",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "HONASA",
+    "name": "HONASA",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "CPPLUS",
+    "name": "CPPLUS",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "CEMPRO",
+    "name": "CEMPRO",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "BSE",
+    "name": "BSE",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "APARINDS",
+    "name": "APARINDS",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ACMESOLAR",
+    "name": "ACMESOLAR",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "CHENNPETRO",
+    "name": "CHENNPETRO",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ADANIENSOL",
+    "name": "ADANIENSOL",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "BALRAMCHIN",
+    "name": "BALRAMCHIN",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "IREDA",
+    "name": "IREDA",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 1
+  },
+  {
+    "symbol": "PARAS",
+    "name": "PARAS",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "E2E",
+    "name": "E2E",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ENGINERSIN",
+    "name": "ENGINERSIN",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "PWL",
+    "name": "PWL",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "NAICL",
+    "name": "NAICL",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "JINDWORLD",
+    "name": "JINDWORLD",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "NLCINDIA",
+    "name": "NLCINDIA",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "PRIORITY",
+    "name": "PRIORITY",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ESDS",
+    "name": "ESDS",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "AASTHA",
+    "name": "Aastha Spintex Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ACGL",
+    "name": "Automobile Corporation of Goa Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ADDIND",
+    "name": "Addi Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ADVIKCA",
+    "name": "Advik Capital Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "AGL",
+    "name": "Allcargo Global Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ALFREDHE",
+    "name": "Alfred Herbert India Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ALPINETEX",
+    "name": "Alpine Texworld Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ALUFLUOR",
+    "name": "Alufluoride Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "AMAL",
+    "name": "Amal Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "AMARJOTHI",
+    "name": "Amarjothi Spinning Mills Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ANDREWYU",
+    "name": "Andrew Yule & Company Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ANNAPURNA",
+    "name": "Annapurna Swadisht Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ANSALBU",
+    "name": "Ansal Buildwell Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "APOORVA",
+    "name": "Apoorva Leasing Finance and Investment Company Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ARCL",
+    "name": "ARCL Organics Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ARDEE",
+    "name": "Ardee Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ARYAMAN",
+    "name": "Aryaman Financial Services Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ASIANTNE",
+    "name": "Asian Tea & Exports Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ASSAMENT",
+    "name": "Assam Entrade Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "AUGMONT",
+    "name": "Augmont Enterprises Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "AUSTENG",
+    "name": "Austin Engineering Company  Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "AVANCE",
+    "name": "Avance Technologies Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "AXTEL",
+    "name": "Axtel Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "AZADIND",
+    "name": "Azad India Mobility Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "BENARAS",
+    "name": "Benares Hotels Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "BLUECLOUDS",
+    "name": "Blue Cloud Softech Solutions Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "BPLPHARMA",
+    "name": "Bharat Parenterals Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "BRAHMINFRA",
+    "name": "Brahmaputra Infrastructure Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "BRIGHTBR",
+    "name": "Bright Brothers Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "CFEL",
+    "name": "Confidence Futuristic Energetech Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "CGVAK",
+    "name": "CG Vak Software & Exports Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "CHEMCRUX",
+    "name": "Chemcrux Enterprises Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "CMLL",
+    "name": "Caliber Mining and Logistics Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "CMRGREEN",
+    "name": "CMR Green Technologies Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "COMPEAU",
+    "name": "Competent Automobiles Company Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "CORDELIA",
+    "name": "Waterways Leisure Tourism Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "CPL",
+    "name": "Captain Polyplast Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "CRAVATEX",
+    "name": "Cravatex Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "CSM",
+    "name": "CSM Technologies Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "DEEP",
+    "name": "Deep Polymers Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "DHATRE",
+    "name": "Dhatre Udyog Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "DHOOTTRANS",
+    "name": "Dhoot Transmission Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "EASTWEST",
+    "name": "East West Freight Carriers Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ECORECO",
+    "name": "Eco Recycling Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "EKI",
+    "name": "EKI Energy Services Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "EMPIND",
+    "name": "Empire Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ENKEIWHEL",
+    "name": "Enkei Wheels (India) Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "FERMENTA",
+    "name": "Fermenta Biotech Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "FREDUN",
+    "name": "Fredun Pharmaceuticals Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "GAJA",
+    "name": "Gaja Alternative Asset Management Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "GKB",
+    "name": "GKB Ophthalmics Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "GYFTR",
+    "name": "Gyftr Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "HAMPTON",
+    "name": "Hampton Sky Realty Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "HAZOOR",
+    "name": "Hazoor Multi Projects Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "HBPOR",
+    "name": "HB Portfolio Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "HINDADH",
+    "name": "Hindustan Adhesives Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "HINDALUMI",
+    "name": "Hind Aluminium Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "HORIZONIND",
+    "name": "Horizon Industrial Parks Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "HRYNSHP",
+    "name": "Hariyana Ship Breakers Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "INDOKEM",
+    "name": "Indokem Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "IPRINGLTD",
+    "name": "IP Rings Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ISTLTD",
+    "name": "I S T Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ITL",
+    "name": "ITL Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "JENBURPH",
+    "name": "Jenburkt Pharmaceuticals Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "JNPR",
+    "name": "Juniper Green Energy Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "JYOTIRES",
+    "name": "Jyoti Resins & Adhesives Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "KAMANWALA",
+    "name": "Kamanwala Housing Construction Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "KANCOTEA",
+    "name": "Kanco Tea & Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "KDGREEN",
+    "name": "KD Green Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "KJMCFIN",
+    "name": "KJMC Financial Services Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "KMCSHIL",
+    "name": "K M C Speciality Hospitals (India) Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "KNACK",
+    "name": "Knack Packaging Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "KSE",
+    "name": "KSE Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "KUSUMGAR",
+    "name": "Kusumgar Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "LADDERUP",
+    "name": "Ladderup Finance Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "LAKSHMIMIL",
+    "name": "Lakshmi Mills Company Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "LALITHAA",
+    "name": "Lalithaa Jewellery Mart Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "LANCER",
+    "name": "Lancer Container Lines Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "LASERPOWER",
+    "name": "Laser Power & Infra Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "LCL",
+    "name": "Lohia Corp Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "LEAPIND",
+    "name": "LEAP India Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "LKPSEC",
+    "name": "LKP Securities Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "LOTUSCHO",
+    "name": "Lotus Chocolate Company Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "LUMINO",
+    "name": "Lumino Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "MAKERSL",
+    "name": "Makers Laboratories Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "MANIPALHOS",
+    "name": "Manipal Health Enterprises Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "MEDICAPQ",
+    "name": "Medi Caps Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "MIIL",
+    "name": "Meghna Infracon Infrastructure Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "MILKYMIST",
+    "name": "Milky Mist Dairy Food Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "MKEXIM",
+    "name": "M.K. Exim (India) Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "MLKFOOD",
+    "name": "Milkfood Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "MOHITE",
+    "name": "Mohite Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "MOLBIO",
+    "name": "Molbio Diagnostics Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "MSL",
+    "name": "Mangalam Seeds Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "MUKESHB",
+    "name": "Mukesh Babu Financial Services Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "MVELECTRO",
+    "name": "MV Electrosystems Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "NICCOPAR",
+    "name": "Nicco Parks & Resorts Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "NTCIND",
+    "name": "NTC Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ODYCORP",
+    "name": "Odyssey Corporation Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ONEGLOBAL",
+    "name": "One Global Service Provider Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ONIXSOLAR",
+    "name": "Onix Solar Energy Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "OPTIFIN",
+    "name": "Optimus Finance Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "ORIRAIL",
+    "name": "Oriental Rail Infrastructure Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "PACIFICI",
+    "name": "Pacific Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "PANCHMAHQ",
+    "name": "Panchmahal Steel Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "PANORAMA",
+    "name": "Panorama Studios International Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "PARNAXLAB",
+    "name": "Parnax Lab Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "PBMPOLY",
+    "name": "PBM Polytex Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "PERMAGN",
+    "name": "Permanent Magnets Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "PHOENXINTL",
+    "name": "Phoenix International Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "POEL",
+    "name": "POCL Enterprises Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "POLYSPIN",
+    "name": "Polyspin Exports Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "PRISMX",
+    "name": "Prismx Global Ventures Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "RAMBHAJO",
+    "name": "Advit Jewels Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "RIR",
+    "name": "RIR Power Electronics Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "RRECL",
+    "name": "RDB Real Estate Constructions Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "RTSPOWR",
+    "name": "RTS Power Corporation Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SAB",
+    "name": "SAB Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SAICAPI",
+    "name": "Sai Capital Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SAMBANDAM",
+    "name": "Sambandam Spinning Mills Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SAYAJIIND",
+    "name": "Sayaji Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SBIFUNDS",
+    "name": "SBI Funds Management Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SEKURITIND",
+    "name": "Saint Gobain Sekurit India Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SGLRES",
+    "name": "SGL Resources Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SGRL",
+    "name": "Shree Ganesh Remedies Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SHANKESH",
+    "name": "Shankesh Jewellers Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SHERVANI",
+    "name": "Shervani Industrial Syndicate Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SHILGRAVQ",
+    "name": "Shilp Gravures Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SHIPROCKET",
+    "name": "Shiprocket Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SHIVAAGRO",
+    "name": "Shiva Global Agro Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SHIVACEM",
+    "name": "Shiva Cement Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SHRADDHA",
+    "name": "Shraddha Prime Projects Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SHRJAGP",
+    "name": "Shri Jagdamba Polymers Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SHUKRAPHAR",
+    "name": "Shukra Pharmaceuticals Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SIEL",
+    "name": "Superior Industrial Enterprises Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SIMPLXREA",
+    "name": "Simplex Realty Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SKYWAYS",
+    "name": "Skyways Air Services Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SPELS",
+    "name": "SPEL Semiconductor Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SRIKPRIND",
+    "name": "Sri KPR Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "STLSTRINF",
+    "name": "Steel Strips Infrastructures Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SUMEDHA",
+    "name": "Sumedha Fiscal Services Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SUNLOC",
+    "name": "Sunil Healthcare Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SUNRAKSHAK",
+    "name": "Sunrakshakk Industries India Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SUNSHIEL",
+    "name": "Sunshield Chemicals Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SUNSHINE",
+    "name": "Sunshine Pictures Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SVGLOBAL",
+    "name": "S V Global Mill Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SWARNSAR",
+    "name": "Swarnsarita Jewels India Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "SYMBIOTEC",
+    "name": "Symbiotec Pharmalab Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "TANAA",
+    "name": "Taneja Aerospace & Aviation Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "TECHNOCRAF",
+    "name": "Technocraft Ventures Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "TEMPSENS",
+    "name": "Tempsens Instruments (India) Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "TERAI",
+    "name": "Terai Tea Company Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "TGVSL",
+    "name": "TGV Sraac Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "TOYAMSL",
+    "name": "Toyam Sports Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "TRANSCOR",
+    "name": "Transcorp International Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "TRITONV",
+    "name": "Triton Valves Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "TURTLEMINT",
+    "name": "Turtlemint Fintech Solutions Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "TUTIALKA",
+    "name": "Tuticorin Alkali Chemicals & Fertilizers Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "UDAYJEW",
+    "name": "Uday Jewellery Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "UPHOT",
+    "name": "U P Hotels Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VADILENT",
+    "name": "Vadilal Enterprises Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VASUPRADA",
+    "name": "Shri Vasuprada Plantations Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VEDAVAAG",
+    "name": "VEDAVAAG Systems Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VEDPOWER",
+    "name": "Vedanta Power Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VGCL",
+    "name": "Vibrant Global Capital Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VIJSOLX",
+    "name": "Vijay Solvex Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VIRAT",
+    "name": "Virat Industries Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VISHAL",
+    "name": "Vishal Fabrics Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VISL",
+    "name": "Vedanta Iron and Steel Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VIVOBIOT",
+    "name": "Vivo Bio Tech Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VOEPL",
+    "name": "Virtuoso Optoelectronics Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VOGL",
+    "name": "Vedanta Oil and Gas Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VOITHPAPR",
+    "name": "Voith Paper Fabrics India Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "VTMLTD",
+    "name": "VTM Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "WARDINMOBI",
+    "name": "Wardwizard Innovations & Mobility Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "WATERBASE",
+    "name": "Waterbase Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "WHBRADY",
+    "name": "WH Brady & Company Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "XTRANET",
+    "name": "Xtranet Technologies Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  },
+  {
+    "symbol": "YOGI",
+    "name": "Yogi Limited",
+    "sector": "Custom",
+    "cap": "custom",
+    "source": "both",
+    "updated_at": 1788664919788,
+    "is_favorite": 0
+  }
+]

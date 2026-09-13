@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-08-24",
+  "status": "done",
+  "generatedAt": "2026-08-24T16:04:07.857Z",
+  "agent": {
+    "provider": "codex-session",
+    "replayUsed": false,
+    "sweepUsed": false
+  },
+  "thesis": "The selected day lost INR 1,519.21 net despite earning INR 256.98 gross because INR 1,776.19 of charges overwhelmed gross edge. Five Rangebound confirmed-stop exits were the main loss source at INR -6,009.32 net. Their planned stop distances averaged 0.333%, but the observed exits averaged 0.545% adverse because the normal stop path waits for two consecutive completed five-minute candles beyond the planned stop and then exits at the current observed price. The Momentum Runner 0.6% setting did not control these five exits; no Momentum Runner position closed by confirmed stop.",
+  "analysisWindow": {
+    "definition": "Selected transaction date 2026-08-24",
+    "positions": 18,
+    "wins": 6,
+    "losses": 12,
+    "winRatePct": 33.33,
+    "grossPnlBeforeCharges": 256.98,
+    "charges": 1776.19,
+    "netPnl": -1519.21,
+    "expectancyPerTrade": -84.4,
+    "setupNetPnl": {
+      "EARLY_MOMENTUM": 377.02,
+      "RANGEBOUND": -1166.01,
+      "MOMENTUM_RUNNER": -730.22
+    }
+  },
+  "confidenceWindow": {
+    "datesRequested": [
+      "2026-08-11",
+      "2026-08-17",
+      "2026-08-18",
+      "2026-08-19",
+      "2026-08-20",
+      "2026-08-21",
+      "2026-08-24"
+    ],
+    "datesAvailable": [
+      "2026-08-11",
+      "2026-08-17",
+      "2026-08-18",
+      "2026-08-19",
+      "2026-08-20",
+      "2026-08-21",
+      "2026-08-24"
+    ],
+    "datesUsed": [
+      "2026-08-11",
+      "2026-08-17",
+      "2026-08-18",
+      "2026-08-19",
+      "2026-08-20",
+      "2026-08-21",
+      "2026-08-24"
+    ],
+    "shortfall": 0,
+    "positions": 68,
+    "wins": 27,
+    "losses": 41,
+    "winRatePct": 39.71,
+    "grossPnlBeforeCharges": 9322.8,
+    "charges": 5947.77,
+    "netPnl": 3375.03,
+    "expectancyPerTrade": 49.63,
+    "profitFactor": 1.2,
+    "realizedSequenceMaxDrawdown": 5033.99
+  },
+  "setupFindings": [
+    {
+      "setupType": "RANGEBOUND",
+      "positions7": 30,
+      "dates7": 5,
+      "wins7": 15,
+      "netPnl7": 4572.7,
+      "expectancy7": 152.42,
+      "profitFactor7": 1.42,
+      "confirmedStops7": 7,
+      "confirmedStopNetPnl7": -7577.96,
+      "conclusion": "Preserve the enabled state and 0.5 position multiplier. The setup was profitable over seven sessions despite the selected-day stop cluster. Requiring live depth is also contradicted: all 30 Rangebound positions lacked fresh live depth, yet the group made INR 4,572.70 net."
+    },
+    {
+      "setupType": "MOMENTUM_RUNNER",
+      "positions7": 25,
+      "dates7": 6,
+      "wins7": 6,
+      "netPnl7": -1271.38,
+      "expectancy7": -50.86,
+      "profitFactor7": 0.69,
+      "supportingLossDates7": 4,
+      "contradictingProfitableDates7": 2,
+      "snapshotAppearancesSelectedDate": 2171,
+      "snapshotUniqueSymbolsSelectedDate": 77,
+      "conclusion": "Preserve enabled for now. The seven-session aggregate is cost-negative, but two profitable dates and the sign change from the preceding seven-session window make a disable recommendation unstable. The selected-day runner losses were zero-progress and EOD exits, not confirmed stops, so changing the runner stop cannot explain or repair them."
+    }
+  ],
+  "exitFindings": {
+    "selectedDayByExitReason": {
+      "Simulation confirmed stop": {
+        "positions": 5,
+        "grossPnl": -5422.15,
+        "charges": 587.17,
+        "netPnl": -6009.32
+      },
+      "Simulation VWAP loss": {
+        "positions": 2,
+        "grossPnl": -1360.1,
+        "charges": 235.75,
+        "netPnl": -1595.85
+      },
+      "Time and zero progress": {
+        "positions": 3,
+        "grossPnl": -527.75,
+        "charges": 171.92,
+        "netPnl": -699.67
+      }
+    },
+    "selectedDayConfirmedStops": [
+      {
+        "symbol": "INDIGO",
+        "plannedStopPct": 0.347,
+        "actualAdverseExitPct": 0.458,
+        "beyondPlannedPct": 0.111,
+        "firstBreachToCloseMin": 5.02,
+        "netPnl": -1009.13
+      },
+      {
+        "symbol": "JKPAPER",
+        "plannedStopPct": 0.352,
+        "actualAdverseExitPct": 0.599,
+        "beyondPlannedPct": 0.247,
+        "firstBreachToCloseMin": 5.0,
+        "netPnl": -1313.89
+      },
+      {
+        "symbol": "WIPRO",
+        "plannedStopPct": 0.339,
+        "actualAdverseExitPct": 0.564,
+        "beyondPlannedPct": 0.224,
+        "firstBreachToCloseMin": 13.59,
+        "netPnl": -1245.68
+      },
+      {
+        "symbol": "TRAVELFOOD",
+        "plannedStopPct": 0.28,
+        "actualAdverseExitPct": 0.409,
+        "beyondPlannedPct": 0.129,
+        "firstBreachToCloseMin": 13.88,
+        "netPnl": -933.12
+      },
+      {
+        "symbol": "REDINGTON",
+        "plannedStopPct": 0.346,
+        "actualAdverseExitPct": 0.695,
+        "beyondPlannedPct": 0.349,
+        "firstBreachToCloseMin": 4.93,
+        "netPnl": -1507.5
+      }
+    ],
+    "confirmedStopSummary": {
+      "plannedStopPctAverage": 0.333,
+      "actualAdverseExitPctAverage": 0.545,
+      "averageOvershootBeyondPlannedPct": 0.212,
+      "exitsBeyondPlannedStop": 5,
+      "exitsBeyondPrior06Pct": 1,
+      "maximumActualAdverseExitPct": 0.695,
+      "mechanism": "SIMULATION_STOP_CONFIRM_BARS=2 requires two consecutive completed five-minute closes beyond the trade-specific stop after the ten-minute grace period. The returned exit uses the current observed price, so it is not capped at the planned stop or at the Momentum Runner initial-stop percentage. SIMULATION_SLIPPAGE_PCT=0.06 can add adverse execution cost, but most of the observed gap is confirmation delay."
+    }
+  },
+  "preserveCurrentControls": [
+    {
+      "key": "SIMULATION_RANGEBOUND_ENABLED",
+      "value": true,
+      "defaultValue": true,
+      "source": "current-override"
+    },
+    {
+      "key": "SIMULATION_RANGEBOUND_POSITION_MULTIPLIER",
+      "value": 0.5,
+      "defaultValue": 0.5,
+      "source": "default"
+    },
+    {
+      "key": "SIMULATION_RANGEBOUND_REQUIRE_LIVE_DEPTH",
+      "value": false,
+      "defaultValue": false,
+      "source": "current-override"
+    },
+    {
+      "key": "SIMULATION_MOMENTUM_RUNNER_ENABLED",
+      "value": true,
+      "defaultValue": true,
+      "source": "default"
+    },
+    {
+      "key": "SIMULATION_RUNNER_INITIAL_STOP_PCT",
+      "value": 0.5,
+      "defaultValue": 0.8,
+      "source": "current-override"
+    }
+  ],
+  "researchPriorities": [
+    "Capture the live price at the first completed stop-breach candle for every stop. Historical transactions currently retain planned stop and final fill but not the executable first-bar counterfactual price.",
+    "If the required behavior is a hard maximum adverse loss rather than a confirmed candle-close stop, implement and test an immediate live-price stop path. SIMULATION_STOP_CONFIRM_BARS=1 still waits for one completed candle and cannot guarantee a fill at the planned percentage.",
+    "Review Momentum Runner cost expectancy again after another three transaction-bearing dates; the current seven-session net is negative, but profitable dates materially contradict disabling it."
+  ],
+  "limitations": [
+    "This result is analytics-reviewed only. No Replay, backtest, parameter sweep, targeted setting trial, or setting mutation was run.",
+    "The seven-session window uses the latest seven dates containing reconciled positions ending 2026-08-24; dates without transactions are not counted as evidence.",
+    "The selected-day planned stops and breach delays were read from persisted execution records. Equivalent planned-stop and first-breach details were unavailable for the two earlier confirmed-stop dates, so the multi-date benefit of changing confirmation bars cannot be quantified.",
+    "A one-bar stop confirmation can exit earlier, but stored data does not contain the exact first-bar executable price or whipsaw recovery outcome. No saved-loss estimate is claimed.",
+    "Day-close opportunity values are hindsight benchmarks and were not treated as executable counterfactuals.",
+    "The 0.5% Momentum Runner stop override was applied after the selected trading session and therefore did not affect the selected-day positions."
+  ],
+  "recommendations": [
+    {
+      "type": "setting-change",
+      "key": "SIMULATION_DAILY_MAX_TRADES",
+      "currentValue": 30,
+      "recommendedValue": 12,
+      "defaultValue": 12,
+      "currentSource": "current-override",
+      "description": "Maximum number of new simulation entries allowed in one trading day.",
+      "confidence": "medium",
+      "rationale": "Restore the default daily cap to prevent charge-heavy tail entries after the first 12 positions of a day.",
+      "evidence": [
+        "Latest-seven affected group: 17 of 68 positions across three dates, gross P/L INR -1,381.93, charges INR 1,334.01, net P/L INR -2,715.94, expectancy INR -159.76, profit factor 0.59.",
+        "Latest-seven unaffected first-12 group: 51 positions, gross P/L INR 10,704.73, charges INR 4,613.76, net P/L INR 6,090.97, expectancy INR 119.43, profit factor 1.57.",
+        "All three dates with entries after 12 support the cap: 2026-08-20 INR -4.03, 2026-08-21 INR -880.19, and 2026-08-24 INR -1,831.72. Four dates had no affected entry.",
+        "On the selected day the six tail positions included a material HINDZINC winner at INR 1,789.54 net, but three later confirmed stops lost INR 3,686.30 net; the recommendation has real opportunity cost but favorable aggregate evidence."
+      ],
+      "risk": "A 12-trade cap can reject profitable later entries, including a selected-day INR 1,789.54 HINDZINC winner. The evidence covers only three affected dates, so confidence is medium rather than high.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "The exact 30-to-12 mechanism was checked on 68 reconciled positions over seven transaction dates. It has 17 affected positions across three dates and support on all three affected dates, but it was not replay-tested or validated."
+      }
+    },
+    {
+      "type": "setting-change",
+      "key": "SIMULATION_STOP_CONFIRM_BARS",
+      "currentValue": 2,
+      "recommendedValue": 1,
+      "defaultValue": 2,
+      "currentSource": "default",
+      "description": "Number of consecutive completed candles beyond the stop required to confirm a normal stop exit.",
+      "confidence": "low",
+      "rationale": "Reduce normal-stop confirmation from two completed five-minute candles to one so a breached planned stop is eligible to exit one candle earlier.",
+      "evidence": [
+        "Selected day: all five confirmed stops exited beyond their trade-specific planned stop; average planned distance was 0.333%, average actual adverse exit was 0.545%, and average overshoot was 0.212 percentage points.",
+        "Selected-day first-breach-to-close delays ranged from 4.93 to 13.88 minutes. REDINGTON reached 0.695% adverse versus a 0.346% planned stop; JKPAPER reached 0.599% versus 0.352% planned.",
+        "Latest seven sessions contain seven confirmed-stop positions across three dates, all Rangebound, with INR -7,577.96 aggregate net P/L and INR -1,082.57 expectancy.",
+        "Only the selected date retains detailed planned-stop and first-breach timing in the currently available execution records; exact earlier one-bar exit prices are not observable."
+      ],
+      "risk": "One-bar confirmation can realize more whipsaw losses that would have recovered before a second completed candle. It also does not guarantee a fill at the planned stop because it still waits for a completed candle and uses the current observed price. A true hard stop requires a separately approved implementation change and focused tests.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "The observed mechanism directly explains selected-day overshoot, but only five detailed affected exits on one date are measurable and the one-bar counterfactual price is absent. The recommendation is low-confidence and not validated."
+      }
+    }
+  ]
+}

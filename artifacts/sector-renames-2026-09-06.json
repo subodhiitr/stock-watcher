@@ -1,0 +1,227 @@
+[
+  {
+    "symbol": "TMPV",
+    "before": "Automobile and Auto Components",
+    "after": "Auto"
+  },
+  {
+    "symbol": "POWERINDIA",
+    "before": "ENERGY",
+    "after": "Energy"
+  },
+  {
+    "symbol": "PATANJALI",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "HONASA",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "CHENNPETRO",
+    "before": "Oil Gas & Consumable Fuels",
+    "after": "Energy"
+  },
+  {
+    "symbol": "BALRAMCHIN",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "E2E",
+    "before": "Information Technology",
+    "after": "IT"
+  },
+  {
+    "symbol": "ESDS",
+    "before": "Information Technology",
+    "after": "IT"
+  },
+  {
+    "symbol": "ACGL",
+    "before": "Automobile and Auto Components",
+    "after": "Auto"
+  },
+  {
+    "symbol": "ANDREWYU",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "ANNAPURNA",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "AVANCE",
+    "before": "Information Technology",
+    "after": "IT"
+  },
+  {
+    "symbol": "BLUECLOUDS",
+    "before": "Information Technology",
+    "after": "IT"
+  },
+  {
+    "symbol": "CGVAK",
+    "before": "Information Technology",
+    "after": "IT"
+  },
+  {
+    "symbol": "CMLL",
+    "before": "Oil, Gas & Consumable Fuels",
+    "after": "Energy"
+  },
+  {
+    "symbol": "COMPEAU",
+    "before": "Automobile and Auto Components",
+    "after": "Auto"
+  },
+  {
+    "symbol": "CSM",
+    "before": "Information Technology",
+    "after": "IT"
+  },
+  {
+    "symbol": "DHOOTTRANS",
+    "before": "Automobile and Auto Components",
+    "after": "Auto"
+  },
+  {
+    "symbol": "ENKEIWHEL",
+    "before": "Automobile and Auto Components",
+    "after": "Auto"
+  },
+  {
+    "symbol": "IPRINGLTD",
+    "before": "Automobile and Auto Components",
+    "after": "Auto"
+  },
+  {
+    "symbol": "ISTLTD",
+    "before": "Automobile and Auto Components",
+    "after": "Auto"
+  },
+  {
+    "symbol": "KANCOTEA",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "KSE",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "LOTUSCHO",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "MILKYMIST",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "MLKFOOD",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "MSL",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "NTCIND",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "PANORAMA",
+    "before": "Media, Entertainment & Publication",
+    "after": "Media"
+  },
+  {
+    "symbol": "SAYAJIIND",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "SEKURITIND",
+    "before": "Automobile and Auto Components",
+    "after": "Auto"
+  },
+  {
+    "symbol": "SGLRES",
+    "before": "Information Technology",
+    "after": "IT"
+  },
+  {
+    "symbol": "SHIVACEM",
+    "before": "Construction Materials",
+    "after": "Construction"
+  },
+  {
+    "symbol": "SIEL",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "SUNSHINE",
+    "before": "Media, Entertainment & Publication",
+    "after": "Media"
+  },
+  {
+    "symbol": "TERAI",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "TRITONV",
+    "before": "Automobile and Auto Components",
+    "after": "Auto"
+  },
+  {
+    "symbol": "VADILENT",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "VASUPRADA",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "VEDAVAAG",
+    "before": "Information Technology",
+    "after": "IT"
+  },
+  {
+    "symbol": "VIJSOLX",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "VOGL",
+    "before": "Oil, Gas & Consumable Fuels",
+    "after": "Energy"
+  },
+  {
+    "symbol": "WARDINMOBI",
+    "before": "Automobile and Auto Components",
+    "after": "Auto"
+  },
+  {
+    "symbol": "WATERBASE",
+    "before": "Fast Moving Consumer Goods",
+    "after": "Consumer Goods"
+  },
+  {
+    "symbol": "XTRANET",
+    "before": "Information Technology",
+    "after": "IT"
+  }
+]

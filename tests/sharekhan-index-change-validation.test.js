@@ -102,3 +102,34 @@ test('index previous close is frozen for the IST session and resets on the next 
   );
   assert.equal(nextDay.midcap.previousClose, 22931.45);
 });
+
+test('authoritative Yahoo closes replace provisional pre-market Sharekhan anchors once', () => {
+  proxy.__test__.resetFrozenIndexPreviousClosesForTests();
+  const freeze = proxy.__test__.applyFrozenIndexPreviousClosesForTests;
+  const at = '2026-08-23T00:10:00.000Z';
+
+  freeze({
+    nifty50:{ price:24252, previousClose:24078.3, source:'sharekhan-ws' },
+    midcap:{ price:23407.7, previousClose:23305.6, source:'sharekhan-ws' },
+    banknifty:{ price:57761.95, previousClose:57239.8, source:'sharekhan-ws' },
+  }, at);
+
+  const corrected = freeze({
+    nifty50:{ price:24252, previousClose:24231.8, source:'sharekhan-ws' },
+    midcap:{ price:23407.7, previousClose:23388.8, source:'sharekhan-ws' },
+    banknifty:{ price:57761.95, previousClose:57495.9, source:'sharekhan-ws' },
+  }, at, { authoritativePreviousClose:true });
+
+  assert.equal(corrected.nifty50.previousClose, 24231.8);
+  assert.equal(corrected.nifty50.change, 0.083);
+  assert.equal(corrected.midcap.previousClose, 23388.8);
+  assert.equal(corrected.midcap.change, 0.081);
+  assert.equal(corrected.banknifty.previousClose, 57495.9);
+  assert.equal(corrected.banknifty.change, 0.463);
+
+  const laterCorruption = freeze({
+    nifty50:{ price:24252, previousClose:24000, source:'sharekhan-ws' },
+  }, at);
+  assert.equal(laterCorruption.nifty50.previousClose, 24231.8);
+  assert.match(laterCorruption.nifty50.changeValidation, /rejected mid-session previous close/);
+});

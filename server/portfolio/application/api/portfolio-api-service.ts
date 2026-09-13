@@ -618,16 +618,40 @@ export class PortfolioApiApplicationService {
     const portfolio = loaded.value
     if (portfolio === undefined) return failure(persistenceFailure('PORTFOLIO_NOT_FOUND'))
     if (portfolio.status !== 'ACTIVE' || (portfolio.holdings.length === 0 && portfolio.cash.minorUnits <= 0n)) {
+      console.warn('[portfolio-rebalance] planning blocked', {
+        portfolioId: portfolioIdValue,
+        reason: 'PORTFOLIO_NOT_ACTIVE_OR_EMPTY',
+        status: portfolio.status,
+        holdingCount: portfolio.holdings.length,
+        cashMinorUnits: portfolio.cash.minorUnits.toString(),
+      })
       return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
     }
     const allocation = portfolio.allocationPolicy
-    if (allocation.kind !== 'SINGLE') return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
+    if (allocation.kind !== 'SINGLE') {
+      console.warn('[portfolio-rebalance] planning blocked', { portfolioId: portfolioIdValue, reason: 'ALLOCATION_NOT_SINGLE' })
+      return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
+    }
     const profile = approvedStrategyProfile(String(allocation.strategyVersionId))
-    if (profile === undefined) return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
+    if (profile === undefined) {
+      console.warn('[portfolio-rebalance] planning blocked', {
+        portfolioId: portfolioIdValue,
+        reason: 'STRATEGY_PROFILE_NOT_APPROVED',
+        strategyVersionId: String(allocation.strategyVersionId),
+      })
+      return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
+    }
     const symbolByInstrument = new Map<string, string>()
     for (const holding of portfolio.holdings) {
       const symbol = marketSymbol(String(holding.instrumentId))
-      if (symbol === undefined) return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
+      if (symbol === undefined) {
+        console.warn('[portfolio-rebalance] planning blocked', {
+          portfolioId: portfolioIdValue,
+          reason: 'UNSUPPORTED_MARKET_SYMBOL',
+          instrumentId: String(holding.instrumentId),
+        })
+        return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
+      }
       symbolByInstrument.set(String(holding.instrumentId), symbol)
     }
     let universe
@@ -645,7 +669,12 @@ export class PortfolioApiApplicationService {
           }),
         }),
       }))
-    } catch {
+    } catch (error) {
+      console.warn('[portfolio-rebalance] research unavailable', {
+        portfolioId: portfolioIdValue,
+        reason: 'MARKET_ANALYSIS_FAILED',
+        error: error instanceof Error ? error.message : String(error),
+      })
       return failure(persistenceFailure('PERSISTENCE_OPERATION_FAILED'))
     }
     const currentSymbols = new Set(symbolByInstrument.values())
@@ -665,13 +694,28 @@ export class PortfolioApiApplicationService {
         })
     const scoredCandidates = selectResearchCandidates({ candidates: universe.candidates, config: profile.config, currentSymbols })
     const candidateBySymbol = new Map(scoredCandidates.map((candidate) => [candidate.symbol, candidate]))
-    if ([...currentSymbols].some((symbol) => candidateBySymbol.get(symbol) === undefined)) {
+    const missingCurrentSymbols = [...currentSymbols].filter((symbol) => candidateBySymbol.get(symbol) === undefined)
+    if (missingCurrentSymbols.length > 0) {
+      console.warn('[portfolio-rebalance] research unavailable', {
+        portfolioId: portfolioIdValue,
+        reason: 'CURRENT_HOLDINGS_MISSING_FROM_RESEARCH_UNIVERSE',
+        missingSymbols: missingCurrentSymbols,
+        currentSymbolCount: currentSymbols.size,
+        universeCandidateCount: universe.candidates.length,
+      })
       return failure(persistenceFailure('PERSISTENCE_OPERATION_FAILED'))
     }
     const selectedCandidates = scoredCandidates
       .filter((candidate) => candidate.selected)
       .sort((left, right) => (left.rank ?? Number.MAX_SAFE_INTEGER) - (right.rank ?? Number.MAX_SAFE_INTEGER))
-    if (selectedCandidates.length === 0) return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
+    if (selectedCandidates.length === 0) {
+      console.warn('[portfolio-rebalance] planning blocked', {
+        portfolioId: portfolioIdValue,
+        reason: 'NO_SELECTED_RESEARCH_CANDIDATES',
+        scoredCandidateCount: scoredCandidates.length,
+      })
+      return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
+    }
     const holdingBySymbol = new Map(portfolio.holdings.map((holding) => [
       symbolByInstrument.get(String(holding.instrumentId)) as string,
       holding,
@@ -1024,9 +1068,7 @@ export class PortfolioApiApplicationService {
     const allocation = portfolio.allocationPolicy
     if (allocation.kind !== 'SINGLE') return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
     const profile = approvedStrategyProfile(String(allocation.strategyVersionId))
-    if (profile === undefined || portfolio.holdings.length > profile.config.construction.maxHoldings) {
-      return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
-    }
+    if (profile === undefined) return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
     const symbolByInstrument = new Map<string, string>()
     for (const holding of portfolio.holdings) {
       const symbol = marketSymbol(String(holding.instrumentId))
@@ -1048,12 +1090,31 @@ export class PortfolioApiApplicationService {
     const currentMarketValue = portfolio.holdings.reduce((total, holding) =>
       total + holding.totalQuantity.shares * (priceByInstrument.get(String(holding.instrumentId)) ?? 0n), 0n)
     const nav = portfolio.cash.minorUnits + currentMarketValue
-    if (nav <= 0n) return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
+    if (nav <= 0n) {
+      console.warn('[portfolio-rebalance] planning blocked', {
+        portfolioId: portfolioIdValue,
+        reason: 'NON_POSITIVE_NAV',
+        navMinorUnits: nav.toString(),
+      })
+      return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
+    }
     const config = profile.config
+    const excessHoldingCount = Math.max(0, portfolio.holdings.length - config.construction.maxHoldings)
+    const limitReductionInstrumentIds = new Set(portfolio.holdings
+      .map((holding) => Object.freeze({
+        instrumentId: String(holding.instrumentId),
+        currentValue: holding.totalQuantity.shares * (priceByInstrument.get(String(holding.instrumentId)) ?? 0n),
+      }))
+      .sort((left, right) => left.currentValue < right.currentValue ? -1
+        : left.currentValue > right.currentValue ? 1
+          : left.instrumentId.localeCompare(right.instrumentId))
+      .slice(0, excessHoldingCount)
+      .map((holding) => holding.instrumentId))
+    const reductionOnly = limitReductionInstrumentIds.size > 0
     const exposurePpm = BigInt(Math.round((100 - config.construction.cashBufferPct) * 10_000))
     const maximumStockPpm = BigInt(Math.round(config.eligibility.maxStockWeightPct * 10_000))
     const equalWeightPpm = exposurePpm / BigInt(portfolio.holdings.length)
-    const targetWeightPpm = equalWeightPpm < maximumStockPpm ? equalWeightPpm : maximumStockPpm
+    const driftTargetWeightPpm = equalWeightPpm < maximumStockPpm ? equalWeightPpm : maximumStockPpm
     const asOf = indiaDate(this.now())
     let grossBuy = 0n
     let grossSell = 0n
@@ -1064,8 +1125,15 @@ export class PortfolioApiApplicationService {
       const price = priceByInstrument.get(instrumentId) ?? 0n
       const currentQuantity = holding.totalQuantity.shares
       const currentValue = currentQuantity * price
+      const selectedForLimitReduction = limitReductionInstrumentIds.has(instrumentId)
+      const currentWeightPpm = currentValue * 1_000_000n / nav
+      const targetWeightPpm = reductionOnly
+        ? selectedForLimitReduction ? 0n : currentWeightPpm
+        : driftTargetWeightPpm
       const targetValueBeforeShares = nav * targetWeightPpm / 1_000_000n
-      const targetQuantity = price === 0n ? 0n : targetValueBeforeShares / price
+      const targetQuantity = reductionOnly
+        ? selectedForLimitReduction ? 0n : currentQuantity
+        : price === 0n ? 0n : targetValueBeforeShares / price
       const targetValue = targetQuantity * price
       const deltaQuantity = targetQuantity - currentQuantity
       const grossNotional = (deltaQuantity < 0n ? -deltaQuantity : deltaQuantity) * price
@@ -1107,20 +1175,37 @@ export class PortfolioApiApplicationService {
         livePriceMinorUnits: price.toString(),
         currentValueMinorUnits: currentValue.toString(),
         targetValueMinorUnits: targetValue.toString(),
-        currentWeightPpm: (currentValue * 1_000_000n / nav).toString(),
+        currentWeightPpm: currentWeightPpm.toString(),
         targetWeightPpm: targetWeightPpm.toString(),
         estimatedChargesMinorUnits: charges.toString(),
         estimatedTaxMinorUnits: tax.toString(),
         realizedPnlMinorUnits: realizedPnl.toString(),
-        reasonCode: side === 'HOLD' ? 'NO_TRADE_REQUIRED' : 'TARGET_WEIGHT_REBALANCE',
-        explanation: side === 'HOLD'
-          ? 'Current whole-share quantity already matches the drift-only research target.'
-          : 'Whole-share target applies the selected preset cash buffer and maximum stock weight.',
+        reasonCode: selectedForLimitReduction
+          ? 'MAX_HOLDINGS_REDUCTION'
+          : side === 'HOLD' ? 'NO_TRADE_REQUIRED' : 'TARGET_WEIGHT_REBALANCE',
+        explanation: selectedForLimitReduction
+          ? `Exit the smallest market-value position so the portfolio returns to the preset maximum of ${config.construction.maxHoldings} holdings.`
+          : reductionOnly
+            ? 'Keep this holding unchanged while the quote-only preview performs the minimum required holdings-limit reduction.'
+            : side === 'HOLD'
+              ? 'Current whole-share quantity already matches the drift-only research target.'
+              : 'Whole-share target applies the selected preset cash buffer and maximum stock weight.',
       })
     })
     const createdAt = new Date(this.now()).toISOString()
     const projectedCash = portfolio.cash.minorUnits + grossSell - grossBuy - estimatedCharges - estimatedTax
-    if (projectedCash < 0n) return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
+    if (projectedCash < 0n) {
+      console.warn('[portfolio-rebalance] planning blocked', {
+        portfolioId: portfolioIdValue,
+        reason: 'NEGATIVE_PROJECTED_CASH_AFTER_COSTS',
+        projectedCashMinorUnits: projectedCash.toString(),
+        grossBuyMinorUnits: grossBuy.toString(),
+        grossSellMinorUnits: grossSell.toString(),
+        chargesMinorUnits: estimatedCharges.toString(),
+        taxMinorUnits: estimatedTax.toString(),
+      })
+      return failure(persistenceFailure('INVALID_PORTFOLIO_INSERT'))
+    }
     const hashInput = Object.freeze({
       portfolioId: portfolioIdValue,
       portfolioStateVersion: portfolio.stateVersion,
@@ -1170,6 +1255,9 @@ export class PortfolioApiApplicationService {
       warnings: Object.freeze([
         'Yahoo quotes are research data and are not licensed point-in-time execution data.',
         'Strategy-universe analysis is unavailable in this runtime; this explicit fallback can only price existing holdings.',
+        ...(reductionOnly ? [
+          `The portfolio exceeds the preset maximum by ${excessHoldingCount} holdings; this preview sells only the smallest market-value excess positions and leaves retained holdings unchanged.`,
+        ] : []),
         'Approval records PAPER intent only and never enables live broker execution.',
       ]),
       createdAt,

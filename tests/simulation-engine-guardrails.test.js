@@ -65,6 +65,75 @@ test('default zero-progress settings release stalled capital within 35 to 45 min
   assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_EXIT_MIN_HOLD_MIN, 30);
 });
 
+test('automatic partial exits are disabled and the first gain milestone is 0.7 percent by default', () => {
+  assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_PARTIAL_EXITS_ENABLED, false);
+  assert.equal(TradeRules.DEFAULT_SETTINGS.SIMULATION_GAIN_MILESTONES_PCT, '0.7,1,1.5,2');
+});
+
+test('default gain milestone arms at 0.7 percent for both buy and sell positions', () => {
+  const settings = TradeRules.withDefaults({
+    SIMULATION_TRAIL_START_PCT:5,
+    SIMULATION_EXIT_MIN_HOLD_MIN:999,
+  });
+  const makeTrade = side => ({
+    symbol:`MILESTONE-${side}`,
+    side,
+    entryPrice:100,
+    stop:side === 'sell' ? 105 : 95,
+    target:side === 'sell' ? 95 : 105,
+    qty:10,
+    openedAt:'2026-08-19T04:30:00.000Z',
+  });
+  const buy = makeTrade('buy');
+  const sell = makeTrade('sell');
+
+  assert.equal(SimulationEngine.getSimulationExit(buy, 100.69, { score:80, signal:'buy', indicators:{} }, '2026-08-19T04:35:00.000Z', settings), null);
+  assert.equal(SimulationEngine.getSimulationExit(sell, 99.31, { score:-80, signal:'sell', indicators:{} }, '2026-08-19T04:35:00.000Z', settings), null);
+  assert.equal(buy._gainMilestoneFloorPct, undefined);
+  assert.equal(sell._gainMilestoneFloorPct, undefined);
+
+  assert.equal(SimulationEngine.getSimulationExit(buy, 100.71, { score:80, signal:'buy', indicators:{} }, '2026-08-19T04:36:00.000Z', settings), null);
+  assert.equal(SimulationEngine.getSimulationExit(sell, 99.29, { score:-80, signal:'sell', indicators:{} }, '2026-08-19T04:36:00.000Z', settings), null);
+  assert.equal(buy._gainMilestoneFloorPct, 0.7);
+  assert.equal(sell._gainMilestoneFloorPct, 0.7);
+});
+
+test('default profit locks and targets never emit partial exits for buy or sell positions', () => {
+  const settings = TradeRules.withDefaults({
+    SIMULATION_GAIN_MILESTONE_ENABLED:false,
+    SIMULATION_LONG_PROFIT_LOCK_MIN_HOLD_MIN:0,
+    SIMULATION_TRAIL_START_PCT:5,
+    SIMULATION_EXIT_MIN_HOLD_MIN:999,
+  });
+  const candidate = side => ({
+    symbol:`FULL-${side}`,
+    side,
+    signal:side,
+    score:side === 'sell' ? -80 : 80,
+    indicators:{
+      vwap:100,
+      ema9:side === 'sell' ? 99.8 : 100.2,
+      ema20:100,
+      superTrendDirection:side === 'sell' ? 'bearish' : 'bullish',
+      relVolumeTimeAdjusted:2,
+    },
+  });
+  const buy = { symbol:'FULL-buy', side:'buy', entryPrice:100, stop:99, target:102, qty:10, openedAt:'2026-08-19T04:30:00.000Z' };
+  const sell = { symbol:'FULL-sell', side:'sell', entryPrice:100, stop:101, target:98, qty:10, openedAt:'2026-08-19T04:30:00.000Z' };
+
+  assert.equal(SimulationEngine.getSimulationExit(buy, 100.8, candidate('buy'), '2026-08-19T04:31:00.000Z', settings), null);
+  assert.equal(SimulationEngine.getSimulationExit(sell, 99.75, candidate('sell'), '2026-08-19T04:31:00.000Z', settings), null);
+  assert.equal(buy._longProfitLockArmed, true);
+  assert.equal(sell._shortProfitLockArmed, true);
+
+  const buyTarget = SimulationEngine.getSimulationExit(buy, 102, candidate('buy'), '2026-08-19T04:32:00.000Z', settings);
+  const sellTarget = SimulationEngine.getSimulationExit(sell, 98, candidate('sell'), '2026-08-19T04:32:00.000Z', settings);
+  assert.equal(buyTarget?.reason, 'Simulation target');
+  assert.equal(sellTarget?.reason, 'Simulation target');
+  assert.equal(buyTarget?.action, undefined);
+  assert.equal(sellTarget?.action, undefined);
+});
+
 test('gain milestones protect a reached half-percent long gain over time', () => {
   const trade = {
     symbol:'TEST',
@@ -286,7 +355,38 @@ test('momentum runner initial stop is fixed at 0.80 percent', () => {
   assert.equal(capped.stop, 1276.21);
 });
 
-test('momentum runner scale-in requires the 0.50 percent milestone and current VWAP/trigger hold', () => {
+test('rangebound retains tighter stops and caps wider stops at 0.50 percent', () => {
+  const tighterCandidate = {
+    setupType: 'RANGEBOUND',
+    indicators: { target: 101.5, stop: 99.7, atr: 0.2 },
+  };
+  const tighterPlan = SimulationEngine.getPaperPlanForCandidate(tighterCandidate, 'buy', 100);
+  assert.equal(tighterPlan.stop, 99.7);
+
+  const widerCandidate = {
+    setupType: 'RANGEBOUND',
+    indicators: { target: 101.5, stop: 99.2, atr: 0.8 },
+  };
+  const cappedPlan = SimulationEngine.getPaperPlanForCandidate(widerCandidate, 'buy', 100);
+  assert.equal(cappedPlan.stop, 99.5);
+
+  const configured = SimulationEngine.getPaperPlanForCandidate(
+    widerCandidate,
+    'buy',
+    100,
+    { SIMULATION_RANGEBOUND_INITIAL_STOP_PCT:0.4 }
+  );
+  assert.equal(configured.stop, 99.6);
+
+  const nonRangebound = SimulationEngine.getPaperPlanForCandidate(
+    { setupType:'EARLY_MOMENTUM', indicators:{ target:101.5, stop:99.7, atr:0.2 } },
+    'buy',
+    100
+  );
+  assert.equal(nonRangebound.stop, 99.7);
+});
+
+test('momentum runner scale-in requires the 0.70 percent milestone and current VWAP/trigger hold', () => {
   const trade = {
     id:'runner-1',
     symbol:'TEST',
@@ -299,7 +399,7 @@ test('momentum runner scale-in requires the 0.50 percent milestone and current V
   };
   const candidate = {
     symbol:'TEST',
-    price:100.5,
+    price:100.7,
     indicators:{ vwap:100.05, entryTrigger:'Buy above 100.10' },
   };
   const intent = SimulationEngine.getMomentumRunnerScaleInIntent(trade, candidate, candidate.price);
@@ -308,7 +408,7 @@ test('momentum runner scale-in requires the 0.50 percent milestone and current V
 
   assert.equal(
     SimulationEngine.getMomentumRunnerScaleInIntent(
-      { ...trade, _maxFavorablePct:0.49 },
+      { ...trade, _maxFavorablePct:0.69 },
       { ...candidate, price:100.05 },
       100.05
     ),
@@ -317,7 +417,7 @@ test('momentum runner scale-in requires the 0.50 percent milestone and current V
   );
   assert.equal(
     SimulationEngine.getMomentumRunnerScaleInIntent(
-      { ...trade, _maxFavorablePct:0.55 },
+      { ...trade, _maxFavorablePct:0.75 },
       { ...candidate, price:100.08 },
       100.08
     ),
@@ -1028,7 +1128,8 @@ test('target runner partial sets a next target when momentum continues', () => {
     trade,
     101,
     candidate,
-    '2026-07-02T04:08:00.000Z'
+    '2026-07-02T04:08:00.000Z',
+    { SIMULATION_PARTIAL_EXITS_ENABLED:true }
   );
 
   assert.equal(exit?.reason, 'Simulation partial target runner');
@@ -1482,6 +1583,7 @@ test('short profit lock books half at 0.25 percent and protects the remainder', 
     indicators:{ vwap:100.2, ema9:99.8, ema20:100.1, superTrendDirection:'bearish' },
   };
   const settings = TradeRules.withDefaults({
+    SIMULATION_PARTIAL_EXITS_ENABLED:true,
     SIMULATION_SHORT_PROFIT_LOCK_PCT:0.25,
     SIMULATION_SHORT_PROFIT_LOCK_PARTIAL_QTY_PCT:50,
     SIMULATION_BREAKEVEN_MIN_HOLD_MIN:0,
@@ -1591,7 +1693,7 @@ test('entry expected gross move must cover at least 2.5 times modeled costs', ()
 });
 
 test('flat-market generic runner locks at 0.55 while a dominant leader retains 0.80', () => {
-  const settings = TradeRules.withDefaults({ SIMULATION_LONG_PROFIT_LOCK_MIN_HOLD_MIN:15, SIMULATION_TRAIL_START_PCT:2 });
+  const settings = TradeRules.withDefaults({ SIMULATION_PARTIAL_EXITS_ENABLED:true, SIMULATION_LONG_PROFIT_LOCK_MIN_HOLD_MIN:15, SIMULATION_TRAIL_START_PCT:2 });
   const market = { indices:{ nifty50:{ change:0.05 }, banknifty:{ change:-0.4 }, smallcap:{ change:-0.3 } } };
   const candidate = makeEligibleCandidate('ADAPTIVE-LOCK', 90);
   candidate.price = 100.55;

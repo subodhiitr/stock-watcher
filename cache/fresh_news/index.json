@@ -1,277 +1,142 @@
 {
-  "version": 5,
-  "savedAt": 1786128254517,
+  "version": 7,
+  "savedAt": 1789275881636,
   "partitioned": true,
   "days": {
-    "2026-07-09": {
-      "date": "2026-07-09",
-      "savedAt": 1783678716415,
-      "builtInMs": 137534,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 49,
+    "2026-08-31": {
+      "date": "2026-08-31",
+      "savedAt": 1788257823288,
+      "builtInMs": 28052,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 320,
+      "count": 62,
+      "symbolCount": 23
+    },
+    "2026-08-28": {
+      "date": "2026-08-28",
+      "savedAt": 1788171439328,
+      "builtInMs": 41079,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 320,
+      "count": 35,
+      "symbolCount": 16
+    },
+    "2026-09-01": {
+      "date": "2026-09-01",
+      "savedAt": 1788344226202,
+      "builtInMs": 31789,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 320,
+      "count": 68,
+      "symbolCount": 32
+    },
+    "2026-09-02": {
+      "date": "2026-09-02",
+      "savedAt": 1788430626020,
+      "builtInMs": 30085,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 320,
+      "count": 55,
+      "symbolCount": 20
+    },
+    "2026-09-03": {
+      "date": "2026-09-03",
+      "savedAt": 1788517069743,
+      "builtInMs": 54679,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 320,
+      "count": 83,
       "symbolCount": 37
     },
-    "2026-07-10": {
-      "date": "2026-07-10",
-      "savedAt": 1783937822803,
-      "builtInMs": 21165,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 46,
-      "symbolCount": 38
+    "2026-09-04": {
+      "date": "2026-09-04",
+      "savedAt": 1788776204983,
+      "builtInMs": 17693,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 320,
+      "count": 27,
+      "symbolCount": 11
     },
-    "2026-07-11": {
-      "date": "2026-07-11",
-      "savedAt": 1783853692055,
-      "builtInMs": 17819,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 20,
-      "symbolCount": 15
+    "2026-09-05": {
+      "date": "2026-09-05",
+      "savedAt": 1788689813359,
+      "builtInMs": 18562,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 320,
+      "count": 24,
+      "symbolCount": 10
     },
-    "2026-07-12": {
-      "date": "2026-07-12",
-      "savedAt": 1783853706594,
-      "builtInMs": 14532,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
+    "2026-09-06": {
+      "date": "2026-09-06",
+      "savedAt": 1788689860323,
+      "builtInMs": 46939,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 320,
       "count": 6,
       "symbolCount": 5
     },
-    "2026-07-13": {
-      "date": "2026-07-13",
-      "savedAt": 1784024198759,
-      "builtInMs": 12489,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 41,
-      "symbolCount": 30
+    "2026-09-07": {
+      "date": "2026-09-07",
+      "savedAt": 1788862659045,
+      "builtInMs": 60465,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 320,
+      "count": 58,
+      "symbolCount": 23
     },
-    "2026-07-14": {
-      "date": "2026-07-14",
-      "savedAt": 1784110588262,
-      "builtInMs": 11990,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 46,
-      "symbolCount": 33
-    },
-    "2026-07-15": {
-      "date": "2026-07-15",
-      "savedAt": 1784196995213,
-      "builtInMs": 11171,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
+    "2026-09-08": {
+      "date": "2026-09-08",
+      "savedAt": 1788949016006,
+      "builtInMs": 23842,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 320,
       "count": 51,
-      "symbolCount": 37
+      "symbolCount": 23
     },
-    "2026-07-16": {
-      "date": "2026-07-16",
-      "savedAt": 1784283387791,
-      "builtInMs": 12278,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 56,
-      "symbolCount": 34
+    "2026-09-09": {
+      "date": "2026-09-09",
+      "savedAt": 1789060727655,
+      "builtInMs": 91966,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 521,
+      "count": 81,
+      "symbolCount": 45
     },
-    "2026-07-17": {
-      "date": "2026-07-17",
-      "savedAt": 1784542677283,
-      "builtInMs": 97007,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 46,
-      "symbolCount": 28
+    "2026-09-10": {
+      "date": "2026-09-10",
+      "savedAt": 1789103025139,
+      "builtInMs": 94832,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 522,
+      "count": 58,
+      "symbolCount": 29
     },
-    "2026-07-18": {
-      "date": "2026-07-18",
-      "savedAt": 1784369824977,
-      "builtInMs": 39087,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
+    "2026-09-11": {
+      "date": "2026-09-11",
+      "savedAt": 1789275722540,
+      "builtInMs": 122538,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 522,
+      "count": 66,
+      "symbolCount": 29
+    },
+    "2026-09-12": {
+      "date": "2026-09-12",
+      "savedAt": 1789275802172,
+      "builtInMs": 79578,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 522,
       "count": 24,
-      "symbolCount": 16
+      "symbolCount": 13
     },
-    "2026-07-19": {
-      "date": "2026-07-19",
-      "savedAt": 1784432681317,
-      "builtInMs": 56021,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 0,
-      "symbolCount": 0
-    },
-    "2026-07-20": {
-      "date": "2026-07-20",
-      "savedAt": 1784610207253,
-      "builtInMs": 113778,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 43,
-      "symbolCount": 35
-    },
-    "2026-07-21": {
-      "date": "2026-07-21",
-      "savedAt": 1784737887091,
-      "builtInMs": 152251,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 60,
-      "symbolCount": 39
-    },
-    "2026-07-22": {
-      "date": "2026-07-22",
-      "savedAt": 1784737734822,
-      "builtInMs": 117265,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 95,
-      "symbolCount": 60
-    },
-    "2026-07-23": {
-      "date": "2026-07-23",
-      "savedAt": 1784888286289,
-      "builtInMs": 15617,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 63,
-      "symbolCount": 40
-    },
-    "2026-07-24": {
-      "date": "2026-07-24",
-      "savedAt": 1785147416987,
-      "builtInMs": 22187,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 79,
-      "symbolCount": 46
-    },
-    "2026-07-25": {
-      "date": "2026-07-25",
-      "savedAt": 1784974632168,
-      "builtInMs": 47080,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 20,
-      "symbolCount": 17
-    },
-    "2026-07-27": {
-      "date": "2026-07-27",
-      "savedAt": 1785233767145,
-      "builtInMs": 20586,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 57,
-      "symbolCount": 35
-    },
-    "2026-07-28": {
-      "date": "2026-07-28",
-      "savedAt": 1785320198257,
-      "builtInMs": 16275,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 58,
-      "symbolCount": 37
-    },
-    "2026-07-29": {
-      "date": "2026-07-29",
-      "savedAt": 1785406655441,
-      "builtInMs": 73519,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 318,
-      "count": 82,
-      "symbolCount": 53
-    },
-    "2026-07-30": {
-      "date": "2026-07-30",
-      "savedAt": 1785492962779,
-      "builtInMs": 18301,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 319,
-      "count": 82,
-      "symbolCount": 46
-    },
-    "2026-07-31": {
-      "date": "2026-07-31",
-      "savedAt": 1785752198654,
-      "builtInMs": 20046,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 319,
-      "count": 72,
-      "symbolCount": 43
-    },
-    "2026-08-01": {
-      "date": "2026-08-01",
-      "savedAt": 1785665816585,
-      "builtInMs": 24073,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 319,
-      "count": 32,
-      "symbolCount": 26
-    },
-    "2026-08-02": {
-      "date": "2026-08-02",
-      "savedAt": 1785665867560,
-      "builtInMs": 50964,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 319,
-      "count": 10,
-      "symbolCount": 9
-    },
-    "2026-08-03": {
-      "date": "2026-08-03",
-      "savedAt": 1785838602025,
-      "builtInMs": 25415,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 319,
-      "count": 61,
-      "symbolCount": 38
-    },
-    "2026-08-04": {
-      "date": "2026-08-04",
-      "savedAt": 1785924989284,
-      "builtInMs": 11966,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 319,
-      "count": 72,
-      "symbolCount": 44
-    },
-    "2026-08-05": {
-      "date": "2026-08-05",
-      "savedAt": 1786011401796,
-      "builtInMs": 21511,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 319,
-      "count": 57,
-      "symbolCount": 40
-    },
-    "2026-08-06": {
-      "date": "2026-08-06",
-      "savedAt": 1786097798935,
-      "builtInMs": 14824,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 319,
-      "count": 62,
-      "symbolCount": 44
-    },
-    "2026-08-07": {
-      "date": "2026-08-07",
-      "savedAt": 1786097784103,
-      "builtInMs": 84103,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 319,
-      "count": 58,
-      "symbolCount": 50
-    },
-    "2026-08-08": {
-      "date": "2026-08-08",
-      "savedAt": 1786128254513,
-      "builtInMs": 75940,
-      "source": "nse-market-wide+symbol-announcements",
-      "scanned": 319,
-      "count": 0,
-      "symbolCount": 0
+    "2026-09-13": {
+      "date": "2026-09-13",
+      "savedAt": 1789275881599,
+      "builtInMs": 79388,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 522,
+      "count": 2,
+      "symbolCount": 1
     }
   }
 }

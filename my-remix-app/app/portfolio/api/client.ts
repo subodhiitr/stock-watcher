@@ -76,7 +76,10 @@ function mutationHeaders(): Record<string, string> {
 
 export const portfolioApi = Object.freeze({
   status(signal?: AbortSignal) {
-    return json<Readonly<{ configured: boolean }>>('/api/portfolio/auth/status', { signal })
+    return json<Readonly<{ configured: boolean; localLogin?: boolean }>>('/api/portfolio/auth/status', { signal })
+  },
+  loginLocal(signal?: AbortSignal) {
+    return json<Readonly<{ authenticated: true }>>('/api/portfolio/auth/local-login', { method: 'POST', signal })
   },
   login(username: string, password: string, mfaCode: string, signal?: AbortSignal) {
     return json<Readonly<{ authenticated: true; expiresAtEpochMs: number }>>('/api/portfolio/auth/login', {

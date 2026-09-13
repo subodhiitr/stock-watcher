@@ -1,0 +1,902 @@
+[
+  {
+    "symbol": "ANTELOPUS",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "HDIL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VAML",
+    "before": "custom",
+    "after": "large",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "BSE",
+    "before": "mid",
+    "after": "large",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "E2E",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "JINDWORLD",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ACGL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ADDIND",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ADVIKCA",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ALFREDHE",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ALUFLUOR",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "AMAL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "AMARJOTHI",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ANDREWYU",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ANSALBU",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "APOORVA",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ARCL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ARYAMAN",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ASIANTNE",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ASSAMENT",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "AUSTENG",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "AVANCE",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "AXTEL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "AZADIND",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "BENARAS",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "BLUECLOUDS",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "BPLPHARMA",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "BRAHMINFRA",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "BRIGHTBR",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "CFEL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "CGVAK",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "CHEMCRUX",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "CMRGREEN",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "COMPEAU",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "CPL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "CRAVATEX",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "DEEP",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "DHATRE",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "EASTWEST",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ECORECO",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "EKI",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "EMPIND",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ENKEIWHEL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "FERMENTA",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "FREDUN",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "GKB",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "GYFTR",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "HAMPTON",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "HAZOOR",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "HBPOR",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "HINDADH",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "HINDALUMI",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "HRYNSHP",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "INDOKEM",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "IPRINGLTD",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ISTLTD",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ITL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "JENBURPH",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "JYOTIRES",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "KAMANWALA",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "KANCOTEA",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "KJMCFIN",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "KMCSHIL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "KSE",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "LADDERUP",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "LAKSHMIMIL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "LANCER",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "LKPSEC",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "LOTUSCHO",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "MAKERSL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "MEDICAPQ",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "MIIL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "MKEXIM",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "MLKFOOD",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "MOHITE",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "MSL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "MUKESHB",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "NICCOPAR",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "NTCIND",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ODYCORP",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ONEGLOBAL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ONIXSOLAR",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "OPTIFIN",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "ORIRAIL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "PACIFICI",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "PANCHMAHQ",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "PANORAMA",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "PARNAXLAB",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "PBMPOLY",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "PERMAGN",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "PHOENXINTL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "POEL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "POLYSPIN",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "PRISMX",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "RIR",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "RRECL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "RTSPOWR",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SAB",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SAICAPI",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SAMBANDAM",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SAYAJIIND",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SEKURITIND",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SGLRES",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SGRL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SHERVANI",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SHILGRAVQ",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SHIVAAGRO",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SHIVACEM",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SHRADDHA",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SHRJAGP",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SHUKRAPHAR",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SIEL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SIMPLXREA",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SPELS",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SRIKPRIND",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "STLSTRINF",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SUMEDHA",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SUNLOC",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SUNRAKSHAK",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SUNSHIEL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SVGLOBAL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "SWARNSAR",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "TANAA",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "TERAI",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "TGVSL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "TOYAMSL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "TRANSCOR",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "TRITONV",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "TURTLEMINT",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "TUTIALKA",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "UDAYJEW",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "UPHOT",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VADILENT",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VASUPRADA",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VEDAVAAG",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VEDPOWER",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VGCL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VIJSOLX",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VIRAT",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VISHAL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VISL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VIVOBIOT",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VOEPL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VOGL",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VOITHPAPR",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "VTMLTD",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "WARDINMOBI",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "WATERBASE",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "WHBRADY",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  },
+  {
+    "symbol": "YOGI",
+    "before": "custom",
+    "after": "small",
+    "source": "AMFI 30 June 2026"
+  }
+]

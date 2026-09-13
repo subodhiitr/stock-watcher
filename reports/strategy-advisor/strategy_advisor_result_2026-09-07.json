@@ -1,0 +1,503 @@
+{
+  "date": "2026-09-07",
+  "status": "done",
+  "agent": {
+    "provider": "codex-session",
+    "replayUsed": false,
+    "sweepUsed": false
+  },
+  "generatedAt": "2026-09-08T12:56:25.849Z",
+  "scope": "Reconciled simulation closed positions and exit legs; no live settings or trading data altered by this analysis.",
+  "dailySummary": {
+    "trades": 9,
+    "wins": 4,
+    "netPnl": -1903.6,
+    "grossPnl": -1204.33,
+    "charges": 699.27
+  },
+  "thesis": "Rangebound concentration, optional fresh-depth gating, and stop overshoot deserve priority; avoid chasing daily hindsight exit benchmarks.",
+  "limitations": [
+    "Closed reconciled positions only; not account equity or unrealized P&L.",
+    "Day-close benchmarks come from simulation-closing-snapshot and may inherit the stale-quote issues identified today; they are not independently verified exchange closes.",
+    "Configuration records are current at evidence generation; historical snapshots include different fingerprints.",
+    "Snapshot actionable labels are not proof that every entry gate or capacity constraint passed.",
+    "No replay, backtest, sweep, or alternate-value trial was run."
+  ],
+  "recommendations": [
+    {
+      "type": "setting-change",
+      "setupType": "RANGEBOUND",
+      "key": "SIMULATION_RANGEBOUND_MAX_POSITION_EXPOSURE",
+      "currentValue": 200000,
+      "recommendedValue": 100000,
+      "configurationRecord": {
+        "key": "SIMULATION_RANGEBOUND_MAX_POSITION_EXPOSURE",
+        "value": 200000,
+        "defaultValue": 200000,
+        "overridden": false,
+        "differsFromDefault": false,
+        "source": "default",
+        "description": "Maximum rupee exposure allowed for one Rangebound position without increasing the shared cap for other setups.",
+        "valueType": "number"
+      },
+      "confidence": "low",
+      "rationale": "Reduce Rangebound concentration to the existing shared Rs100,000 cap while execution and data quality are reviewed. This is a risk reduction, not evidence that smaller size improves entry selection.",
+      "evidence": [
+        {
+          "selectedDate": "2026-09-07",
+          "transactions": [
+            {
+              "symbol": "CPL",
+              "pnl": -1070.08,
+              "exposure": 199962,
+              "admission": {
+                "schemaVersion": 1,
+                "lowerBoundDistancePct": 0.095,
+                "stopDistancePct": 0.397,
+                "decisionScore": 55.1,
+                "modeledNetProfitPct": 1.039,
+                "modeledGrossProfitPct": 1.206,
+                "modeledCostPct": 0.167,
+                "grossToCostMultiple": 7.222,
+                "liveDepthAvailable": true,
+                "liveDepthFresh": false,
+                "liquidityGateApplied": false,
+                "spreadPct": 0.364,
+                "bookImbalance": 0.693,
+                "combinedDepthQty": 52473,
+                "depthAgeSec": 97.34,
+                "depthSource": "sharekhan-ws"
+              }
+            }
+          ]
+        },
+        {
+          "sevenSessionReview": {
+            "datesRequested": [
+              "2026-09-07",
+              "2026-09-04",
+              "2026-09-03",
+              "2026-08-31",
+              "2026-08-28",
+              "2026-08-27",
+              "2026-08-26"
+            ],
+            "datesAvailable": [
+              "2026-09-07",
+              "2026-09-04",
+              "2026-09-03",
+              "2026-08-31",
+              "2026-08-28",
+              "2026-08-27",
+              "2026-08-26"
+            ],
+            "datesUsed": [
+              "2026-09-07",
+              "2026-09-04",
+              "2026-09-03",
+              "2026-08-31",
+              "2026-08-28",
+              "2026-08-27",
+              "2026-08-26"
+            ],
+            "shortfall": 0,
+            "relevantTransactions": 27,
+            "affectedTransactions": 19,
+            "affectedNetPnl": -2664.93,
+            "unaffectedTransactions": 8,
+            "unaffectedNetPnl": -343.14,
+            "supportingDates": 4,
+            "contradictingDates": 2,
+            "noEvidenceDates": 1,
+            "daily": [
+              {
+                "date": "2026-09-07",
+                "relevantTransactions": 5,
+                "affectedTransactions": 1,
+                "affectedNetPnl": -1070.08,
+                "direction": "support"
+              },
+              {
+                "date": "2026-09-04",
+                "relevantTransactions": 5,
+                "affectedTransactions": 5,
+                "affectedNetPnl": -1176.12,
+                "direction": "support"
+              },
+              {
+                "date": "2026-09-03",
+                "relevantTransactions": 4,
+                "affectedTransactions": 4,
+                "affectedNetPnl": -309.16,
+                "direction": "support"
+              },
+              {
+                "date": "2026-08-31",
+                "relevantTransactions": 6,
+                "affectedTransactions": 3,
+                "affectedNetPnl": 261.11,
+                "direction": "contradict"
+              },
+              {
+                "date": "2026-08-28",
+                "relevantTransactions": 4,
+                "affectedTransactions": 4,
+                "affectedNetPnl": -939.89,
+                "direction": "support"
+              },
+              {
+                "date": "2026-08-27",
+                "relevantTransactions": 0,
+                "affectedTransactions": 0,
+                "affectedNetPnl": 0,
+                "direction": "no-evidence"
+              },
+              {
+                "date": "2026-08-26",
+                "relevantTransactions": 3,
+                "affectedTransactions": 2,
+                "affectedNetPnl": 569.21,
+                "direction": "contradict"
+              }
+            ],
+            "contradictoryWinners": [
+              {
+                "symbol": "APLAPOLLO",
+                "pnl": 1106.19,
+                "day": "2026-09-04"
+              },
+              {
+                "symbol": "LODHA",
+                "pnl": 873.99,
+                "day": "2026-09-03"
+              },
+              {
+                "symbol": "ANANDRATHI",
+                "pnl": 945.43,
+                "day": "2026-08-31"
+              },
+              {
+                "symbol": "QUESS",
+                "pnl": 72.23,
+                "day": "2026-08-28"
+              },
+              {
+                "symbol": "ZYDUSLIFE",
+                "pnl": 928.06,
+                "day": "2026-08-26"
+              }
+            ]
+          }
+        },
+        {
+          "snapshotContext": {
+            "setupType": "RANGEBOUND",
+            "label": "Rangebound Reversion",
+            "appearances": 948,
+            "actionable": 947,
+            "scoreTotal": 69875,
+            "maxScore": 98,
+            "avgScore": 73.7,
+            "uniqueSymbols": 158
+          },
+          "settingsFingerprints": [
+            {
+              "fingerprint": "fnv1a-7efbf095",
+              "snapshots": 195
+            }
+          ],
+          "warning": "Snapshot appearances are repeated states, not independent trades; current configuration is not proof of the historical entry configuration."
+        }
+      ],
+      "risk": "Smaller exposure also cuts profitable trades; Aug 31 contradicts the loss concentration and the Sep 7 window additionally includes profitable larger positions on Aug 26. No predicted savings are claimed. Observed group P&L is not a rerun or a forecast. Freed capacity, quantity rounding, costs, and replacement trades are unmodeled.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "Seven available transaction dates reviewed; 19/27 Rangebound trades affected, 4 supporting, 2 contradicting, 1 without affected trades. Low confidence because the sample is small, contradictory winners exist, configuration changed, and causal improvement has not been tested."
+      }
+    },
+    {
+      "type": "setting-change",
+      "setupType": "RANGEBOUND",
+      "key": "SIMULATION_RANGEBOUND_REQUIRE_LIVE_DEPTH",
+      "currentValue": false,
+      "recommendedValue": true,
+      "configurationRecord": {
+        "key": "SIMULATION_RANGEBOUND_REQUIRE_LIVE_DEPTH",
+        "value": false,
+        "defaultValue": false,
+        "overridden": true,
+        "differsFromDefault": false,
+        "source": "current-override",
+        "description": "Blocks Rangebound entries when fresh live order-book depth is unavailable instead of applying gates opportunistically.",
+        "valueType": "boolean"
+      },
+      "confidence": "low",
+      "rationale": "Make the existing fresh-depth requirement mandatory so stale depth cannot bypass spread and imbalance checks. Preserve MAX_DEPTH_AGE_SEC=15, MAX_SPREAD_PCT=0.15 and LIQUIDITY_GATE_ENABLED=true.",
+      "evidence": [
+        {
+          "selectedDate": "2026-09-07",
+          "transactions": [
+            {
+              "symbol": "CPPLUS",
+              "pnl": 710.93,
+              "exposure": 97630,
+              "admission": {
+                "schemaVersion": 1,
+                "lowerBoundDistancePct": 0.072,
+                "stopDistancePct": 0.322,
+                "decisionScore": 74.7,
+                "modeledNetProfitPct": 0.645,
+                "modeledGrossProfitPct": 0.812,
+                "modeledCostPct": 0.167,
+                "grossToCostMultiple": 4.862,
+                "liveDepthAvailable": true,
+                "liveDepthFresh": false,
+                "liquidityGateApplied": false,
+                "spreadPct": 0.053,
+                "bookImbalance": 0.344,
+                "combinedDepthQty": 24966,
+                "depthAgeSec": 18.2,
+                "depthSource": "sharekhan-ws"
+              }
+            },
+            {
+              "symbol": "VOEPL",
+              "pnl": -425.58,
+              "exposure": 99440,
+              "admission": {
+                "schemaVersion": 1,
+                "lowerBoundDistancePct": 0,
+                "stopDistancePct": 0.25,
+                "decisionScore": 67.05,
+                "modeledNetProfitPct": 1.249,
+                "modeledGrossProfitPct": 1.416,
+                "modeledCostPct": 0.167,
+                "grossToCostMultiple": 8.479,
+                "liveDepthAvailable": true,
+                "liveDepthFresh": false,
+                "liquidityGateApplied": false,
+                "spreadPct": 0.257,
+                "bookImbalance": 0.269,
+                "combinedDepthQty": 55222,
+                "depthAgeSec": 15.19,
+                "depthSource": "sharekhan-ws"
+              }
+            },
+            {
+              "symbol": "ANGELONE",
+              "pnl": 438.33,
+              "exposure": 59937.25,
+              "admission": {
+                "schemaVersion": 1,
+                "lowerBoundDistancePct": 0,
+                "stopDistancePct": 0.25,
+                "decisionScore": 58.2,
+                "modeledNetProfitPct": 0.671,
+                "modeledGrossProfitPct": 0.838,
+                "modeledCostPct": 0.167,
+                "grossToCostMultiple": 5.018,
+                "liveDepthAvailable": true,
+                "liveDepthFresh": false,
+                "liquidityGateApplied": false,
+                "spreadPct": 0.049,
+                "bookImbalance": 0.321,
+                "combinedDepthQty": 1869777,
+                "depthAgeSec": 17.34,
+                "depthSource": "sharekhan-ws"
+              }
+            },
+            {
+              "symbol": "CPL",
+              "pnl": -1070.08,
+              "exposure": 199962,
+              "admission": {
+                "schemaVersion": 1,
+                "lowerBoundDistancePct": 0.095,
+                "stopDistancePct": 0.397,
+                "decisionScore": 55.1,
+                "modeledNetProfitPct": 1.039,
+                "modeledGrossProfitPct": 1.206,
+                "modeledCostPct": 0.167,
+                "grossToCostMultiple": 7.222,
+                "liveDepthAvailable": true,
+                "liveDepthFresh": false,
+                "liquidityGateApplied": false,
+                "spreadPct": 0.364,
+                "bookImbalance": 0.693,
+                "combinedDepthQty": 52473,
+                "depthAgeSec": 97.34,
+                "depthSource": "sharekhan-ws"
+              }
+            }
+          ]
+        },
+        {
+          "sevenSessionReview": {
+            "datesRequested": [
+              "2026-09-07",
+              "2026-09-04",
+              "2026-09-03",
+              "2026-08-31",
+              "2026-08-28",
+              "2026-08-27",
+              "2026-08-26"
+            ],
+            "datesAvailable": [
+              "2026-09-07",
+              "2026-09-04",
+              "2026-09-03",
+              "2026-08-31",
+              "2026-08-28",
+              "2026-08-27",
+              "2026-08-26"
+            ],
+            "datesUsed": [
+              "2026-09-07",
+              "2026-09-04",
+              "2026-09-03",
+              "2026-08-31",
+              "2026-08-28",
+              "2026-08-27",
+              "2026-08-26"
+            ],
+            "shortfall": 0,
+            "relevantTransactions": 27,
+            "affectedTransactions": 17,
+            "affectedNetPnl": -1036.1,
+            "unaffectedTransactions": 10,
+            "unaffectedNetPnl": -1971.97,
+            "supportingDates": 5,
+            "contradictingDates": 1,
+            "noEvidenceDates": 1,
+            "daily": [
+              {
+                "date": "2026-09-07",
+                "relevantTransactions": 5,
+                "affectedTransactions": 4,
+                "affectedNetPnl": -346.4,
+                "direction": "support"
+              },
+              {
+                "date": "2026-09-04",
+                "relevantTransactions": 5,
+                "affectedTransactions": 4,
+                "affectedNetPnl": -309.53,
+                "direction": "support"
+              },
+              {
+                "date": "2026-09-03",
+                "relevantTransactions": 4,
+                "affectedTransactions": 3,
+                "affectedNetPnl": -1183.15,
+                "direction": "support"
+              },
+              {
+                "date": "2026-08-31",
+                "relevantTransactions": 6,
+                "affectedTransactions": 3,
+                "affectedNetPnl": 1245.26,
+                "direction": "contradict"
+              },
+              {
+                "date": "2026-08-28",
+                "relevantTransactions": 4,
+                "affectedTransactions": 2,
+                "affectedNetPnl": -83.43,
+                "direction": "support"
+              },
+              {
+                "date": "2026-08-27",
+                "relevantTransactions": 0,
+                "affectedTransactions": 0,
+                "affectedNetPnl": 0,
+                "direction": "no-evidence"
+              },
+              {
+                "date": "2026-08-26",
+                "relevantTransactions": 3,
+                "affectedTransactions": 1,
+                "affectedNetPnl": -358.85,
+                "direction": "support"
+              }
+            ],
+            "contradictoryWinners": [
+              {
+                "symbol": "CPPLUS",
+                "pnl": 710.93,
+                "day": "2026-09-07"
+              },
+              {
+                "symbol": "ANGELONE",
+                "pnl": 438.33,
+                "day": "2026-09-07"
+              },
+              {
+                "symbol": "APLAPOLLO",
+                "pnl": 1106.19,
+                "day": "2026-09-04"
+              },
+              {
+                "symbol": "ANANDRATHI",
+                "pnl": 945.43,
+                "day": "2026-08-31"
+              },
+              {
+                "symbol": "SUVEN",
+                "pnl": 585.26,
+                "day": "2026-08-31"
+              },
+              {
+                "symbol": "QUESS",
+                "pnl": 72.23,
+                "day": "2026-08-28"
+              }
+            ]
+          }
+        },
+        {
+          "snapshotContext": {
+            "setupType": "RANGEBOUND",
+            "label": "Rangebound Reversion",
+            "appearances": 948,
+            "actionable": 947,
+            "scoreTotal": 69875,
+            "maxScore": 98,
+            "avgScore": 73.7,
+            "uniqueSymbols": 158
+          },
+          "settingsFingerprints": [
+            {
+              "fingerprint": "fnv1a-7efbf095",
+              "snapshots": 195
+            }
+          ],
+          "warning": "Snapshot appearances are repeated states, not independent trades; current configuration is not proof of the historical entry configuration."
+        }
+      ],
+      "risk": "May block most Rangebound entries until depth delivery is improved. Winners KDGREEN, CPPLUS, ANGELONE and others also entered with stale depth. Fresh-depth trades themselves lost money; this is a data-integrity safeguard, not a proven alpha filter. Observed group P&L is not a rerun or a forecast. Freed capacity, quantity rounding, costs, and replacement trades are unmodeled.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "Seven available transaction dates reviewed; 17/27 Rangebound trades affected, 5 supporting, 1 contradicting, 1 without affected trades. Low confidence because the sample is small, contradictory winners exist, configuration changed, and causal improvement has not been tested."
+      }
+    }
+  ],
+  "retainSettings": [
+    {
+      "key": "SIMULATION_STOP_CONFIRM_BARS",
+      "currentValue": 2,
+      "recommendedValue": 2,
+      "reason": "Stop overshoot needs price-path review; these final trade facts cannot show when an alternative confirmation count would have exited."
+    },
+    {
+      "key": "SIMULATION_RANGEBOUND_SIGNAL_RECOVERY_SHADOW_ENABLED",
+      "currentValue": true,
+      "recommendedValue": true,
+      "reason": "Continue observing recoveries without delaying actual exits; VOEPL and CPL contradict blanket exit relaxation."
+    }
+  ],
+  "engineeringFollowUps": [
+    "Audit spread/depth refresh and reject entry when actual market timestamps are stale.",
+    "Measure configured stop, first breach time, confirmation time, quote age and execution price; do not equate a stop threshold with a guaranteed fill.",
+    "Verify day-close benchmark timestamps before using opportunity loss to change target or exit settings."
+  ]
+}

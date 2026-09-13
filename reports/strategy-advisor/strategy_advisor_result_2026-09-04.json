@@ -1,0 +1,547 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-04",
+  "status": "done",
+  "generatedAt": "2026-09-04T17:01:28.384Z",
+  "agent": {
+    "provider": "codex-session",
+    "replayUsed": false,
+    "sweepUsed": false
+  },
+  "thesis": "The latest ten transaction-bearing sessions were gross profitable by INR 3,259.11, but INR 8,129.25 of charges converted that into an INR 4,870.14 net loss. The clearest current admission problem is Rangebound entries below decision score 50: in the mandatory latest-seven window they lost INR 4,031.99 while score-50-or-higher Rangebound entries made INR 2,342.08. Exit opportunity is concentrated in signal-deterioration exits, but the day-close comparison is hindsight and does not justify globally loosening exits. Captured top-gainer evidence found only one missed candidate, IFCI on 2026-08-28, whose later observed peak exceeded the strategy's 1% net requirement; the broader top-gainer sample is too small to relax regime gates.",
+  "analysisWindow": {
+    "definition": "Latest ten transaction-bearing sessions ending 2026-09-04",
+    "dates": [
+      "2026-08-20",
+      "2026-08-21",
+      "2026-08-24",
+      "2026-08-25",
+      "2026-08-26",
+      "2026-08-27",
+      "2026-08-28",
+      "2026-08-31",
+      "2026-09-03",
+      "2026-09-04"
+    ],
+    "positions": 91,
+    "wins": 30,
+    "losses": 61,
+    "winRatePct": 33.0,
+    "grossPnlBeforeCharges": 3259.11,
+    "charges": 8129.25,
+    "netPnl": -4870.14,
+    "expectancyPerTrade": -53.52,
+    "profitFactor": 0.82,
+    "realizedSequenceMaxDrawdown": 6745.09,
+    "snapshots": 1885,
+    "usableSnapshots": 1716,
+    "usableSnapshotPct": 91.03
+  },
+  "confidenceWindow": {
+    "datesRequested": [
+      "2026-08-25",
+      "2026-08-26",
+      "2026-08-27",
+      "2026-08-28",
+      "2026-08-31",
+      "2026-09-03",
+      "2026-09-04"
+    ],
+    "datesAvailable": [
+      "2026-08-25",
+      "2026-08-26",
+      "2026-08-27",
+      "2026-08-28",
+      "2026-08-31",
+      "2026-09-03",
+      "2026-09-04"
+    ],
+    "datesUsed": [
+      "2026-08-25",
+      "2026-08-26",
+      "2026-08-27",
+      "2026-08-28",
+      "2026-08-31",
+      "2026-09-03",
+      "2026-09-04"
+    ],
+    "shortfall": 0,
+    "positions": 38,
+    "wins": 12,
+    "losses": 26,
+    "winRatePct": 31.58,
+    "grossPnlBeforeCharges": 779.86,
+    "charges": 3565.04,
+    "netPnl": -2785.18,
+    "expectancyPerTrade": -73.29,
+    "profitFactor": 0.75,
+    "realizedSequenceMaxDrawdown": 5125.27
+  },
+  "setupFindings": [
+    {
+      "setupType": "RANGEBOUND",
+      "positions10": 52,
+      "wins10": 18,
+      "netPnl10": -1082.15,
+      "grossPnl10": 4599.30,
+      "charges10": 5681.45,
+      "positions7": 26,
+      "below50Positions7": 17,
+      "below50Wins7": 3,
+      "below50NetPnl7": -4031.99,
+      "below50Expectancy7": -237.18,
+      "below50ProfitFactor7": 0.32,
+      "atLeast50Positions7": 9,
+      "atLeast50Wins7": 4,
+      "atLeast50NetPnl7": 2342.08,
+      "atLeast50Expectancy7": 260.23,
+      "atLeast50ProfitFactor7": 2.52,
+      "conclusion": "Rangebound was gross profitable over ten sessions but became net negative after charges. In the latest seven sessions the loss is isolated to decision scores below 50. Five of six dates containing below-50 trades support a higher floor; 2026-08-31 contradicts it with INR 660.00 net from two below-50 trades."
+    },
+    {
+      "setupType": "EARLY_MOMENTUM",
+      "positions10": 9,
+      "dates10": 6,
+      "wins10": 2,
+      "netPnl10": -2946.16,
+      "positions7": 5,
+      "dates7": 3,
+      "wins7": 1,
+      "netPnl7": -2605.52,
+      "conclusion": "The setup is a material drag, but five latest-seven positions across only three dates do not meet the minimum sample for a medium-confidence disable recommendation. Preserve the current enabled state while collecting more evidence."
+    },
+    {
+      "setupType": "MOMENTUM_RUNNER",
+      "positions10": 21,
+      "wins10": 6,
+      "netPnl10": -455.68,
+      "grossPnl10": 733.92,
+      "charges10": 1189.60,
+      "conclusion": "Momentum Runner was slightly gross profitable but charges made it net negative. Its result is not poor enough, relative to sample and recent profitable trades, to justify disabling it."
+    }
+  ],
+  "exitFindings": {
+    "totalDayCloseOpportunityLoss": 46908.80,
+    "totalValueProtected": 26659.93,
+    "signedDayCloseDifference": 20248.87,
+    "categories": [
+      {
+        "exitCategory": "Target",
+        "exits": 24,
+        "netPnl": 19665.01,
+        "opportunityLoss": 14406.91,
+        "valueProtected": 9074.64
+      },
+      {
+        "exitCategory": "VWAP",
+        "exits": 17,
+        "netPnl": -5192.77,
+        "opportunityLoss": 9681.92,
+        "valueProtected": 6714.01
+      },
+      {
+        "exitCategory": "Momentum / Signal",
+        "exits": 18,
+        "netPnl": -3215.67,
+        "opportunityLoss": 17872.61,
+        "valueProtected": 3717.20,
+        "signedDayCloseDifference": 14155.41
+      },
+      {
+        "exitCategory": "Stop",
+        "exits": 14,
+        "netPnl": -13683.63,
+        "opportunityLoss": 3612.32,
+        "valueProtected": 3421.20,
+        "signedDayCloseDifference": 191.12
+      },
+      {
+        "exitCategory": "Time / No progress",
+        "exits": 13,
+        "netPnl": -3800.98,
+        "opportunityLoss": 1117.15,
+        "valueProtected": 1838.26,
+        "signedDayCloseDifference": -721.11
+      },
+      {
+        "exitCategory": "EOD",
+        "exits": 5,
+        "netPnl": 1357.90,
+        "opportunityLoss": 217.89,
+        "valueProtected": 1894.62
+      }
+    ],
+    "conclusion": "Signal-deterioration exits produced the largest hindsight gap: 13 of 18 would have had a better day-close price, including KENNAMET, QUESS, SUPRIYA, VIJAYA, and UFLEX. This is not proof that later exits were executable or safer. Stops had almost neutral signed day-close difference and time/no-progress exits protected more value than they forfeited, so neither should be broadly loosened."
+  },
+  "topGainerAnalysis": {
+    "funnel": {
+      "uniqueTopFiveCandidateDays": 171,
+      "everPassedDedicatedTopGainerRules": 9,
+      "continuationQualifiedCandidateDays": 4,
+      "pullbackQualifiedCandidateDays": 6,
+      "neverPassedDedicatedTopGainerRules": 162,
+      "qualifiedButNotExecuted": 7,
+      "executedDedicatedPositions": 3,
+      "note": "Two executed positions are visible in the reconstructed qualification funnel. The third executed position is authoritative in transaction facts but its exact qualifying moment was not retained in the two-minute snapshot buckets."
+    },
+    "dominantFirstFailingRuleByCandidateDay": [
+      {
+        "reason": "continuation trigger not active",
+        "candidateDays": 62
+      },
+      {
+        "reason": "no completed bullish VWAP reclaim for pullback entry",
+        "candidateDays": 42
+      },
+      {
+        "reason": "EMA9 not above EMA20",
+        "candidateDays": 22
+      },
+      {
+        "reason": "five-minute momentum fading",
+        "candidateDays": 15
+      },
+      {
+        "reason": "SuperTrend not bullish",
+        "candidateDays": 5
+      },
+      {
+        "reason": "extension, day-gain band, midday, or other isolated gate",
+        "candidateDays": 16
+      }
+    ],
+    "executed": {
+      "positions": 3,
+      "wins": 1,
+      "netPnl": -795.15,
+      "continuation": {
+        "positions": 1,
+        "wins": 1,
+        "netPnl": 286.26
+      },
+      "pullbackReclaim": {
+        "positions": 2,
+        "wins": 0,
+        "netPnl": -1081.41
+      }
+    },
+    "capturedMissedCandidates": [
+      {
+        "date": "2026-08-21",
+        "symbol": "IIFL",
+        "setupType": "TOP_GAINER_PULLBACK_RECLAIM",
+        "blocker": "market breadth conflict",
+        "observedPeakNetPctAfterModeledCosts": 0.215
+      },
+      {
+        "date": "2026-08-21",
+        "symbol": "KENNAMET",
+        "setupType": "TOP_GAINER_PULLBACK_RECLAIM",
+        "blocker": "market breadth and sector conflict",
+        "observedPeakNetPctAfterModeledCosts": 0.129
+      },
+      {
+        "date": "2026-08-25",
+        "symbol": "CUB",
+        "setupType": "TOP_GAINER_CONTINUATION",
+        "blocker": "market breadth conflict",
+        "observedPeakNetPctAfterModeledCosts": 0.618
+      },
+      {
+        "date": "2026-08-25",
+        "symbol": "DELTACORP",
+        "setupType": "TOP_GAINER_CONTINUATION",
+        "blocker": "late long decision score below 90",
+        "observedPeakNetPctAfterModeledCosts": -0.086
+      },
+      {
+        "date": "2026-08-26",
+        "symbol": "OLAELEC",
+        "setupType": "TOP_GAINER_CONTINUATION",
+        "blocker": "rolling ordinary-entry capacity exhausted: one ordinary entry was already present in the five-minute window and the configured ordinary maximum was one; persisted rejectionReasons omitted this capacity fallback",
+        "observedPeakNetPctAfterModeledCosts": 0.307
+      },
+      {
+        "date": "2026-08-28",
+        "symbol": "IFCI",
+        "setupType": "TOP_GAINER_PULLBACK_RECLAIM",
+        "blocker": "market breadth conflict, followed by entry, cost, and stop-distance blockers",
+        "observedPeakNetPctAfterModeledCosts": 1.161
+      },
+      {
+        "date": "2026-09-03",
+        "symbol": "FINCABLES",
+        "setupType": "TOP_GAINER_PULLBACK_RECLAIM",
+        "blocker": "Nifty decline conflict",
+        "observedPeakNetPctAfterModeledCosts": 0.507
+      }
+    ],
+    "standardizedPeakOpportunityAtInr50000": 1425.91,
+    "candidatesClearingOnePctNetAtObservedPeak": 1,
+    "ruleFilteredHindsightMoves": {
+      "candidateDaysWithLaterObservedPeakAboveOnePctNet": 35,
+      "notExecutedSameDay": 35,
+      "byPrimaryContinuationBlock": [
+        {
+          "reason": "EMA9 not above EMA20",
+          "candidateDays": 22
+        },
+        {
+          "reason": "trigger extension above 0.6%",
+          "candidateDays": 9
+        },
+        {
+          "reason": "day-gain band mismatch",
+          "candidateDays": 2
+        },
+        {
+          "reason": "12:00-13:30 continuation block",
+          "candidateDays": 1
+        },
+        {
+          "reason": "VWAP extension above 0.8%",
+          "candidateDays": 1
+        }
+      ],
+      "warning": "These stocks failed one or more actual entry gates at the chosen triggered observation. Their later peaks are hindsight research leads, not executable missed trades."
+    },
+    "largestRuleFilteredHindsightMoves": [
+      {
+        "date": "2026-08-31",
+        "symbol": "BALRAMCHIN",
+        "observedPeakNetPctAfterModeledCosts": 9.285,
+        "primaryBlocks": "EMA9 below EMA20, decision score 52.9 below 65, breadth 13.81%, sector -1.2%, Chasing setup disabled"
+      },
+      {
+        "date": "2026-08-20",
+        "symbol": "SUVEN",
+        "observedPeakNetPctAfterModeledCosts": 7.437,
+        "primaryBlocks": "trigger extension 0.91% above 0.6%, no completed bullish VWAP reclaim, Chasing setup disabled"
+      },
+      {
+        "date": "2026-08-27",
+        "symbol": "TRAVELFOOD",
+        "observedPeakNetPctAfterModeledCosts": 5.707,
+        "primaryBlocks": "EMA9 below EMA20, decision score 48.65 below 65, Nifty -0.539%, Fresh Breakout disabled"
+      },
+      {
+        "date": "2026-08-27",
+        "symbol": "WHIRLPOOL",
+        "observedPeakNetPctAfterModeledCosts": 5.364,
+        "primaryBlocks": "trigger extension 3.42% above 0.6%, VWAP extension 2.13% above 0.8%, weak Nifty and breadth"
+      },
+      {
+        "date": "2026-09-03",
+        "symbol": "ANTELOPUS",
+        "observedPeakNetPctAfterModeledCosts": 4.822,
+        "primaryBlocks": "EMA9 below EMA20, decision score 44.05 below 65, Nifty -0.389%, Chasing setup disabled"
+      },
+      {
+        "date": "2026-08-25",
+        "symbol": "IDEA",
+        "observedPeakNetPctAfterModeledCosts": 4.003,
+        "primaryBlocks": "EMA9 below EMA20, decision score 54.75 below 65, weak Nifty and breadth, Chasing setup disabled"
+      },
+      {
+        "date": "2026-08-26",
+        "symbol": "QUESS",
+        "observedPeakNetPctAfterModeledCosts": 3.776,
+        "primaryBlocks": "EMA9 below EMA20, decision score 43.35 below 65, Chasing setup disabled"
+      },
+      {
+        "date": "2026-08-31",
+        "symbol": "OLAELEC",
+        "observedPeakNetPctAfterModeledCosts": 3.674,
+        "primaryBlocks": "trigger extension 1.46% above 0.6%, decision score 60.35 below 65, weak breadth, Chasing setup disabled"
+      }
+    ],
+    "conclusion": "Top-five rank is only a candidate-pool label, not entry permission. Only nine of 171 stock-day appearances ever passed the dedicated continuation or pullback rules. Of seven qualified-but-unexecuted candidates, IFCI is the only one whose later observed peak cleared the 1% net-profit requirement. Thirty-five additional stocks later moved more than 1% net from a plausible triggered observation, but they had not satisfied the strategy's trend, extension, score, or regime requirements and must be treated as research hypotheses. Do not loosen the current top-gainer gates from this evidence alone."
+  },
+  "preserveCurrentControls": [
+    {
+      "key": "SIMULATION_EARLY_MOMENTUM_ENABLED",
+      "value": true,
+      "defaultValue": true,
+      "source": "default",
+      "reason": "Latest-seven affected sample is only five positions across three dates."
+    },
+    {
+      "key": "SIMULATION_TIME_STOP_MIN",
+      "value": 45,
+      "defaultValue": 45,
+      "source": "default",
+      "reason": "Day-close opportunity does not establish the executable result of a specific later exit time."
+    },
+    {
+      "key": "SIMULATION_TOP_GAINER_MIN_DAY_GAIN_PCT",
+      "value": 1.5,
+      "defaultValue": 1.5,
+      "source": "default",
+      "reason": "Only one missed candidate cleared the strategy net threshold at its later observed peak."
+    },
+    {
+      "key": "SIMULATION_DAILY_MAX_TRADES",
+      "value": 30,
+      "defaultValue": 12,
+      "source": "current-override",
+      "reason": "The latest-seven window contains no positions after trade 12, so the exact 30-to-12 mechanism has no current affected sample."
+    }
+  ],
+  "proposedEnhancements": {
+    "existingSetup": [
+      {
+        "name": "Raise Rangebound admission quality",
+        "change": "SIMULATION_RANGEBOUND_MIN_SCORE 40 to 50",
+        "status": "analytics-reviewed",
+        "confidence": "medium",
+        "reason": "The latest-seven below-50 subgroup lost INR 4,031.99 while score-50-or-higher Rangebound trades made INR 2,342.08."
+      },
+      {
+        "name": "Preserve top-gainer trigger cap and add a separate retest path",
+        "change": "Do not widen SIMULATION_TOP_GAINER_MAX_TRIGGER_EXTENSION_PCT globally; route candidates with 0.6-1.0% trigger extension into a new controlled-retest observer.",
+        "status": "hypothesis",
+        "confidence": "low",
+        "reason": "A direct cap increase would admit extended candidates without requiring a pullback, while the observed opportunity pattern depended on a shallow retest above VWAP."
+      }
+    ],
+    "newIndicators": [
+      {
+        "name": "leaderRankPersistencePct30m",
+        "definition": "100 times the number of valid snapshots ranked in the top five divided by valid candidate snapshots during the prior 30 minutes.",
+        "purpose": "Separate persistent leaders from a one-snapshot ranking spike."
+      },
+      {
+        "name": "leaderRankStability30m",
+        "definition": "Clamp 0-1 of 1 minus the standard deviation of top-gainer rank divided by 2 over the prior 30 minutes.",
+        "purpose": "Prefer stocks that remain near the top rather than oscillating into and out of the pool."
+      },
+      {
+        "name": "recentHighRetestPct",
+        "definition": "100 times recentHigh minus livePrice divided by recentHigh.",
+        "purpose": "Identify a controlled pullback from the impulse high without requiring a full VWAP touch."
+      },
+      {
+        "name": "emaSpreadSlope3Bars",
+        "definition": "Three-completed-bar slope of 100 times EMA9 minus EMA20 divided by price.",
+        "purpose": "Detect improving trend structure before the raw EMA crossover occurs."
+      },
+      {
+        "name": "triggerExtensionAtr",
+        "definition": "Live price minus frozen entry trigger divided by ATR.",
+        "purpose": "Normalize extension for stock volatility instead of relying only on a fixed percentage."
+      },
+      {
+        "name": "leaderReacceleration",
+        "definition": "True when five-minute change is at least 0.1%, either three- or five-minute volume ratio is at least 1, and the current completed candle closes above the prior completed candle high.",
+        "purpose": "Require renewed participation after the retest rather than buying a fading leader."
+      }
+    ],
+    "exitAndSelectionResearch": [
+      {
+        "name": "Rangebound signal-recovery observer",
+        "status": "hypothesis",
+        "confidence": "low",
+        "design": "When a Rangebound trade reaches signal deterioration, record a shadow 15-minute recovery window. Observe whether a completed candle reclaims VWAP before the original stop is hit; do not delay the real exit yet.",
+        "evidence": "Latest seven sessions contain 11 signal-deterioration exits across six dates. Eight had a better day-close price, with INR 11,452.15 signed aggregate day-close difference and positive support on five of six affected dates.",
+        "risk": "Day-close improvement does not establish the price after 15 minutes or the adverse path before recovery, so changing the real exit is not justified."
+      },
+      {
+        "name": "Complete selection-reason telemetry",
+        "status": "implementation-quality",
+        "confidence": "high",
+        "design": "Persist fallback ranking, rolling ordinary/sector capacity, top-N, duplicate-symbol, and sizing-to-zero causes directly in rejectionReasons.",
+        "evidence": "OLAELEC on 2026-08-26 was a qualified rank-2 continuation candidate with ample portfolio capacity, but the five-minute ordinary-entry allowance was already 1 of 1. The compact decision record stored selected=false with an empty rejectionReasons array.",
+        "risk": "No trading behavior changes; this only improves evidence needed for future tuning."
+      }
+    ],
+    "rejectedDesigns": [
+      {
+        "name": "Immediate Top-Gainer Trend Repair",
+        "reason": "An exact screen requiring a recent top-five rank, completed EMA9-over-EMA20 crossover, VWAP hold, bullish SuperTrend, decision score at least 65, positive five-minute momentum, and acceptable extension produced zero observable events in all ten sessions. It currently lacks entry evidence."
+      },
+      {
+        "name": "Target-exit runner for every winner",
+        "reason": "The latest-seven target exits had a negative INR 1,477.70 signed day-close difference. Automatically retaining a runner would have worsened the aggregate hindsight benchmark."
+      }
+    ]
+  },
+  "researchPriorities": [
+    "Persist the selection fallback and rolling-capacity reason inside rejectionReasons. OLAELEC on 2026-08-26 was intrinsically qualified but the five-minute ordinary-entry allowance was already 1 of 1; the compact journal currently stores an empty rejection list.",
+    "Investigate a separate top-gainer trend-repair research hypothesis for the 22 stock-days that initially failed EMA9-above-EMA20 but later exceeded 1% modeled net. Require a later completed EMA9/EMA20 bullish cross, VWAP hold, decision score at least 65, bullish SuperTrend, and regime alignment before treating any as observable entry evidence.",
+    "For signal-deterioration exits, persist the first eligible exit timestamp plus prices at 15, 30, and 60 minutes afterward so a later-exit hypothesis can be evaluated without replay or day-close hindsight.",
+    "Reassess Early Momentum after at least five additional affected positions on two additional dates; until then, its negative result remains low-confidence."
+  ],
+  "limitations": [
+    "This result is analytics-reviewed only. No Replay, backtest, parameter sweep, targeted setting trial, or setting mutation was run.",
+    "The ten-session review uses the latest ten dates containing reconciled positions, not ten calendar days.",
+    "The mandatory confidence window uses the latest seven transaction-bearing dates ending 2026-09-04 and contains all seven requested dates.",
+    "Day-close opportunity loss and later observed candidate peaks are hindsight benchmarks, not executable counterfactuals. They do not model whether an exit signal would still have been valid, intraperiod drawdown, queueing, fills, or an implementable peak exit.",
+    "The standardized top-gainer opportunity uses INR 50,000 exposure and modeled 0.107% transaction cost plus 0.06% slippage; it is a comparability benchmark, not claimed realizable profit.",
+    "Snapshot coverage was 91.03% overall. The selected day had 114 usable snapshots out of 191, so missed-candidate inference for 2026-09-04 is less complete than other dates.",
+    "Settings fingerprints changed around 2026-08-25, although the exact recommended Rangebound score key remained 40 throughout all ten sessions. Earlier sessions materially contradict the latest-seven below-50 split, so the recommendation is medium-confidence rather than high."
+  ],
+  "recommendations": [
+    {
+      "type": "setting-change",
+      "key": "SIMULATION_RANGEBOUND_MIN_SCORE",
+      "currentValue": 40,
+      "recommendedValue": 50,
+      "defaultValue": 35,
+      "currentSource": "current-override",
+      "description": "Setup-specific decision-score floor for rangebound lower-bound entries.",
+      "confidence": "medium",
+      "rationale": "Raise the Rangebound admission floor from 40 to 50 to remove the current low-score subgroup whose losses and charges dominate recent setup economics.",
+      "evidence": [
+        "Latest-seven affected group: 17 below-50 Rangebound positions across six dates, 3 wins, gross P/L INR -2,204.32, charges INR 1,827.67, net P/L INR -4,031.99, expectancy INR -237.18, profit factor 0.32.",
+        "Latest-seven unaffected group: 9 score-50-or-higher Rangebound positions across four dates, 4 wins, gross P/L INR 3,198.45, charges INR 856.37, net P/L INR 2,342.08, expectancy INR 260.23, profit factor 2.52.",
+        "Five of six latest-seven dates containing below-50 trades support the higher floor. The contradicting date is 2026-08-31, when two below-50 positions made INR 660.00 net.",
+        "The exact 40 score value and current-override source were present on all ten reviewed dates. The latest-seven settings fingerprint was stable from 2026-08-26 through 2026-09-04.",
+        "The change would also reject three latest-seven winners: ANANDRATHI INR 945.43, LODHA INR 873.99, and QUESS INR 72.23."
+      ],
+      "risk": "The score split is regime-sensitive. Across the full ten sessions, the first three dates contributed profitable below-50 trades, and the proposed floor would reject three recent winners totaling INR 1,891.65. It may reduce trade count sharply and miss mean-reversion winners, so it should be treated as analytics-reviewed, not validated.",
+      "validation": {
+        "status": "analytics-reviewed",
+        "reason": "The exact 40-to-50 mechanism was checked against 17 affected reconciled positions over six latest-seven dates. Aggregate evidence is favorable and five of six affected dates support it, meeting medium confidence, but no replay or targeted trial was run."
+      }
+    },
+    {
+      "type": "new-setup",
+      "setupType": "TOP_GAINER_CONTROLLED_RETEST",
+      "confidence": "low",
+      "rationale": "Capture persistent top-five leaders that are slightly too extended for continuation but complete a shallow pullback above VWAP and re-accelerate, without weakening the existing continuation setup.",
+      "entryEvidence": {
+        "leaderMemoryMin": 30,
+        "topGainerRankMax": 5,
+        "dayGainPctMin": 1.5,
+        "dayGainPctMax": 6.0,
+        "decisionScoreMin": 70,
+        "triggerExtensionPctMinExclusive": 0.6,
+        "triggerExtensionPctMax": 1.0,
+        "vwapExtensionPctMin": 0.0,
+        "vwapExtensionPctMax": 0.8,
+        "recentHighRetestPctMin": 0.5,
+        "recentHighRetestPctMax": 1.2,
+        "ema9AboveEma20": true,
+        "bullishSuperTrend": true,
+        "change5mPctMin": 0.1,
+        "minimumFreshVolumeCondition": "volumeRatio3m >= 1 or volumeRatio5m >= 1",
+        "modeledNetProfitPctMin": 1.0,
+        "marketRegime": "existing long market-regime guard must pass"
+      },
+      "invalidation": "Before entry, invalidate when price closes below VWAP, SuperTrend turns bearish, rank memory exceeds 30 minutes, decision score drops below 65, or modeled net falls below 1%. After entry, use the tighter of the original setup stop and a completed-candle close below VWAP.",
+      "exitConcept": "Book 75% at the existing 0.7% gain milestone; trail the remaining 25% below the higher of VWAP or the prior completed five-minute candle low, with normal stop and EOD square-off still authoritative.",
+      "evidence": [
+        "The structural screen without the market-regime guard produced two candidate-days across two dates: SUVEN on 2026-08-20 and KIRLOSENG on 2026-08-27.",
+        "SUVEN: score 71.45, trigger extension 0.88%, VWAP extension 0.697%, retest depth 0.907%, later observed modeled peak +7.468%, maximum observed adverse move -0.286%, last observed modeled return +7.068%.",
+        "KIRLOSENG: score 82.70, trigger extension 0.924%, VWAP extension 0.667%, retest depth 0.59%, later observed modeled peak -0.167%, maximum observed adverse move -0.522%, last observed modeled return -0.513%.",
+        "The existing market-regime guard would exclude KIRLOSENG because Nifty was -0.757% versus the configured -0.35% long threshold, while retaining SUVEN where Nifty was -0.309%.",
+        "Final exact hypothesis coverage is one candidate on one date across all ten sessions and zero candidates in the latest-seven confidence window."
+      ],
+      "risk": "Coverage is far below the confidence rubric and the one retained example is selected from hindsight. A shallow retest can be the start of reversal, recent-high and ATR fields may be noisy, and the proposed partial/trailing exit has not been observed as an executable path. Run only as a shadow candidate with no automatic entry until at least 10 qualifying events across three dates are captured.",
+      "validation": {
+        "status": "hypothesis",
+        "reason": "The exact final rule has only one observable candidate in ten sessions and none in the mandatory latest-seven window. It is not analytics-validated, replay-tested, or suitable for live simulation entry."
+      }
+    }
+  ]
+}

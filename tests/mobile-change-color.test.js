@@ -7,18 +7,18 @@ const app = fs.readFileSync(path.join(__dirname, '..', 'mobile-app.js'), 'utf8')
 const css = fs.readFileSync(path.join(__dirname, '..', 'mobile.css'), 'utf8');
 
 test('All Stocks change values use positive and negative colors', () => {
-  assert.match(app, /<span class="\$\{cls\(row\.change\)\}"><small>Change<\/small><b class="\$\{cls\(row\.change\)\}">\$\{pct\(row\.change\)\}<\/b><\/span>/);
-  assert.match(css, /\.all-stock-row \.positive b\s*\{\s*color:\s*var\(--green\);\s*\}/);
-  assert.match(css, /\.all-stock-row \.negative b\s*\{\s*color:\s*var\(--red\);\s*\}/);
+  assert.match(app, /<em class="\$\{cls\(row\.change\)\}">\$\{pct\(row\.change\)\}<\/em>/);
+  assert.match(css, /\.positive\s*\{\s*color:\s*var\(--green\) !important;\s*\}/);
+  assert.match(css, /\.negative\s*\{\s*color:\s*var\(--red\) !important;\s*\}/);
 });
 
 test('mobile shell advances asset and service-worker cache versions', () => {
   const controller = fs.readFileSync(path.join(__dirname, '..', 'my-remix-app', 'app', 'actions', 'controller.tsx'), 'utf8');
   const serviceWorker = fs.readFileSync(path.join(__dirname, '..', 'mobile-sw.js'), 'utf8');
 
-  assert.match(controller, /mobile\.css\?v=20260801-20/);
-  assert.match(controller, /mobile-app\.js\?v=20260801-60/);
-  assert.match(serviceWorker, /intradayx-mobile-v64/);
-  assert.match(serviceWorker, /mobile\.css\?v=20260801-20/);
-  assert.match(serviceWorker, /mobile-app\.js\?v=20260801-60/);
+  assert.match(controller, /mobile\.css\?v=20260905-32/);
+  assert.match(controller, /mobile-app\.js\?v=20260905-78/);
+  assert.match(serviceWorker, /intradayx-mobile-v83/);
+  assert.match(serviceWorker, /mobile\.css\?v=20260905-32/);
+  assert.match(serviceWorker, /mobile-app\.js\?v=20260905-78/);
 });

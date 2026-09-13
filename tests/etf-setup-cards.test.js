@@ -25,7 +25,7 @@ test('setup cards include short-term picks for stocks and ETFs', () => {
 
   assert.match(source, /function isShortTermPick\(/);
   assert.match(source, /function hasConsistentShortTermTrend\(/);
-  assert.match(source, /shortterm: countRowsForStockFilters\(rows, 'setup_shortterm'\)/);
+  assert.match(source, /shortterm: count\('setup_shortterm'\)/);
   assert.match(source, /'Short-term Quality'/);
   assert.match(source, /setup_shortterm/);
   assert.match(source, /shortterm: countRowsForETFFilters\(rows, 'shortterm'\)/);

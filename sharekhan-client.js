@@ -91,7 +91,15 @@ class SharekhanClient {
   async ensureSymbolCodeMap(exchange = 'NC') {
     const now = Date.now();
     // Return early if in-memory cache is fresh
-    if (this.symbolCodeCache.size && this.streamingSymbolCodeCache.size && now - this.symbolCacheUpdatedAt < this.symbolCacheTtlMs) return;
+    if (this.streamingSymbolCodeCache.size && now - this.symbolCacheUpdatedAt < this.symbolCacheTtlMs) return;
+    if (this.symbolMasterRequest) return this.symbolMasterRequest;
+    this.symbolMasterRequest = this.loadSymbolCodeMap(exchange);
+    try { await this.symbolMasterRequest; }
+    finally { this.symbolMasterRequest = null; }
+  }
+
+  async loadSymbolCodeMap(exchange = 'NC') {
+    const now = Date.now();
     // Fetch from master endpoint
     try {
       const result = await this.withAuthRetry(() => this.client.getActiveScriptOfDay(exchange));
@@ -106,7 +114,10 @@ class SharekhanClient {
         const code = Number(item?.scripCode || 0);
         if (symbol && Number.isFinite(code) && code > 0) nextStreamingMap.set(symbol, code);
       }
-      if (nextStreamingMap.size) this.streamingSymbolCodeCache = nextStreamingMap;
+      if (nextStreamingMap.size) {
+        this.streamingSymbolCodeCache = nextStreamingMap;
+        this.symbolCacheUpdatedAt = now;
+      }
       if (nextMap.size) {
         this.symbolCodeCache = nextMap;
         this.symbolCacheUpdatedAt = now;
@@ -195,10 +206,10 @@ class SharekhanClient {
   async resolveStreamingScripCode(symbol, exchange = 'NC') {
     const clean = String(symbol || '').trim().toUpperCase().replace(/\.NS$/i, '');
     if (!clean) return 0;
-    const cached = this.streamingSymbolCodeCache.get(clean);
-    if (cached) return Number(cached);
     await this.ensureSymbolCodeMap(exchange);
-    return Number(this.streamingSymbolCodeCache.get(clean) || this.symbolCodeCache.get(clean) || 0);
+    // Streaming includes BE and other active series. Never resurrect obsolete
+    // equity codes from SQLite when the current master does not list them.
+    return Number(this.streamingSymbolCodeCache.get(clean) || 0);
   }
 
   buildOrderPayload(order = {}) {

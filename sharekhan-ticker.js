@@ -30,11 +30,11 @@ function normalizeSharekhanMarketDepth(tick, capturedAt = Date.now()) {
   const askLevels = normalizeDepthLevels(book.asks || book.ask || book.sell || book.sellOrders || tick.asks, 'ask');
   const bestBidPrice = positiveNumber(tick.bestBidPrice ?? tick.bidPrice ?? tick.bestBid ?? tick.bid ?? book.bestBidPrice ?? book.bidPrice)
     || bidLevels[0]?.price || null;
-  const bestAskPrice = positiveNumber(tick.bestAskPrice ?? tick.askPrice ?? tick.bestAsk ?? tick.ask ?? book.bestAskPrice ?? book.askPrice)
+  const bestAskPrice = positiveNumber(tick.bestAskPrice ?? tick.askPrice ?? tick.offerPrice ?? tick.offPrice ?? tick.bestAsk ?? tick.ask ?? book.bestAskPrice ?? book.askPrice ?? book.offerPrice ?? book.offPrice)
     || askLevels[0]?.price || null;
   const bestBidQuantity = positiveNumber(tick.bestBidQuantity ?? tick.bestBidQty ?? tick.bidQuantity ?? tick.bidQty ?? book.bestBidQuantity ?? book.bestBidQty)
     || bidLevels[0]?.quantity || null;
-  const bestAskQuantity = positiveNumber(tick.bestAskQuantity ?? tick.bestAskQty ?? tick.askQuantity ?? tick.askQty ?? book.bestAskQuantity ?? book.bestAskQty)
+  const bestAskQuantity = positiveNumber(tick.bestAskQuantity ?? tick.bestAskQty ?? tick.askQuantity ?? tick.askQty ?? tick.offerQuantity ?? tick.offerQty ?? tick.offQty ?? book.bestAskQuantity ?? book.bestAskQty ?? book.offerQty ?? book.offQty)
     || askLevels[0]?.quantity || null;
   if (!bestBidPrice || !bestAskPrice || !bestBidQuantity || !bestAskQuantity) return null;
   const summedBidQuantity = bidLevels.reduce((sum, level) => sum + level.quantity, 0);
@@ -134,6 +134,15 @@ class SharekhanTicker {
     this._connectTimeout = null;
     this._idleTimer = null;
     this._lastTickAt = 0;
+    this._nonLtpTickCount = 0;
+    this._unroutedTickCount = 0;
+    this._lastNonLtpTickKeys = [];
+    this._lastUnroutedTickKeys = [];
+    this._lastRoutedTickKeys = [];
+    this._lastDepthKeys = [];
+    this._lastRoutedTickShape = {};
+    this._lastRoutedQuoteValues = {};
+    this._lastEnvelopeKeys = [];
     this._subscriptionAcceptedLogged = false;
   }
 
@@ -317,7 +326,14 @@ class SharekhanTicker {
 
   _sendFeed(codes) {
     if (!codes.length || !this._ws) return;
-    this._sendJson({ action: 'feed', key: ['ltp'], value: codes.map(c => `NC${c}`) });
+    // Sharekhan accepts comma-separated instruments for LTP. Current clients
+    // request `full` (quote + book) one instrument at a time; batching a full
+    // feed is silently accepted but produces quote-only frames.
+    const instruments = codes.map(c => `NC${c}`);
+    this._sendJson({ action: 'feed', key: ['ltp'], value: [instruments.join(',')] });
+    for (const instrument of instruments) {
+      this._sendJson({ action: 'feed', key: ['full'], value: [instrument] });
+    }
   }
 
   _sendJson(payload) {
@@ -333,12 +349,34 @@ class SharekhanTicker {
   _onTick(raw) {
     try {
       const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      this._lastEnvelopeKeys = parsed && typeof parsed === 'object' ? Object.keys(parsed).sort() : [];
       const data = parsed?.data;
       if (!data) return;
       const ticks = Array.isArray(data) ? data : [data];
       for (const tick of ticks) {
+        if (tick && typeof tick === 'object' && !(Number(tick.ltp) > 0)) {
+          this._nonLtpTickCount += 1;
+          this._lastNonLtpTickKeys = Object.keys(tick).sort();
+        }
         if (tick && typeof tick === 'object' && tick.exchangeCode === 'NC' && tick.scripCode) {
+          this._lastRoutedTickKeys = Object.keys(tick).sort();
+          this._lastRoutedTickShape = Object.fromEntries(Object.entries(tick).map(([key, value]) => {
+            if (Array.isArray(value)) {
+              const first = value.find(item => item && typeof item === 'object');
+              return [key, { type:'array', length:value.length, itemKeys:first ? Object.keys(first).sort() : [] }];
+            }
+            if (value && typeof value === 'object') return [key, { type:'object', keys:Object.keys(value).sort() }];
+            return [key, typeof value];
+          }));
+          this._lastRoutedQuoteValues = Object.fromEntries([
+            'scripCode', 'bidPrice', 'bidQty', 'offPrice', 'offQty', 'totalBuyQty', 'totalSellQty',
+          ].map(key => [key, tick[key] ?? null]));
+          const depth = tick.depth || tick.marketDepth || tick.market_depth || tick.orderBook || tick.order_book;
+          if (depth && typeof depth === 'object') this._lastDepthKeys = Object.keys(depth).sort();
           this._processTick(tick);
+        } else if (tick && typeof tick === 'object') {
+          this._unroutedTickCount += 1;
+          this._lastUnroutedTickKeys = Object.keys(tick).sort();
         }
       }
     } catch (_) {}
@@ -346,12 +384,16 @@ class SharekhanTicker {
 
   _processTick(tick) {
     const code = Number(tick.scripCode);
-    const ltp = Number(tick.ltp);
-    if (!code || !Number.isFinite(ltp) || ltp <= 0) return;
+    if (!code) return;
     this._lastTickAt = Date.now();
+    // Sharekhan publishes market-depth frames separately from LTP frames. Depth
+    // frames have a scrip code and book fields, but usually no `ltp`; forward
+    // them to raw-tick consumers before applying the candle-only LTP guard.
     if (this.onTick) {
       try { this.onTick(tick); } catch (_) {}
     }
+    const ltp = Number(tick.ltp);
+    if (!Number.isFinite(ltp) || ltp <= 0) return;
 
     const barSec = parseTickTime(tick.lastUpdatedTime)
       ?? Math.floor(Date.now() / (BAR_MINUTES * 60 * 1000)) * (BAR_MINUTES * 60);
@@ -415,6 +457,20 @@ class SharekhanTickerPool {
   get _idleTimeoutMs() { return Number(this._tickers[0]?._idleTimeoutMs) || 0; }
   get connectionCount() { return this._tickers.length; }
   get connectedCount() { return this._tickers.filter(ticker => ticker._connected).length; }
+  get diagnostics() {
+    const lastWith = key => [...this._tickers].reverse().find(ticker => Array.isArray(ticker[key]) && ticker[key].length)?.[key] || [];
+    return {
+      nonLtpTickCount:this._tickers.reduce((sum, ticker) => sum + Number(ticker._nonLtpTickCount || 0), 0),
+      unroutedTickCount:this._tickers.reduce((sum, ticker) => sum + Number(ticker._unroutedTickCount || 0), 0),
+      lastNonLtpTickKeys:lastWith('_lastNonLtpTickKeys'),
+      lastUnroutedTickKeys:lastWith('_lastUnroutedTickKeys'),
+      lastRoutedTickKeys:lastWith('_lastRoutedTickKeys'),
+      lastDepthKeys:lastWith('_lastDepthKeys'),
+      lastRoutedTickShape:[...this._tickers].reverse().find(ticker => ticker._lastRoutedTickShape && Object.keys(ticker._lastRoutedTickShape).length)?._lastRoutedTickShape || {},
+      lastRoutedQuoteValues:[...this._tickers].reverse().find(ticker => ticker._lastRoutedQuoteValues && Object.keys(ticker._lastRoutedQuoteValues).length)?._lastRoutedQuoteValues || {},
+      lastEnvelopeKeys:lastWith('_lastEnvelopeKeys'),
+    };
+  }
   getConnectionIndex(scripCode) {
     const index = this._codeToTicker.get(Number(scripCode));
     return Number.isInteger(index) ? index : -1;

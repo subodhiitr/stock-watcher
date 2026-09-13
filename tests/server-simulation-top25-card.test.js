@@ -32,12 +32,17 @@ test('combined setup view keeps one profitability-ranked leader per setup on des
   assert.match(proxy, /selectTopCandidatesBySetup/);
   assert.match(proxy, /combinedRank:index \+ 1/);
   assert.match(proxy, /profitabilityReason/);
+  assert.match(proxy, /selectCombinedSetupCandidates\(analyzedCandidates, settings\)/);
   assert.match(dashboard, /'Combined Top Setups'/);
   assert.match(dashboard, /function getServerCombinedSetupRows\(\)/);
   assert.match(dashboard, /selectServerCombinedSetupsCard\(\)/);
   assert.match(mobileController, /<option value="combined_top">Combined Top Setups<\/option>/);
   assert.match(mobile, /combined_top: \(a, b\) => n\(a\.combinedRank\) - n\(b\.combinedRank\)/);
   assert.match(mobile, /Profitability ranking/);
+  assert.match(dashboard, /Watching: \$\{pendingReason\}/);
+  assert.match(mobile, /Watching: \$\{pendingReason\}/);
+  assert.match(dashboard, /serverCandidate\.combinedWatchReason \|\| serverCandidate\.blockReason/);
+  assert.match(mobile, /c\.combinedWatchReason \|\| c\.blockReason/);
 });
 
 test('Top 25 Trade cells show server rank and entry selection reason', () => {

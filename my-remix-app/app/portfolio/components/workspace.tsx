@@ -211,6 +211,8 @@ export const PortfolioWorkspace = clientEntry(
           handle.update()
           return
         }
+        if (status.localLogin) await portfolioApi.loginLocal(request.signal)
+        if (!request.isCurrent()) return
         await loadAuthenticated()
       } catch (initialError) {
         if (!request.signal.aborted) {
@@ -235,9 +237,7 @@ export const PortfolioWorkspace = clientEntry(
         if (!request.signal.aborted) {
           loginBusy = false
           error = loginError instanceof PortfolioApiError && loginError.status === 401
-            ? mfaCode === ''
-              ? 'MFA is enabled for this account. Enter the current six-digit code from your authenticator app.'
-              : 'The username, password, or authenticator code was not accepted. Wait for a fresh code and try once.'
+            ? 'The username or password was not accepted.'
             : message(loginError)
           handle.update()
         }
