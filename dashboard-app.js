@@ -2149,7 +2149,7 @@ function ensureStockHistoryModal() {
   modal.setAttribute('aria-labelledby', 'stock-history-title');
   modal.innerHTML = `<div class="modal-header"><h2 id="stock-history-title">Stock chart</h2><button type="button" aria-label="Close stock chart" class="modal-close" onclick="closeStockHistory()">×</button></div>
     <div class="stock-history-toolbar" aria-label="Chart period">${[1, 6, 12].map(months => `<button type="button" data-history-months="${months}" onclick="setStockHistoryRange(${months})">${months}M</button>`).join('')}<span>Daily closing price · months</span></div>
-    <div id="stock-history-body" aria-live="polite"></div><div id="stock-history-detail" aria-live="polite">Hover, focus, or tap an event marker for details.</div><p id="stock-history-coverage"></p><section id="stock-history-ownership" aria-label="Historical shareholding" aria-live="polite"></section>`;
+    <div id="stock-history-body" aria-live="polite"></div><div id="stock-history-delivery-volume"></div><div id="stock-history-detail" aria-live="polite">Hover, focus, or tap an event marker for details.</div><p id="stock-history-coverage"></p><section id="stock-history-ownership" aria-label="Historical shareholding" aria-live="polite"></section>`;
   modal.addEventListener('close', () => {
     stockHistoryState.request++;
     stockHistoryState.controller?.abort();
@@ -2241,13 +2241,72 @@ async function loadStockOwnership() {
   renderStockOwnership();
 }
 
+function getDeliveryVolumeMarkup(symbol) {
+  const normalized = String(symbol || '').trim().toUpperCase();
+  const dataset = normalized === 'VBL' ? {
+    title: 'VARUN BEVERAGES DELIVERY AND VOLUME',
+    rows: [
+      { label: '11 Sep, 2026', combined: 5.4, total: 10.5 },
+      { label: 'Week', combined: 4.5, total: 7.9 },
+      { label: 'Month', combined: 3.9, total: 7.1 },
+    ],
+    average: [
+      { label: '11 Sep, 2026', value: 51.2 },
+      { label: 'WEEK', value: 57.0 },
+      { label: 'MONTH', value: 55.3 },
+    ],
+  } : null;
+  if (!dataset) return '';
+  const maxVolume = 12;
+  return `
+    <div class="delivery-volume-card" aria-label="${escapeHTML(dataset.title)}">
+      <div class="delivery-volume-header">${escapeHTML(dataset.title)}</div>
+      <div class="delivery-volume-scale">
+        ${Array.from({ length: 13 }, (_, index) => `<span>${index}M</span>`).join('')}
+      </div>
+      ${dataset.rows.map(row => {
+        const combinedWidth = (row.combined / maxVolume) * 100;
+        const totalWidth = (row.total / maxVolume) * 100;
+        return `
+          <div class="delivery-volume-row">
+            <div class="delivery-volume-label">${escapeHTML(row.label)}</div>
+            <div class="delivery-volume-track">
+              <span class="delivery-volume-total" style="width:${totalWidth}%"></span>
+              <span class="delivery-volume-combined" style="width:${combinedWidth}%"></span>
+            </div>
+            <div class="delivery-volume-values">
+              <span class="delivery-volume-combined-label">${row.combined.toFixed(1)}M</span>
+              <span class="delivery-volume-total-label">${row.total.toFixed(1)}M</span>
+            </div>
+          </div>
+        `;
+      }).join('')}
+      <div class="delivery-volume-legend">
+        <span class="delivery-volume-legend-item"><i class="legend-combined"></i> Combined Delivery Volume</span>
+        <span class="delivery-volume-legend-item"><i class="legend-total"></i> NSE+BSE Traded Volume</span>
+      </div>
+      <div class="delivery-volume-average-header">DAILY AVG. DELIVERY VOLUME %</div>
+      <div class="delivery-volume-average-grid">
+        ${dataset.average.map(item => `
+          <div class="delivery-volume-average-item">
+            <div class="delivery-volume-average-label">${escapeHTML(item.label)}</div>
+            <div class="delivery-volume-average-value">${item.value.toFixed(1)}%</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function renderStockHistory() {
   const state = stockHistoryState;
   renderStockOwnership();
   document.getElementById('stock-history-title').textContent = `${state.symbol} · Stock chart`;
   document.querySelectorAll('[data-history-months]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.historyMonths) === state.months)));
   const body = document.getElementById('stock-history-body');
+  const deliveryVolume = document.getElementById('stock-history-delivery-volume');
   const prices = stockHistoryRange(state.prices, state.months);
+  if (deliveryVolume) deliveryVolume.innerHTML = getDeliveryVolumeMarkup(state.symbol);
   document.getElementById('stock-history-coverage').textContent = state.coverage || 'Loading events…';
   if (prices.length < 2) { body.innerHTML = `<p class="stock-history-empty">${escapeHTML(state.error || (state.loading ? 'Loading daily price history…' : 'No price history for this period.'))}${state.error ? '<br><button type="button" onclick="openStockHistory(stockHistoryState.symbol)">Retry</button>' : ''}</p>`; return; }
   const width = 1100, left = 90, right = 28, top = 25, bottom = 335;

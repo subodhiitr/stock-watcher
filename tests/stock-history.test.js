@@ -54,6 +54,16 @@ test('event details escape markup and reject unsafe source links', () => {
     stockHistoryState: { groups: [[{ title: '<img src=x>', date: '2026-09-01', url: 'javascript:alert(1)', category: 'News' }]] },
     escapeHTML: value => String(value).replaceAll('<', '&lt;').replaceAll('>', '&gt;'),
   });
+
+  test('VBL history modal includes the delivery volume panel', () => {
+    const fn = source.slice(source.indexOf('function getDeliveryVolumeMarkup('), source.indexOf('function renderStockHistory('));
+    const markup = vm.runInNewContext(`${fn};getDeliveryVolumeMarkup('VBL')`, {
+      escapeHTML: value => String(value).replaceAll('<', '&lt;').replaceAll('>', '&gt;'),
+    });
+    assert.match(markup, /VARUN BEVERAGES DELIVERY AND VOLUME/);
+    assert.match(markup, /Combined Delivery Volume/);
+    assert.match(markup, /DAILY AVG\. DELIVERY VOLUME %/);
+  });
   assert.ok(detail.innerHTML.includes('&lt;img'));
   assert.ok(!detail.innerHTML.includes('javascript:'));
 });
