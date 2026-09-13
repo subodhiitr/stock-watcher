@@ -1213,7 +1213,6 @@ function activateDashboard(src) {
 function renderDashboardShell(message = 'Loading live data...') {
   renderIndices();
   renderSectors();
-  renderOverview();
   const tableBody = document.getElementById('stock-tbody');
   if (Object.keys(stockData).length) renderTable({ immediate:true });
   else if (tableBody) tableBody.innerHTML = '<tr><td colspan="17" class="loading-row">Waiting for the first live quote batch…</td></tr>';
@@ -10073,86 +10072,14 @@ function etfSortBy(col){
 
 const DASHBOARD_ROUTE = window.__DASHBOARD_ROUTE__ || {};
 let currentView = DASHBOARD_ROUTE.view === 'etfs' ? 'etfs' : 'stocks';
-
-function formatOverviewNumber(value, suffix = '') {
-  return Number.isFinite(value) ? `${value.toFixed(2)}${suffix}` : '--';
-}
-
-function overviewRows() {
-  return getAllStockRows()
-    .map(row => {
-      const data = row.data;
-      const change = getDisplayChangePct(data);
-      const price = Number(data?.price);
-      const high52 = Number(data?.high52);
-      const low52 = Number(data?.low52);
-      const volume = Number(data?.volume);
-      const indexChange = Number(indexData?.nifty50?.change);
-      return {
-        ...row,
-        change: Number.isFinite(change) ? change : null,
-        price: Number.isFinite(price) && price > 0 ? price : null,
-        highDistance: Number.isFinite(price) && price > 0 && Number.isFinite(high52) && high52 > 0 ? ((high52 - price) / price) * 100 : null,
-        lowDistance: Number.isFinite(price) && price > 0 && Number.isFinite(low52) && low52 > 0 ? ((price - low52) / low52) * 100 : null,
-        relativeChange: Number.isFinite(change) && Number.isFinite(indexChange) ? change - indexChange : null,
-        volume: Number.isFinite(volume) && volume > 0 ? volume : null,
-      };
-    })
-    .filter(row => row.price !== null || row.change !== null || row.volume !== null);
-}
-
-function overviewCard(title, rows, value, emptyMessage, formatValue = amount => formatOverviewNumber(amount, '%')) {
-  const content = rows.length
-    ? rows.map(row => {
-      const width = `${Math.min(100, Math.max(4, Math.abs(value(row)) * 100 / Math.max(...rows.map(item => Math.abs(value(item))), 1)))}%`;
-      const amount = value(row);
-      const positive = amount >= 0;
-      return `<button class="overview-row" type="button" onclick="openFundModal('${escapeHTML(row.sym)}')">
-        <span class="overview-symbol">${escapeHTML(row.sym)}</span>
-        <span class="overview-bar-track"><span class="overview-bar ${positive ? 'positive' : 'negative'}" style="width:${width}"></span></span>
-        <strong>${escapeHTML(formatValue(amount))}</strong>
-      </button>`;
-    }).join('')
-    : `<div class="overview-empty">${escapeHTML(emptyMessage)}</div>`;
-  return `<section class="overview-card"><header><h2>${escapeHTML(title)}</h2><span>VIEW ALL →</span></header><div class="overview-list">${content}</div><footer>${rows.length ? 'Live dashboard values' : 'Waiting for supported data'}</footer></section>`;
-}
-
-function renderOverview() {
-  const target = document.getElementById('overview-section');
-  if (!target) return;
-  const rows = overviewRows();
-  const by = (key, direction = -1) => rows.filter(row => Number.isFinite(row[key])).sort((a, b) => direction * (b[key] - a[key])).slice(0, 5);
-  const high = by('highDistance', 1).filter(row => row.highDistance >= 0);
-  const low = by('lowDistance', 1).filter(row => row.lowDistance >= 0);
-  const outperform = by('relativeChange').filter(row => row.relativeChange > 0);
-  const underperform = by('relativeChange', 1).filter(row => row.relativeChange < 0);
-  const volume = rows.filter(row => Number.isFinite(row.volume)).sort((a, b) => b.volume - a.volume).slice(0, 5);
-  const volumeGainers = volume.filter(row => row.change > 0).sort((a, b) => b.change - a.change);
-  const volumeLosers = volume.filter(row => row.change < 0).sort((a, b) => a.change - b.change);
-  const delivery = `<section class="overview-card"><header><h2>RISING DELIVERY PERCENTAGE</h2><span>VIEW ALL →</span></header><div class="overview-empty">Delivery percentage is not available in the current quote feed.</div><footer>Add NSE delivery data to enable this leaderboard.</footer></section>`;
-  target.innerHTML = `<div class="overview-grid">
-    ${overviewCard('NEW 52 WEEK HIGH', high, row => row.highDistance, '52-week high data is not available yet.')}
-    ${overviewCard('NEW 52 WEEK LOW', low, row => row.lowDistance, '52-week low data is not available yet.')}
-    ${overviewCard('RELATIVE OUTPERFORMANCE VS NIFTY50', outperform, row => row.relativeChange, 'Waiting for index and quote changes.')}
-    ${overviewCard('RELATIVE UNDERPERFORMANCE VS NIFTY50', underperform, row => row.relativeChange, 'Waiting for index and quote changes.')}
-    ${overviewCard('VOLUME SHOCKERS', volume, row => row.volume / 1000000, 'Volume data is not available yet.', amount => `${amount.toFixed(1)}M`)}
-    ${overviewCard('HIGH VOLUME, HIGH GAIN', volumeGainers, row => row.change, 'No volume-backed gainers yet.')}
-    ${overviewCard('HIGH VOLUME, TOP LOSERS', volumeLosers, row => row.change, 'No volume-backed losers yet.')}
-    ${delivery}
-  </div>`;
-}
-
 async function setView(view, el){
   currentView = view;
   if (view !== 'stocks') disconnectServerSimulationTop25Stream();
   document.querySelectorAll('#main-tabs .tab-btn').forEach(b=>b.classList.remove('active'));
   if(el) el.classList.add('active');
-  const ov = document.getElementById('overview-section'); if(ov) ov.style.display = view==='overview' ? 'block' : 'none';
   const sc = document.getElementById('stock-content'); if(sc) sc.style.display = view==='stocks' ? 'block' : 'none';
   const es = document.getElementById('etf-section'); if(es) es.style.display = view==='etfs' ? 'block' : 'none';
-  if(view==='overview'){
-    renderOverview();
-  } else if(view==='etfs'){
+  if(view==='etfs'){
     await ensureETFDataLoadedForTab();
     populateETFSectorDropdown();
     renderETFSection();
@@ -12271,7 +12198,6 @@ function renderDashboard(options = {}) {
 function renderDashboardNow(immediateTable = false){
   renderIndices();
   renderSectors();
-  renderOverview();
   renderTable(immediateTable ? { immediate:true } : undefined);
   renderTopActionBar();
   applyColumnPreset();
