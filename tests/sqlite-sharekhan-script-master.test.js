@@ -3,6 +3,42 @@ import assert from 'node:assert/strict';
 import { initDb, upsertScripCodes, getScripCode } from '../server/db.js';
 import SharekhanClient from '../sharekhan-client.js';
 
+test('streaming uses current BE codes instead of obsolete SQLite EQ codes and shares the master request', async () => {
+  initDb(':memory:');
+  upsertScripCodes([
+    { symbol: 'HFCL', sharekhan_code: 21951 },
+    { symbol: 'E2E', sharekhan_code: 8937 },
+    { symbol: 'SRIKPRIND', sharekhan_code: 765165 },
+    { symbol: 'REMOVED', sharekhan_code: 123 },
+  ], 'sharekhan');
+  const client = new SharekhanClient({});
+  let calls = 0;
+  client.client.getActiveScriptOfDay = async () => {
+    calls++;
+    return { data: [
+      { tradingSymbol: 'HFCL', scripCode: 21954, instType: 'BE' },
+      { tradingSymbol: 'E2E', scripCode: 8940, instType: 'BE' },
+      { tradingSymbol: 'SRIKPRIND', scripCode: 765168, instType: 'BE' },
+    ] };
+  };
+  assert.deepEqual(await Promise.all(['HFCL', 'E2E', 'SRIKPRIND', 'REMOVED'].map(sym => client.resolveStreamingScripCode(sym))), [21954, 8940, 765168, 0]);
+  assert.equal(calls, 1);
+  assert.equal(await client.resolveStreamingScripCode('HFCL'), 21954);
+  assert.equal(calls, 1);
+});
+
+test('streaming refreshes an expired master and does not fall back to unverified DB codes on failure', async () => {
+  initDb(':memory:');
+  upsertScripCodes([{ symbol: 'HFCL', sharekhan_code: 21951 }], 'sharekhan');
+  const client = new SharekhanClient({});
+  client.client.getActiveScriptOfDay = async () => { throw new Error('unavailable'); };
+  assert.equal(await client.resolveStreamingScripCode('HFCL'), 0);
+  client.streamingSymbolCodeCache.set('HFCL', 21951);
+  client.symbolCacheUpdatedAt = Date.now() - client.symbolCacheTtlMs - 1;
+  client.client.getActiveScriptOfDay = async () => ({ data: [{ tradingSymbol: 'HFCL', scripCode: 21954, instType: 'BE' }] });
+  assert.equal(await client.resolveStreamingScripCode('HFCL'), 21954);
+});
+
 test('sharekhan client loads script codes from sqlite on cache hit', async () => {
   // Initialize in-memory DB and insert sample script codes
   const db = initDb(':memory:');

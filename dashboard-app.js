@@ -2148,7 +2148,7 @@ function ensureStockHistoryModal() {
   modal.setAttribute('aria-labelledby', 'stock-history-title');
   modal.innerHTML = `<div class="modal-header"><h2 id="stock-history-title">Stock chart</h2><button type="button" aria-label="Close stock chart" class="modal-close" onclick="closeStockHistory()">×</button></div>
     <div class="stock-history-toolbar" aria-label="Chart period">${[1, 6, 12].map(months => `<button type="button" data-history-months="${months}" onclick="setStockHistoryRange(${months})">${months}M</button>`).join('')}<span>Daily closing price · months</span></div>
-    <div id="stock-history-body" aria-live="polite"></div><div id="stock-history-detail" aria-live="polite">Hover, focus, or tap an event marker for details.</div><p id="stock-history-coverage"></p>`;
+    <div id="stock-history-body" aria-live="polite"></div><div id="stock-history-detail" aria-live="polite">Hover, focus, or tap an event marker for details.</div><p id="stock-history-coverage"></p><section id="stock-history-ownership" aria-label="Historical shareholding" aria-live="polite"></section>`;
   modal.addEventListener('close', () => {
     stockHistoryState.request++;
     stockHistoryState.controller?.abort();
@@ -2175,8 +2175,74 @@ function showStockHistoryEvent(index) {
   }).join('');
 }
 
+function ownershipChange(quarters, field, label) {
+  const current = quarters.at(-1), previous = quarters.at(-2);
+  if (current?.[field] == null) return { tone: '', text: `${label}: not reported for the latest quarter.` };
+  if (previous?.[field] == null) return { tone: '', text: `${label}: ${current[field].toFixed(2)}% in ${current.period}. Previous-quarter comparison unavailable.` };
+  const delta = +(current[field] - previous[field]).toFixed(2);
+  return { tone: delta > 0 ? 'increase' : delta < 0 ? 'decrease' : '', text: delta === 0
+    ? `${label} remained at ${current[field].toFixed(2)}% in ${current.period}.`
+    : `${label} ${delta > 0 ? 'increased' : 'decreased'} from ${previous[field].toFixed(2)}% to ${current[field].toFixed(2)}% in ${current.period} (${delta > 0 ? '+' : ''}${delta.toFixed(2)} percentage points).` };
+}
+
+function renderStockOwnership() {
+  const target = document.getElementById('stock-history-ownership');
+  if (!target) return;
+  const state = stockHistoryState;
+  if (!state.ownership) {
+    target.innerHTML = `<h3>Historical shareholding</h3><p class="stock-history-empty">${escapeHTML(state.ownershipError || 'Loading quarterly ownership history…')}</p>${state.ownershipError ? '<button type="button" onclick="loadStockOwnership()">Retry ownership data</button>' : ''}`;
+    return;
+  }
+  const quarters = state.ownership.quarters || [];
+  const panels = [
+    { title: 'Historical promoter holding', field: 'promoter', label: 'Promoters', series: [['promoter', 'Promoter holding (%)', '#56a165'], ['pledge', 'Pledges as % of promoter shares (%)', '#eb776c']] },
+    { title: 'Historical FII holding', field: 'fii', label: 'FII/FPI', series: [['fii', 'FII/FPI holding (%)', '#dd63ac']] },
+    { title: 'Historical MF holding', field: 'mf', label: 'Mutual funds', series: [['mf', 'MF holding (%)', '#4973f5']] },
+  ];
+  target.innerHTML = `<div class="ownership-heading"><h3>Historical shareholding</h3><span>Latest ${quarters.length} reported quarters · Holding (%)</span></div><div class="ownership-panels">${panels.map(panel => {
+    const values = quarters.flatMap(row => panel.series.map(([field]) => row[field])).filter(value => Number.isFinite(value));
+    const max = Math.min(100, Math.max(5, Math.ceil(Math.max(0, ...values) * 1.15 / 5) * 5));
+    const y = value => 210 - value / max * 165;
+    const step = 325 / Math.max(1, quarters.length);
+    let svg = '';
+    for (let i = 0; i <= 3; i++) {
+      const value = max * i / 3;
+      svg += `<line x1="40" x2="380" y1="${y(value)}" y2="${y(value)}" class="history-grid"/><text x="33" y="${y(value) + 4}" text-anchor="end">${value.toFixed(value % 1 ? 1 : 0)}</text>`;
+    }
+    quarters.forEach((row, index) => {
+      const center = 50 + step * (index + .5), barWidth = panel.series.length > 1 ? 20 : 32;
+      panel.series.forEach(([field, label, color], seriesIndex) => {
+        const value = row[field], x = center + (seriesIndex - (panel.series.length - 1) / 2) * 25;
+        if (!Number.isFinite(value)) { svg += `<text x="${x}" y="199" text-anchor="middle">—</text>`; return; }
+        svg += `<rect x="${x - barWidth / 2}" y="${value === 0 ? 209 : y(value)}" width="${barWidth}" height="${Math.max(1, 210 - y(value))}" rx="2" fill="${color}"><title>${escapeHTML(row.period)} · ${escapeHTML(label)}: ${value.toFixed(2)}%</title></rect><text x="${x}" y="${y(value) - 7}" text-anchor="middle">${Number(value.toFixed(1))}</text>`;
+      });
+      svg += `<text x="${center}" y="230" text-anchor="middle">${escapeHTML(row.period.split(' ')[0])}</text><text x="${center}" y="246" text-anchor="middle">${escapeHTML(row.period.split(' ')[1])}</text>`;
+    });
+    const change = ownershipChange(quarters, panel.field, panel.label);
+    return `<article class="ownership-panel"><h4>${panel.title}</h4>${values.length ? `<svg viewBox="0 0 400 270" role="img" aria-label="${panel.title} by quarter; exact values in the table below">${svg}</svg>` : '<p class="stock-history-empty">History not reported by the source.</p>'}<div class="ownership-legend">${panel.series.map(([field, label, color]) => `<span><i style="background:${color}"></i>${label}${quarters.every(row => row[field] == null) ? ' · unavailable' : ''}</span>`).join('')}</div><p class="ownership-change ${change.tone}">${escapeHTML(change.text)}</p></article>`;
+  }).join('')}</div><details class="ownership-values"><summary>View exact percentages by quarter</summary><div class="ownership-table-scroll"><table><thead><tr><th>Quarter</th><th>Promoter (%)</th><th>Pledged / promoter shares (%)</th><th>FII/FPI (%)</th><th>MF (%)</th></tr></thead><tbody>${quarters.map(row => `<tr><th>${escapeHTML(row.period)}</th>${['promoter', 'pledge', 'fii', 'mf'].map(field => `<td>${row[field] == null ? 'Not reported' : row[field].toFixed(2)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></details><p class="ownership-source">Source: <a href="${escapeHTML(state.ownership.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(state.ownership.source)}</a> · Quarterly disclosures; not live holdings. — means not reported.</p>`;
+}
+
+async function loadStockOwnership() {
+  const { request, symbol, controller } = stockHistoryState;
+  stockHistoryState.ownershipError = '';
+  renderStockOwnership();
+  try {
+    const response = await fetch(`${PROXY}/stock-shareholding?symbol=${encodeURIComponent(symbol)}`, { signal: controller.signal });
+    if (!response.ok) throw new Error('Ownership history is currently unavailable for this stock.');
+    const data = await response.json();
+    if (request !== stockHistoryState.request) return;
+    stockHistoryState.ownership = data;
+  } catch (error) {
+    if (request !== stockHistoryState.request) return;
+    stockHistoryState.ownershipError = error.message;
+  }
+  renderStockOwnership();
+}
+
 function renderStockHistory() {
   const state = stockHistoryState;
+  renderStockOwnership();
   document.getElementById('stock-history-title').textContent = `${state.symbol} · Stock chart`;
   document.querySelectorAll('[data-history-months]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.historyMonths) === state.months)));
   const body = document.getElementById('stock-history-body');
@@ -2248,6 +2314,7 @@ async function openStockHistory(symbol, event) {
     return response.json();
   };
   await Promise.allSettled([
+    loadStockOwnership(),
     load('stock-history').then(data => {
       if (request !== stockHistoryState.request) return;
       Object.assign(stockHistoryState, { prices: data.prices || [], currency: data.currency, source: data.source, events: [...stockHistoryState.events, ...(data.events || [])], loading: false });
@@ -2263,7 +2330,7 @@ async function openStockHistory(symbol, event) {
 }
 
 function stockTrendButton(sym, data, chg) {
-  return `<button type="button" class="stock-trend-trigger" data-history-symbol="${escapeHTML(sym)}" aria-label="Open ${escapeHTML(sym)} full stock chart" title="Open full chart with news, results and actions"><span class="spark">${data ? sparkBars(sym, chg) : '<span>--</span>'}</span></button>`;
+  return `<button type="button" class="stock-trend-trigger" data-history-symbol="${escapeHTML(sym)}" aria-label="Open ${escapeHTML(sym)} full stock chart" title="Open full chart with shareholding, news, results and actions"><span class="spark">${data ? sparkBars(sym, chg) : '<span>--</span>'}</span></button>`;
 }
 document.addEventListener('click', event => {
   const button = event.target.closest?.('[data-history-symbol]');
@@ -2513,10 +2580,27 @@ function getIntradayFreshness(t) {
   const priceTimeMs = Number(t.priceTimeMs);
   const priceTimeFromIso = Date.parse(String(t.priceTime || t?.ohlc?.latestBar?.time || ''));
   const fetchedAt = Number(t.fetchedAt);
-  // For sharekhan-ws, fetchedAt reflects when the last SSE tick arrived — use it as freshness
-  const freshnessAt = t.dataSource === 'sharekhan-ws' && Number.isFinite(fetchedAt)
-    ? Math.max(Number.isFinite(priceTimeMs) ? priceTimeMs : 0, fetchedAt)
-    : (Number.isFinite(priceTimeMs)
+  if (t.dataSource === 'sharekhan-ws') {
+    // SSE heartbeats resend cached quotes. Only the original server receipt
+    // and market timestamp describe their age; fetchedAt is transport activity.
+    const marketAt = Number.isFinite(priceTimeMs) && priceTimeMs > 0 ? priceTimeMs : priceTimeFromIso;
+    const receivedAt = Number(t._updatedAt);
+    const marketAgeMs = Number.isFinite(marketAt) && marketAt > 0 ? Math.max(0, Date.now() - marketAt) : null;
+    const receiptAgeMs = Number.isFinite(receivedAt) && receivedAt > 0 ? Math.max(0, Date.now() - receivedAt) : null;
+    // Market time is a five-minute candle start. Match the server's allowance.
+    const marketStale = marketAgeMs == null || marketAgeMs > INTRADAY_STALE_MS + 5 * 60 * 1000;
+    const receiptStale = receiptAgeMs == null || receiptAgeMs > INTRADAY_STALE_MS;
+    const stale = !!t.stale || !!t.fetchFailed || marketStale || receiptStale;
+    const ageMs = marketStale ? marketAgeMs : receiptStale ? receiptAgeMs : marketAgeMs;
+    const ageMin = ageMs == null ? null : Math.round(ageMs / 60000);
+    const reason = t.staleReason || (marketAgeMs == null ? 'Market timestamp unavailable'
+      : marketStale ? `Market data age ${Math.round(marketAgeMs / 60000)}m`
+      : receiptAgeMs == null ? 'Quote receipt timestamp unavailable'
+      : receiptStale ? `Last quote received ${Math.round(receiptAgeMs / 60000)}m ago`
+      : `Market data age ${Math.round(marketAgeMs / 60000)}m`);
+    return { stale, ageMs, ageMin, label: `${stale ? 'Stale' : 'Fresh'}${ageMin == null ? '' : ' ' + ageMin + 'm'}`, reason };
+  }
+  const freshnessAt = (Number.isFinite(priceTimeMs) && priceTimeMs > 0
       ? priceTimeMs
       : (Number.isFinite(priceTimeFromIso) ? priceTimeFromIso : fetchedAt));
   const ageMs = Number.isFinite(freshnessAt) ? Date.now() - freshnessAt : null;

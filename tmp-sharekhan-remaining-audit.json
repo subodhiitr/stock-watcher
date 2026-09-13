@@ -1,0 +1,962 @@
+[
+  {
+    "symbol": "ADDIND",
+    "source": "sharekhan-ws",
+    "price": 82.95,
+    "priceTime": "2026-09-08T04:35:00.000Z",
+    "received": "2026-09-08T05:18:21.106Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 44.6,
+    "master": [
+      {
+        "code": 764563,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "ALFREDHE",
+    "source": "sharekhan-ws",
+    "price": 2945,
+    "priceTime": "2026-09-07T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.108Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1159.6,
+    "master": [
+      {
+        "code": 764573,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "AMARJOTHI",
+    "source": "sharekhan-ws",
+    "price": 162.7,
+    "priceTime": "2026-09-08T04:25:00.000Z",
+    "received": "2026-09-08T05:18:21.109Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 54.6,
+    "master": [
+      {
+        "code": 764588,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "APOORVA",
+    "source": "sharekhan-ws",
+    "price": 25.25,
+    "priceTime": "2026-09-07T03:45:00.000Z",
+    "received": "2026-09-08T05:18:21.112Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1534.6,
+    "master": [
+      {
+        "code": 764593,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "ARCL",
+    "source": "sharekhan-ws",
+    "price": 231,
+    "priceTime": "2026-09-08T05:00:00.000Z",
+    "received": "2026-09-08T05:18:21.112Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 19.6,
+    "master": [
+      {
+        "code": 764598,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "ARYAMAN",
+    "source": "sharekhan-ws",
+    "price": 630,
+    "priceTime": "2026-09-07T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.113Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1159.6,
+    "master": [
+      {
+        "code": 764603,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "ASIANTNE",
+    "source": "sharekhan-ws",
+    "price": 9.6,
+    "priceTime": "2026-09-08T04:55:00.000Z",
+    "received": "2026-09-08T05:18:21.113Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 24.6,
+    "master": [
+      {
+        "code": 765025,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "ASSAMENT",
+    "source": "sharekhan-ws",
+    "price": 790,
+    "priceTime": "2026-09-07T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.114Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1159.6,
+    "master": [
+      {
+        "code": 765237,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "AUSTENG",
+    "source": "sharekhan-ws",
+    "price": 129.5,
+    "priceTime": "2026-09-08T04:50:00.000Z",
+    "received": "2026-09-08T05:18:21.115Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 29.6,
+    "master": [
+      {
+        "code": 764608,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "BENARAS",
+    "source": "sharekhan-ws",
+    "price": 10120,
+    "priceTime": "2026-09-08T04:50:00.000Z",
+    "received": "2026-09-08T05:18:21.286Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 29.6,
+    "master": [
+      {
+        "code": 764618,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "BRIGHTBR",
+    "source": "sharekhan-ws",
+    "price": 259.1,
+    "priceTime": "2026-09-07T10:20:00.000Z",
+    "received": "2026-09-08T05:18:21.518Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1139.6,
+    "master": [
+      {
+        "code": 764633,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "CFEL",
+    "source": "sharekhan-ws",
+    "price": 32.64,
+    "priceTime": "2026-09-08T04:15:00.000Z",
+    "received": "2026-09-08T05:18:21.521Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 64.6,
+    "master": [
+      {
+        "code": 764638,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "CGVAK",
+    "source": "sharekhan-ws",
+    "price": 149.17,
+    "priceTime": "2026-09-08T05:00:00.000Z",
+    "received": "2026-09-08T05:18:21.521Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 19.6,
+    "master": [
+      {
+        "code": 764643,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "COMPEAU",
+    "source": "sharekhan-ws",
+    "price": 353,
+    "priceTime": "2026-09-08T05:05:00.000Z",
+    "received": "2026-09-08T05:18:21.525Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 14.6,
+    "master": [
+      {
+        "code": 764648,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "CRAVATEX",
+    "source": "sharekhan-ws",
+    "price": 322.05,
+    "priceTime": "2026-09-07T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.527Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1159.6,
+    "master": [
+      {
+        "code": 764653,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "GKB",
+    "source": "sharekhan-ws",
+    "price": 68.9,
+    "priceTime": "2026-09-08T04:35:00.000Z",
+    "received": "2026-09-08T05:18:21.542Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 44.6,
+    "master": [
+      {
+        "code": 764688,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "HBPOR",
+    "source": "sharekhan-ws",
+    "price": 60.46,
+    "priceTime": "2026-09-07T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.549Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1159.6,
+    "master": [
+      {
+        "code": 765080,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "HRYNSHP",
+    "source": "sharekhan-ws",
+    "price": 101.98,
+    "priceTime": "2026-09-08T04:05:00.000Z",
+    "received": "2026-09-08T05:18:21.556Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 74.6,
+    "master": [
+      {
+        "code": 764703,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "IPRINGLTD",
+    "source": "sharekhan-ws",
+    "price": 156.92,
+    "priceTime": "2026-09-08T05:05:00.000Z",
+    "received": "2026-09-08T05:18:21.568Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 14.6,
+    "master": [
+      {
+        "code": 764713,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "ISTLTD",
+    "source": "sharekhan-ws",
+    "price": 662.9,
+    "priceTime": "2026-09-08T05:05:00.000Z",
+    "received": "2026-09-08T05:18:21.569Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 14.6,
+    "master": [
+      {
+        "code": 764718,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "ITL",
+    "source": "sharekhan-ws",
+    "price": 368.95,
+    "priceTime": "2026-09-08T04:35:00.000Z",
+    "received": "2026-09-08T05:18:21.571Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 44.6,
+    "master": [
+      {
+        "code": 764723,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "JENBURPH",
+    "source": "sharekhan-ws",
+    "price": 1052,
+    "priceTime": "2026-09-08T04:05:00.000Z",
+    "received": "2026-09-08T05:18:21.572Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 74.6,
+    "master": [
+      {
+        "code": 764728,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "KAMANWALA",
+    "source": "sharekhan-ws",
+    "price": 16.5,
+    "priceTime": "2026-09-08T04:15:00.000Z",
+    "received": "2026-09-08T05:18:21.579Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 64.6,
+    "master": [
+      {
+        "code": 764738,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "KANCOTEA",
+    "source": "sharekhan-ws",
+    "price": 56.4,
+    "priceTime": "2026-09-07T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.580Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1159.6,
+    "master": [
+      {
+        "code": 765090,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "LADDERUP",
+    "source": "sharekhan-ws",
+    "price": 50,
+    "priceTime": "2026-09-08T04:25:00.000Z",
+    "received": "2026-09-08T05:18:21.586Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 54.6,
+    "master": [
+      {
+        "code": 764758,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "LAKSHMIMIL",
+    "source": "sharekhan-ws",
+    "price": 7751,
+    "priceTime": "2026-09-08T05:00:00.000Z",
+    "received": "2026-09-08T05:18:21.587Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 19.6,
+    "master": [
+      {
+        "code": 764763,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "LOTUSCHO",
+    "source": "sharekhan-ws",
+    "price": 603.45,
+    "priceTime": "2026-09-08T05:00:00.000Z",
+    "received": "2026-09-08T05:18:21.595Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 19.6,
+    "master": [
+      {
+        "code": 764768,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "MAKERSL",
+    "source": "sharekhan-ws",
+    "price": 190,
+    "priceTime": "2026-09-08T04:50:00.000Z",
+    "received": "2026-09-08T05:18:21.600Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 29.6,
+    "master": [
+      {
+        "code": 764773,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "MEDICAPQ",
+    "source": "sharekhan-ws",
+    "price": 26.15,
+    "priceTime": "2026-09-08T05:00:00.000Z",
+    "received": "2026-09-08T05:18:21.604Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 19.6,
+    "master": [
+      {
+        "code": 765110,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "MIIL",
+    "source": "sharekhan-ws",
+    "price": 715.9,
+    "priceTime": "2026-09-08T04:55:00.000Z",
+    "received": "2026-09-08T05:18:21.607Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 24.6,
+    "master": [
+      {
+        "code": 764778,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "MSL",
+    "source": "sharekhan-ws",
+    "price": 150,
+    "priceTime": "2026-09-08T04:55:00.000Z",
+    "received": "2026-09-08T05:18:21.609Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 24.6,
+    "master": [
+      {
+        "code": 764783,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "MUKESHB",
+    "source": "sharekhan-ws",
+    "price": 133.84,
+    "priceTime": "2026-09-07T10:20:00.000Z",
+    "received": "2026-09-08T05:18:21.610Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1139.6,
+    "master": [
+      {
+        "code": 764788,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "NICCOPAR",
+    "source": "sharekhan-ws",
+    "price": 79.27,
+    "priceTime": "2026-09-07T10:20:00.000Z",
+    "received": "2026-09-08T05:18:21.615Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1139.6,
+    "master": [
+      {
+        "code": 764793,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "NTCIND",
+    "source": "sharekhan-ws",
+    "price": 135.99,
+    "priceTime": "2026-09-08T04:55:00.000Z",
+    "received": "2026-09-08T05:18:21.616Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 24.6,
+    "master": [
+      {
+        "code": 764798,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "PACIFICI",
+    "source": "sharekhan-ws",
+    "price": 140,
+    "priceTime": "2026-09-07T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.621Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1159.6,
+    "master": [
+      {
+        "code": 764823,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "PANCHMAHQ",
+    "source": "sharekhan-ws",
+    "price": 290,
+    "priceTime": "2026-09-08T04:55:00.000Z",
+    "received": "2026-09-08T05:18:21.622Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 24.6,
+    "master": [
+      {
+        "code": 764828,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "PANORAMA",
+    "source": "sharekhan-ws",
+    "price": 49.35,
+    "priceTime": "2026-09-08T05:05:00.000Z",
+    "received": "2026-09-08T05:18:21.622Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 14.6,
+    "master": [
+      {
+        "code": 765140,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "PARNAXLAB",
+    "source": "sharekhan-ws",
+    "price": 132.99,
+    "priceTime": "2026-09-07T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.623Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1159.6,
+    "master": [
+      {
+        "code": 764833,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "PBMPOLY",
+    "source": "sharekhan-ws",
+    "price": 61,
+    "priceTime": "2026-09-04T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.623Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 5479.6,
+    "master": [
+      {
+        "code": 765145,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "POLYSPIN",
+    "source": "sharekhan-ws",
+    "price": 29.28,
+    "priceTime": "2026-09-08T04:25:00.000Z",
+    "received": "2026-09-08T05:18:21.629Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 54.6,
+    "master": [
+      {
+        "code": 765150,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "PRISMX",
+    "source": "sharekhan-ws",
+    "price": 0.55,
+    "priceTime": "2026-09-08T05:00:00.000Z",
+    "received": "2026-09-08T05:18:21.631Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 19.6,
+    "master": [
+      {
+        "code": 765155,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "SAB",
+    "source": "sharekhan-ws",
+    "price": 192.6,
+    "priceTime": "2026-09-08T04:15:00.000Z",
+    "received": "2026-09-08T05:18:21.636Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 64.6,
+    "master": [
+      {
+        "code": 764860,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "SAMBANDAM",
+    "source": "sharekhan-ws",
+    "price": 120.4,
+    "priceTime": "2026-09-07T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.637Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1159.6,
+    "master": [
+      {
+        "code": 764870,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "SHERVANI",
+    "source": "sharekhan-ws",
+    "price": 325.15,
+    "priceTime": "2026-09-08T04:40:00.000Z",
+    "received": "2026-09-08T05:18:21.640Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 39.6,
+    "master": [
+      {
+        "code": 764890,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "SHILGRAVQ",
+    "source": "sharekhan-ws",
+    "price": 150.25,
+    "priceTime": "2026-09-07T10:20:00.000Z",
+    "received": "2026-09-08T05:18:21.640Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1139.6,
+    "master": [
+      {
+        "code": 764895,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "SHIVAAGRO",
+    "source": "sharekhan-ws",
+    "price": 42.69,
+    "priceTime": "2026-09-08T05:00:00.000Z",
+    "received": "2026-09-08T05:18:21.641Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 19.6,
+    "master": [
+      {
+        "code": 764900,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "SHRADDHA",
+    "source": "sharekhan-ws",
+    "price": 155,
+    "priceTime": "2026-09-08T04:55:00.000Z",
+    "received": "2026-09-08T05:18:21.641Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 24.6,
+    "master": [
+      {
+        "code": 764905,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "SHRJAGP",
+    "source": "sharekhan-ws",
+    "price": 644.75,
+    "priceTime": "2026-09-08T04:40:00.000Z",
+    "received": "2026-09-08T05:18:21.642Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 39.6,
+    "master": [
+      {
+        "code": 764910,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "SIEL",
+    "source": "sharekhan-ws",
+    "price": 30.5,
+    "priceTime": "2026-09-08T05:05:00.000Z",
+    "received": "2026-09-08T05:18:21.642Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 14.6,
+    "master": [
+      {
+        "code": 3147,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "SIMPLXREA",
+    "source": "sharekhan-ws",
+    "price": 141.7,
+    "priceTime": "2026-09-07T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.643Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1159.6,
+    "master": [
+      {
+        "code": 764915,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "SUMEDHA",
+    "source": "sharekhan-ws",
+    "price": 39.89,
+    "priceTime": "2026-09-08T04:30:00.000Z",
+    "received": "2026-09-08T05:18:21.645Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 49.6,
+    "master": [
+      {
+        "code": 765175,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "SUNLOC",
+    "source": "sharekhan-ws",
+    "price": 79.98,
+    "priceTime": "2026-09-08T04:05:00.000Z",
+    "received": "2026-09-08T05:18:21.646Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 74.6,
+    "master": [
+      {
+        "code": 765180,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "SVGLOBAL",
+    "source": "sharekhan-ws",
+    "price": 152,
+    "priceTime": "2026-09-08T05:05:00.000Z",
+    "received": "2026-09-08T05:18:21.648Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 14.6,
+    "master": [
+      {
+        "code": 764940,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "TERAI",
+    "source": "sharekhan-ws",
+    "price": 130.7,
+    "priceTime": "2026-09-07T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.655Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1159.6,
+    "master": [
+      {
+        "code": 764950,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "TRANSCOR",
+    "source": "sharekhan-ws",
+    "price": 25.51,
+    "priceTime": "2026-09-08T04:45:00.000Z",
+    "received": "2026-09-08T05:18:21.659Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 34.6,
+    "master": [
+      {
+        "code": 765200,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "UPHOT",
+    "source": "sharekhan-ws",
+    "price": 1330,
+    "priceTime": "2026-09-07T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.663Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1159.6,
+    "master": [
+      {
+        "code": 764970,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "VADILENT",
+    "source": "sharekhan-ws",
+    "price": 10999,
+    "priceTime": "2026-09-08T03:45:00.000Z",
+    "received": "2026-09-08T05:18:21.664Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 94.6,
+    "master": [
+      {
+        "code": 764975,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "VASUPRADA",
+    "source": "sharekhan-ws",
+    "price": 108,
+    "priceTime": "2026-09-07T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.665Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1159.6,
+    "master": [
+      {
+        "code": 765210,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "VEDAVAAG",
+    "source": "sharekhan-ws",
+    "price": 18,
+    "priceTime": "2026-09-08T05:00:00.000Z",
+    "received": "2026-09-08T05:18:21.665Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 19.6,
+    "master": [
+      {
+        "code": 764980,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "VIJSOLX",
+    "source": "sharekhan-ws",
+    "price": 682.1,
+    "priceTime": "2026-09-07T10:20:00.000Z",
+    "received": "2026-09-08T05:18:21.667Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1139.6,
+    "master": [
+      {
+        "code": 764985,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "VOITHPAPR",
+    "source": "sharekhan-ws",
+    "price": 1475.5,
+    "priceTime": "2026-09-07T10:00:00.000Z",
+    "received": "2026-09-08T05:18:21.669Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 1159.6,
+    "master": [
+      {
+        "code": 765000,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "VTMLTD",
+    "source": "sharekhan-ws",
+    "price": 56.9,
+    "priceTime": "2026-09-08T04:40:00.000Z",
+    "received": "2026-09-08T05:18:21.669Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 39.6,
+    "master": [
+      {
+        "code": 765220,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "WHBRADY",
+    "source": "sharekhan-ws",
+    "price": 493,
+    "priceTime": "2026-09-08T04:05:00.000Z",
+    "received": "2026-09-08T05:18:21.670Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 74.6,
+    "master": [
+      {
+        "code": 765005,
+        "series": "EQ"
+      }
+    ]
+  },
+  {
+    "symbol": "YOGI",
+    "source": "sharekhan-ws",
+    "price": 163,
+    "priceTime": "2026-09-08T04:15:00.000Z",
+    "received": "2026-09-08T05:18:21.672Z",
+    "ageMin": 1.3,
+    "marketAgeMin": 64.6,
+    "master": [
+      {
+        "code": 765010,
+        "series": "EQ"
+      }
+    ]
+  }
+]

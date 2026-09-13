@@ -60,7 +60,7 @@ ${body}
 <script>window.__DASHBOARD_ROUTE__=${bootScript};</script>
 <script defer src="/trade_rules.js?v=20260628-25"></script>
 <script defer src="/simulation_engine.js?v=20260628-25"></script>
-<script defer src="/dashboard-app.js?v=20260907-90"></script>
+<script defer src="/dashboard-app.js?v=20260908-freshness"></script>
 </body>
 </html>`
 

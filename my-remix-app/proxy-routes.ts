@@ -28,6 +28,7 @@ const proxyPaths = new Set([
   '/stock-news',
   '/stock-history',
   '/stock-chart-events',
+  '/stock-shareholding',
   '/stock-prefs',
   '/trade-execution',
   '/trade-settings',

@@ -239,6 +239,7 @@ let simulationSnapshotsForTests = null;
 let simulationUniverseSymbols = null;
 const intradayLiveCache = new Map();
 const sharekhanDailyContextCache = new Map();
+const sharekhanDailyContextPending = new Map();
 const sharekhanMarketDepthCache = new Map();
 let intradayLiveRefreshTimer = null;
 let intradayLiveRefreshInFlight = false;
@@ -1393,7 +1394,7 @@ function rememberSimulationUniverse(symbols = []) {
         .filter(sym => sym && universe.has(sym) && !isEtfSimulationSymbol(sym));
       if (addedSyms.length) {
         Promise.all(addedSyms.map(sym =>
-          sharekhanClientLive.getScripCode(sym).then(code => ({ sym, code })).catch(() => null)
+          sharekhanClientLive.resolveStreamingScripCode(sym).then(code => ({ sym, code })).catch(() => null)
         )).then(results => {
           const valid = results.filter(r => r && r.code > 0);
           const codes = valid.map(r => r.code);
@@ -1694,12 +1695,16 @@ async function refreshIntradayLiveCache(reason = 'interval') {
     const allChanged = [];
     for (let i = 0; i < symbols.length; i += CONCURRENCY) {
       const chunk = symbols.slice(i, i + CONCURRENCY);
+      const beforeFetch = new Map(chunk.map(sym => [sym, intradayLiveCache.get(sym)]));
       const settled = await Promise.allSettled(chunk.map(sym => fetchIntradaySignal(sym, {
         sources,
       })));
       const chunkChanged = [];
       for (let idx = 0; idx < settled.length; idx += 1) {
         const sym = chunk[idx];
+        // A websocket tick received while this chunk was fetching is newer
+        // than the polling result, including a failed or empty result.
+        if (intradayLiveCache.get(sym) !== beforeFetch.get(sym)) continue;
         const nextValue = settled[idx].status === 'fulfilled'
           ? normalizeIntradayLiveSignal(sym, settled[idx].value)
           : buildDefaultIntradaySignal(sym, settled[idx].reason?.message || 'Intraday fetch failed');
@@ -2293,6 +2298,11 @@ function buildServerCandidateFromIntraday(sym, setup, settings, meta = null, asO
   const cacheAgeMin = cacheAgeMs != null ? +(cacheAgeMs / 60000).toFixed(1) : null;
   const dataSource = String(setup.dataSource || 'unknown');
   const ageStale = cacheAgeMin != null && cacheAgeMin > (LIVE_CACHE_STALE_AGE_MS / 60000);
+  const marketTimeMs = Number(setup.priceTimeMs) || Date.parse(setup.priceTime || '');
+  const marketAgeMs = Number.isFinite(marketTimeMs) && marketTimeMs > 0 ? Math.max(0, asOfMs - marketTimeMs) : null;
+  // Candle time is the start of a five-minute bar, not an exact tick time.
+  const marketStale = marketAgeMs != null && marketAgeMs > LIVE_CACHE_STALE_AGE_MS + 5 * 60 * 1000;
+  const marketAgeMin = marketAgeMs == null ? null : +(marketAgeMs / 60000).toFixed(1);
 
   const candidate = {
     symbol: sym,
@@ -2318,11 +2328,12 @@ function buildServerCandidateFromIntraday(sym, setup, settings, meta = null, asO
     signal: side || signal,
     side,
     freshness: {
-      stale: !!setup.stale || !!setup.fetchFailed || ageStale,
-      reason: ageStale
+      stale: !!setup.stale || !!setup.fetchFailed || ageStale || marketStale,
+      reason: marketStale ? `market-data-age-${marketAgeMin}min` : ageStale
         ? `cache-age-${cacheAgeMin}min`
         : (setup.staleReason || (setup.fetchFailed ? 'fetch-failed' : '')),
       ageMin: cacheAgeMin,
+      marketAgeMin,
       dataSource,
     },
     indicators: {
@@ -6411,6 +6422,7 @@ function parseDirectReturns(performance) {
 const sparkCache = {};                              // in-memory only, no disk persistence
 const SPARK_TTL  = 2 * 60 * 60 * 1000;             // 2 hours
 
+const stockShareholdingService = require('./server/stock-shareholding').createShareholdingService();
 const stockHistoryService = require('./server/stock-history').createStockHistoryService({
   fetchChart: async symbol => {
     const requestPath = `/v8/finance/chart/${encodeURIComponent(symbol)}.NS?interval=1d&range=1y&includePrePost=false&events=div%2Csplits`;
@@ -7397,6 +7409,10 @@ async function pushSharekhanTickerCandles(sym, candles) {
     let dailyContext = {};
     let previousClose = null;
     const cachedDaily = sharekhanDailyContextCache.get(cacheKey);
+    if (cachedDaily?.dayKey === dayKey) {
+      dailyContext = cachedDaily.dailyContext || {};
+      previousClose = Number(cachedDaily.previousClose);
+    }
     const cacheFresh = cachedDaily
       && cachedDaily.dayKey === dayKey
       && (now - Number(cachedDaily.fetchedAt || 0)) < SHAREKHAN_DAILY_CONTEXT_TTL_MS;
@@ -7404,38 +7420,46 @@ async function pushSharekhanTickerCandles(sym, candles) {
     if (cacheFresh) {
       dailyContext = cachedDaily.dailyContext || {};
       previousClose = Number(cachedDaily.previousClose);
-    } else {
-      const yahooSym = resolveNseSymbol(sym);
-      const dailyPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=1d&range=1mo&includePrePost=false`;
-      let daily = await httpsGet({ hostname: 'query1.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
-      if (daily.status !== 200) {
-        daily = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
-      }
-      const dailyResult = daily?.status === 200
-        ? (() => { try { return JSON.parse(daily.body)?.chart?.result?.[0] ?? null; } catch (_) { return null; } })()
-        : null;
-      previousClose = Number(dailyResult?.meta?.previousClose);
-      if (!(Number.isFinite(previousClose) && previousClose > 0)) {
-        const prevClosePath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=1d&range=1d&includePrePost=false`;
-        let prevCloseRes = await httpsGet({ hostname: 'query1.finance.yahoo.com', path: prevClosePath, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
-        if (prevCloseRes.status !== 200) {
-          prevCloseRes = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: prevClosePath, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+    } else if (!sharekhanDailyContextPending.has(cacheKey)) {
+      // Daily history enriches signals; it must never delay live prices. Keep
+      // one request per symbol in flight so bursts of ticks cannot fan out.
+      const refresh = Promise.resolve().then(async () => {
+        let previousClose = null;
+        const yahooSym = resolveNseSymbol(sym);
+        const dailyPath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=1d&range=1mo&includePrePost=false`;
+        let daily = await httpsGet({ hostname: 'query1.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+        if (daily.status !== 200) {
+          daily = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: dailyPath, method: 'GET', timeout: 20000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
         }
-        const prevCloseResult = prevCloseRes?.status === 200
-          ? (() => { try { return JSON.parse(prevCloseRes.body)?.chart?.result?.[0] ?? null; } catch (_) { return null; } })()
+        const dailyResult = daily?.status === 200
+          ? (() => { try { return JSON.parse(daily.body)?.chart?.result?.[0] ?? null; } catch (_) { return null; } })()
           : null;
-        previousClose = Number(pickChartPreviousClose(prevCloseResult));
-      }
-      const dailyContextInput = dailyResult && Number.isFinite(previousClose) && previousClose > 0
-        ? { ...dailyResult, meta: { ...(dailyResult.meta || {}), previousClose } }
-        : dailyResult;
-      dailyContext = buildDailyTradeContext(dailyContextInput);
-      sharekhanDailyContextCache.set(cacheKey, {
-        dayKey,
-        fetchedAt: now,
-        dailyContext,
-        previousClose: Number.isFinite(previousClose) ? previousClose : null,
-      });
+        previousClose = Number(dailyResult?.meta?.previousClose);
+        if (!(Number.isFinite(previousClose) && previousClose > 0)) {
+          const prevClosePath = `/v8/finance/chart/${encodeURIComponent(yahooSym)}.NS?interval=1d&range=1d&includePrePost=false`;
+          let prevCloseRes = await httpsGet({ hostname: 'query1.finance.yahoo.com', path: prevClosePath, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+          if (prevCloseRes.status !== 200) {
+            prevCloseRes = await httpsGet({ hostname: 'query2.finance.yahoo.com', path: prevClosePath, method: 'GET', timeout: 10000, headers: YAHOO_HEADERS }).catch(() => ({ status: 0, body: null }));
+          }
+          const prevCloseResult = prevCloseRes?.status === 200
+            ? (() => { try { return JSON.parse(prevCloseRes.body)?.chart?.result?.[0] ?? null; } catch (_) { return null; } })()
+            : null;
+          previousClose = Number(pickChartPreviousClose(prevCloseResult));
+        }
+        const dailyContextInput = dailyResult && Number.isFinite(previousClose) && previousClose > 0
+          ? { ...dailyResult, meta: { ...(dailyResult.meta || {}), previousClose } }
+          : dailyResult;
+        const dailyContext = buildDailyTradeContext(dailyContextInput);
+        sharekhanDailyContextCache.set(cacheKey, {
+          dayKey,
+          fetchedAt: Date.now(),
+          dailyContext,
+          previousClose: Number.isFinite(previousClose) ? previousClose : null,
+        });
+      }).catch(e => {
+        console.warn(`[sharekhan-ticker] daily context ${sym}:`, e.message);
+      }).finally(() => sharekhanDailyContextPending.delete(cacheKey));
+      sharekhanDailyContextPending.set(cacheKey, refresh);
     }
     skResult.meta.previousClose = (Number.isFinite(previousClose) ? previousClose : null)
       ?? undefined;
@@ -7474,7 +7498,11 @@ async function fetchIntradaySignal(sym, options = {}) {
   // Sharekhan WebSocket cache is primary for live signals when enabled.
   // Historical Sharekhan candles are used separately by /intraday-candles
   // for price-click charts and do not enter this signal polling path.
-  if (!sources.yahoo) return null;
+  if (!sources.yahoo) {
+    // A polling TTL is not a feed expiry. Preserve the last received tick and
+    // its original timestamp; the scheduler independently applies stale age.
+    return cachedSignal && cacheSourceAllowed ? cachedSignal.v : null;
+  }
 
   try {
     const yahooSym = resolveNseSymbol(sym);
@@ -8137,8 +8165,9 @@ async function fetchPortfolioResearchHistory(symbol) {
     close: Number(adjusted[index]),
     volume: Number(quote.volume?.[index]),
   })).filter(row => Number.isFinite(row.close) && row.close > 0);
-  if (rows.length < 40) return null;
+  if (rows.length === 0) return null;
   const latest = rows.at(-1);
+  const listingHistoryDays = Math.max(0, Math.round((latest.timestamp - rows[0].timestamp) / 86400));
   const rowBeforeDays = (days) => {
     const target = latest.timestamp - days * 86400;
     return rows.reduce((best, row) => Math.abs(row.timestamp - target) < Math.abs(best.timestamp - target) ? row : best, rows[0]);
@@ -8169,14 +8198,14 @@ async function fetchPortfolioResearchHistory(symbol) {
   const medianTradedValue = tradedValues[Math.floor(tradedValues.length / 2)] || 0;
   const data = {
     price: latest.close,
-    listingHistoryDays: Math.max(0, Math.round((latest.timestamp - rows[0].timestamp) / 86400)),
-    median20dTradedValueLakh: medianTradedValue / 100000,
-    m3m1: threeMonth.close > 0 ? (oneMonth.close / threeMonth.close) - 1 : null,
-    m6m1: sixMonth.close > 0 ? (oneMonth.close / sixMonth.close) - 1 : null,
-    trend: average200 > 0 ? (latest.close / average200) - 1 : null,
-    volatility60d: Math.sqrt(variance) * Math.sqrt(252),
-    maxDrawdown,
-    downsideDeviation,
+    listingHistoryDays,
+    median20dTradedValueLakh: rows.length >= 20 ? medianTradedValue / 100000 : null,
+    m3m1: listingHistoryDays >= 90 && threeMonth.close > 0 ? (oneMonth.close / threeMonth.close) - 1 : null,
+    m6m1: listingHistoryDays >= 180 && sixMonth.close > 0 ? (oneMonth.close / sixMonth.close) - 1 : null,
+    trend: rows.length >= 200 && average200 > 0 ? (latest.close / average200) - 1 : null,
+    volatility60d: dailyReturns.length >= 60 ? Math.sqrt(variance) * Math.sqrt(252) : null,
+    maxDrawdown: rows.length >= 40 ? maxDrawdown : null,
+    downsideDeviation: dailyReturns.length >= 60 ? downsideDeviation : null,
     dailyReturns: dailyReturns.slice(-252),
   };
   portfolioResearchHistoryCache.set(cacheKey, { savedAt: Date.now(), data });
@@ -8256,7 +8285,7 @@ async function portfolioOfficialIndexCsv(indexUniverse) {
   const filename = ({
     NIFTY500: 'ind_nifty500list.csv',
     NIFTY50: 'ind_nifty50list.csv',
-  })[String(indexUniverse).toUpperCase()];
+  })[String(indexUniverse).toUpperCase().replace(/\s+/gu, '')];
   if (!filename) return [];
   try {
     const response = await httpsGet({
@@ -8291,6 +8320,14 @@ async function portfolioIndexSymbols(indexUniverse) {
   const cacheKey = String(index).toUpperCase();
   const cached = nseIdxCache[cacheKey];
   if (cached && Date.now() - cached.savedAt < NSE_IDX_CACHE_TTL) return cached.symbols;
+  // Membership does not require the NSE quote endpoint. Prefer the index
+  // publisher's constituent list, keeping NSE JSON as a backup.
+  const officialCsv = await portfolioOfficialIndexCsv(indexUniverse);
+  if (officialCsv.length) {
+    nseIdxCache[cacheKey] = { symbols: officialCsv, savedAt: Date.now() };
+    saveNseIdxCache();
+    return officialCsv;
+  }
   try {
     const payload = await nseJsonWithRetry(`/api/equity-stockIndices?index=${encodeURIComponent(index)}`, `portfolio universe ${index}`);
     const symbols = (payload?.data || []).map(item => ({
@@ -8310,13 +8347,6 @@ async function portfolioIndexSymbols(indexUniverse) {
     console.warn(`[portfolio-research] universe ${index}: ${error.message}`);
   }
   if (cached?.symbols?.length) return cached.symbols;
-  const officialCsv = await portfolioOfficialIndexCsv(indexUniverse);
-  if (officialCsv.length) {
-    nseIdxCache[cacheKey] = { symbols: officialCsv, savedAt: Date.now() };
-    saveNseIdxCache();
-    console.warn(`[portfolio-research] using official Nifty Indices CSV (${officialCsv.length}) because NSE JSON membership is unavailable`);
-    return officialCsv;
-  }
   const localFallback = loadDashboardStockUniverse().map(item => ({
     sym: String(item.sym || item.symbol || '').trim().toUpperCase(),
     name: item.name || item.companyName || item.sym || item.symbol || '',
@@ -8530,7 +8560,7 @@ async function portfolioMarketAnalysis(request) {
           ? history.m6m1 - benchmarkHistory.m6m1 : null,
         trend: history.trend,
         earningsMomentum: portfolioResearchNumber(fundamental.earningsGrowth ?? fundamental.epsGrowth),
-        liquidity: Math.log1p(history.median20dTradedValueLakh),
+        liquidity: history.median20dTradedValueLakh === null ? null : Math.log1p(history.median20dTradedValueLakh),
         volatilityAdjusted,
         returnOnEquity,
         returnOnAssets,
@@ -8554,13 +8584,14 @@ async function portfolioMarketAnalysis(request) {
         maxDrawdown: history.maxDrawdown,
         downsideDeviation: history.downsideDeviation,
         beta: benchmarkHistory ? portfolioBeta(history.dailyReturns, benchmarkHistory.dailyReturns) : null,
-        liquidityRisk: -Math.log1p(history.median20dTradedValueLakh),
+        liquidityRisk: history.median20dTradedValueLakh === null ? null : -Math.log1p(history.median20dTradedValueLakh),
         leverageRisk: portfolioResearchNumber(fundamental.debtToEquity),
         eventRisk: resultCalendar.cachedDays > 0
           ? Math.max(portfolioResearchNumber(newsSignals.eventRisk) || 0, upcomingResultDays === null ? 0 : 0.5 * Math.max(0, 1 - upcomingResultDays / 14))
           : portfolioResearchNumber(newsSignals.eventRisk),
       },
       evidence: [
+        ...(history.listingHistoryDays < 180 ? [`Short listing history (${history.listingHistoryDays} days); unavailable long-term metrics are omitted.`] : []),
         returnOnEquity === null
           ? 'ROE unavailable from Yahoo and NSE XBRL'
           : yahooReturnOnEquity !== null
@@ -8622,7 +8653,7 @@ async function portfolioMarketAnalysis(request) {
     warnings: Object.freeze([
       `Normalized momentum, 20-day liquidity, low-risk and sector-diversified pre-screen covered all ${members.length} constituents; ${candidates.length} were selected for detailed analysis.`,
       `Historical pre-screen coverage: ${Object.keys(histories).length}/${allSymbols.length} symbols; detailed pool target ${detailedPool.target} plus mandatory existing holdings.`,
-      ...(usedOfficialCsvFallback ? ['NSE JSON membership was unavailable; discovery used the official Nifty Indices constituent CSV.'] : []),
+      ...(usedOfficialCsvFallback ? ['Discovery used the official Nifty Indices constituent CSV.'] : []),
       ...(usedLocalUniverseFallback ? ['NSE index membership was unavailable; candidate discovery used the maintained local stock universe.'] : []),
       'Six-factor model: momentum 35%, quality 20%, earnings/results 15%, sector strength 10%, verified catalysts 10%, low risk 10%.',
       'Exchange disclosures are publication-time filtered; unavailable components are neutralized rather than inferred.',
@@ -9159,11 +9190,11 @@ async function proxyRequestHandler(req, res) {
     return;
   }
 
-  if (pathname === '/stock-history' || pathname === '/stock-chart-events') {
+  if (pathname === '/stock-history' || pathname === '/stock-chart-events' || pathname === '/stock-shareholding') {
     const symbol = (searchParams.get('symbol') || '').trim().toUpperCase();
     if (!/^[A-Z0-9&_.-]{1,40}$/.test(symbol)) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Invalid stock symbol' })); return; }
     try {
-      const data = pathname === '/stock-history' ? await stockHistoryService.load(symbol) : await fetchStockChartEvents(symbol);
+      const data = pathname === '/stock-shareholding' ? await stockShareholdingService.load(symbol) : pathname === '/stock-history' ? await stockHistoryService.load(symbol) : await fetchStockChartEvents(symbol);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(data));
     } catch (error) {
@@ -10281,7 +10312,7 @@ async function initializeSharekhan() {
     const universeSyms = getSharekhanStockUniverseSymbols();
     const symToCode = new Map();
     await Promise.all(universeSyms.map(async sym => {
-      const code = await sharekhanClientLive.getScripCode(sym).catch(() => 0);
+      const code = await sharekhanClientLive.resolveStreamingScripCode(sym).catch(() => 0);
       if (code > 0) symToCode.set(sym, code);
     }));
     const scripToSymbol = new Map([...symToCode.entries()].map(([sym, code]) => [code, sym]));

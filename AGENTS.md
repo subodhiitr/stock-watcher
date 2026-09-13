@@ -5,8 +5,6 @@ Guidance for coding agents working in this repository.
 ## Code exploration
 
 - This repository is indexed by CodeGraph (`.codegraph/` exists). Use CodeGraph before `rg`, file-by-file reading, or broad searches when locating code, tracing behavior, or estimating blast radius.
-- Preferred command on this Windows machine:
-  `C:\Users\subod\AppData\Local\codegraph\current\bin\codegraph.cmd explore "<question or symbols>"`
 - Treat CodeGraph source output as the current on-disk source. Use `rg` afterward only for exact-text checks, assets, configuration, or gaps CodeGraph did not answer.
 
 ## Headroom

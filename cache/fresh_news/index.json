@@ -1,6 +1,6 @@
 {
   "version": 7,
-  "savedAt": 1788776205034,
+  "savedAt": 1789264508827,
   "partitioned": true,
   "days": {
     "2026-08-31": {
@@ -77,12 +77,66 @@
     },
     "2026-09-07": {
       "date": "2026-09-07",
-      "savedAt": 1788776187214,
-      "builtInMs": 87177,
+      "savedAt": 1788862659045,
+      "builtInMs": 60465,
       "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
       "scanned": 320,
-      "count": 30,
-      "symbolCount": 22
+      "count": 58,
+      "symbolCount": 23
+    },
+    "2026-09-08": {
+      "date": "2026-09-08",
+      "savedAt": 1788949016006,
+      "builtInMs": 23842,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 320,
+      "count": 51,
+      "symbolCount": 23
+    },
+    "2026-09-09": {
+      "date": "2026-09-09",
+      "savedAt": 1789060727655,
+      "builtInMs": 91966,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 521,
+      "count": 81,
+      "symbolCount": 45
+    },
+    "2026-09-10": {
+      "date": "2026-09-10",
+      "savedAt": 1789103025139,
+      "builtInMs": 94832,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 522,
+      "count": 58,
+      "symbolCount": 29
+    },
+    "2026-09-11": {
+      "date": "2026-09-11",
+      "savedAt": 1789264350559,
+      "builtInMs": 86301,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 547,
+      "count": 67,
+      "symbolCount": 30
+    },
+    "2026-09-12": {
+      "date": "2026-09-12",
+      "savedAt": 1789264431960,
+      "builtInMs": 81348,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 547,
+      "count": 24,
+      "symbolCount": 13
+    },
+    "2026-09-13": {
+      "date": "2026-09-13",
+      "savedAt": 1789264508773,
+      "builtInMs": 76758,
+      "source": "nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss",
+      "scanned": 547,
+      "count": 0,
+      "symbolCount": 0
     }
   }
 }

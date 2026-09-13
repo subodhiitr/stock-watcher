@@ -62,7 +62,7 @@ function isFreshNewsImportant(item) {
   return /result|financial|earnings|dividend|board|bonus|split|buyback|large deal|bulk deal|block deal|acquisition|merger|mou|contract|order win|bags order|corporate action|announcement|\bfraud\b|irregularit(?:y|ies)|investigat(?:e|ed|es|ing|ion)|\bprobe\b|alleg(?:ation|ations|ed)|regulatory action|enforcement action|show cause|penalt(?:y|ies)|\blawsuit\b|litigation|\bscam\b|misconduct/i.test(text);
 }
 
-function normalizeFreshNewsUniverse(symbols, maxSymbols = 300) {
+function normalizeFreshNewsUniverse(symbols) {
   return (Array.isArray(symbols) ? symbols : [])
     .map(item => typeof item === 'string' ? { symbol:item } : item)
     .map(item => ({
@@ -70,8 +70,7 @@ function normalizeFreshNewsUniverse(symbols, maxSymbols = 300) {
       name:String(item?.name || '').trim(),
       assetType:String(item?.assetType || item?.type || 'stock').trim().toLowerCase(),
     }))
-    .filter(item => item.symbol)
-    .slice(0, maxSymbols);
+    .filter(item => item.symbol);
 }
 
 function dedupeFreshNewsItems(items) {
@@ -259,8 +258,8 @@ function createFreshNewsService(deps = {}) {
     const rows = [];
     try {
       const source = fs.existsSync(dashboardAppPath) ? fs.readFileSync(dashboardAppPath, 'utf8') : '';
-      const block = source.match(/const\s+MIDCAP_STOCKS\s*=\s*\[([\s\S]*?)\];/);
-      const text = block ? block[1] : source;
+      const block = source.match(/(?:const|let|var)\s+MIDCAP_STOCKS\s*=\s*\[([\s\S]*?)\];/);
+      const text = block ? block[1] : '';
       const re = /\{\s*sym:'([^']+)'\s*,\s*name:'([^']*)'[\s\S]*?sector:'([^']*)'[\s\S]*?cap:'([^']*)'/g;
       let m;
       while ((m = re.exec(text))) {
@@ -302,7 +301,7 @@ function createFreshNewsService(deps = {}) {
       row.name = String(row.name || symbol);
       row.assetType = String(row.assetType || row.type || 'stock').toLowerCase();
       return true;
-    }).slice(0, 320);
+    });
   }
 
   function dayFile(targetDate) {
@@ -680,10 +679,11 @@ function createFreshNewsService(deps = {}) {
         builtInMs:Date.now() - startedAt,
         source:'nse-market-wide+symbol-announcements+screener-company-pages+livemint-rss',
         scanned:universe.length,
+        scannedSymbols:universe.map(row => row.symbol),
         count:deduped.length,
         symbolCount:symbolsWithNews.size,
-        items:deduped.slice(0, 500),
-        researchItems:dedupeFreshNewsItems(researchItems).slice(0, 1000),
+        items:deduped,
+        researchItems:dedupeFreshNewsItems(researchItems),
         symbolScanCoverage,
         errors:errors.slice(0, 10),
       };
@@ -692,10 +692,15 @@ function createFreshNewsService(deps = {}) {
     return job;
   }
 
+  function coversUniverse(entry, requestedUniverse) {
+    const scanned = new Set(entry.scannedSymbols || Object.keys(entry.symbolScanCoverage || {}));
+    return buildUniverse(requestedUniverse).every(row => scanned.has(row.symbol));
+  }
+
   async function getDayEntry(targetDate, requestedUniverse = [], opts = {}) {
     loadIndex();
     const cached = !opts.force ? readDay(targetDate) : null;
-    if (cached) {
+    if (cached && coversUniverse(cached, requestedUniverse)) {
       if (cached.needsScreenerRefresh) {
         buildDayEntry(targetDate, requestedUniverse)
           .then(entry => writeDay(entry))
@@ -712,10 +717,9 @@ function createFreshNewsService(deps = {}) {
   async function fetchFreshStockNews(symbols, opts = {}) {
     const explicitDate = !!opts.date;
     const targetDate = opts.date || freshNewsDateKey();
-    const maxSymbols = Math.max(1, Math.min(Number(opts.maxSymbols) || 220, 300));
     const limit = Math.max(1, Math.min(Number(opts.limit) || 25, 100));
     const offset = Math.max(0, Number(opts.offset) || 0);
-    const universe = normalizeFreshNewsUniverse(symbols, maxSymbols);
+    const universe = normalizeFreshNewsUniverse(symbols);
     const dateKeys = explicitDate ? [targetDate] : freshNewsRefreshDateKeys();
     const dayEntries = [];
     for (const dateKey of dateKeys) dayEntries.push(await getDayEntry(dateKey, universe, { force:!!opts.force }));
@@ -832,7 +836,7 @@ function createFreshNewsService(deps = {}) {
     loadIndex();
     const missingTarget = freshNewsRefreshDateKeys().some(dateKey => {
       const entry = readDay(dateKey);
-      return !entry || entry.needsScreenerRefresh;
+      return !entry || entry.needsScreenerRefresh || !coversUniverse(entry, []);
     });
     if (missingTarget) {
       const startupTimer = setTimeout(() => {

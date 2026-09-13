@@ -63,7 +63,7 @@ test('late responses from a previous stock cannot replace the active chart', asy
   const context = vm.createContext({
     AbortController, PROXY: '', document: { activeElement: {} },
     stockHistoryState: { request: 0 },
-    ensureStockHistoryModal: () => ({ open: true }), renderStockHistory() {},
+    ensureStockHistoryModal: () => ({ open: true }), renderStockHistory() {}, loadStockOwnership() {},
     fetch: url => new Promise(resolve => requests.push({ url, resolve })),
   });
   const fn = source.slice(source.indexOf('async function openStockHistory('), source.indexOf('function stockTrendButton('));

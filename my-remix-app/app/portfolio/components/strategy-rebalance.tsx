@@ -148,6 +148,10 @@ export function CompleteRebalancePanel(handle: Handle<Readonly<{
     const strategic = plan?.strategicRebalance
     return <section mix={panelStyle} aria-labelledby="rebalance-title">
       <h2 id="rebalance-title">Rebalance analysis and preview</h2>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '18px' }}>
+        <button mix={[buttonStyle, on('click', handle.props.onGenerate)]} type="button" disabled={handle.props.busy || handle.props.data.portfolio.status !== 'ACTIVE'}>{handle.props.busy ? 'Analyzing market…' : plan === undefined ? 'Analyze market and generate' : 'Regenerate strategy preview'}</button>
+        {plan === undefined ? null : <button mix={[buttonStyle, on('click', handle.props.onReview)]} type="button" disabled={handle.props.busy}>Open Execution Review</button>}
+      </div>
       <p><strong>Status:</strong> {handle.props.data.rebalance.status}</p>
       <p>Portfolio snapshot v{handle.props.data.portfolioSnapshot.stateVersion} · {plan === undefined ? 'No preview generated' : `plan ${plan.planId}`}</p>
       {blockers.length === 0 ? null : <><h3>What is still required</h3><ul>{blockers.map((blocker) => <li key={blocker}>{blockerText(blocker)}</li>)}</ul></>}
@@ -192,10 +196,6 @@ export function CompleteRebalancePanel(handle: Handle<Readonly<{
         <h3>Warnings</h3><ul>{plan.warnings.map((warning) => <li key={warning}>{warningText(warning)}</li>)}</ul>
         <details><summary>Plan lineage and constraints</summary><p>Plan hash: <code>{plan.planHash}</code></p><p>Strategy hash: <code>{plan.strategyConfigHash}</code></p><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{JSON.stringify(plan.constraints, null, 2)}</pre></details>
       </>}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', borderTop: `1px solid ${palette.border}`, paddingTop: '16px', marginTop: '18px' }}>
-        <button mix={[buttonStyle, on('click', handle.props.onGenerate)]} type="button" disabled={handle.props.busy || handle.props.data.portfolio.status !== 'ACTIVE'}>{handle.props.busy ? 'Analyzing market…' : plan === undefined ? 'Analyze market and generate' : 'Regenerate strategy preview'}</button>
-        {plan === undefined ? null : <button mix={[buttonStyle, on('click', handle.props.onReview)]} type="button" disabled={handle.props.busy}>Open Execution Review</button>}
-      </div>
       <p style={{ color: palette.muted }}>Generation screens the configured NSE universe with the versioned six-factor model, applies entry/hold ranks, replacement gaps, cash, tax and daily-turnover constraints, then persists a snapshot-matched PAPER plan.</p>
     </section>
   }

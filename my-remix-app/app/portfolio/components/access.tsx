@@ -28,10 +28,10 @@ export function LoginPanel(handle: Handle<Readonly<{
         >
           <label style={{ display: 'grid', gap: '6px', color: palette.ink }}>Username<input mix={fieldStyle} name="username" autoComplete="username" required maxLength={64} /></label>
           <label style={{ display: 'grid', gap: '6px', color: palette.ink }}>Password<input mix={fieldStyle} name="password" type="password" autoComplete="current-password" required maxLength={256} /></label>
-          <label style={{ display: 'grid', gap: '6px', color: palette.ink }}>Authenticator code <span style={{ color: palette.amber }}>(required after MFA setup)</span>
+          <label style={{ display: 'grid', gap: '6px', color: palette.ink }}>Authenticator code <span style={{ color: palette.muted }}>(optional)</span>
             <input mix={fieldStyle} name="mfaCode" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" minLength={6} maxLength={6} placeholder="Current 6-digit code" />
           </label>
-          <p style={{ color: palette.muted, margin: '-8px 0 0' }}>Open your authenticator app and enter the current code shown for Stock Watcher. Codes refresh every 30 seconds.</p>
+          <p style={{ color: palette.muted, margin: '-8px 0 0' }}>Sign in with your username and password. A code is only needed for privileged operations.</p>
           <button mix={buttonStyle} disabled={handle.props.busy} type="submit">
             {handle.props.busy ? 'Signing in…' : 'Sign in'}
           </button>

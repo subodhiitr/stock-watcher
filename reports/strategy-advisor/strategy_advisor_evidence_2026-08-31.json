@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "date": "2026-08-31",
-  "generatedAt": 1788539577666,
+  "generatedAt": 1789008278650,
   "instructions": {
     "replayAllowed": false,
     "backtestAllowed": false,
@@ -874,7 +874,8 @@
           "SIMULATION_TOP_GAINER_"
         ],
         "excludedPrefixes": [
-          "SIMULATION_TOP_GAINER_PULLBACK_"
+          "SIMULATION_TOP_GAINER_PULLBACK_",
+          "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_"
         ],
         "usedOnDate": false,
         "transactionPerformance": {
@@ -1032,6 +1033,178 @@
             "source": "default",
             "description": "Trailing distance applied to the remaining top-gainer position after profit lock.",
             "valueType": "number"
+          }
+        ]
+      },
+      {
+        "setupType": "TOP_GAINER_CONTROLLED_RETEST",
+        "label": "Top Gainer Controlled Retest",
+        "side": "long",
+        "description": "Observes persistent leaders that complete a shallow above-VWAP retest and re-accelerate.",
+        "enableSetting": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_ENABLED",
+        "enabled": true,
+        "enabledByDefault": false,
+        "enableOverridden": true,
+        "settingPrefixes": [
+          "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_"
+        ],
+        "excludedPrefixes": [],
+        "usedOnDate": false,
+        "transactionPerformance": {
+          "setupType": "TOP_GAINER_CONTROLLED_RETEST",
+          "label": "Top Gainer Controlled Retest",
+          "trades": 0,
+          "wins": 0,
+          "losses": 0,
+          "winRate": 0,
+          "netPnl": 0,
+          "avgNetPct": 0,
+          "profitFactor": 0,
+          "maxDrawdown": 0,
+          "efficiencyScore": 0,
+          "grade": "Insufficient data"
+        },
+        "snapshotActivity": null,
+        "configuration": [
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_ENABLED",
+            "value": true,
+            "defaultValue": false,
+            "overridden": true,
+            "differsFromDefault": true,
+            "source": "current-override",
+            "description": "Allows the controlled-retest research setup to open simulation entries. Disabled by default pending at least 10 events across 3 dates.",
+            "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_INVALIDATION_SCORE",
+            "value": 65,
+            "defaultValue": 65,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Decision score below which a controlled-retest trade is invalidated.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MAX_RETEST_PCT",
+            "value": 1.2,
+            "defaultValue": 1.2,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum pullback from the recent high for a controlled retest.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MAX_TRIGGER_EXTENSION_PCT",
+            "value": 1,
+            "defaultValue": 1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum trigger extension for a controlled retest.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MAX_VWAP_EXTENSION_PCT",
+            "value": 0.8,
+            "defaultValue": 0.8,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Maximum above-VWAP extension for a controlled retest.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MEMORY_MIN",
+            "value": 30,
+            "defaultValue": 30,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Prior-minute window used to measure persistent top-five leadership.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_CHANGE_5M_PCT",
+            "value": 0.1,
+            "defaultValue": 0.1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum five-minute change required to prove re-acceleration.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_NET_PROFIT_PCT",
+            "value": 1,
+            "defaultValue": 1,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum modeled net profit required for a controlled retest.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_RETEST_PCT",
+            "value": 0.5,
+            "defaultValue": 0.5,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum pullback from the recent high for a controlled retest.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_SCORE",
+            "value": 70,
+            "defaultValue": 70,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minimum decision score for a controlled-retest entry.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_MIN_TRIGGER_EXTENSION_PCT",
+            "value": 0.6,
+            "defaultValue": 0.6,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Exclusive lower trigger-extension bound for a controlled retest.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_PARTIAL_QTY_PCT",
+            "value": 75,
+            "defaultValue": 75,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Quantity booked at the controlled-retest gain milestone.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_PROFIT_MILESTONE_PCT",
+            "value": 0.7,
+            "defaultValue": 0.7,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Gain milestone that books the controlled-retest partial exit.",
+            "valueType": "number"
+          },
+          {
+            "key": "SIMULATION_TOP_GAINER_CONTROLLED_RETEST_SHADOW_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Records controlled-retest matches without allowing an entry.",
+            "valueType": "boolean"
           }
         ]
       },
@@ -1468,7 +1641,7 @@
         "side": "long",
         "description": "Enters a newly triggered breakout before it becomes extended.",
         "enableSetting": "SIMULATION_FRESH_BREAKOUT_ENABLED",
-        "enabled": false,
+        "enabled": true,
         "enabledByDefault": true,
         "enableOverridden": true,
         "settingPrefixes": [
@@ -1503,10 +1676,10 @@
         "configuration": [
           {
             "key": "SIMULATION_FRESH_BREAKOUT_ENABLED",
-            "value": false,
+            "value": true,
             "defaultValue": true,
             "overridden": true,
-            "differsFromDefault": true,
+            "differsFromDefault": false,
             "source": "current-override",
             "description": "Allows Fresh Breakout candidates to open new simulation trades.",
             "valueType": "boolean"
@@ -2510,7 +2683,7 @@
           },
           {
             "key": "SIMULATION_RANGEBOUND_MIN_SCORE",
-            "value": 40,
+            "value": 50,
             "defaultValue": 35,
             "overridden": true,
             "differsFromDefault": true,
@@ -2550,13 +2723,33 @@
           },
           {
             "key": "SIMULATION_RANGEBOUND_REQUIRE_LIVE_DEPTH",
-            "value": false,
+            "value": true,
             "defaultValue": false,
             "overridden": true,
-            "differsFromDefault": false,
+            "differsFromDefault": true,
             "source": "current-override",
             "description": "Blocks Rangebound entries when fresh live order-book depth is unavailable instead of applying gates opportunistically.",
             "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_SIGNAL_RECOVERY_SHADOW_ENABLED",
+            "value": true,
+            "defaultValue": true,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Observe post-exit VWAP recovery after Rangebound signal deterioration without delaying the real exit.",
+            "valueType": "boolean"
+          },
+          {
+            "key": "SIMULATION_RANGEBOUND_SIGNAL_RECOVERY_WINDOW_MIN",
+            "value": 15,
+            "defaultValue": 15,
+            "overridden": false,
+            "differsFromDefault": false,
+            "source": "default",
+            "description": "Minutes to observe Rangebound VWAP recovery before the original stop is hit.",
+            "valueType": "number"
           },
           {
             "key": "SIMULATION_RANGEBOUND_WINDOW_MIN",
@@ -2668,7 +2861,7 @@
         "side": "short",
         "description": "Shorts a fresh support break with bearish price and volume confirmation.",
         "enableSetting": "SIMULATION_BREAKDOWN_ENABLED",
-        "enabled": false,
+        "enabled": true,
         "enabledByDefault": true,
         "enableOverridden": true,
         "settingPrefixes": [
@@ -2703,10 +2896,10 @@
         "configuration": [
           {
             "key": "SIMULATION_BREAKDOWN_ENABLED",
-            "value": false,
+            "value": true,
             "defaultValue": true,
             "overridden": true,
-            "differsFromDefault": true,
+            "differsFromDefault": false,
             "source": "current-override",
             "description": "Allows Breakdown candidates to open new short simulation trades.",
             "valueType": "boolean"
@@ -2932,7 +3125,7 @@
       },
       {
         "key": "PORTFOLIO_AVAILABLE_CASH",
-        "value": 1478365.9,
+        "value": 556984.02,
         "overridden": false,
         "differsFromDefault": true,
         "source": "historical-or-derived",
@@ -2945,10 +3138,10 @@
           "initial": 1000000,
           "addedCapital": 500000,
           "capital": 1500000,
-          "realized": -21634.1,
+          "realized": -943015.98,
           "openExposure": 0,
-          "cashAvailable": 1478365.9,
-          "tradeCount": 803
+          "cashAvailable": 556984.02,
+          "tradeCount": 833
         },
         "overridden": false,
         "differsFromDefault": true,
@@ -4929,7 +5122,7 @@
         "valueType": "number"
       }
     ],
-    "overrideCount": 31,
-    "effectiveSettingCount": 352
+    "overrideCount": 32,
+    "effectiveSettingCount": 368
   }
 }

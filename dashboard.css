@@ -832,6 +832,21 @@
 .stock-trend-trigger:hover,.stock-trend-trigger:focus-visible{background:var(--surface);outline:2px solid var(--accent,#60a5fa)}
 #stock-history-modal{box-sizing:border-box;width:min(1280px,96vw);max-width:96vw;max-height:94dvh;overflow:auto;margin:auto;padding:22px;border:1px solid var(--border);border-radius:16px;background:var(--surface,#111827);color:var(--text,#e5e7eb);box-shadow:0 24px 80px #0008}
 #stock-history-modal::backdrop{background:#000b}
+#stock-history-ownership{border-top:1px solid var(--border);margin-top:24px;padding-top:16px}
+.ownership-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.ownership-heading h3{margin:0}.ownership-heading span,.ownership-source{font-size:12px;color:var(--muted,#94a3b8)}
+.ownership-panels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.ownership-panel{min-width:0;border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column}
+.ownership-panel h4{font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin:0 0 10px}
+.ownership-panel svg{width:100%;height:auto}.ownership-panel svg text{fill:var(--text,#e5e7eb);font-size:12px}
+.ownership-legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:11px;min-height:44px;margin-bottom:12px}
+.ownership-legend span{display:flex;align-items:center;gap:6px}.ownership-legend i{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.ownership-change{font-size:12px;line-height:1.65;background:var(--surface2,#1e293b);padding:10px;border-radius:6px;margin:auto 0 0}
+.ownership-change.increase{background:#56a16518;border-left:3px solid #56a165}.ownership-change.decrease{background:#eb776c18;border-left:3px solid #eb776c}
+.ownership-values{margin-top:18px;font-size:12px}.ownership-values summary{cursor:pointer;padding:8px 0}.ownership-table-scroll{overflow-x:auto}
+.ownership-values table{width:100%;border-collapse:collapse}.ownership-values th,.ownership-values td{text-align:right;padding:10px;border-bottom:1px solid var(--border);white-space:nowrap}
+.ownership-values th:first-child{text-align:left}.ownership-source a{color:inherit;text-decoration:underline}
+@media(max-width:850px){.ownership-panels{grid-template-columns:1fr}.ownership-panel svg{max-height:300px}.ownership-legend{min-height:0}}
 .stock-history-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0}
 .stock-history-toolbar button,#stock-history-body button{padding:8px 18px;border:1px solid var(--border);background:transparent;color:var(--text);border-radius:8px;cursor:pointer}
 .stock-history-toolbar button[aria-pressed="true"]{background:#2563eb;color:white;border-color:#60a5fa}

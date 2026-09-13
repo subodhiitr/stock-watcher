@@ -5,6 +5,22 @@ const path = require('node:path');
 
 const PROXY_PATH = path.join(__dirname, '..', 'ticker_proxy.js');
 
+test('a newly received old market quote is stale while the active five-minute candle remains fresh', () => {
+  const proxy = require('../ticker_proxy');
+  const at = '2026-09-08T04:29:59.000Z';
+  const setup = { price: 100, score: 0, signal: 'hold', dataSource: 'sharekhan-ws', _updatedAt: Date.parse(at) };
+  const old = proxy.__test__.buildServerCandidateFromIntradayForTests('HFCL', {
+    ...setup, priceTime: '2026-09-02T10:25:00.000Z',
+  }, {}, null, at);
+  assert.equal(old.freshness.stale, true);
+  assert.match(old.freshness.reason, /^market-data-age-/);
+  assert.equal(old.freshness.ageMin, 0);
+  const current = proxy.__test__.buildServerCandidateFromIntradayForTests('HFCL', {
+    ...setup, priceTime: '2026-09-08T04:25:00.000Z',
+  }, {}, null, at);
+  assert.equal(current.freshness.stale, false);
+});
+
 test('scheduler candidate builder uses intraday cache instead of direct fetches', () => {
   const source = fs.readFileSync(PROXY_PATH, 'utf8');
   assert.match(source, /function buildSchedulerCandidatesFromIntradayCache\(settings,\s*symbolMetaBySymbol\s*=\s*null/);
@@ -80,7 +96,7 @@ test('score refresh triggers simulation rules immediately after cache update', (
   assert.match(source, /runSimulationSchedulerTick\(\)/);
   const refreshStart = source.indexOf("async function refreshIntradayLiveCache(reason = 'interval')");
   assert.ok(refreshStart > -1);
-  const refreshBody = source.slice(refreshStart, refreshStart + 1800);
+  const refreshBody = source.slice(refreshStart, source.indexOf('\nfunction getIntradayDataSourceSettings', refreshStart));
   assert.match(refreshBody, /intradayLiveCache\.set\(sym, nextValue\)/);
   assert.match(refreshBody, /triggerSimulationTickAfterScoreUpdate\(reason, chunkChanged\)/);
   const sharekhanStart = source.indexOf('async function pushSharekhanTickerCandles(sym, candles)');
