@@ -79,6 +79,14 @@ implement this.
 
 ---
 
+## Documentation Module Guides
+**Timestamp**: 2026-09-13T10:02:20+05:30
+**User Input**: "create/update module wise md files so that codign agent is more efficient. also reference in agent.md"
+**AI Response**: "Inspected the brownfield repository structure and added focused module guides under docs/agent-guides/, then linked them from AGENTS.md."
+**Context**: Added agent navigation documentation for root runtime, simulation, portfolio domain/services, Remix UI, integrations, backtesting, and testing. No application behavior was changed.
+
+---
+
 ## Session Continuity
 **Timestamp**: 2026-07-19T19:09:38.5549218+05:30
 **User Input**: "<current_datetime>2026-07-19T19:08:45.831+05:30</current_datetime>
