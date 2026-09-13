@@ -115,7 +115,6 @@
   <!-- STOCK TABLE -->
   <div id="main-section" style="display:none">
     <div id="main-tabs" class="tab-bar">
-      <button class="tab-btn" id="tab-overview" onclick="setView('overview', this)">Overview</button>
       <button class="tab-btn active" id="tab-stocks" onclick="setView('stocks', this)">Stocks</button>
       <button class="tab-btn" id="tab-etfs" onclick="setView('etfs', this)">ETFs</button>
       <button class="tab-btn portfolio-tab" type="button" onclick="openPortfolioModal()">Portfolio</button>
@@ -131,8 +130,7 @@
       <button class="tab-btn strategy-advisor-tab" type="button" onclick="openStrategyAdvisorPanel()">Strategy Advisor</button>
       <button class="tab-btn settings-tab" type="button" onclick="openSettingsModal()">Settings</button>
     </div>
-    <div id="overview-section" style="display:none"></div>
-    <div id="stock-content">
+  <div id="stock-content">
       <div id="setup-card-row"></div>
       <div id="controls-bar">
         <button id="filter-all" class="filter-btn active" onclick="setFilter('all',this)">All</button>

@@ -79,11 +79,11 @@ implement this.
 
 ---
 
-## Requirements and Implementation - Overview Tab
-**Timestamp**: 2026-09-13T10:32:54+05:30
-**User Input**: "create a new overview tab parallel to stocks tab."
-**AI Response**: "Added an Overview tab beside Stocks with live quote-derived leaderboards matching the attached dashboard direction. Existing Stocks and ETF views remain unchanged; unsupported delivery metrics show an explicit empty state."
-**Context**: CONSTRUCTION - Minimal UI feature implementation
+## Documentation Module Guides
+**Timestamp**: 2026-09-13T10:02:20+05:30
+**User Input**: "create/update module wise md files so that codign agent is more efficient. also reference in agent.md"
+**AI Response**: "Inspected the brownfield repository structure and added focused module guides under docs/agent-guides/, then linked them from AGENTS.md."
+**Context**: Added agent navigation documentation for root runtime, simulation, portfolio domain/services, Remix UI, integrations, backtesting, and testing. No application behavior was changed.
 
 ---
 
