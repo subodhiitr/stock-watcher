@@ -52,15 +52,15 @@ async function dashboardResponse(options: { view?: 'stocks' | 'etfs'; action?: '
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark">
 <title>NSE Midcap Dashboard</title>
-<link rel="preload" href="/dashboard.css?v=20260906-62" as="style">
-<link rel="stylesheet" href="/dashboard.css?v=20260906-62">
+<link rel="preload" href="/dashboard.css?v=20260913-01" as="style">
+<link rel="stylesheet" href="/dashboard.css?v=20260913-01">
 </head>
 <body>
 ${body}
 <script>window.__DASHBOARD_ROUTE__=${bootScript};</script>
 <script defer src="/trade_rules.js?v=20260628-25"></script>
 <script defer src="/simulation_engine.js?v=20260628-25"></script>
-<script defer src="/dashboard-app.js?v=20260907-90"></script>
+<script defer src="/dashboard-app.js?v=20260913-01"></script>
 </body>
 </html>`
 
